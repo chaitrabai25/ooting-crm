@@ -11,8 +11,9 @@
     "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,magenta\" \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm --workspace=server run dev",
     "dev:client": "npm --workspace=client run dev",
-    "build": "npm --workspace=client run build && npm --workspace=server run build",
-    "start": "npm --workspace=server run start",
+    "build": "npm --workspace=server run prisma:generate && npm --workspace=client run build && npm --workspace=server run build",
+    "start": "npm --workspace=server run prisma:push && npm --workspace=server run start",
+    "postinstall": "npm --workspace=server run prisma:generate",
     "prisma:generate": "npm --workspace=server run prisma:generate",
     "prisma:push": "npm --workspace=server run prisma:push",
     "prisma:pg:generate": "npm --workspace=server run prisma:pg:generate",
@@ -20,6 +21,9 @@
     "setup:prod:admin": "npm --workspace=server run setup:prod:admin",
     "prisma:seed": "npm --workspace=server run prisma:seed",
     "prisma:studio": "npm --workspace=server run prisma:studio"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
