@@ -1,0 +1,369 @@
+// Prisma Schema for OOTING CRM
+// Relational schema with foreign keys, indexes, and full relationship integrity
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         String    @default("SALES") // SUPER_ADMIN, ADMIN, SALES, OPERATIONS, ACCOUNTANT, AGENT
+  phone        String?
+  status             String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  lastLoginAt        DateTime?
+  otpHash            String?
+  otpExpiresAt       DateTime?
+  otpAttempts        Int       @default(0)
+  lastOtpRequestedAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  assignedCustomers Customer[]   @relation("CustomerAssignedUser")
+  assignedLeads     Lead[]       @relation("LeadAssignedUser")
+  assignedFollowUps FollowUp[]   @relation("FollowUpAssignedUser")
+  assignedBookings  Booking[]    @relation("BookingAssignedUser")
+  expensesCreated   Expense[]    @relation("ExpenseCreatedByUser")
+  auditLogs         AuditLog[]   @relation("UserAuditLogs")
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model Customer {
+  id             String    @id @default(uuid())
+  fullName       String
+  phone          String
+  alternatePhone String?
+  email          String?
+  city           String?
+  state          String?
+  country        String?   @default("India")
+  source         String?   @default("DIRECT") // WEBSITE, WHATSAPP, REFERRAL, SOCIAL_MEDIA, B2B_AGENT, WALK_IN, OTHER
+  notes          String?
+  assignedToId   String?
+  status         String    @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  assignedTo     User?       @relation("CustomerAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
+  leads          Lead[]
+  bookings       Booking[]
+  quotations     Quotation[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([fullName])
+  @@index([assignedToId])
+}
+
+model Lead {
+  id              String    @id @default(uuid())
+  customerId      String
+  assignedUserId  String?
+  source          String    @default("WEBSITE") // WEBSITE, WHATSAPP, PHONE, INSTAGRAM, REFERRAL, B2B_AGENT, OTHER
+  destination     String
+  travelStartDate DateTime?
+  travelEndDate   DateTime?
+  adults          Int       @default(2)
+  children        Int       @default(0)
+  infants         Int       @default(0)
+  budget          Float?
+  packageId       String?
+  enquiryStatus   String    @default("NEW") // NEW, CONTACTED, QUALIFIED, QUOTATION_SENT, FOLLOW_UP, WON, LOST, CANCELLED
+  priority        String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  notes           String?
+  nextFollowUpAt  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedUser    User?       @relation("LeadAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  package         Package?    @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  followUps       FollowUp[]
+  quotations      Quotation[]
+  bookings        Booking[]
+
+  @@index([customerId])
+  @@index([assignedUserId])
+  @@index([enquiryStatus])
+  @@index([destination])
+  @@index([createdAt])
+  @@index([nextFollowUpAt])
+}
+
+model FollowUp {
+  id             String    @id @default(uuid())
+  leadId         String
+  assignedUserId String?
+  scheduledAt    DateTime
+  type           String    @default("CALL") // CALL, WHATSAPP, EMAIL, MEETING, OTHER
+  notes          String?
+  status         String    @default("PENDING") // PENDING, COMPLETED, CANCELLED, RESCHEDULED
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  lead           Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedUser   User?     @relation("FollowUpAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([assignedUserId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model Package {
+  id          String   @id @default(uuid())
+  packageName String
+  destination String
+  duration    String // e.g. "3 Days / 2 Nights"
+  description String
+  price       Float    @default(0)
+  packageType String   @default("HOLIDAY") // HOLIDAY, FLIGHT, HOTEL, BUS, CUSTOM
+  inclusions  String? // JSON or text list of inclusions
+  exclusions  String? // JSON or text list of exclusions
+  imageUrl    String?
+  gallery     String? // JSON string array of image URLs
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE, DRAFT
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  itineraries ItineraryDay[]
+  leads       Lead[]
+  bookings    Booking[]
+  quotations  Quotation[]
+
+  @@index([destination])
+  @@index([packageType])
+  @@index([status])
+}
+
+model ItineraryDay {
+  id          String   @id @default(uuid())
+  packageId   String
+  dayNumber   Int
+  title       String
+  description String
+  activities  String?
+  places      String?
+  startTime   String?
+  endTime     String?
+  imageUrl    String? // Primary photo for this day
+  images      String? // JSON array of day-wise photo URLs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  package     Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@index([packageId])
+  @@index([dayNumber])
+}
+
+model Quotation {
+  id                 String    @id @default(uuid())
+  quotationNumber    String    @unique // e.g. "OOT-QT-202609-001"
+  leadId             String?
+  customerId         String
+  packageId          String?
+  destination        String
+  travelStartDate    DateTime?
+  travelEndDate      DateTime?
+  adults             Int       @default(2)
+  children           Int       @default(0)
+  infants            Int       @default(0)
+  accommodation      String?
+  transport          String?
+  activities         String?
+  inclusions         String?
+  exclusions         String?
+  basePrice          Float     @default(0)
+  discount           Float     @default(0)
+  tax                Float     @default(0)
+  finalAmount        Float     @default(0)
+  status             String    @default("DRAFT") // DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED
+  termsAndConditions String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  lead               Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  package            Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  @@index([quotationNumber])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([status])
+}
+
+model Booking {
+  id              String    @id @default(uuid())
+  bookingNumber   String    @unique // e.g. "OOT-BK-202609-001"
+  customerId      String
+  leadId          String?
+  packageId       String?
+  assignedUserId  String?
+  travelStartDate DateTime
+  travelEndDate   DateTime
+  travellers      Int       @default(1)
+  totalAmount     Float     @default(0)
+  discount        Float     @default(0)
+  finalAmount     Float     @default(0)
+  bookingStatus   String    @default("CONFIRMED") // ENQUIRY, HOLD, CONFIRMED, COMPLETED, CANCELLED
+  bookingDate     DateTime  @default(now())
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lead            Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  package         Package?      @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  assignedUser    User?         @relation("BookingAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  payments        Payment[]
+  expenses        Expense[]
+  agentBooking    AgentBooking?
+  travellersList  Traveller[]
+
+  @@index([bookingNumber])
+  @@index([customerId])
+  @@index([assignedUserId])
+  @@index([bookingStatus])
+  @@index([bookingDate])
+}
+
+model Traveller {
+  id        String   @id @default(uuid())
+  bookingId String
+  name      String
+  age       Int?
+  gender    String? // MALE, FEMALE, OTHER
+  phone     String?
+  email     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+model Payment {
+  id                   String   @id @default(uuid())
+  bookingId            String
+  amount               Float    @default(0)
+  paymentDate          DateTime @default(now())
+  paymentMethod        String   @default("UPI") // CASH, UPI, BANK_TRANSFER, CARD, OTHER
+  transactionReference String?
+  paymentStatus        String   @default("SUCCESS") // SUCCESS, PENDING, FAILED, REFUNDED
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  booking              Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([paymentStatus])
+  @@index([paymentDate])
+}
+
+model Agent {
+  id                 String   @id @default(uuid())
+  companyName        String
+  contactPerson      String
+  phone              String
+  email              String?
+  city               String?
+  state              String?
+  gstNumber          String?
+  status             String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  googleReviewUrl    String?
+  googleReviewRating Float?
+  googleReviewNotes  String?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  agentBookings AgentBooking[]
+
+  @@index([companyName])
+  @@index([phone])
+  @@index([email])
+  @@index([status])
+}
+
+model AgentBooking {
+  id               String   @id @default(uuid())
+  agentId          String
+  bookingId        String   @unique
+  commissionRate   Float    @default(0) // Percentage, e.g. 10%
+  commissionAmount Float    @default(0)
+  netAmount        Float    @default(0)
+  payoutStatus     String   @default("PENDING") // PENDING, PAID, CANCELLED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  agent            Agent    @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  booking          Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([bookingId])
+  @@index([payoutStatus])
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  category    String // HOTEL_BOOKING, TRANSPORT, GUIDE, FLIGHT_TICKETS, ENTRY_FEES, MARKETING, OFFICE, MISC
+  amount      Float    @default(0)
+  expenseDate DateTime @default(now())
+  description String
+  bookingId   String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  booking     Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  createdBy   User?    @relation("ExpenseCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([bookingId])
+  @@index([expenseDate])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  userName    String?
+  action      String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, LOGIN, EXPORT, IMPORT
+  entity      String   // CUSTOMER, LEAD, BOOKING, PAYMENT, PACKAGE, AGENT, USER, EXPENSE
+  entityId    String?
+  details     String?  // Detailed description or JSON snapshot
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model CompanySetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}

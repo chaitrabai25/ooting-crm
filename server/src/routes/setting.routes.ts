@@ -1,0 +1,128 @@
+import { Router, Response } from 'express';
+import { z } from 'zod';
+import { prisma } from '../db/prisma.js';
+import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
+import { logAudit } from '../middleware/audit.js';
+import { config } from '../config/index.js';
+
+const router = Router();
+router.use(authenticate);
+
+// Get Settings
+router.get('/', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const settings = await prisma.companySetting.findMany();
+    const settingsMap: Record<string, string> = {};
+    settings.forEach(s => {
+      settingsMap[s.key] = s.value;
+    });
+
+    res.json({
+      company: {
+        name: settingsMap['company_name'] || config.company.name,
+        tagline: settingsMap['company_tagline'] || config.company.tagline,
+        email: settingsMap['company_email'] || config.company.email,
+        phone: settingsMap['company_phone'] || config.company.phone,
+        address: settingsMap['company_address'] || config.company.address,
+        gstin: settingsMap['company_gstin'] || config.company.gstin,
+        logoUrl: settingsMap['company_logo_url'] || '/assets/ooting-logo.jpg',
+      },
+      masterData: {
+        leadStatuses: ['NEW', 'CONTACTED', 'QUALIFIED', 'QUOTATION_SENT', 'FOLLOW_UP', 'WON', 'LOST', 'CANCELLED'],
+        bookingStatuses: ['ENQUIRY', 'HOLD', 'CONFIRMED', 'COMPLETED', 'CANCELLED'],
+        paymentMethods: ['CASH', 'UPI', 'BANK_TRANSFER', 'CARD', 'OTHER'],
+        followUpTypes: ['CALL', 'WHATSAPP', 'EMAIL', 'MEETING', 'OTHER'],
+        expenseCategories: ['HOTEL_BOOKING', 'TRANSPORT', 'GUIDE', 'FLIGHT_TICKETS', 'ENTRY_FEES', 'MARKETING', 'OFFICE', 'MISC'],
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const updateSettingsSchema = z.object({
+  name: z.string().optional(),
+  tagline: z.string().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  gstin: z.string().optional(),
+  logoUrl: z.string().optional(),
+});
+
+// Update Company Settings (Admin only)
+router.put('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const data = updateSettingsSchema.parse(req.body);
+
+    const updates = [
+      { key: 'company_name', value: data.name },
+      { key: 'company_tagline', value: data.tagline },
+      { key: 'company_email', value: data.email },
+      { key: 'company_phone', value: data.phone },
+      { key: 'company_address', value: data.address },
+      { key: 'company_gstin', value: data.gstin },
+      { key: 'company_logo_url', value: data.logoUrl },
+    ].filter(u => u.value !== undefined);
+
+    for (const item of updates) {
+      await prisma.companySetting.upsert({
+        where: { key: item.key },
+        update: { value: item.value! },
+        create: { key: item.key, value: item.value! },
+      });
+    }
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'UPDATE',
+      entity: 'SETTING',
+      details: 'Updated company profile settings',
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: 'Settings saved successfully.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Audit Logs list (Admin only)
+router.get('/audit-logs', authorize('ADMIN'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '30', 10));
+    const entity = (req.query.entity as string || '').trim();
+    const action = (req.query.action as string || '').trim();
+
+    const where: any = {};
+    if (entity) where.entity = entity;
+    if (action) where.action = action;
+
+    const [total, logs] = await Promise.all([
+      prisma.auditLog.count({ where }),
+      prisma.auditLog.findMany({
+        where,
+        include: { user: { select: { id: true, name: true, role: true } } },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    res.json({
+      data: logs,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+export default router;

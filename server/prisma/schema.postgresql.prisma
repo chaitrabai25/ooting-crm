@@ -1,0 +1,403 @@
+// Prisma Schema for OOTING CRM - PostgreSQL Version for Cloud & Production (Neon / Supabase / AWS RDS)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  SALES
+  OPERATIONS
+  ACCOUNTANT
+  AGENT
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  QUOTATION_SENT
+  FOLLOW_UP
+  WON
+  LOST
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum FollowUpType {
+  CALL
+  WHATSAPP
+  EMAIL
+  MEETING
+  OTHER
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum BookingStatus {
+  ENQUIRY
+  HOLD
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  SUCCESS
+  PENDING
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK_TRANSFER
+  CARD
+  OTHER
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(SALES)
+  phone        String?
+  status             String    @default("ACTIVE")
+  lastLoginAt        DateTime?
+  otpHash            String?
+  otpExpiresAt       DateTime?
+  otpAttempts        Int       @default(0)
+  lastOtpRequestedAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  assignedCustomers Customer[]   @relation("CustomerAssignedUser")
+  assignedLeads     Lead[]       @relation("LeadAssignedUser")
+  assignedFollowUps FollowUp[]   @relation("FollowUpAssignedUser")
+  assignedBookings  Booking[]    @relation("BookingAssignedUser")
+  expensesCreated   Expense[]    @relation("ExpenseCreatedByUser")
+  auditLogs         AuditLog[]   @relation("UserAuditLogs")
+
+  @@index([email])
+  @@index([role])
+}
+
+model Customer {
+  id             String    @id @default(uuid())
+  fullName       String
+  phone          String
+  alternatePhone String?
+  email          String?
+  city           String?
+  state          String?
+  country        String?   @default("India")
+  source         String?   @default("DIRECT")
+  notes          String?
+  assignedToId   String?
+  status         String    @default("ACTIVE")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  assignedTo     User?       @relation("CustomerAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
+  leads          Lead[]
+  bookings       Booking[]
+  quotations     Quotation[]
+
+  @@index([phone])
+  @@index([email])
+}
+
+model Lead {
+  id              String         @id @default(uuid())
+  customerId      String
+  assignedUserId  String?
+  source          String         @default("WEBSITE")
+  destination     String
+  travelStartDate DateTime?
+  travelEndDate   DateTime?
+  adults          Int            @default(2)
+  children        Int            @default(0)
+  infants         Int            @default(0)
+  budget          Decimal?       @db.Decimal(12, 2)
+  packageId       String?
+  enquiryStatus   LeadStatus     @default(NEW)
+  priority        Priority       @default(MEDIUM)
+  notes           String?
+  nextFollowUpAt  DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  customer        Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedUser    User?          @relation("LeadAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  package         Package?       @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  followUps       FollowUp[]
+  quotations      Quotation[]
+  bookings        Booking[]
+
+  @@index([customerId])
+  @@index([enquiryStatus])
+  @@index([destination])
+}
+
+model FollowUp {
+  id             String         @id @default(uuid())
+  leadId         String
+  assignedUserId String?
+  scheduledAt    DateTime
+  type           FollowUpType   @default(CALL)
+  notes          String?
+  status         FollowUpStatus @default(PENDING)
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  lead           Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedUser   User?          @relation("FollowUpAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([scheduledAt])
+}
+
+model Package {
+  id          String         @id @default(uuid())
+  packageName String
+  destination String
+  duration    String
+  description String
+  price       Decimal        @default(0) @db.Decimal(12, 2)
+  packageType String         @default("HOLIDAY")
+  inclusions  String?
+  exclusions  String?
+  imageUrl    String?
+  gallery     String? // JSON string array of image URLs
+  status      String         @default("ACTIVE")
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  itineraries ItineraryDay[]
+  leads       Lead[]
+  bookings    Booking[]
+  quotations  Quotation[]
+
+  @@index([destination])
+}
+
+model ItineraryDay {
+  id          String   @id @default(uuid())
+  packageId   String
+  dayNumber   Int
+  title       String
+  description String
+  activities  String?
+  places      String?
+  startTime   String?
+  endTime     String?
+  imageUrl    String? // Primary photo for this day
+  images      String? // JSON array of day-wise photo URLs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  package     Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@index([packageId])
+}
+
+model Quotation {
+  id                 String    @id @default(uuid())
+  quotationNumber    String    @unique
+  leadId             String?
+  customerId         String
+  packageId          String?
+  destination        String
+  travelStartDate    DateTime?
+  travelEndDate      DateTime?
+  adults             Int       @default(2)
+  children           Int       @default(0)
+  infants            Int       @default(0)
+  accommodation      String?
+  transport          String?
+  activities         String?
+  inclusions         String?
+  exclusions         String?
+  basePrice          Decimal   @default(0) @db.Decimal(12, 2)
+  discount           Decimal   @default(0) @db.Decimal(12, 2)
+  tax                Decimal   @default(0) @db.Decimal(12, 2)
+  finalAmount        Decimal   @default(0) @db.Decimal(12, 2)
+  status             String    @default("DRAFT")
+  termsAndConditions String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  lead               Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  package            Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  @@index([quotationNumber])
+}
+
+model Booking {
+  id              String        @id @default(uuid())
+  bookingNumber   String        @unique
+  customerId      String
+  leadId          String?
+  packageId       String?
+  assignedUserId  String?
+  travelStartDate DateTime
+  travelEndDate   DateTime
+  travellers      Int           @default(1)
+  totalAmount     Decimal       @default(0) @db.Decimal(12, 2)
+  discount        Decimal       @default(0) @db.Decimal(12, 2)
+  finalAmount     Decimal       @default(0) @db.Decimal(12, 2)
+  bookingStatus   BookingStatus @default(CONFIRMED)
+  bookingDate     DateTime      @default(now())
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lead            Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  package         Package?      @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  assignedUser    User?         @relation("BookingAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  payments        Payment[]
+  expenses        Expense[]
+  agentBooking    AgentBooking?
+  travellersList  Traveller[]
+
+  @@index([bookingNumber])
+}
+
+model Traveller {
+  id        String   @id @default(uuid())
+  bookingId String
+  name      String
+  age       Int?
+  gender    String? // MALE, FEMALE, OTHER
+  phone     String?
+  email     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+model Payment {
+  id                   String        @id @default(uuid())
+  bookingId            String
+  amount               Decimal       @default(0) @db.Decimal(12, 2)
+  paymentDate          DateTime      @default(now())
+  paymentMethod        PaymentMethod @default(UPI)
+  transactionReference String?
+  paymentStatus        PaymentStatus @default(SUCCESS)
+  notes                String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  booking              Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+model Agent {
+  id                 String         @id @default(uuid())
+  companyName        String
+  contactPerson      String
+  phone              String
+  email              String?
+  city               String?
+  state              String?
+  gstNumber          String?
+  status             String         @default("ACTIVE")
+  googleReviewUrl    String?
+  googleReviewRating Decimal?       @db.Decimal(3, 2)
+  googleReviewNotes  String?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  agentBookings AgentBooking[]
+
+  @@index([companyName])
+}
+
+model AgentBooking {
+  id               String   @id @default(uuid())
+  agentId          String
+  bookingId        String   @unique
+  commissionRate   Decimal  @default(0) @db.Decimal(5, 2)
+  commissionAmount Decimal  @default(0) @db.Decimal(12, 2)
+  netAmount        Decimal  @default(0) @db.Decimal(12, 2)
+  payoutStatus     String   @default("PENDING")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  agent            Agent    @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  booking          Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  category    String
+  amount      Decimal  @default(0) @db.Decimal(12, 2)
+  expenseDate DateTime @default(now())
+  description String
+  bookingId   String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  booking     Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  createdBy   User?    @relation("ExpenseCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([category])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  userName  String?
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([entity])
+}
+
+model CompanySetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
