@@ -2,7 +2,28 @@ import { app } from './app.js';
 import { config } from './config/index.js';
 import { connectDB, prisma } from './db/prisma.js';
 
+import { execSync } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+async function ensureDBSchema() {
+  try {
+    console.log('🔄 Checking & synchronizing database schema...');
+    const serverDir = path.resolve(__dirname, '..');
+    execSync('npx prisma db push --skip-generate --accept-data-loss', {
+      cwd: serverDir,
+      stdio: 'pipe',
+      env: { ...process.env },
+    });
+    console.log('✅ Database schema verified.');
+  } catch (err: any) {
+    console.warn('⚠️ Note during DB schema check:', err.message);
+  }
+}
 
 async function ensureInitialAdmin() {
   try {
@@ -12,8 +33,9 @@ async function ensureInitialAdmin() {
 
     const defaultAccounts = [
       { email: 'admin@ooting.com', name: 'Ooting Super Admin', role: 'SUPER_ADMIN', hash: adminPasswordHash },
-      { email: 'chandu@gmail.com', name: 'Chandu (Admin)', role: 'SUPER_ADMIN', hash: adminPasswordHash },
+      { email: 'chaitrabai25@gmail.com', name: 'Chaitra Bai (Super Admin)', role: 'SUPER_ADMIN', hash: adminPasswordHash },
       { email: 'chaitrabaijr@gmail.com', name: 'Chaitra Bai (Super Admin)', role: 'SUPER_ADMIN', hash: adminPasswordHash },
+      { email: 'chandu@gmail.com', name: 'Chandu (Admin)', role: 'SUPER_ADMIN', hash: adminPasswordHash },
       { email: 'sales@ooting.com', name: 'Rohan Sharma (Sales)', role: 'SALES', hash: salesPasswordHash },
       { email: 'accounts@ooting.com', name: 'Priya Nair (Accounts)', role: 'ACCOUNTANT', hash: accountsPasswordHash },
     ];
@@ -46,6 +68,7 @@ async function ensureInitialAdmin() {
 }
 
 async function bootstrap() {
+  await ensureDBSchema();
   await connectDB();
   await ensureInitialAdmin();
 

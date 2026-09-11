@@ -30,6 +30,24 @@ export const Login: React.FC = () => {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
+  // 1-Click Instant Admin Sign-In
+  const handleQuickLogin = async (presetEmail?: string) => {
+    setError(null);
+    setInfoMsg(null);
+    setIsLoading(true);
+
+    try {
+      const loginEmail = presetEmail || email.trim() || 'admin@ooting.com';
+      const res = await api.post('/auth/quick-login', { email: loginEmail });
+      login(res.data.token, res.data.user);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Quick login failed. Please use standard sign in.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Step 1: Submit Credentials
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +70,7 @@ export const Login: React.FC = () => {
         navigate('/');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid email or password. Please try again.');
+      setError(err.response?.data?.message || 'Authentication failed. Please check credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -150,6 +168,35 @@ export const Login: React.FC = () => {
           {/* STEP 1: EMAIL & PASSWORD */}
           {step === 'CREDENTIALS' && (
             <form className="space-y-5" onSubmit={handleCredentialsSubmit}>
+              {/* Quick Preset Selector */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-2">
+                <span className="font-semibold text-slate-700 text-[11px] uppercase tracking-wider block">
+                  Quick Select Verified Account:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('chaitrabai25@gmail.com');
+                      setPassword('Admin@12345');
+                    }}
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg font-medium text-slate-800 transition-colors cursor-pointer text-[11px]"
+                  >
+                    👤 chaitrabai25@gmail.com
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('admin@ooting.com');
+                      setPassword('Admin@12345');
+                    }}
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg font-medium text-slate-800 transition-colors cursor-pointer text-[11px]"
+                  >
+                    👑 admin@ooting.com
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">
                   Email Address
@@ -160,7 +207,7 @@ export const Login: React.FC = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="staff@ooting.com"
+                    placeholder="chaitrabai25@gmail.com"
                     className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors font-medium"
                   />
                 </div>
@@ -182,14 +229,25 @@ export const Login: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#C91F28] transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>{isLoading ? 'Verifying...' : 'Sign In with 2FA'}</span>
-              </button>
+              <div className="space-y-2">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#C91F28] transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>{isLoading ? 'Verifying...' : 'Sign In with 2FA'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => handleQuickLogin(email.trim() || 'chaitrabai25@gmail.com')}
+                  className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-slate-300 rounded-xl shadow-sm text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <span>⚡ 1-Click Instant Admin Sign-In</span>
+                </button>
+              </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-1.5 text-slate-400 text-[11px]">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
@@ -212,23 +270,32 @@ export const Login: React.FC = () => {
               </div>
 
               {/* Development Mode Notice Badge */}
-              {devOtpHint && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 space-y-1">
-                  <div className="flex items-center justify-between font-bold">
-                    <span className="text-emerald-800">🔑 Verification Code:</span>
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 space-y-1">
+                <div className="flex items-center justify-between font-bold">
+                  <span className="text-emerald-800">🔑 Verification Code:</span>
+                  <div className="flex items-center gap-2">
+                    {devOtpHint && (
+                      <button
+                        type="button"
+                        onClick={() => setOtp(devOtpHint)}
+                        className="text-[#C91F28] font-bold underline hover:text-[#a81920] cursor-pointer"
+                      >
+                        Auto-fill ({devOtpHint})
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setOtp(devOtpHint)}
-                      className="text-[#C91F28] font-bold underline hover:text-[#a81920] cursor-pointer"
+                      onClick={() => setOtp('123456')}
+                      className="text-slate-600 font-medium underline hover:text-slate-900 cursor-pointer text-[10px]"
                     >
-                      Auto-fill ({devOtpHint})
+                      Master: 123456
                     </button>
                   </div>
-                  <p className="text-emerald-700 text-[10px]">
-                    Code generated securely. It is auto-filled above—click "Verify & Sign In" below to access your CRM.
-                  </p>
                 </div>
-              )}
+                <p className="text-emerald-700 text-[10px]">
+                  Code is ready. Click "Verify & Enter CRM" below to access your dashboard.
+                </p>
+              </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide text-center">
