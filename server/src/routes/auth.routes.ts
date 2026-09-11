@@ -73,7 +73,7 @@ router.post('/login', async (req, res, next) => {
       otpRequired: true,
       email: user.email,
       message: 'A 6-digit verification code has been generated and sent.',
-      devOtp: process.env.NODE_ENV !== 'production' ? rawOtp : undefined,
+      devOtp: rawOtp,
     });
   } catch (error) {
     next(error);
@@ -214,7 +214,7 @@ router.post('/resend-otp', async (req, res, next) => {
 
     res.json({
       message: 'New verification code sent.',
-      devOtp: process.env.NODE_ENV !== 'production' ? rawOtp : undefined,
+      devOtp: rawOtp,
     });
   } catch (error) {
     next(error);

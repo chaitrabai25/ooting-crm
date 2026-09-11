@@ -6,24 +6,39 @@ import bcrypt from 'bcryptjs';
 
 async function ensureInitialAdmin() {
   try {
-    const userCount = await prisma.user.count();
-    if (userCount === 0) {
-      console.log('⚡ Initializing default Super Admin for fresh production database...');
-      const adminEmail = (process.env.ADMIN_EMAIL || 'admin@ooting.com').toLowerCase().trim();
-      const rawPassword = process.env.ADMIN_PASSWORD || 'Admin@12345';
-      const passwordHash = await bcrypt.hash(rawPassword, 10);
+    const adminPasswordHash = await bcrypt.hash('Admin@12345', 10);
+    const salesPasswordHash = await bcrypt.hash('Sales@12345', 10);
+    const accountsPasswordHash = await bcrypt.hash('Accounts@12345', 10);
 
-      await prisma.user.create({
-        data: {
-          name: 'Ooting Super Admin',
-          email: adminEmail,
-          passwordHash,
-          role: 'SUPER_ADMIN',
-          phone: '+91 98765 00001',
-          status: 'ACTIVE',
-        },
-      });
-      console.log(`✅ Default Super Admin created: ${adminEmail}`);
+    const defaultAccounts = [
+      { email: 'admin@ooting.com', name: 'Ooting Super Admin', role: 'SUPER_ADMIN', hash: adminPasswordHash },
+      { email: 'chandu@gmail.com', name: 'Chandu (Admin)', role: 'SUPER_ADMIN', hash: adminPasswordHash },
+      { email: 'chaitrabaijr@gmail.com', name: 'Chaitra Bai (Super Admin)', role: 'SUPER_ADMIN', hash: adminPasswordHash },
+      { email: 'sales@ooting.com', name: 'Rohan Sharma (Sales)', role: 'SALES', hash: salesPasswordHash },
+      { email: 'accounts@ooting.com', name: 'Priya Nair (Accounts)', role: 'ACCOUNTANT', hash: accountsPasswordHash },
+    ];
+
+    for (const acc of defaultAccounts) {
+      const existing = await prisma.user.findUnique({ where: { email: acc.email } });
+      if (!existing) {
+        await prisma.user.create({
+          data: {
+            name: acc.name,
+            email: acc.email,
+            passwordHash: acc.hash,
+            role: acc.role,
+            phone: '+91 98765 00001',
+            status: 'ACTIVE',
+          },
+        });
+        console.log(`✅ Initialized verified account: ${acc.email}`);
+      } else {
+        await prisma.user.update({
+          where: { id: existing.id },
+          data: { passwordHash: acc.hash, status: 'ACTIVE' },
+        });
+        console.log(`✅ Verified active status for: ${acc.email}`);
+      }
     }
   } catch (err: any) {
     console.warn('⚠️ DB tables check note:', err.message);

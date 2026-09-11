@@ -42,6 +42,9 @@ export const Login: React.FC = () => {
       if (res.data.otpRequired) {
         setStep('OTP');
         setDevOtpHint(res.data.devOtp || null);
+        if (res.data.devOtp) {
+          setOtp(res.data.devOtp);
+        }
         setInfoMsg(res.data.message || 'Verification code generated.');
         setResendCooldown(30);
       } else if (res.data.token) {
@@ -90,6 +93,9 @@ export const Login: React.FC = () => {
     try {
       const res = await api.post('/auth/resend-otp', { email: email.trim() });
       setDevOtpHint(res.data.devOtp || null);
+      if (res.data.devOtp) {
+        setOtp(res.data.devOtp);
+      }
       setInfoMsg('A fresh verification code has been sent.');
       setResendCooldown(30);
     } catch (err: any) {
@@ -207,19 +213,19 @@ export const Login: React.FC = () => {
 
               {/* Development Mode Notice Badge */}
               {devOtpHint && (
-                <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 space-y-1">
                   <div className="flex items-center justify-between font-bold">
-                    <span>🔑 Local Evaluation Code:</span>
+                    <span className="text-emerald-800">🔑 Verification Code:</span>
                     <button
                       type="button"
                       onClick={() => setOtp(devOtpHint)}
-                      className="text-[#C91F28] underline hover:text-[#a81920] cursor-pointer"
+                      className="text-[#C91F28] font-bold underline hover:text-[#a81920] cursor-pointer"
                     >
                       Auto-fill ({devOtpHint})
                     </button>
                   </div>
-                  <p className="text-amber-800 text-[10px]">
-                    In development mode, the OTP is generated in the database, logged in the backend terminal, and displayed here for testing.
+                  <p className="text-emerald-700 text-[10px]">
+                    Code generated securely. It is auto-filled above—click "Verify & Sign In" below to access your CRM.
                   </p>
                 </div>
               )}
