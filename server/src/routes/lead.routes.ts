@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
@@ -11,7 +12,7 @@ router.use(authenticate);
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-    const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
     const status = (req.query.status as string || '').trim();
     const priority = (req.query.priority as string || '').trim();
@@ -394,6 +395,60 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
     });
 
     res.status(201).json(booking);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export leads to Excel (.xlsx)
+router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const leads = await prisma.lead.findMany({
+      include: {
+        customer: true,
+        assignedUser: { select: { name: true } },
+        package: { select: { packageName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const rows = leads.map((l, idx) => ({
+      'S.No.': idx + 1,
+      'Lead ID': l.id,
+      'Customer Name': l.customer.fullName,
+      'Phone': l.customer.phone,
+      'Destination': l.destination,
+      'Start Date': l.travelStartDate ? l.travelStartDate.toISOString().split('T')[0] : '',
+      'End Date': l.travelEndDate ? l.travelEndDate.toISOString().split('T')[0] : '',
+      'Adults': l.adults,
+      'Children': l.children,
+      'Budget': l.budget || 0,
+      'Package': l.package?.packageName || '',
+      'Status': l.enquiryStatus,
+      'Priority': l.priority,
+      'Source': l.source,
+      'Assigned To': l.assignedUser?.name || 'Unassigned',
+      'Next Followup': l.nextFollowUpAt ? l.nextFollowUpAt.toISOString().split('T')[0] : '',
+      'Created Date': l.createdAt.toISOString().split('T')[0],
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'EXPORT',
+      entity: 'LEAD',
+      details: `Exported ${leads.length} lead records to Excel (.xlsx)`,
+      ipAddress: req.ip,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-leads-${Date.now()}.xlsx`);
+    res.send(buffer);
   } catch (error) {
     next(error);
   }

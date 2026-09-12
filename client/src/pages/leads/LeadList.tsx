@@ -2,20 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus,
-  Download,
+  FileSpreadsheet,
   Search,
-  Filter,
   Eye,
   Calendar,
-  Sparkles,
   Phone,
-  BookmarkCheck,
+  MessageSquare,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { CopyButton } from '../../components/ui/CopyButton.js';
+import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { LeadModal } from './LeadModal.js';
-import { Lead, LeadStatus } from '../../types/index.js';
+import { Lead } from '../../types/index.js';
 
 export const LeadList: React.FC = () => {
   const navigate = useNavigate();
@@ -26,8 +26,21 @@ export const LeadList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(searchParams.get('action') === 'create');
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
-  // Filters & Pagination
+  // WhatsApp modal state
+  const [whatsAppModalData, setWhatsAppModalData] = useState<{
+    isOpen: boolean;
+    customerName: string;
+    customerPhone: string;
+    customerId?: string;
+  }>({
+    isOpen: false,
+    customerName: '',
+    customerPhone: '',
+  });
+
+  // Filters & Pagination (Default 10 per page)
   const [page, setPage] = useState(1);
+  const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -50,7 +63,7 @@ export const LeadList: React.FC = () => {
       setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
-      params.append('limit', '15');
+      params.append('limit', String(limit));
       if (search) params.append('search', search);
       if (selectedStatus) params.append('status', selectedStatus);
       if (selectedPriority) params.append('priority', selectedPriority);
@@ -76,25 +89,33 @@ export const LeadList: React.FC = () => {
     fetchLeads();
   };
 
-  const handleExportCSV = () => {
-    window.open('/api/leads/export/csv', '_blank');
+  const handleExportExcel = () => {
+    window.open('/api/leads/export/excel', '_blank');
   };
 
   const columns: Column<Lead>[] = [
+    {
+      header: 'S.No.',
+      accessor: 'sNo',
+      className: 'w-16 text-center',
+    },
     {
       header: 'Customer',
       render: (lead) => (
         <div>
           <span
             onClick={() => navigate(`/leads/${lead.id}`)}
-            className="font-semibold text-slate-900 hover:text-brand-600 cursor-pointer block"
+            className="font-semibold text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer block text-xs sm:text-sm"
           >
             {lead.customer?.fullName}
           </span>
-          <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
             <Phone className="w-3 h-3 text-slate-400" />
             <span>{lead.customer?.phone}</span>
-          </span>
+            {lead.customer?.phone && (
+              <CopyButton text={lead.customer.phone} title="Copy phone" />
+            )}
+          </div>
         </div>
       ),
     },
@@ -102,9 +123,11 @@ export const LeadList: React.FC = () => {
       header: 'Destination',
       render: (lead) => (
         <div>
-          <span className="font-semibold text-slate-800">{lead.destination}</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+            {lead.destination}
+          </span>
           {lead.package && (
-            <span className="text-[11px] text-brand-600 block truncate max-w-[180px]">
+            <span className="text-[11px] text-brand-600 dark:text-brand-400 block truncate max-w-[180px]">
               {lead.package.packageName}
             </span>
           )}
@@ -115,11 +138,11 @@ export const LeadList: React.FC = () => {
       header: 'Travellers & Dates',
       render: (lead) => (
         <div className="text-xs">
-          <span className="text-slate-700 font-medium">
+          <span className="text-slate-700 dark:text-slate-300 font-medium">
             {lead.adults}A {lead.children > 0 ? `, ${lead.children}C` : ''}
           </span>
           {lead.travelStartDate && (
-            <span className="text-[11px] text-slate-500 block">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
               {new Date(lead.travelStartDate).toLocaleDateString([], { month: 'short', day: 'numeric' })}
             </span>
           )}
@@ -129,7 +152,7 @@ export const LeadList: React.FC = () => {
     {
       header: 'Budget',
       render: (lead) => (
-        <span className="font-semibold text-slate-900">
+        <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs">
           {lead.budget ? `₹${Number(lead.budget).toLocaleString('en-IN')}` : '—'}
         </span>
       ),
@@ -145,7 +168,7 @@ export const LeadList: React.FC = () => {
     {
       header: 'Assigned To',
       render: (lead) => (
-        <span className="text-xs text-slate-600">
+        <span className="text-xs text-slate-600 dark:text-slate-300">
           {lead.assignedUser?.name || <span className="text-slate-400 italic">Unassigned</span>}
         </span>
       ),
@@ -153,7 +176,7 @@ export const LeadList: React.FC = () => {
     {
       header: 'Next Follow-up',
       render: (lead) => (
-        <span className="text-xs text-slate-600">
+        <span className="text-xs text-slate-600 dark:text-slate-300">
           {lead.nextFollowUpAt ? (
             <span className="inline-flex items-center gap-1">
               <Calendar className="w-3 h-3 text-slate-400" />
@@ -167,14 +190,32 @@ export const LeadList: React.FC = () => {
     },
     {
       header: 'Actions',
-      className: 'text-right',
+      className: 'text-right w-24',
       render: (lead) => (
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex items-center justify-end gap-1">
+          {lead.customer?.phone && (
+            <button
+              type="button"
+              onClick={() =>
+                setWhatsAppModalData({
+                  isOpen: true,
+                  customerName: lead.customer?.fullName || 'Client',
+                  customerPhone: lead.customer?.phone,
+                  customerId: lead.customerId,
+                })
+              }
+              title="Send WhatsApp Message"
+              className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => navigate(`/leads/${lead.id}`)}
             title="View Lead Details"
-            className="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-brand-400 rounded-lg transition-colors"
           >
             <Eye className="w-4 h-4" />
           </button>
@@ -188,20 +229,23 @@ export const LeadList: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">Leads & Enquiries</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Leads & Enquiries
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Capture, qualify, follow-up, and convert travel enquiries into confirmed bookings.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Strictly Excel (.xlsx) Export */}
           <button
             type="button"
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-colors"
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Export Excel</span>
           </button>
 
           <button
@@ -219,7 +263,7 @@ export const LeadList: React.FC = () => {
       </div>
 
       {/* Pipeline Status Filter Tabs */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-slate-200">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
         {statusTabs.map((tab) => (
           <button
             key={tab.value}
@@ -231,7 +275,7 @@ export const LeadList: React.FC = () => {
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors ${
               selectedStatus === tab.value
                 ? 'bg-brand-600 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
             {tab.label}
@@ -248,7 +292,7 @@ export const LeadList: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search destination, name, phone..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
+            className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
           />
         </form>
 
@@ -259,7 +303,7 @@ export const LeadList: React.FC = () => {
               setSelectedPriority(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="">All Priorities</option>
             <option value="LOW">Low Priority</option>
@@ -279,11 +323,22 @@ export const LeadList: React.FC = () => {
         emptyDescription="Start adding enquiries or adjust your search filters to view records."
         pagination={{
           page,
-          limit: 15,
+          limit: 10,
           total,
           totalPages,
           onPageChange: (newPage) => setPage(newPage),
         }}
+      />
+
+      {/* WhatsApp Modal */}
+      <WhatsAppModal
+        isOpen={whatsAppModalData.isOpen}
+        recipientName={whatsAppModalData.customerName}
+        recipientPhone={whatsAppModalData.customerPhone}
+        customerId={whatsAppModalData.customerId}
+        onClose={() =>
+          setWhatsAppModalData({ isOpen: false, customerName: '', customerPhone: '' })
+        }
       />
 
       {/* Lead Create / Edit Modal */}

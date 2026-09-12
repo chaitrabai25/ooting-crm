@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus,
-  Download,
+  FileSpreadsheet,
   Search,
   Eye,
   BookmarkCheck,
@@ -12,10 +12,13 @@ import {
   Users,
   Package as PackageIcon,
   RefreshCw,
+  MessageSquare,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { CopyButton } from '../../components/ui/CopyButton.js';
+import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { BookingModal } from './BookingModal.js';
 import { Booking, Package } from '../../types/index.js';
 
@@ -29,7 +32,21 @@ export const BookingList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(searchParams.get('action') === 'create');
   const [editingBooking, setEditingBooking] = useState<any | null>(null);
 
+  // WhatsApp Modal state
+  const [whatsAppModalData, setWhatsAppModalData] = useState<{
+    isOpen: boolean;
+    customerName: string;
+    customerPhone: string;
+    bookingNumber?: string;
+  }>({
+    isOpen: false,
+    customerName: '',
+    customerPhone: '',
+  });
+
+  // Default limit 10
   const [page, setPage] = useState(1);
+  const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -50,7 +67,7 @@ export const BookingList: React.FC = () => {
       setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
-      params.append('limit', '15');
+      params.append('limit', String(limit));
       if (search.trim()) params.append('search', search.trim());
       if (selectedStatus) params.append('status', selectedStatus);
       if (selectedPackageId) params.append('packageId', selectedPackageId);
@@ -88,11 +105,12 @@ export const BookingList: React.FC = () => {
     setPage(1);
   };
 
-  const handleExportCSV = () => {
+  // Strictly Excel (.xlsx) Export
+  const handleExportExcel = () => {
     const params = new URLSearchParams();
     if (selectedPackageId) params.append('packageId', selectedPackageId);
     if (selectedStatus) params.append('status', selectedStatus);
-    window.open(`/api/bookings/export/csv?${params.toString()}`, '_blank');
+    window.open(`/api/bookings/export/excel?${params.toString()}`, '_blank');
   };
 
   const formatCurrency = (val: number) => {
@@ -100,6 +118,11 @@ export const BookingList: React.FC = () => {
   };
 
   const columns: Column<any>[] = [
+    {
+      header: 'S.No.',
+      accessor: 'sNo',
+      className: 'w-16 text-center',
+    },
     {
       header: 'Booking #',
       sortKey: 'bookingNumber',
@@ -111,7 +134,7 @@ export const BookingList: React.FC = () => {
           >
             {b.bookingNumber}
           </span>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-[11px] text-slate-400">
             {new Date(b.bookingDate).toLocaleDateString()}
           </span>
         </div>
@@ -120,14 +143,17 @@ export const BookingList: React.FC = () => {
     {
       header: 'Customer',
       render: (b) => (
-        <div>
+        <div className="text-xs">
           <span
             onClick={() => navigate(`/customers/${b.customer?.id}`)}
-            className="font-semibold text-slate-900 hover:text-[#C91F28] cursor-pointer block text-xs"
+            className="font-semibold text-slate-900 dark:text-slate-100 hover:text-[#C91F28] cursor-pointer block"
           >
             {b.customer?.fullName}
           </span>
-          <span className="text-[11px] text-slate-500">{b.customer?.phone}</span>
+          <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
+            <span>{b.customer?.phone}</span>
+            {b.customer?.phone && <CopyButton text={b.customer.phone} />}
+          </div>
         </div>
       ),
     },
@@ -136,10 +162,10 @@ export const BookingList: React.FC = () => {
       sortKey: 'travelStartDate',
       render: (b) => (
         <div className="text-xs">
-          <span className="font-semibold text-slate-800 block">
+          <span className="font-semibold text-slate-800 dark:text-slate-200 block">
             {b.package?.packageName || 'Customized Tour'}
           </span>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
             {new Date(b.travelStartDate).toLocaleDateString()} – {new Date(b.travelEndDate).toLocaleDateString()} ({b.travellers} Pax)
           </span>
         </div>
@@ -150,9 +176,9 @@ export const BookingList: React.FC = () => {
       sortKey: 'finalAmount',
       render: (b) => (
         <div className="text-xs">
-          <span className="font-bold text-slate-900">{formatCurrency(b.finalAmount)}</span>
+          <span className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(b.finalAmount)}</span>
           {b.discount > 0 && (
-            <span className="text-[10px] text-emerald-600 block">
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block">
               Disc: {formatCurrency(b.discount)}
             </span>
           )}
@@ -162,7 +188,7 @@ export const BookingList: React.FC = () => {
     {
       header: 'Paid Amount',
       render: (b) => (
-        <span className="text-xs font-semibold text-emerald-600">
+        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
           {formatCurrency(b.amountPaid)}
         </span>
       ),
@@ -171,7 +197,7 @@ export const BookingList: React.FC = () => {
       header: 'Balance Due',
       render: (b) => (
         <span
-          className={`text-xs font-bold ${b.balanceDue > 0 ? 'text-rose-600' : 'text-slate-400'}`}
+          className={`text-xs font-bold ${b.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}
         >
           {formatCurrency(b.balanceDue)}
         </span>
@@ -184,14 +210,33 @@ export const BookingList: React.FC = () => {
     },
     {
       header: 'Actions',
-      className: 'text-right',
+      className: 'text-right w-24',
       render: (b) => (
         <div className="flex items-center justify-end gap-1">
+          {/* WhatsApp message button */}
+          {b.customer?.phone && (
+            <button
+              type="button"
+              onClick={() =>
+                setWhatsAppModalData({
+                  isOpen: true,
+                  customerName: b.customer?.fullName || 'Guest',
+                  customerPhone: b.customer?.phone,
+                  bookingNumber: b.bookingNumber,
+                })
+              }
+              title="Send WhatsApp Message"
+              className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => navigate(`/bookings/${b.id}`)}
-            title="View Booking"
-            className="p-1.5 text-slate-500 hover:text-[#C91F28] hover:bg-red-50 rounded-lg transition-colors"
+            title="View Booking Details"
+            className="p-1.5 text-slate-500 hover:text-[#C91F28] hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
           >
             <Eye className="w-4 h-4" />
           </button>
@@ -203,31 +248,34 @@ export const BookingList: React.FC = () => {
   return (
     <div className="space-y-5 pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">Bookings Management</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Bookings Management
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Confirmed travel operations, multi-traveller rosters, and financial balances
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => navigate('/passengers')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#C91F28] bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#C91F28] bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-900/60 rounded-xl transition-colors"
           >
             <Users className="w-3.5 h-3.5" />
             <span>Passenger List</span>
           </button>
 
+          {/* Strictly Excel (.xlsx) Export */}
           <button
             type="button"
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-xs transition-colors"
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Export Excel</span>
           </button>
 
           <button
@@ -245,7 +293,7 @@ export const BookingList: React.FC = () => {
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <form onSubmit={handleSearch} className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
           <input
@@ -253,7 +301,7 @@ export const BookingList: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search booking #, customer, package..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors"
+            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors"
           />
         </form>
 
@@ -267,7 +315,7 @@ export const BookingList: React.FC = () => {
                 setSelectedPackageId(e.target.value);
                 setPage(1);
               }}
-              className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#C91F28]"
+              className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#C91F28]"
             >
               <option value="">All Travel Packages</option>
               {packages.map((pkg) => (
@@ -285,7 +333,7 @@ export const BookingList: React.FC = () => {
               setSelectedStatus(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#C91F28]"
+            className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#C91F28]"
           >
             <option value="">All Statuses</option>
             <option value="CONFIRMED">Confirmed</option>
@@ -297,7 +345,7 @@ export const BookingList: React.FC = () => {
           <button
             type="button"
             onClick={() => fetchBookings()}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             title="Refresh"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#C91F28]' : ''}`} />
@@ -317,11 +365,22 @@ export const BookingList: React.FC = () => {
         emptyDescription="Convert an enquiry or record a new confirmed customer booking."
         pagination={{
           page,
-          limit: 15,
+          limit: 10,
           total,
           totalPages,
           onPageChange: (newPage) => setPage(newPage),
         }}
+      />
+
+      {/* WhatsApp Modal */}
+      <WhatsAppModal
+        isOpen={whatsAppModalData.isOpen}
+        recipientName={whatsAppModalData.customerName}
+        recipientPhone={whatsAppModalData.customerPhone}
+        bookingNumber={whatsAppModalData.bookingNumber}
+        onClose={() =>
+          setWhatsAppModalData({ isOpen: false, customerName: '', customerPhone: '' })
+        }
       />
 
       {/* Booking Modal */}

@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
@@ -13,7 +14,7 @@ const ALLOWED_CUSTOMER_SORT_FIELDS = ['fullName', 'phone', 'city', 'state', 'sou
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-    const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
     const source = (req.query.source as string || '').trim();
     const status = (req.query.status as string || '').trim();
@@ -241,7 +242,169 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Export customers to CSV
+// Delete / Archive Customer (Restricted to SUPER_ADMIN & ADMIN)
+router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const userRole = req.user?.role;
+    if (userRole !== 'SUPER_ADMIN' && userRole !== 'ADMIN') {
+      res.status(403).json({ message: 'Access denied. Admin privileges required to delete a customer.' });
+      return;
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { bookings: true, leads: true, quotations: true },
+        },
+      },
+    });
+
+    if (!customer) {
+      res.status(404).json({ message: 'Customer not found.' });
+      return;
+    }
+
+    // If active bookings exist, soft-archive customer to protect financial & travel history
+    if (customer._count.bookings > 0) {
+      const updated = await prisma.customer.update({
+        where: { id },
+        data: { status: 'INACTIVE' },
+      });
+
+      await logAudit({
+        userId: req.user!.id,
+        userName: req.user!.name,
+        action: 'UPDATE',
+        entity: 'CUSTOMER',
+        entityId: customer.id,
+        details: `Archived customer ${customer.fullName} (has ${customer._count.bookings} active bookings)`,
+        ipAddress: req.ip,
+      });
+
+      res.json({
+        message: `Customer has ${customer._count.bookings} booking(s). To protect accounting and booking records, customer status has been set to INACTIVE.`,
+        action: 'ARCHIVED',
+        customer: updated,
+      });
+      return;
+    }
+
+    // Clean delete if no bookings exist (leads & quotations cascade delete automatically)
+    await prisma.customer.delete({ where: { id } });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'DELETE',
+      entity: 'CUSTOMER',
+      entityId: customer.id,
+      details: `Permanently deleted customer ${customer.fullName} (${customer.phone})`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: `Customer ${customer.fullName} successfully deleted.`,
+      action: 'DELETED',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Forward / Reassign selected customers to a user
+router.post('/forward', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { customerIds, targetUserId } = req.body;
+    if (!Array.isArray(customerIds) || customerIds.length === 0) {
+      res.status(400).json({ message: 'Please select at least one customer to forward.' });
+      return;
+    }
+    if (!targetUserId) {
+      res.status(400).json({ message: 'Target user ID is required.' });
+      return;
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!targetUser) {
+      res.status(404).json({ message: 'Target user not found.' });
+      return;
+    }
+
+    const result = await prisma.customer.updateMany({
+      where: { id: { in: customerIds } },
+      data: { assignedToId: targetUserId },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'UPDATE',
+      entity: 'CUSTOMER',
+      details: `Reassigned ${result.count} customer(s) to user ${targetUser.name} (${targetUser.email})`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: `Successfully forwarded ${result.count} customer(s) to ${targetUser.name}.`,
+      count: result.count,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export customers to Excel (.xlsx)
+router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const customers = await prisma.customer.findMany({
+      include: { assignedTo: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const rows = customers.map((c, idx) => ({
+      'S.No.': idx + 1,
+      'Full Name': c.fullName,
+      'Phone': c.phone,
+      'Alternate Phone': c.alternatePhone || '',
+      'Email': c.email || '',
+      'City': c.city || '',
+      'State': c.state || '',
+      'Country': c.country || 'India',
+      'Source': c.source || '',
+      'Assigned Staff': c.assignedTo?.name || 'Unassigned',
+      'Status': c.status,
+      'Created Date': c.createdAt.toISOString().split('T')[0],
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'EXPORT',
+      entity: 'CUSTOMER',
+      details: `Exported ${customers.length} customer records to Excel (.xlsx)`,
+      ipAddress: req.ip,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-customers-${Date.now()}.xlsx`);
+    res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export customers to CSV (retained for backward compatibility)
 router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
   try {
     const customers = await prisma.customer.findMany({

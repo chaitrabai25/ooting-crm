@@ -401,3 +401,21 @@ model CompanySetting {
 
   @@index([key])
 }
+
+model WhatsAppMessage {
+  id             String    @id @default(uuid())
+  customerId     String?
+  phone          String
+  messageContent String
+  templateName   String?
+  status         String    @default("PENDING") // PENDING, SENT, DELIVERED, FAILED
+  provider       String?   // META_CLOUD_API, TWILIO, DIRECT_WEB
+  externalId     String?
+  errorDetails   String?
+  sentByUserId   String?
+  createdAt      DateTime  @default(now())
+
+  @@index([customerId])
+  @@index([phone])
+  @@index([createdAt])
+}

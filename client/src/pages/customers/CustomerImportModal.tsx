@@ -215,18 +215,18 @@ export const CustomerImportModal: React.FC<CustomerImportModalProps> = ({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.xls"
               onChange={handleFileUpload}
               className="hidden"
             />
-            <div className="p-2.5 bg-red-100 text-[#C91F28] rounded-xl">
+            <div className="p-2.5 bg-red-100 dark:bg-red-950/50 text-[#C91F28] rounded-xl">
               <UploadCloud className="w-6 h-6" />
             </div>
             <div>
-              <p className="font-bold text-slate-800">
-                {fileName ? fileName : 'Choose Excel / CSV File'}
+              <p className="font-bold text-slate-800 dark:text-slate-200">
+                {fileName ? fileName : 'Choose Excel Spreadsheet (.xlsx)'}
               </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">Supports .xlsx, .xls, and .csv files</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Supports Microsoft Excel (.xlsx, .xls)</p>
             </div>
           </div>
 

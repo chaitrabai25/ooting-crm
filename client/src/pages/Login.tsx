@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, AlertCircle, ShieldCheck, KeyRound, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { LogIn, AlertCircle, ShieldCheck, KeyRound, ArrowLeft, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 
@@ -9,17 +9,30 @@ export const Login: React.FC = () => {
   const { login } = useAuth();
 
   const [step, setStep] = useState<'CREDENTIALS' | 'OTP'>('CREDENTIALS');
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
-  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
 
-  // Countdown timer for resend
+  // Timers
+  const [otpExpiresIn, setOtpExpiresIn] = useState<number>(600); // 10 minutes (600s)
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+
+  // Countdown timer for 10-minute OTP expiration
+  useEffect(() => {
+    let timer: any;
+    if (step === 'OTP' && otpExpiresIn > 0) {
+      timer = setInterval(() => {
+        setOtpExpiresIn((prev) => Math.max(0, prev - 1));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [step, otpExpiresIn]);
+
+  // Countdown timer for resend cooldown (30s)
   useEffect(() => {
     let timer: any;
     if (resendCooldown > 0) {
@@ -30,25 +43,13 @@ export const Login: React.FC = () => {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // 1-Click Instant Admin Sign-In
-  const handleQuickLogin = async (presetEmail?: string) => {
-    setError(null);
-    setInfoMsg(null);
-    setIsLoading(true);
-
-    try {
-      const loginEmail = presetEmail || email.trim() || 'admin@ooting.com';
-      const res = await api.post('/auth/quick-login', { email: loginEmail });
-      login(res.data.token, res.data.user);
-      navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Quick login failed. Please use standard sign in.');
-    } finally {
-      setIsLoading(false);
-    }
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Step 1: Submit Credentials
+  // Step 1: Submit Credentials (Email or Phone + Password)
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -56,29 +57,35 @@ export const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const res = await api.post('/auth/login', { email: email.trim(), password });
+      const res = await api.post('/auth/login', {
+        identifier: identifier.trim(),
+        password,
+      });
+
       if (res.data.otpRequired) {
         setStep('OTP');
-        setDevOtpHint(res.data.devOtp || null);
-        if (res.data.devOtp) {
-          setOtp(res.data.devOtp);
-        }
-        setInfoMsg(res.data.message || 'Verification code generated.');
+        setOtp('');
+        setOtpExpiresIn(600); // Reset 10-minute timer
         setResendCooldown(30);
+        setInfoMsg(res.data.message || 'A 6-digit verification code has been dispatched.');
       } else if (res.data.token) {
         login(res.data.token, res.data.user);
         navigate('/');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Authentication failed. Please check credentials.');
+      setError(err.response?.data?.message || 'Authentication failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Step 2: Submit OTP
+  // Step 2: Submit 6-digit OTP
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (otpExpiresIn <= 0) {
+      setError('Verification code has expired. Please request a new code.');
+      return;
+    }
     if (otp.trim().length !== 6) {
       setError('Please enter the complete 6-digit verification code.');
       return;
@@ -89,14 +96,14 @@ export const Login: React.FC = () => {
 
     try {
       const res = await api.post('/auth/verify-otp', {
-        email: email.trim(),
+        identifier: identifier.trim(),
         otp: otp.trim(),
       });
 
       login(res.data.token, res.data.user);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid or expired OTP code. Please check and try again.');
+      setError(err.response?.data?.message || 'Invalid or expired verification code. Please check and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -107,22 +114,26 @@ export const Login: React.FC = () => {
     if (resendCooldown > 0) return;
     setError(null);
     setInfoMsg(null);
+    setIsLoading(true);
 
     try {
-      const res = await api.post('/auth/resend-otp', { email: email.trim() });
-      setDevOtpHint(res.data.devOtp || null);
-      if (res.data.devOtp) {
-        setOtp(res.data.devOtp);
-      }
-      setInfoMsg('A fresh verification code has been sent.');
+      const res = await api.post('/auth/resend-otp', {
+        identifier: identifier.trim(),
+      });
+
+      setOtp('');
+      setOtpExpiresIn(600); // 10 minutes fresh
       setResendCooldown(30);
+      setInfoMsg(res.data.message || 'A fresh verification code has been sent.');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to resend code.');
+      setError(err.response?.data?.message || 'Failed to resend verification code.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-900 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden transition-colors">
       {/* Background Subtle Wave Accents */}
       <div className="absolute top-0 left-0 right-0 opacity-10 pointer-events-none">
         <img src="/assets/ooting-header-wave.png" alt="" className="w-full h-auto" />
@@ -147,11 +158,11 @@ export const Login: React.FC = () => {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4 sm:px-0">
-        <div className="bg-white py-8 px-6 shadow-2xl rounded-2xl sm:px-10 border border-slate-200">
+        <div className="bg-white dark:bg-slate-900 py-8 px-6 shadow-2xl rounded-2xl sm:px-10 border border-slate-200 dark:border-slate-800 transition-colors">
           
           {/* Error Banner */}
           {error && (
-            <div className="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 text-xs text-[#C91F28] font-medium">
+            <div className="mb-5 p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl flex items-center gap-2.5 text-xs text-[#C91F28] dark:text-red-400 font-medium">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
@@ -159,38 +170,38 @@ export const Login: React.FC = () => {
 
           {/* Info Banner */}
           {infoMsg && (
-            <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800 font-medium">
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+            <div className="mb-5 p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span>{infoMsg}</span>
             </div>
           )}
 
-          {/* STEP 1: EMAIL & PASSWORD */}
+          {/* STEP 1: EMAIL OR PHONE & PASSWORD */}
           {step === 'CREDENTIALS' && (
             <form className="space-y-5" onSubmit={handleCredentialsSubmit}>
-              {/* Quick Preset Selector */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-2">
-                <span className="font-semibold text-slate-700 text-[11px] uppercase tracking-wider block">
-                  Quick Select Verified Account:
+              {/* Verified Account Helpers */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl text-xs space-y-2">
+                <span className="font-semibold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider block">
+                  Quick Select Account:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"
                     onClick={() => {
-                      setEmail('chaitrabai25@gmail.com');
+                      setIdentifier('chaitrabai25@gmail.com');
                       setPassword('Admin@12345');
                     }}
-                    className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg font-medium text-slate-800 transition-colors cursor-pointer text-[11px]"
+                    className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-lg font-medium text-slate-800 dark:text-slate-200 transition-colors cursor-pointer text-[11px]"
                   >
                     👤 chaitrabai25@gmail.com
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setEmail('admin@ooting.com');
+                      setIdentifier('admin@ooting.com');
                       setPassword('Admin@12345');
                     }}
-                    className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg font-medium text-slate-800 transition-colors cursor-pointer text-[11px]"
+                    className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-lg font-medium text-slate-800 dark:text-slate-200 transition-colors cursor-pointer text-[11px]"
                   >
                     👑 admin@ooting.com
                   </button>
@@ -198,23 +209,23 @@ export const Login: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">
-                  Email Address
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
+                  Email Address or Phone Number
                 </label>
                 <div className="mt-1.5">
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="chaitrabai25@gmail.com"
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors font-medium"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="e.g. admin@ooting.com or +91 98765 00001"
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors font-medium"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
                   Password
                 </label>
                 <div className="mt-1.5">
@@ -224,34 +235,25 @@ export const Login: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors"
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 pt-1">
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !identifier.trim() || !password}
                   className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#C91F28] transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   <LogIn className="w-4 h-4" />
-                  <span>{isLoading ? 'Verifying...' : 'Sign In with 2FA'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => handleQuickLogin(email.trim() || 'chaitrabai25@gmail.com')}
-                  className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-slate-300 rounded-xl shadow-sm text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  <span>⚡ 1-Click Instant Admin Sign-In</span>
+                  <span>{isLoading ? 'Verifying Credentials...' : 'Sign In with 2FA'}</span>
                 </button>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-1.5 text-slate-400 text-[11px]">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Encrypted session protected by Two-Factor Authentication</span>
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-1.5 text-slate-400 dark:text-slate-500 text-[11px]">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Protected by Two-Factor Cryptographic Authentication</span>
               </div>
             </form>
           )}
@@ -260,71 +262,56 @@ export const Login: React.FC = () => {
           {step === 'OTP' && (
             <form className="space-y-5" onSubmit={handleOtpSubmit}>
               <div className="text-center space-y-1">
-                <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#C91F28] flex items-center justify-center mx-auto mb-2">
+                <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/50 text-[#C91F28] dark:text-red-400 flex items-center justify-center mx-auto mb-2">
                   <KeyRound className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-slate-900 text-lg">Two-Factor Authentication</h3>
-                <p className="text-xs text-slate-500">
-                  Enter the 6-digit verification code generated for <strong className="text-slate-800">{email}</strong>
+                <h3 className="font-bold text-slate-900 dark:text-white text-lg">Two-Factor Authentication</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Enter the 6-digit verification code dispatched for <strong className="text-slate-800 dark:text-slate-200">{identifier}</strong>
                 </p>
               </div>
 
-              {/* Development Mode Notice Badge */}
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 space-y-1">
-                <div className="flex items-center justify-between font-bold">
-                  <span className="text-emerald-800">🔑 Verification Code:</span>
-                  <div className="flex items-center gap-2">
-                    {devOtpHint && (
-                      <button
-                        type="button"
-                        onClick={() => setOtp(devOtpHint)}
-                        className="text-[#C91F28] font-bold underline hover:text-[#a81920] cursor-pointer"
-                      >
-                        Auto-fill ({devOtpHint})
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setOtp('123456')}
-                      className="text-slate-600 font-medium underline hover:text-slate-900 cursor-pointer text-[10px]"
-                    >
-                      Master: 123456
-                    </button>
-                  </div>
+              {/* Expiration Timer Banner */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+                  <Clock className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                  <span>Code expires in:</span>
                 </div>
-                <p className="text-emerald-700 text-[10px]">
-                  Code is ready. Click "Verify & Enter CRM" below to access your dashboard.
-                </p>
+                <span className={`font-mono font-bold ${otpExpiresIn < 60 ? 'text-rose-600 dark:text-rose-400 animate-pulse' : 'text-slate-800 dark:text-slate-200'}`}>
+                  {formatTime(otpExpiresIn)}
+                </span>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide text-center">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide text-center">
                   6-Digit Verification Code
                 </label>
                 <div className="mt-2">
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     maxLength={6}
                     autoFocus
                     required
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
                     placeholder="••••••"
-                    className="w-full px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] font-bold bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors"
+                    className="w-full px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                disabled={isLoading || otp.length !== 6}
+                disabled={isLoading || otp.length !== 6 || otpExpiresIn <= 0}
                 className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#C91F28] transition-colors disabled:opacity-50 cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>{isLoading ? 'Verifying OTP...' : 'Verify & Enter CRM'}</span>
               </button>
 
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -333,7 +320,7 @@ export const Login: React.FC = () => {
                     setError(null);
                     setInfoMsg(null);
                   }}
-                  className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-medium transition-colors"
+                  className="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 font-medium transition-colors"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back to Login</span>
@@ -341,11 +328,12 @@ export const Login: React.FC = () => {
 
                 <button
                   type="button"
-                  disabled={resendCooldown > 0}
+                  disabled={resendCooldown > 0 || isLoading}
                   onClick={handleResendOtp}
-                  className="text-[#C91F28] hover:underline font-semibold disabled:opacity-40 disabled:no-underline transition-colors"
+                  className="text-[#C91F28] dark:text-red-400 hover:underline font-semibold disabled:opacity-40 disabled:no-underline transition-colors flex items-center gap-1"
                 >
-                  {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend Code'}
+                  {isLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : null}
+                  <span>{resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend Code'}</span>
                 </button>
               </div>
             </form>
@@ -356,3 +344,4 @@ export const Login: React.FC = () => {
     </div>
   );
 };
+export default Login;

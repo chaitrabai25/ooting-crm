@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
@@ -11,7 +12,7 @@ router.use(authenticate);
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-    const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
     const method = (req.query.method as string || '').trim();
     const status = (req.query.status as string || '').trim();
@@ -166,6 +167,55 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     });
 
     res.json(payment);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export payments to Excel (.xlsx)
+router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const payments = await prisma.payment.findMany({
+      include: {
+        booking: {
+          include: {
+            customer: { select: { fullName: true, phone: true } },
+          },
+        },
+      },
+      orderBy: { paymentDate: 'desc' },
+    });
+
+    const rows = payments.map((p, idx) => ({
+      'S.No.': idx + 1,
+      'Transaction Ref': p.transactionReference || 'N/A',
+      'Booking Ref': p.booking.bookingNumber,
+      'Customer Name': p.booking.customer.fullName,
+      'Phone': p.booking.customer.phone,
+      'Amount': p.amount,
+      'Payment Method': p.paymentMethod,
+      'Payment Status': p.paymentStatus,
+      'Payment Date': p.paymentDate.toISOString().split('T')[0],
+      'Notes': p.notes || '',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Payments');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'EXPORT',
+      entity: 'PAYMENT',
+      details: `Exported ${payments.length} payment records to Excel (.xlsx)`,
+      ipAddress: req.ip,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-payments-${Date.now()}.xlsx`);
+    res.send(buffer);
   } catch (error) {
     next(error);
   }

@@ -8,73 +8,75 @@ import { config } from '../config/index.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 
+import { sendOtpNotification } from '../services/otp.service.js';
+
 const router = Router();
 
 const loginSchema = z.object({
-  email: z.string().email('Valid email address is required'),
+  identifier: z.string().min(3, 'Email address or phone number is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 const verifyOtpSchema = z.object({
-  email: z.string().email('Valid email address is required'),
+  identifier: z.string().min(3, 'Email address or phone number is required'),
   otp: z.string().length(6, 'OTP must be exactly 6 digits'),
 });
 
 const resendOtpSchema = z.object({
-  email: z.string().email('Valid email address is required'),
+  identifier: z.string().min(3, 'Email address or phone number is required'),
 });
 
-// Step 1: Validate Credentials & Issue 2FA OTP
+// Helper to find user by email or phone
+async function findUserByIdentifier(identifier: string) {
+  const clean = identifier.trim();
+  if (clean.includes('@')) {
+    return prisma.user.findUnique({
+      where: { email: clean.toLowerCase() },
+    });
+  }
+
+  const digits = clean.replace(/\D/g, '');
+  return prisma.user.findFirst({
+    where: {
+      OR: [
+        { phone: clean },
+        { phone: { contains: digits.length >= 10 ? digits.slice(-10) : digits } },
+      ],
+    },
+  });
+}
+
+// Step 1: Validate Credentials (Email or Phone) & Issue 2FA OTP
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = loginSchema.parse(req.body);
-    const normalizedEmail = email.toLowerCase().trim();
-
-    let user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const rawIdentifier = req.body.identifier || req.body.email || '';
+    const { identifier, password } = loginSchema.parse({
+      identifier: rawIdentifier,
+      password: req.body.password,
     });
 
+    const user = await findUserByIdentifier(identifier);
+
     if (!user) {
-      // Seamless Onboarding: Auto-register user with provided credentials as SUPER_ADMIN
-      const passwordHash = await bcrypt.hash(password, 10);
-      user = await prisma.user.create({
-        data: {
-          name: normalizedEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
-          email: normalizedEmail,
-          passwordHash,
-          role: 'SUPER_ADMIN',
-          phone: '+91 98765 00001',
-          status: 'ACTIVE',
-        },
-      });
-      console.log(`🎉 Auto-registered verified administrator: ${user.email}`);
-    } else {
-      // Ensure account is ACTIVE
-      if (user.status !== 'ACTIVE') {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { status: 'ACTIVE' },
-        });
-      }
+      res.status(401).json({ message: 'Invalid email/phone or password.' });
+      return;
+    }
 
-      // Check password or master bypass password
-      const isMasterPassword = password === 'Admin@12345' || password === 'admin123' || password === 'ooting2026';
-      const isValidPassword = isMasterPassword || (await bcrypt.compare(password, user.passwordHash));
+    if (user.status !== 'ACTIVE') {
+      res.status(403).json({ message: 'Your account is deactivated. Please contact an administrator.' });
+      return;
+    }
 
-      if (!isValidPassword) {
-        // Automatically sync password hash for admin accounts
-        const updatedHash = await bcrypt.hash(password, 10);
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { passwordHash: updatedHash },
-        });
-      }
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!isValidPassword) {
+      res.status(401).json({ message: 'Invalid email/phone or password.' });
+      return;
     }
 
     // Generate cryptographically secure 6-digit OTP
     const rawOtp = crypto.randomInt(100000, 999999).toString();
     const otpHash = await bcrypt.hash(rawOtp, 10);
-    const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await prisma.user.update({
       where: { id: user.id },
@@ -86,67 +88,15 @@ router.post('/login', async (req, res, next) => {
       },
     });
 
-    console.log(`\n======================================================`);
-    console.log(`🔐 [OOTING CRM 2FA OTP] For User: ${user.email}`);
-    console.log(`👉 VERIFICATION CODE: ${rawOtp} (Valid for 15 minutes)`);
-    console.log(`======================================================\n`);
+    // Dispatch via real delivery service (SMTP email / Twilio SMS)
+    await sendOtpNotification(user, rawOtp);
 
+    // Secure response: Never expose OTP to the frontend
     res.json({
       otpRequired: true,
       email: user.email,
-      message: 'A 6-digit verification code has been generated.',
-      devOtp: rawOtp,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// 1-Click Quick Login for Owner & Admin
-router.post('/quick-login', async (req, res, next) => {
-  try {
-    const rawEmail = (req.body.email || 'admin@ooting.com').toString().toLowerCase().trim();
-    let user = await prisma.user.findUnique({
-      where: { email: rawEmail },
-    });
-
-    if (!user) {
-      const passwordHash = await bcrypt.hash('Admin@12345', 10);
-      user = await prisma.user.create({
-        data: {
-          name: rawEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
-          email: rawEmail,
-          passwordHash,
-          role: 'SUPER_ADMIN',
-          status: 'ACTIVE',
-          phone: '+91 98765 00001',
-        },
-      });
-    } else if (user.status !== 'ACTIVE') {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { status: 'ACTIVE' },
-      });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn as any }
-    );
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        status: user.status,
-        lastLoginAt: new Date(),
-      },
-      company: config.company,
+      phone: user.phone ? user.phone.replace(/.(?=.{4})/g, '*') : null,
+      message: `A 6-digit verification code has been dispatched to ${user.email}.`,
     });
   } catch (error) {
     next(error);
@@ -156,36 +106,51 @@ router.post('/quick-login', async (req, res, next) => {
 // Step 2: Verify 6-digit OTP and Issue Session
 router.post('/verify-otp', async (req, res, next) => {
   try {
-    const { email, otp } = verifyOtpSchema.parse(req.body);
-    const normalizedEmail = email.toLowerCase().trim();
-
-    let user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const rawIdentifier = req.body.identifier || req.body.email || '';
+    const { identifier, otp } = verifyOtpSchema.parse({
+      identifier: rawIdentifier,
+      otp: req.body.otp,
     });
 
+    const user = await findUserByIdentifier(identifier);
+
     if (!user) {
-      res.status(400).json({ message: 'User not found or session invalid.' });
+      res.status(400).json({ message: 'User account not found or session invalid.' });
       return;
     }
 
-    // Master OTP bypass (123456 or 000000) or valid user.otpHash
-    const isMasterCode = otp.trim() === '123456' || otp.trim() === '000000';
-    let isMatch = isMasterCode;
-
-    if (!isMatch && user.otpHash) {
-      isMatch = await bcrypt.compare(otp.trim(), user.otpHash);
+    if (user.status !== 'ACTIVE') {
+      res.status(403).json({ message: 'Account is deactivated.' });
+      return;
     }
+
+    if (!user.otpHash || !user.otpExpiresAt) {
+      res.status(400).json({ message: 'No active OTP session found. Please sign in with your password first.' });
+      return;
+    }
+
+    if (new Date() > user.otpExpiresAt) {
+      res.status(400).json({ message: 'Verification code has expired. Please request a new code.' });
+      return;
+    }
+
+    if (user.otpAttempts >= 5) {
+      res.status(429).json({ message: 'Too many incorrect attempts. Please request a new verification code.' });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(otp.trim(), user.otpHash);
 
     if (!isMatch) {
       await prisma.user.update({
         where: { id: user.id },
         data: { otpAttempts: { increment: 1 } },
       });
-      res.status(400).json({ message: 'Invalid OTP code. Please enter the 6-digit code shown or 123456.' });
+      res.status(400).json({ message: 'Invalid verification code. Please check and try again.' });
       return;
     }
 
-    // Success: Clear OTP credentials and complete login
+    // Success: Clear OTP credentials (single-use) and complete login
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -209,7 +174,7 @@ router.post('/verify-otp', async (req, res, next) => {
       action: 'LOGIN',
       entity: 'USER',
       entityId: user.id,
-      details: `User completed 2FA login from IP ${req.ip}`,
+      details: `User completed 2FA authentication from IP ${req.ip}`,
       ipAddress: req.ip,
     });
 
@@ -234,18 +199,17 @@ router.post('/verify-otp', async (req, res, next) => {
 // Resend OTP
 router.post('/resend-otp', async (req, res, next) => {
   try {
-    const { email } = resendOtpSchema.parse(req.body);
+    const rawIdentifier = req.body.identifier || req.body.email || '';
+    const { identifier } = resendOtpSchema.parse({ identifier: rawIdentifier });
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
-    });
+    const user = await findUserByIdentifier(identifier);
 
     if (!user) {
       res.status(400).json({ message: 'User not found.' });
       return;
     }
 
-    // Check rate limit: 30-second cooldown
+    // 30-second cooldown
     if (user.lastOtpRequestedAt) {
       const elapsed = Date.now() - new Date(user.lastOtpRequestedAt).getTime();
       if (elapsed < 30000) {
@@ -269,14 +233,10 @@ router.post('/resend-otp', async (req, res, next) => {
       },
     });
 
-    console.log(`\n======================================================`);
-    console.log(`🔁 [OOTING CRM 2FA OTP RESENT] For User: ${user.email}`);
-    console.log(`👉 NEW VERIFICATION CODE: ${rawOtp} (Valid for 10 minutes)`);
-    console.log(`======================================================\n`);
+    await sendOtpNotification(user, rawOtp);
 
     res.json({
-      message: 'New verification code sent.',
-      devOtp: rawOtp,
+      message: `A fresh verification code has been dispatched to ${user.email}.`,
     });
   } catch (error) {
     next(error);

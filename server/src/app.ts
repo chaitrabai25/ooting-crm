@@ -20,6 +20,7 @@ import reportRoutes from './routes/report.routes.js';
 import settingRoutes from './routes/setting.routes.js';
 import searchRoutes from './routes/search.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
+import whatsappRoutes from './routes/whatsapp.routes.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -39,7 +40,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static uploads serving (ensures directory exists)
 const uploadsDir = path.resolve(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+  try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  } catch {
+    // Safe fallback for serverless read-only filesystems (e.g. Vercel)
+  }
 }
 app.use('/uploads', express.static(uploadsDir));
 
@@ -69,6 +74,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // Serve compiled client frontend if available (Production Full-Stack Mode)
 const clientDistPath = path.resolve(__dirname, '../../client/dist');
@@ -84,3 +90,5 @@ if (fs.existsSync(clientDistPath)) {
 
 // Error Handling Middleware
 app.use(errorHandler);
+
+export default app;

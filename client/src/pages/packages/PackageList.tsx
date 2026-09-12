@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Compass,
   Plus,
   Search,
   MapPin,
@@ -9,6 +8,7 @@ import {
   ArrowRight,
   Edit2,
   Calendar,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -54,28 +54,46 @@ export const PackageList: React.FC = () => {
     fetchPackages();
   };
 
+  const handleExportExcel = () => {
+    window.open('/api/packages/export/excel', '_blank');
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">Travel Packages & Itineraries</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Travel Packages & Itineraries
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Curate verified destinations, day-by-day itineraries, pricing, and inclusions.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setEditingPackage(null);
-            setIsModalOpen(true);
-          }}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors self-start sm:self-auto"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Package</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* Excel Export */}
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setEditingPackage(null);
+              setIsModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Package</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -87,7 +105,7 @@ export const PackageList: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search package name, destination..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
+            className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
           />
         </form>
 
@@ -95,7 +113,7 @@ export const PackageList: React.FC = () => {
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="">All Categories</option>
             <option value="HOLIDAY">Holiday Tour</option>
@@ -107,7 +125,7 @@ export const PackageList: React.FC = () => {
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="">All Statuses</option>
             <option value="ACTIVE">Active</option>
@@ -121,7 +139,10 @@ export const PackageList: React.FC = () => {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-64 bg-white rounded-xl border border-slate-200 animate-pulse" />
+            <div
+              key={i}
+              className="h-64 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 animate-pulse"
+            />
           ))}
         </div>
       ) : packages.length === 0 ? (
@@ -135,11 +156,11 @@ export const PackageList: React.FC = () => {
           {packages.map((pkg) => (
             <div
               key={pkg.id}
-              className="bg-white rounded-xl border border-slate-200/80 hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+              className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
             >
               <div className="p-5">
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-1 text-xs font-semibold text-brand-600">
+                  <div className="flex items-center gap-1 text-xs font-semibold text-brand-600 dark:text-brand-400">
                     <MapPin className="w-3.5 h-3.5" />
                     <span>{pkg.destination}</span>
                   </div>
@@ -148,16 +169,16 @@ export const PackageList: React.FC = () => {
 
                 <h3
                   onClick={() => navigate(`/packages/${pkg.id}`)}
-                  className="font-bold text-slate-900 text-base group-hover:text-brand-600 transition-colors cursor-pointer"
+                  className="font-bold text-slate-900 dark:text-slate-100 text-base group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors cursor-pointer"
                 >
                   {pkg.packageName}
                 </h3>
 
-                <p className="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2 leading-relaxed">
                   {pkg.description}
                 </p>
 
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                   <div className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
                     <span className="font-medium">{pkg.duration}</span>
@@ -169,13 +190,13 @@ export const PackageList: React.FC = () => {
                 </div>
               </div>
 
-              <div className="px-5 py-3.5 bg-slate-50/75 border-t border-slate-100 flex items-center justify-between">
+              <div className="px-5 py-3.5 bg-slate-50/75 dark:bg-slate-850/60 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-slate-400 block uppercase font-medium">Starting from</span>
-                  <span className="text-base font-bold text-slate-900">
+                  <span className="text-base font-bold text-slate-900 dark:text-slate-100">
                     ₹{Number(pkg.price).toLocaleString('en-IN')}
                   </span>
-                  <span className="text-[11px] text-slate-500 font-normal"> / person</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-normal"> / person</span>
                 </div>
 
                 <div className="flex items-center gap-1">
@@ -186,7 +207,7 @@ export const PackageList: React.FC = () => {
                       setIsModalOpen(true);
                     }}
                     title="Edit Details"
-                    className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 rounded-md transition-colors"
+                    className="p-1.5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-md transition-colors"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
@@ -194,7 +215,7 @@ export const PackageList: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate(`/packages/${pkg.id}`)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 bg-brand-50 dark:bg-brand-950/40 hover:bg-brand-100 dark:hover:bg-brand-900/50 rounded-lg transition-colors"
                   >
                     <span>Itinerary</span>
                     <ArrowRight className="w-3.5 h-3.5" />

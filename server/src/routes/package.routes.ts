@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
@@ -11,7 +12,7 @@ router.use(authenticate);
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-    const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
     const destination = (req.query.destination as string || '').trim();
     const packageType = (req.query.packageType as string || '').trim();
@@ -247,6 +248,51 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
     });
 
     res.json(updatedPackage);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export packages to Excel (.xlsx)
+router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const packages = await prisma.package.findMany({
+      include: {
+        _count: { select: { bookings: true, leads: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const rows = packages.map((pkg, idx) => ({
+      'S.No.': idx + 1,
+      'Package Name': pkg.packageName,
+      'Destination': pkg.destination,
+      'Duration': pkg.duration,
+      'Price': pkg.price,
+      'Package Type': pkg.packageType,
+      'Status': pkg.status,
+      'Total Bookings': pkg._count.bookings,
+      'Total Leads': pkg._count.leads,
+      'Created Date': pkg.createdAt.toISOString().split('T')[0],
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Packages');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'EXPORT',
+      entity: 'PACKAGE',
+      details: `Exported ${packages.length} package records to Excel (.xlsx)`,
+      ipAddress: req.ip,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-packages-${Date.now()}.xlsx`);
+    res.send(buffer);
   } catch (error) {
     next(error);
   }

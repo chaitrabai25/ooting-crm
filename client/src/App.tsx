@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.js';
+import { ThemeProvider } from './context/ThemeContext.js';
 import { ProtectedRoute } from './components/layout/ProtectedRoute.js';
 import { AppLayout } from './components/layout/AppLayout.js';
 
@@ -43,70 +44,72 @@ import { AuditLogsPage } from './pages/audit-logs/AuditLogsPage.js';
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
 
-          {/* Protected routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
+            {/* Protected routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Dashboard />} />
 
-              {/* Leads */}
-              <Route path="/leads" element={<LeadList />} />
-              <Route path="/leads/:id" element={<LeadDetail />} />
+                {/* Leads */}
+                <Route path="/leads" element={<LeadList />} />
+                <Route path="/leads/:id" element={<LeadDetail />} />
 
-              {/* Follow-ups */}
-              <Route path="/followups" element={<FollowUpList />} />
+                {/* Follow-ups */}
+                <Route path="/followups" element={<FollowUpList />} />
 
-              {/* Customers */}
-              <Route path="/customers" element={<CustomerList />} />
-              <Route path="/customers/:id" element={<CustomerDetail />} />
+                {/* Customers */}
+                <Route path="/customers" element={<CustomerList />} />
+                <Route path="/customers/:id" element={<CustomerDetail />} />
 
-              {/* Travel Packages & Itineraries */}
-              <Route path="/packages" element={<PackageList />} />
-              <Route path="/packages/:id" element={<PackageDetail />} />
-              <Route path="/packages/:id/itinerary-pdf" element={<ItineraryPdfView />} />
+                {/* Travel Packages & Itineraries */}
+                <Route path="/packages" element={<PackageList />} />
+                <Route path="/packages/:id" element={<PackageDetail />} />
+                <Route path="/packages/:id/itinerary-pdf" element={<ItineraryPdfView />} />
 
-              {/* Quotations */}
-              <Route path="/quotations" element={<QuotationList />} />
-              <Route path="/quotations/new" element={<QuotationBuilder />} />
-              <Route path="/quotations/:id" element={<QuotationView />} />
-              <Route path="/quotations/:id/edit" element={<QuotationBuilder />} />
+                {/* Quotations */}
+                <Route path="/quotations" element={<QuotationList />} />
+                <Route path="/quotations/new" element={<QuotationBuilder />} />
+                <Route path="/quotations/:id" element={<QuotationView />} />
+                <Route path="/quotations/:id/edit" element={<QuotationBuilder />} />
 
-              {/* Bookings */}
-              <Route path="/bookings" element={<BookingList />} />
-              <Route path="/bookings/:id" element={<BookingDetail />} />
-              <Route path="/passengers" element={<PassengerList />} />
+                {/* Bookings */}
+                <Route path="/bookings" element={<BookingList />} />
+                <Route path="/bookings/:id" element={<BookingDetail />} />
+                <Route path="/passengers" element={<PassengerList />} />
 
-              {/* Payments & Financials */}
-              <Route path="/payments" element={<PaymentList />} />
-              <Route path="/expenses" element={<ExpenseList />} />
+                {/* Payments & Financials */}
+                <Route path="/payments" element={<PaymentList />} />
+                <Route path="/expenses" element={<ExpenseList />} />
 
-              {/* B2B Travel Agents */}
-              <Route path="/agents" element={<AgentList />} />
-              <Route path="/agents/:id" element={<AgentDetail />} />
+                {/* B2B Travel Agents */}
+                <Route path="/agents" element={<AgentList />} />
+                <Route path="/agents/:id" element={<AgentDetail />} />
 
-              {/* Reports & Analytics */}
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
+                {/* Reports & Analytics */}
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
 
-              {/* Administration (Admin & Super Admin only) */}
-              <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']} />}>
-                <Route path="/users" element={<UserList />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/audit-logs" element={<AuditLogsPage />} />
+                {/* Administration (Admin & Super Admin only) */}
+                <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']} />}>
+                  <Route path="/users" element={<UserList />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/audit-logs" element={<AuditLogsPage />} />
+                </Route>
               </Route>
             </Route>
-          </Route>
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

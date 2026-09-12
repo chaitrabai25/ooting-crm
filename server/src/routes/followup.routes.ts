@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
@@ -45,29 +46,40 @@ router.get('/counts', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// List follow-ups with type/time filter
+// List follow-ups with type/time filter and calendar date filter
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-    const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const filter = (req.query.filter as string || 'all').toLowerCase(); // 'today', 'overdue', 'upcoming', 'all'
     const status = (req.query.status as string || '').trim();
     const assignedUserId = (req.query.assignedUserId as string || '').trim();
+    const dateParam = (req.query.date as string || '').trim();
 
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     const where: any = {};
     if (status) {
       where.status = status;
-    } else if (filter !== 'all') {
+    } else if (filter !== 'all' && !dateParam) {
       where.status = 'PENDING';
     }
 
     if (assignedUserId) where.assignedUserId = assignedUserId;
 
-    if (filter === 'today') {
+    if (dateParam) {
+      const parts = dateParam.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const startOfDate = new Date(year, month, day, 0, 0, 0, 0);
+        const endOfDate = new Date(year, month, day, 23, 59, 59, 999);
+        where.scheduledAt = { gte: startOfDate, lte: endOfDate };
+      }
+    } else if (filter === 'today') {
       where.scheduledAt = { gte: startOfToday, lte: endOfToday };
     } else if (filter === 'overdue') {
       where.scheduledAt = { lt: startOfToday };
@@ -89,7 +101,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         },
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: filter === 'overdue' ? { scheduledAt: 'asc' } : { scheduledAt: 'asc' },
+        orderBy: { scheduledAt: 'asc' },
       }),
     ]);
 
@@ -102,6 +114,44 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         totalPages: Math.ceil(total / limit),
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export follow-ups to Excel (.xlsx)
+router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const followUps = await prisma.followUp.findMany({
+      include: {
+        lead: {
+          include: { customer: { select: { fullName: true, phone: true, email: true } } },
+        },
+        assignedUser: { select: { name: true } },
+      },
+      orderBy: { scheduledAt: 'asc' },
+    });
+
+    const rows = followUps.map((f, idx) => ({
+      'S.No.': idx + 1,
+      'Customer Name': f.lead?.customer?.fullName || 'N/A',
+      'Phone': f.lead?.customer?.phone || 'N/A',
+      'Email': f.lead?.customer?.email || '',
+      'Follow-up Type': f.type,
+      'Scheduled At': f.scheduledAt.toLocaleString(),
+      'Status': f.status,
+      'Assigned Staff': f.assignedUser?.name || 'Unassigned',
+      'Notes': f.notes || '',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'FollowUps');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-followups-${Date.now()}.xlsx`);
+    res.send(buffer);
   } catch (error) {
     next(error);
   }

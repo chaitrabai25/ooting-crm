@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
@@ -13,7 +14,7 @@ const ALLOWED_AGENT_SORT_FIELDS = ['companyName', 'contactPerson', 'city', 'stat
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-    const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
     const status = (req.query.status as string || '').trim();
     const sortByParam = (req.query.sortBy as string || 'createdAt').trim();
@@ -354,6 +355,74 @@ router.patch('/bookings/:agentBookingId/payout', async (req: AuthRequest, res: R
     });
 
     res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export agents to Excel (.xlsx)
+router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const agents = await prisma.agent.findMany({
+      include: {
+        agentBookings: {
+          include: {
+            booking: { select: { finalAmount: true, bookingStatus: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const rows = agents.map((agent, idx) => {
+      let totalRevenue = 0;
+      let totalCommission = 0;
+      let pendingCommission = 0;
+
+      for (const ab of agent.agentBookings) {
+        if (ab.booking && ab.booking.bookingStatus !== 'CANCELLED') {
+          totalRevenue += ab.booking.finalAmount;
+          totalCommission += ab.commissionAmount;
+          if (ab.payoutStatus !== 'PAID') {
+            pendingCommission += ab.commissionAmount;
+          }
+        }
+      }
+
+      return {
+        'S.No.': idx + 1,
+        'Company Name': agent.companyName,
+        'Contact Person': agent.contactPerson,
+        'Phone': agent.phone,
+        'Email': agent.email || '',
+        'City': agent.city || '',
+        'State': agent.state || '',
+        'GST Number': agent.gstNumber || '',
+        'Status': agent.status,
+        'Total Revenue': totalRevenue,
+        'Total Commission': totalCommission,
+        'Pending Commission': pendingCommission,
+        'Created Date': agent.createdAt.toISOString().split('T')[0],
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Agents');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'EXPORT',
+      entity: 'AGENT',
+      details: `Exported ${agents.length} agent records to Excel (.xlsx)`,
+      ipAddress: req.ip,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-agents-${Date.now()}.xlsx`);
+    res.send(buffer);
   } catch (error) {
     next(error);
   }

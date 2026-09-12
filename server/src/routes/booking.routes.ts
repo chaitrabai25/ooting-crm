@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
@@ -23,7 +24,7 @@ const ALLOWED_SORT_FIELDS = [
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-    const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
     const status = (req.query.status as string || '').trim();
     const packageId = (req.query.packageId as string || '').trim();
@@ -102,7 +103,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-    const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
     const packageId = (req.query.packageId as string || '').trim();
     const status = (req.query.status as string || '').trim();
@@ -491,6 +492,64 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
+// Export Bookings to Excel (.xlsx)
+router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const bookings = await prisma.booking.findMany({
+      include: {
+        customer: true,
+        package: true,
+        assignedUser: { select: { name: true } },
+        payments: { where: { paymentStatus: 'SUCCESS' }, select: { amount: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const rows = bookings.map((b, idx) => {
+      const paid = b.payments.reduce((acc, p) => acc + p.amount, 0);
+      const balance = Math.max(0, b.finalAmount - paid);
+      return {
+        'S.No.': idx + 1,
+        'Booking Number': b.bookingNumber,
+        'Customer': b.customer.fullName,
+        'Phone': b.customer.phone,
+        'Package': b.package?.packageName || 'Custom Package',
+        'Start Date': b.travelStartDate.toISOString().split('T')[0],
+        'End Date': b.travelEndDate.toISOString().split('T')[0],
+        'Travellers': b.travellers,
+        'Total Amount': b.totalAmount,
+        'Discount': b.discount,
+        'Final Amount': b.finalAmount,
+        'Amount Paid': paid,
+        'Balance Due': balance,
+        'Status': b.bookingStatus,
+        'Assigned To': b.assignedUser?.name || 'Unassigned',
+        'Booking Date': b.bookingDate.toISOString().split('T')[0],
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Bookings');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'EXPORT',
+      entity: 'BOOKING',
+      details: `Exported ${bookings.length} booking records to Excel (.xlsx)`,
+      ipAddress: req.ip,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-bookings-${Date.now()}.xlsx`);
+    res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Export Bookings to CSV
 router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
   try {
@@ -541,6 +600,87 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=ooting-bookings-${Date.now()}.csv`);
     res.send(csvContent);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export Passengers to Excel (.xlsx)
+router.get('/export/passengers/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const packageId = (req.query.packageId as string || '').trim();
+    const where: any = {};
+    if (packageId) where.packageId = packageId;
+
+    const bookings = await prisma.booking.findMany({
+      where,
+      include: {
+        customer: true,
+        package: true,
+        travellersList: true,
+        payments: { where: { paymentStatus: 'SUCCESS' }, select: { amount: true } },
+      },
+      orderBy: { bookingDate: 'desc' },
+    });
+
+    const rows: any[] = [];
+    let sNo = 1;
+
+    bookings.forEach((b) => {
+      const paid = b.payments.reduce((acc, p) => acc + p.amount, 0);
+      const balance = Math.max(0, b.finalAmount - paid);
+
+      const travellers = (b.travellersList && b.travellersList.length > 0)
+        ? b.travellersList
+        : [{
+            name: b.customer.fullName,
+            age: null,
+            gender: null,
+            phone: b.customer.phone,
+            email: b.customer.email,
+            isPrimary: true,
+          }];
+
+      travellers.forEach((t) => {
+        rows.push({
+          'S.No.': sNo++,
+          'Passenger Name': t.name || '',
+          'Is Primary': t.isPrimary ? 'Yes' : 'No',
+          'Age': t.age ?? '',
+          'Gender': t.gender || '',
+          'Passenger Phone': t.phone || '',
+          'Passenger Email': t.email || '',
+          'Booking Ref': b.bookingNumber,
+          'Package Name': b.package?.packageName || 'Custom Package',
+          'Travel Start': b.travelStartDate.toISOString().split('T')[0],
+          'Travel End': b.travelEndDate.toISOString().split('T')[0],
+          'Primary Customer': b.customer.fullName,
+          'Customer Phone': b.customer.phone,
+          'Booking Status': b.bookingStatus,
+          'Total Amount': b.finalAmount,
+          'Amount Paid': paid,
+          'Balance Due': balance,
+        });
+      });
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Passengers');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'EXPORT',
+      entity: 'BOOKING',
+      details: `Exported ${rows.length} passenger records to Excel (.xlsx)`,
+      ipAddress: req.ip,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-passengers-${Date.now()}.xlsx`);
+    res.send(buffer);
   } catch (error) {
     next(error);
   }

@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
@@ -11,7 +12,7 @@ router.use(authenticate);
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-    const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const category = (req.query.category as string || '').trim();
     const bookingId = (req.query.bookingId as string || '').trim();
     const startDate = (req.query.startDate as string || '').trim();
@@ -129,6 +130,50 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
     });
 
     res.json({ message: 'Expense deleted successfully.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Export expenses to Excel (.xlsx)
+router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const expenses = await prisma.expense.findMany({
+      include: {
+        booking: { select: { bookingNumber: true, customer: { select: { fullName: true } } } },
+        createdBy: { select: { name: true } },
+      },
+      orderBy: { expenseDate: 'desc' },
+    });
+
+    const rows = expenses.map((e, idx) => ({
+      'S.No.': idx + 1,
+      'Category': e.category,
+      'Amount': e.amount,
+      'Date': e.expenseDate.toISOString().split('T')[0],
+      'Booking Ref': e.booking?.bookingNumber || 'General',
+      'Customer': e.booking?.customer?.fullName || '',
+      'Description': e.description || '',
+      'Logged By': e.createdBy?.name || '',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Expenses');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'EXPORT',
+      entity: 'EXPENSE',
+      details: `Exported ${expenses.length} expense records to Excel (.xlsx)`,
+      ipAddress: req.ip,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-expenses-${Date.now()}.xlsx`);
+    res.send(buffer);
   } catch (error) {
     next(error);
   }
