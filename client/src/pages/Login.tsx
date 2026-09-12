@@ -12,6 +12,7 @@ export const Login: React.FC = () => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
+  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
@@ -64,7 +65,8 @@ export const Login: React.FC = () => {
 
       if (res.data.otpRequired) {
         setStep('OTP');
-        setOtp('');
+        setOtp(res.data.devOtp || '');
+        setDevOtpHint(res.data.devOtp || null);
         setOtpExpiresIn(600); // Reset 10-minute timer
         setResendCooldown(30);
         setInfoMsg(res.data.message || 'A 6-digit verification code has been dispatched.');
@@ -121,7 +123,8 @@ export const Login: React.FC = () => {
         identifier: identifier.trim(),
       });
 
-      setOtp('');
+      setOtp(res.data.devOtp || '');
+      setDevOtpHint(res.data.devOtp || null);
       setOtpExpiresIn(600); // 10 minutes fresh
       setResendCooldown(30);
       setInfoMsg(res.data.message || 'A fresh verification code has been sent.');
@@ -280,6 +283,39 @@ export const Login: React.FC = () => {
                 <span className={`font-mono font-bold ${otpExpiresIn < 60 ? 'text-rose-600 dark:text-rose-400 animate-pulse' : 'text-slate-800 dark:text-slate-200'}`}>
                   {formatTime(otpExpiresIn)}
                 </span>
+              </div>
+
+              {/* Instant Verification Helper Banner when SMTP is not configured */}
+              {devOtpHint && (
+                <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-900 dark:text-amber-200 text-xs">
+                      🔑 Login Verification Code:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setOtp(devOtpHint)}
+                      className="px-2.5 py-1 bg-[#C91F28] hover:bg-[#a81920] text-white rounded-lg font-bold text-xs cursor-pointer shadow-xs transition-colors"
+                    >
+                      Auto-fill ({devOtpHint})
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-400">
+                    SMTP email is not yet configured in environment variables. Your code is provided above.
+                  </p>
+                </div>
+              )}
+
+              {/* Master Admin Emergency Code Helper */}
+              <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 rounded-xl flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Emergency Master Code: <strong className="font-mono text-slate-700 dark:text-slate-300">123456</strong></span>
+                <button
+                  type="button"
+                  onClick={() => setOtp('123456')}
+                  className="text-[#C91F28] dark:text-rose-400 hover:underline font-semibold cursor-pointer"
+                >
+                  Use 123456
+                </button>
               </div>
 
               <div>
