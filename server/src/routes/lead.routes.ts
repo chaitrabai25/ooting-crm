@@ -40,13 +40,29 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         { notes: { contains: search } },
       ];
     }
-    if (status) where.enquiryStatus = status;
+    const tab = (req.query.tab as string || '').trim().toLowerCase();
+    if (tab === 'new') {
+      where.enquiryStatus = 'NEW';
+    } else if (tab === 'existing') {
+      where.enquiryStatus = { not: 'NEW' };
+    } else if (status) {
+      where.enquiryStatus = status;
+    }
+
     if (priority) where.priority = priority;
     if (destination) where.destination = { contains: destination };
     if (assignedUserId) where.assignedUserId = assignedUserId;
     if (source) where.source = source;
 
-    const [total, leads] = await Promise.all([
+    // Base where without status filter to calculate counts for tabs
+    const baseWhere: any = {};
+    if (search) baseWhere.OR = where.OR;
+    if (priority) baseWhere.priority = priority;
+    if (destination) baseWhere.destination = where.destination;
+    if (assignedUserId) baseWhere.assignedUserId = assignedUserId;
+    if (source) baseWhere.source = source;
+
+    const [total, leads, countNew, countExisting] = await Promise.all([
       prisma.lead.count({ where }),
       prisma.lead.findMany({
         where,
@@ -62,10 +78,17 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         take: limit,
         orderBy,
       }),
+      prisma.lead.count({ where: { ...baseWhere, enquiryStatus: 'NEW' } }),
+      prisma.lead.count({ where: { ...baseWhere, enquiryStatus: { not: 'NEW' } } }),
     ]);
 
     res.json({
       data: leads,
+      counts: {
+        all: countNew + countExisting,
+        new: countNew,
+        existing: countExisting,
+      },
       pagination: {
         page,
         limit,
@@ -395,6 +418,118 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
     });
 
     res.status(201).json(booking);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Convert Lead to Customer (Retrieve/Ensure active customer)
+router.post('/:id/convert-customer', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const lead = await prisma.lead.findUnique({
+      where: { id },
+      include: { customer: true },
+    });
+
+    if (!lead) {
+      res.status(404).json({ message: 'Lead not found.' });
+      return;
+    }
+
+    const customer = await prisma.customer.update({
+      where: { id: lead.customerId },
+      data: { status: 'ACTIVE' },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'UPDATE',
+      entity: 'CUSTOMER',
+      entityId: customer.id,
+      details: `Lead ${lead.id} customer ${customer.fullName} activated/verified.`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ customer, lead });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Convert Lead to Quotation (Generate draft quotation from lead)
+router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { basePrice, discount, tax, cabDetails, additionalCharges, notes } = req.body;
+
+    const lead = await prisma.lead.findUnique({
+      where: { id },
+      include: { customer: true, package: true },
+    });
+
+    if (!lead) {
+      res.status(404).json({ message: 'Lead not found.' });
+      return;
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
+    const count = await prisma.quotation.count();
+    const quotationNumber = `OOT-QT-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+
+    const price = Number(basePrice || lead.budget || lead.package?.price || 0);
+    const disc = Number(discount || 0);
+    const tx = Number(tax || 0);
+    const addChg = Number(additionalCharges || 0);
+    const finalAmount = Math.max(0, (price - disc) + tx + addChg);
+
+    const quotation = await prisma.quotation.create({
+      data: {
+        quotationNumber,
+        leadId: lead.id,
+        customerId: lead.customerId,
+        packageId: lead.packageId || null,
+        destination: lead.destination,
+        travelStartDate: lead.travelStartDate,
+        travelEndDate: lead.travelEndDate,
+        adults: lead.adults,
+        children: lead.children,
+        infants: lead.infants,
+        accommodation: lead.package?.inclusions || null,
+        transport: cabDetails || null,
+        cabDetails: cabDetails || null,
+        additionalCharges: addChg,
+        basePrice: price,
+        discount: disc,
+        tax: tx,
+        finalAmount,
+        status: 'DRAFT',
+        notes: notes || `Converted from Lead for ${lead.destination}`,
+        createdById: req.user?.id || null,
+      },
+      include: {
+        customer: true,
+        package: true,
+      },
+    });
+
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: { enquiryStatus: 'QUOTATION_SENT' },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'CREATE',
+      entity: 'QUOTATION',
+      entityId: quotation.id,
+      details: `Generated quotation ${quotation.quotationNumber} from lead ${lead.id}`,
+      ipAddress: req.ip,
+    });
+
+    res.status(201).json(quotation);
   } catch (error) {
     next(error);
   }

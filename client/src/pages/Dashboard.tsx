@@ -5,9 +5,12 @@ import {
   Sparkles,
   CalendarCheck,
   BookmarkCheck,
-  TrendingUp,
+  FileText,
+  Car,
+  Plane,
   CreditCard,
   Briefcase,
+  TrendingUp,
   Percent,
   Plus,
   ArrowRight,
@@ -15,6 +18,12 @@ import {
   Clock,
   Phone,
   CheckCircle2,
+  AlertCircle,
+  Calendar,
+  DollarSign,
+  ChevronRight,
+  ShieldCheck,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -25,10 +34,13 @@ import {
   Tooltip,
   CartesianGrid,
   Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
-import { StatCard } from '../components/ui/StatCard.js';
+import { AnimatedCounter } from '../components/ui/AnimatedCounter.js';
 import { Badge } from '../components/ui/Badge.js';
 import { EmptyState } from '../components/ui/EmptyState.js';
 
@@ -36,15 +48,22 @@ export const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [dateRange, setDateRange] = useState<'all' | 'today' | 'this_month' | 'this_year'>('all');
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [chartData, setChartData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Today's Tasks Active Tab
+  const [activeTaskTab, setActiveTaskTab] = useState<'followUps' | 'overdue' | 'departures' | 'cabs' | 'quotations'>('followUps');
+
   const fetchDashboard = async () => {
     try {
       setIsLoading(true);
+      const params = new URLSearchParams();
+      if (dateRange !== 'all') params.append('range', dateRange);
+
       const [dashRes, chartsRes] = await Promise.all([
-        api.get('/analytics/dashboard'),
+        api.get(`/analytics/dashboard?${params.toString()}`),
         api.get('/analytics/charts'),
       ]);
       setDashboardData(dashRes.data);
@@ -58,11 +77,7 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
-
-  const formatCurrency = (num: number) => {
-    return '₹' + Number(num || 0).toLocaleString('en-IN');
-  };
+  }, [dateRange]);
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -75,9 +90,12 @@ export const Dashboard: React.FC = () => {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="h-8 bg-slate-200 dark:bg-slate-800 rounded w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className="h-28 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].map((i) => (
+            <div
+              key={i}
+              className="h-28 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"
+            />
           ))}
         </div>
       </div>
@@ -85,351 +103,644 @@ export const Dashboard: React.FC = () => {
   }
 
   const cards = dashboardData?.cards || {};
-  const recentEnquiries = dashboardData?.recentEnquiries || [];
-  const recentBookings = dashboardData?.recentBookings || [];
-  const upcomingFollowUps = dashboardData?.upcomingFollowUps || [];
+  const todaysTasks = dashboardData?.todaysTasks || {
+    todayFollowUps: [],
+    overdueFollowUps: [],
+    todayDepartures: [],
+    todayCabs: [],
+    expiringQuotations: [],
+  };
+
   const salesTrend = chartData?.salesTrend || [];
   const leadFunnel = chartData?.leadFunnel || [];
+  const bookingAnalytics = chartData?.bookingAnalytics || [];
+  const quotationAnalytics = chartData?.quotationAnalytics || [];
+  const cabAnalytics = chartData?.cabAnalytics || [];
 
-  const FUNNEL_COLORS = ['#3B82F6', '#6366F1', '#F59E0B', '#A855F7', '#EA580C', '#10B981', '#EF4444', '#64748B'];
+  const PIE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4', '#EC4899'];
 
   return (
-    <div className="space-y-7 pb-12">
-      {/* Header & Welcome */}
+    <div className="space-y-8 pb-12">
+      {/* Header & Date Range Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            {getTimeGreeting()}, {user?.name?.split(' ')[0]} 👋
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+            {getTimeGreeting()}, {user?.name || 'Partner'} 👋
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Real-time travel operations, sales performance, and pipeline analytics.
+            Real-time operations, confirmed bookings, tourist cabs, and task schedule for Ooting Holidays.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Quick Action Shortcuts */}
           <button
-            onClick={() => navigate('/leads')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-lg shadow-sm transition-colors cursor-pointer"
+            onClick={() => navigate('/quotations/new')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Manage Leads</span>
+            <Plus className="w-3.5 h-3.5 text-purple-600" />
+            <span>New Quotation</span>
           </button>
+
           <button
-            onClick={() => navigate('/bookings')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors cursor-pointer"
+            onClick={() => navigate('/cabs?action=create')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors"
           >
-            <span>View Bookings</span>
+            <Plus className="w-3.5 h-3.5 text-[#C91F28]" />
+            <span>New Cab Booking</span>
           </button>
+
+          {/* Date Filter Dropdown */}
+          <select
+            value={dateRange}
+            onChange={(e: any) => setDateRange(e.target.value)}
+            className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 shadow-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
+          >
+            <option value="all">All Time Records</option>
+            <option value="today">Today Only</option>
+            <option value="this_month">This Month</option>
+            <option value="this_year">This Fiscal Year</option>
+          </select>
         </div>
       </div>
 
-      {/* Metric Cards Grid - All Connected to AnimatedCounter */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Leads"
-          numericValue={Number(cards.totalLeads) || 0}
-          subtitle={`${cards.newLeads ?? 0} uncontacted / new`}
-          icon={Sparkles}
-          iconBg="bg-blue-50 dark:bg-blue-950/40"
-          iconColor="text-blue-600 dark:text-blue-400"
-        />
+      {/* 16 KPI COUNTING CARDS */}
+      <div className="space-y-3">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Executive KPIs & Metrics (16 Core Counting Cards)
+        </h2>
 
-        <StatCard
-          title="Follow-ups Today"
-          numericValue={Number(cards.followUpsToday) || 0}
-          subtitle="Scheduled client calls/meetings"
-          icon={CalendarCheck}
-          iconBg="bg-amber-50 dark:bg-amber-950/40"
-          iconColor="text-amber-600 dark:text-amber-400"
-        />
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3.5">
+          {/* 1. Total Leads */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Leads</span>
+              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
+                <Sparkles className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
+              <AnimatedCounter value={cards.totalLeads || 0} />
+            </div>
+            <span className="text-[10px] text-blue-600 font-semibold block mt-0.5">
+              {cards.newLeads || 0} New Enquiries
+            </span>
+          </div>
 
-        <StatCard
-          title="Confirmed Bookings"
-          numericValue={Number(cards.confirmedBookings) || 0}
-          subtitle={`${cards.b2bBookings ?? 0} B2B agent bookings`}
-          icon={BookmarkCheck}
-          iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-          iconColor="text-emerald-600 dark:text-emerald-400"
-        />
+          {/* 2. Active / In-Progress Leads */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Active Leads</span>
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
+              <AnimatedCounter value={cards.inProgressLeads || 0} />
+            </div>
+            <span className="text-[10px] text-indigo-600 font-semibold block mt-0.5">
+              In Follow-up Pipeline
+            </span>
+          </div>
 
-        <StatCard
-          title="Conversion Rate"
-          numericValue={Number(cards.conversionRate) || 0}
-          suffix="%"
-          subtitle="Won vs qualified pipeline"
-          icon={Percent}
-          iconBg="bg-purple-50 dark:bg-purple-950/40"
-          iconColor="text-purple-600 dark:text-purple-400"
-        />
+          {/* 3. Won Leads */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Won Leads</span>
+              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
+              <AnimatedCounter value={cards.wonLeads || 0} />
+            </div>
+            <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">
+              {cards.conversionRate || 0}% Conversion Rate
+            </span>
+          </div>
 
-        <StatCard
-          title="Total Booking Value"
-          numericValue={Number(cards.totalRevenue) || 0}
-          prefix="₹"
-          subtitle="From confirmed & completed trips"
-          icon={TrendingUp}
-          iconBg="bg-rose-50 dark:bg-rose-950/40"
-          iconColor="text-[#C91F28] dark:text-rose-400"
-        />
+          {/* 4. Total Quotations */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Quotations</span>
+              <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600">
+                <FileText className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
+              <AnimatedCounter value={cards.totalQuotations || 0} />
+            </div>
+            <span className="text-[10px] text-purple-600 font-semibold block mt-0.5">
+              {cards.acceptedQuotations || 0} Accepted / Booked
+            </span>
+          </div>
 
-        <StatCard
-          title="Total Collected"
-          numericValue={Number(cards.totalCollected) || 0}
-          prefix="₹"
-          subtitle="Actual successful receipts"
-          icon={CreditCard}
-          iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-          iconColor="text-emerald-600 dark:text-emerald-400"
-        />
+          {/* 5. Confirmed Tour Bookings */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Confirmed Bookings</span>
+              <div className="p-2 rounded-xl bg-brand-50 dark:bg-brand-950/50 text-brand-600">
+                <BookmarkCheck className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
+              <AnimatedCounter value={cards.confirmedBookings || 0} />
+            </div>
+            <span className="text-[10px] text-brand-600 font-semibold block mt-0.5">
+              Total {cards.totalBookings || 0} Created
+            </span>
+          </div>
 
-        <StatCard
-          title="Pending Payments"
-          numericValue={Number(cards.pendingPayments) || 0}
-          prefix="₹"
-          subtitle="Booking value minus collected"
-          icon={CreditCard}
-          iconBg="bg-rose-50 dark:bg-rose-950/40"
-          iconColor="text-rose-600 dark:text-rose-400"
-        />
+          {/* 6. Total Customers */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Customers</span>
+              <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
+                <Users className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
+              <AnimatedCounter value={cards.totalCustomers || 0} />
+            </div>
+            <span className="text-[10px] text-teal-600 font-semibold block mt-0.5">
+              Verified Profiles
+            </span>
+          </div>
 
-        <StatCard
-          title="B2B Bookings"
-          numericValue={Number(cards.b2bBookings) || 0}
-          subtitle="Agent partner bookings"
-          icon={Briefcase}
-          iconBg="bg-slate-100 dark:bg-slate-800"
-          iconColor="text-slate-700 dark:text-slate-300"
-        />
+          {/* 7. Total Cab Bookings */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Cabs</span>
+              <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600">
+                <Car className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
+              <AnimatedCounter value={cards.totalCabs || 0} />
+            </div>
+            <span className="text-[10px] text-cyan-600 font-semibold block mt-0.5">
+              {cards.activeCabs || 0} Active / Confirmed
+            </span>
+          </div>
+
+          {/* 8. Today's Tour Departures */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Departures Today</span>
+              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
+                <Plane className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-amber-600 mt-2">
+              <AnimatedCounter value={cards.departuresToday || 0} />
+            </div>
+            <span className="text-[10px] text-amber-600 font-semibold block mt-0.5">
+              Tour Groups On Road
+            </span>
+          </div>
+
+          {/* 9. Today's Cab Pickups */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Cabs Today</span>
+              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
+                <Car className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-[#C91F28] mt-2">
+              <AnimatedCounter value={todaysTasks.todayCabs.length || 0} />
+            </div>
+            <span className="text-[10px] text-[#C91F28] font-semibold block mt-0.5">
+              Pickups Scheduled
+            </span>
+          </div>
+
+          {/* 10. Today's Follow-ups */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Calls Today</span>
+              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
+                <CalendarCheck className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-blue-600 mt-2">
+              <AnimatedCounter value={cards.followUpsToday || 0} />
+            </div>
+            <span className="text-[10px] text-blue-600 font-semibold block mt-0.5">
+              Scheduled for Today
+            </span>
+          </div>
+
+          {/* 11. Overdue Calls */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Overdue Follow-ups</span>
+              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-rose-600 mt-2">
+              <AnimatedCounter value={todaysTasks.overdueFollowUps.length || 0} />
+            </div>
+            <span className="text-[10px] text-rose-600 font-semibold block mt-0.5">
+              Requires Urgent Attention
+            </span>
+          </div>
+
+          {/* 12. Expiring Quotations */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Open Quotes</span>
+              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
+                <FileText className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-amber-600 mt-2">
+              <AnimatedCounter value={todaysTasks.expiringQuotations.length || 0} />
+            </div>
+            <span className="text-[10px] text-amber-600 font-semibold block mt-0.5">
+              Older Than 5 Days
+            </span>
+          </div>
+
+          {/* 13. Total Revenue (₹) */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Revenue</span>
+              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
+                <DollarSign className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-2">
+              ₹<AnimatedCounter value={cards.totalRevenue || 0} />
+            </div>
+            <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">
+              Tours + Cab Operations
+            </span>
+          </div>
+
+          {/* 14. Advance Collected (₹) */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Advance Collected</span>
+              <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
+                <CreditCard className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl font-black text-teal-700 dark:text-teal-400 mt-2">
+              ₹<AnimatedCounter value={cards.totalCollected || 0} />
+            </div>
+            <span className="text-[10px] text-teal-600 font-semibold block mt-0.5">
+              Verified in Bank/UPI
+            </span>
+          </div>
+
+          {/* 15. Balance Due (₹) */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Balance Pending</span>
+              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl font-black text-[#C91F28] mt-2">
+              ₹<AnimatedCounter value={cards.pendingPayments || 0} />
+            </div>
+            <span className="text-[10px] text-[#C91F28] font-semibold block mt-0.5">
+              Receivable from Guests
+            </span>
+          </div>
+
+          {/* 16. Active B2B Agents */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">B2B Agent Network</span>
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
+                <Briefcase className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
+              <AnimatedCounter value={cards.b2bBookings || 0} />
+            </div>
+            <span className="text-[10px] text-indigo-600 font-semibold block mt-0.5">
+              Partner Agency Bookings
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Analytics Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sales & Collection Trend */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Revenue & Payments Overview</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Monthly booking values vs. payments collected</p>
-            </div>
+      {/* TODAY'S TASKS INTERACTIVE PANEL */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/40">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-[#C91F28]" />
+              Today's Priority Operational Tasks
+            </h2>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Live operational tasks requiring action today. Click tabs to switch categories.
+            </p>
+          </div>
+
+          {/* Task Category Tabs with Badges */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             <button
-              onClick={() => navigate('/analytics')}
-              className="text-xs font-semibold text-[#C91F28] dark:text-rose-400 hover:text-[#a81920] inline-flex items-center gap-1 cursor-pointer"
+              onClick={() => setActiveTaskTab('followUps')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                activeTaskTab === 'followUps'
+                  ? 'bg-brand-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+              }`}
             >
-              <span>Full Analytics</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>Today's Calls</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+                {todaysTasks.todayFollowUps.length}
+              </span>
             </button>
+
+            <button
+              onClick={() => setActiveTaskTab('overdue')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                activeTaskTab === 'overdue'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <span>Overdue Calls</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+                {todaysTasks.overdueFollowUps.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTaskTab('departures')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                activeTaskTab === 'departures'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <span>Tour Departures</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+                {todaysTasks.todayDepartures.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTaskTab('cabs')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                activeTaskTab === 'cabs'
+                  ? 'bg-cyan-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <span>Cab Pickups</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+                {todaysTasks.todayCabs.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTaskTab('quotations')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                activeTaskTab === 'quotations'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <span>Expiring Quotes</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+                {todaysTasks.expiringQuotations.length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content List */}
+        <div className="p-4">
+          {activeTaskTab === 'followUps' && (
+            <div className="space-y-2">
+              {todaysTasks.todayFollowUps.length === 0 ? (
+                <div className="text-center py-6 text-xs text-slate-400">
+                  No pending follow-up calls scheduled for today! 🎉
+                </div>
+              ) : (
+                todaysTasks.todayFollowUps.map((fu: any) => (
+                  <div
+                    key={fu.id}
+                    onClick={() => navigate(`/leads/${fu.leadId}`)}
+                    className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-brand-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                        <Phone className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                          {fu.lead?.customer?.fullName || 'Client'} ({fu.lead?.customer?.phone})
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          {fu.type} • Scheduled for {new Date(fu.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {fu.assignedUser?.name && ` • In-charge: ${fu.assignedUser.name}`}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeTaskTab === 'overdue' && (
+            <div className="space-y-2">
+              {todaysTasks.overdueFollowUps.length === 0 ? (
+                <div className="text-center py-6 text-xs text-slate-400">
+                  No overdue follow-up calls. Good job team! 👏
+                </div>
+              ) : (
+                todaysTasks.overdueFollowUps.map((fu: any) => (
+                  <div
+                    key={fu.id}
+                    onClick={() => navigate(`/leads/${fu.leadId}`)}
+                    className="p-3 rounded-xl border border-rose-100 dark:border-rose-950/40 bg-rose-50/20 hover:bg-rose-50/50 transition-all cursor-pointer flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-rose-100 text-rose-600">
+                        <Clock className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                          {fu.lead?.customer?.fullName || 'Client'} ({fu.lead?.customer?.phone})
+                        </span>
+                        <span className="text-[11px] text-rose-600 font-semibold">
+                          Overdue since {new Date(fu.scheduledAt).toLocaleDateString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeTaskTab === 'departures' && (
+            <div className="space-y-2">
+              {todaysTasks.todayDepartures.length === 0 ? (
+                <div className="text-center py-6 text-xs text-slate-400">
+                  No tour package departures scheduled for today.
+                </div>
+              ) : (
+                todaysTasks.todayDepartures.map((b: any) => (
+                  <div
+                    key={b.id}
+                    onClick={() => navigate(`/bookings/${b.id}`)}
+                    className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-purple-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
+                        <Plane className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                          {b.customer?.fullName} • {b.package?.packageName || 'Tour Package'}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          Booking #{b.bookingNumber} • Travellers: {b.travellers}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge status={b.bookingStatus} />
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeTaskTab === 'cabs' && (
+            <div className="space-y-2">
+              {todaysTasks.todayCabs.length === 0 ? (
+                <div className="text-center py-6 text-xs text-slate-400">
+                  No tourist cab pickups scheduled for today.
+                </div>
+              ) : (
+                todaysTasks.todayCabs.map((c: any) => (
+                  <div
+                    key={c.id}
+                    onClick={() => navigate(`/cabs/${c.id}`)}
+                    className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-cyan-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-cyan-50 text-cyan-600">
+                        <Car className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                          {c.customerName} ({c.pickupPlace} ➔ {c.dropPlace})
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          Pickup: {c.pickupTime} • Car: {c.carNumber || 'To assign'} • Ref: {c.bookingReference}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge status={c.bookingStatus} />
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeTaskTab === 'quotations' && (
+            <div className="space-y-2">
+              {todaysTasks.expiringQuotations.length === 0 ? (
+                <div className="text-center py-6 text-xs text-slate-400">
+                  No expiring quotations pending follow-up.
+                </div>
+              ) : (
+                todaysTasks.expiringQuotations.map((q: any) => (
+                  <div
+                    key={q.id}
+                    onClick={() => navigate(`/quotations/${q.id}`)}
+                    className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-amber-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
+                        <FileText className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                          {q.quotationNumber} • {q.customer?.fullName} ({q.destination})
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          Amount: ₹{Number(q.finalAmount).toLocaleString('en-IN')} • Sent on {new Date(q.createdAt).toLocaleDateString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge status={q.status} />
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ANALYTICS CHARTS SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Monthly Revenue & Booking Trend */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <TrendingUp className="w-4 h-4 text-brand-600" />
+              Monthly Revenue & Booking Performance
+            </h3>
+            <span className="text-[11px] text-slate-400">Last 6 Months</span>
           </div>
 
           <div className="h-64 w-full">
-            {salesTrend.every((s: any) => s.bookingValue === 0 && s.collected === 0) ? (
-              <EmptyState
-                title="No booking or revenue data yet"
-                description="Once confirmed bookings and payments are added to the database, monthly trends will render here automatically."
-                className="h-full border-none bg-slate-50/50 dark:bg-slate-800/30"
-              />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: '#94a3b8' }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) => `₹${v >= 1000 ? `${v / 1000}k` : v}`}
-                  />
-                  <Tooltip
-                    formatter={(val: any) => [`₹${Number(val).toLocaleString('en-IN')}`, '']}
-                    contentStyle={{ borderRadius: '8px', fontSize: '12px', backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                  <Bar dataKey="bookingValue" name="Booking Value" fill="#C91F28" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="collected" name="Payments Collected" fill="#10B981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={salesTrend}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip
+                  formatter={(val: any, name: any) => [
+                    name === 'revenue' ? `₹${Number(val).toLocaleString('en-IN')}` : val,
+                    name === 'revenue' ? 'Revenue (₹)' : 'Confirmed Bookings',
+                  ]}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="revenue" fill="#3B82F6" radius={[4, 4, 0, 0]} name="Revenue (₹)" />
+                <Bar dataKey="bookings" fill="#10B981" radius={[4, 4, 0, 0]} name="Bookings" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Lead Funnel Pipeline */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Lead Pipeline Funnel</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Distribution by stage</p>
-            </div>
+        {/* Lead Pipeline & Funnel Breakdown */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-brand-600" />
+              Enquiry Pipeline Distribution
+            </h3>
+            <span className="text-[11px] text-slate-400">Conversion Funnel</span>
           </div>
 
-          <div className="h-64 w-full flex flex-col justify-center">
-            {leadFunnel.every((l: any) => l.count === 0) ? (
-              <EmptyState
-                title="No enquiries in database"
-                description="Add your first customer enquiry to see the pipeline breakdown."
-                className="h-full border-none bg-slate-50/50 dark:bg-slate-800/30"
-              />
-            ) : (
-              <div className="space-y-2.5 overflow-y-auto max-h-56 pr-1">
-                {leadFunnel
-                  .filter((l: any) => l.count > 0)
-                  .map((item: any, idx: number) => {
-                    const total = cards.totalLeads || 1;
-                    const pct = Math.round((item.count / total) * 100);
-                    return (
-                      <div key={item.status} className="text-xs">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">{item.status.replace('_', ' ')}</span>
-                          <span className="text-slate-500 dark:text-slate-400 font-medium">
-                            {item.count} ({pct}%)
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: FUNNEL_COLORS[idx % FUNNEL_COLORS.length],
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={leadFunnel} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="status" tick={{ fontSize: 10 }} width={100} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#6366F1" radius={[0, 4, 4, 0]} name="Total Leads" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        </div>
-      </div>
-
-      {/* Bottom Grid: Upcoming Follow-ups & Recent Activities */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Today's & Upcoming Follow-ups */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Upcoming Follow-ups</h3>
-            <button
-              onClick={() => navigate('/followups')}
-              className="text-xs font-semibold text-[#C91F28] dark:text-rose-400 hover:text-[#a81920] cursor-pointer"
-            >
-              View All
-            </button>
-          </div>
-
-          {upcomingFollowUps.length === 0 ? (
-            <EmptyState
-              title="No upcoming follow-ups"
-              description="No client follow-ups currently pending. Great job staying up to date!"
-              className="py-8 border-none bg-slate-50/50 dark:bg-slate-800/30"
-            />
-          ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {upcomingFollowUps.map((f: any) => (
-                <div key={f.id} className="py-2.5 flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                      {f.lead?.customer?.fullName}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                      <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                      <span>{new Date(f.scheduledAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                      <span className="font-semibold text-[#C91F28] dark:text-rose-400 ml-1">({f.type})</span>
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => navigate(`/leads/${f.leadId}`)}
-                    className="p-1 rounded-md text-slate-400 hover:text-[#C91F28] dark:hover:text-rose-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                  >
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Recent Enquiries */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Enquiries</h3>
-            <button
-              onClick={() => navigate('/leads')}
-              className="text-xs font-semibold text-[#C91F28] dark:text-rose-400 hover:text-[#a81920] cursor-pointer"
-            >
-              View All
-            </button>
-          </div>
-
-          {recentEnquiries.length === 0 ? (
-            <EmptyState
-              title="No leads recorded"
-              description="Customer enquiries will appear here as soon as they are entered."
-              className="py-8 border-none bg-slate-50/50 dark:bg-slate-800/30"
-            />
-          ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {recentEnquiries.map((l: any) => (
-                <div
-                  key={l.id}
-                  onClick={() => navigate(`/leads/${l.id}`)}
-                  className="py-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/80 px-1 rounded-md transition-colors"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                      {l.customer?.fullName}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                      <span>{l.destination}</span>
-                    </p>
-                  </div>
-                  <Badge status={l.enquiryStatus} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Recent Bookings */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Bookings</h3>
-            <button
-              onClick={() => navigate('/bookings')}
-              className="text-xs font-semibold text-[#C91F28] dark:text-rose-400 hover:text-[#a81920] cursor-pointer"
-            >
-              View All
-            </button>
-          </div>
-
-          {recentBookings.length === 0 ? (
-            <EmptyState
-              title="No bookings recorded"
-              description="Converted bookings will show here with their live payment status."
-              className="py-8 border-none bg-slate-50/50 dark:bg-slate-800/30"
-            />
-          ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {recentBookings.map((b: any) => (
-                <div
-                  key={b.id}
-                  onClick={() => navigate(`/bookings/${b.id}`)}
-                  className="py-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/80 px-1 rounded-md transition-colors"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                      {b.bookingNumber} — {b.customer?.fullName}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                      {formatCurrency(b.finalAmount)}
-                    </p>
-                  </div>
-                  <Badge status={b.bookingStatus} />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 };
-export default Dashboard;

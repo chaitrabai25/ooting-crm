@@ -4,7 +4,7 @@ interface AuditParams {
   userId?: string;
   userName?: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE' | 'LOGIN' | 'EXPORT' | 'IMPORT';
-  entity: 'CUSTOMER' | 'LEAD' | 'BOOKING' | 'PAYMENT' | 'PACKAGE' | 'AGENT' | 'USER' | 'EXPENSE' | 'QUOTATION' | 'SETTING';
+  entity: 'CUSTOMER' | 'LEAD' | 'BOOKING' | 'PAYMENT' | 'PACKAGE' | 'AGENT' | 'USER' | 'EXPENSE' | 'QUOTATION' | 'SETTING' | 'CAB_BOOKING' | 'CALENDAR_EVENT';
   entityId?: string;
   details?: string;
   ipAddress?: string;

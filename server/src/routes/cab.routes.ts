@@ -1,0 +1,593 @@
+import { Router, Response } from 'express';
+import { z } from 'zod';
+import * as XLSX from 'xlsx';
+import { prisma } from '../db/prisma.js';
+import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { logAudit } from '../middleware/audit.js';
+import { config } from '../config/index.js';
+
+const router = Router();
+router.use(authenticate);
+
+// Export Cab Bookings to Excel (.xlsx)
+router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const search = (req.query.search as string || '').trim();
+    const bookingStatus = (req.query.bookingStatus as string || '').trim();
+    const paymentStatus = (req.query.paymentStatus as string || '').trim();
+    const vehicleType = (req.query.vehicleType as string || '').trim();
+    const tripType = (req.query.tripType as string || '').trim();
+    const assignedStaffId = (req.query.assignedStaffId as string || '').trim();
+
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { bookingReference: { contains: search } },
+        { customerName: { contains: search } },
+        { customerPhone: { contains: search } },
+        { carNumber: { contains: search } },
+        { driverName: { contains: search } },
+        { pickupPlace: { contains: search } },
+        { dropPlace: { contains: search } },
+      ];
+    }
+    if (bookingStatus) where.bookingStatus = bookingStatus;
+    if (paymentStatus) where.paymentStatus = paymentStatus;
+    if (vehicleType) where.vehicleType = vehicleType;
+    if (tripType) where.tripType = tripType;
+    if (assignedStaffId) where.assignedStaffId = assignedStaffId;
+
+    const cabs = await prisma.cabBooking.findMany({
+      where,
+      include: {
+        assignedStaff: { select: { name: true } },
+        customer: { select: { fullName: true, phone: true } },
+      },
+      orderBy: { pickupDate: 'desc' },
+    });
+
+    const rows = cabs.map((c, idx) => ({
+      'S.No': idx + 1,
+      'Booking Ref': c.bookingReference,
+      'Customer Name': c.customerName,
+      'Customer Phone': c.customerPhone,
+      'Customer Email': c.customerEmail || 'N/A',
+      'Pickup Date': new Date(c.pickupDate).toLocaleDateString('en-IN'),
+      'Pickup Time': c.pickupTime,
+      'Pickup Place': c.pickupPlace,
+      'Drop Place': c.dropPlace,
+      'Route': c.travelRoute || 'N/A',
+      'Car Number': c.carNumber || 'Not Assigned',
+      'Vehicle Type': c.vehicleType,
+      'Cab Type': c.requiredCabType || 'AC',
+      'Passengers': c.passengerCount,
+      'Driver Name': c.driverName || 'Not Assigned',
+      'Driver Phone': c.driverPhone || 'N/A',
+      'Cab Provider': c.cabProvider || 'N/A',
+      'Trip Type': c.tripType,
+      'Est. Distance': c.estimatedDistance || 'N/A',
+      'Est. Duration': c.estimatedDuration || 'N/A',
+      'Cab Amount (INR)': Number(c.cabAmount),
+      'Advance (INR)': Number(c.advanceAmount),
+      'Balance (INR)': Number(c.balanceAmount),
+      'Payment Status': c.paymentStatus,
+      'Booking Status': c.bookingStatus,
+      'Assigned Staff': c.assignedStaff?.name || 'Unassigned',
+      'Special Instructions': c.specialInstructions || '',
+      'Notes': c.internalNotes || '',
+      'Created Date': new Date(c.createdAt).toLocaleDateString('en-IN'),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'CabBookings');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'EXPORT',
+      entity: 'CAB_BOOKING',
+      details: `Exported ${cabs.length} cab booking records to Excel (.xlsx)`,
+      ipAddress: req.ip,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ooting-cabs-${Date.now()}.xlsx`);
+    res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Summary Stats for Cabs
+router.get('/stats', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const [total, confirmed, onTrip, completed, cancelled, allBookings] = await Promise.all([
+      prisma.cabBooking.count(),
+      prisma.cabBooking.count({ where: { bookingStatus: 'CONFIRMED' } }),
+      prisma.cabBooking.count({ where: { bookingStatus: 'ON_TRIP' } }),
+      prisma.cabBooking.count({ where: { bookingStatus: 'COMPLETED' } }),
+      prisma.cabBooking.count({ where: { bookingStatus: 'CANCELLED' } }),
+      prisma.cabBooking.findMany({
+        select: { cabAmount: true, balanceAmount: true, advanceAmount: true },
+      }),
+    ]);
+
+    const totalRevenue = allBookings.reduce((sum, b) => sum + Number(b.cabAmount || 0), 0);
+    const balanceDue = allBookings.reduce((sum, b) => sum + Number(b.balanceAmount || 0), 0);
+    const advanceCollected = allBookings.reduce((sum, b) => sum + Number(b.advanceAmount || 0), 0);
+
+    res.json({
+      total,
+      confirmed,
+      onTrip,
+      completed,
+      cancelled,
+      totalRevenue,
+      balanceDue,
+      advanceCollected,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// List Cab Bookings (default 10 per page)
+router.get('/', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
+    const search = (req.query.search as string || '').trim();
+    const bookingStatus = (req.query.bookingStatus as string || '').trim();
+    const paymentStatus = (req.query.paymentStatus as string || '').trim();
+    const vehicleType = (req.query.vehicleType as string || '').trim();
+    const tripType = (req.query.tripType as string || '').trim();
+    const assignedStaffId = (req.query.assignedStaffId as string || '').trim();
+    const startDate = (req.query.startDate as string || '').trim();
+    const endDate = (req.query.endDate as string || '').trim();
+
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { bookingReference: { contains: search } },
+        { customerName: { contains: search } },
+        { customerPhone: { contains: search } },
+        { carNumber: { contains: search } },
+        { driverName: { contains: search } },
+        { pickupPlace: { contains: search } },
+        { dropPlace: { contains: search } },
+      ];
+    }
+    if (bookingStatus) where.bookingStatus = bookingStatus;
+    if (paymentStatus) where.paymentStatus = paymentStatus;
+    if (vehicleType) where.vehicleType = vehicleType;
+    if (tripType) where.tripType = tripType;
+    if (assignedStaffId) where.assignedStaffId = assignedStaffId;
+
+    if (startDate || endDate) {
+      where.pickupDate = {};
+      if (startDate) where.pickupDate.gte = new Date(startDate);
+      if (endDate) {
+        const d = new Date(endDate);
+        d.setHours(23, 59, 59, 999);
+        where.pickupDate.lte = d;
+      }
+    }
+
+    const [total, cabs] = await Promise.all([
+      prisma.cabBooking.count({ where }),
+      prisma.cabBooking.findMany({
+        where,
+        include: {
+          customer: { select: { id: true, fullName: true, phone: true, email: true } },
+          package: { select: { id: true, packageName: true } },
+          booking: { select: { id: true, bookingNumber: true } },
+          assignedStaff: { select: { id: true, name: true, phone: true } },
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { pickupDate: 'desc' },
+      }),
+    ]);
+
+    res.json({
+      data: cabs,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Single Cab Booking
+router.get('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const cab = await prisma.cabBooking.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        package: true,
+        booking: true,
+        assignedStaff: { select: { id: true, name: true, phone: true, email: true } },
+      },
+    });
+
+    if (!cab) {
+      res.status(404).json({ message: 'Cab booking not found.' });
+      return;
+    }
+
+    res.json(cab);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Voucher / Duty Slip View
+router.get('/:id/voucher', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const cab = await prisma.cabBooking.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        package: true,
+        booking: true,
+        assignedStaff: { select: { id: true, name: true, phone: true, email: true } },
+      },
+    });
+
+    if (!cab) {
+      res.status(404).json({ message: 'Cab booking not found.' });
+      return;
+    }
+
+    res.json({
+      cab,
+      company: config.company,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const cabBookingSchema = z.object({
+  customerId: z.string().optional().nullable(),
+  customerName: z.string().min(1, 'Customer name is required'),
+  customerPhone: z.string().min(7, 'Customer phone is required'),
+  customerEmail: z.string().email().optional().nullable().or(z.literal('')),
+  leadId: z.string().optional().nullable(),
+  bookingId: z.string().optional().nullable(),
+  packageId: z.string().optional().nullable(),
+  assignedStaffId: z.string().optional().nullable(),
+  pickupDate: z.string().min(1, 'Pickup date is required'),
+  pickupTime: z.string().min(1, 'Pickup time is required'),
+  pickupPlace: z.string().min(1, 'Pickup place is required'),
+  dropPlace: z.string().min(1, 'Drop place is required'),
+  travelRoute: z.string().optional().nullable(),
+  enquiryDate: z.string().optional().nullable(),
+  carNumber: z.string().optional().nullable(),
+  vehicleType: z.string().default('SEDAN'),
+  passengerCount: z.number().int().min(1).default(1),
+  driverName: z.string().optional().nullable(),
+  driverPhone: z.string().optional().nullable(),
+  cabProvider: z.string().optional().nullable(),
+  requiredCabType: z.string().default('AC'),
+  tripType: z.string().default('OUTSTATION'),
+  estimatedDistance: z.string().optional().nullable(),
+  estimatedDuration: z.string().optional().nullable(),
+  cabAmount: z.number().min(0).default(0),
+  advanceAmount: z.number().min(0).default(0),
+  paymentStatus: z.string().default('PENDING'),
+  bookingStatus: z.string().default('CONFIRMED'),
+  specialInstructions: z.string().optional().nullable(),
+  internalNotes: z.string().optional().nullable(),
+});
+
+// Create Cab Booking
+router.post('/', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const data = cabBookingSchema.parse(req.body);
+
+    const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
+    const count = await prisma.cabBooking.count();
+    const bookingReference = `OOT-CAB-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+
+    const cabAmount = data.cabAmount || 0;
+    const advanceAmount = data.advanceAmount || 0;
+    const balanceAmount = Math.max(0, cabAmount - advanceAmount);
+
+    // Auto-derive payment status if not provided or pending
+    let paymentStatus = data.paymentStatus;
+    if (advanceAmount >= cabAmount && cabAmount > 0) {
+      paymentStatus = 'PAID';
+    } else if (advanceAmount > 0 && advanceAmount < cabAmount) {
+      paymentStatus = 'PARTIAL';
+    }
+
+    const cab = await prisma.cabBooking.create({
+      data: {
+        bookingReference,
+        customerId: data.customerId || null,
+        customerName: data.customerName.trim(),
+        customerPhone: data.customerPhone.trim(),
+        customerEmail: data.customerEmail ? data.customerEmail.trim() : null,
+        leadId: data.leadId || null,
+        bookingId: data.bookingId || null,
+        packageId: data.packageId || null,
+        assignedStaffId: data.assignedStaffId || req.user?.id || null,
+        pickupDate: new Date(data.pickupDate),
+        pickupTime: data.pickupTime.trim(),
+        pickupPlace: data.pickupPlace.trim(),
+        dropPlace: data.dropPlace.trim(),
+        travelRoute: data.travelRoute ? data.travelRoute.trim() : null,
+        enquiryDate: data.enquiryDate ? new Date(data.enquiryDate) : new Date(),
+        carNumber: data.carNumber ? data.carNumber.trim().toUpperCase() : null,
+        vehicleType: data.vehicleType,
+        passengerCount: data.passengerCount,
+        driverName: data.driverName ? data.driverName.trim() : null,
+        driverPhone: data.driverPhone ? data.driverPhone.trim() : null,
+        cabProvider: data.cabProvider ? data.cabProvider.trim() : null,
+        requiredCabType: data.requiredCabType,
+        tripType: data.tripType,
+        estimatedDistance: data.estimatedDistance ? data.estimatedDistance.trim() : null,
+        estimatedDuration: data.estimatedDuration ? data.estimatedDuration.trim() : null,
+        cabAmount,
+        advanceAmount,
+        balanceAmount,
+        paymentStatus,
+        bookingStatus: data.bookingStatus,
+        specialInstructions: data.specialInstructions || null,
+        internalNotes: data.internalNotes || null,
+      },
+      include: {
+        customer: true,
+        assignedStaff: true,
+      },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'CREATE',
+      entity: 'CAB_BOOKING',
+      entityId: cab.id,
+      details: `Created cab booking ${cab.bookingReference} for ${cab.customerName} (${cab.pickupPlace} to ${cab.dropPlace})`,
+      ipAddress: req.ip,
+    });
+
+    res.status(201).json(cab);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update Cab Booking (Full Edit)
+router.put('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const data = cabBookingSchema.parse(req.body);
+
+    const existing = await prisma.cabBooking.findUnique({ where: { id } });
+    if (!existing) {
+      res.status(404).json({ message: 'Cab booking not found.' });
+      return;
+    }
+
+    const cabAmount = data.cabAmount || 0;
+    const advanceAmount = data.advanceAmount || 0;
+    const balanceAmount = Math.max(0, cabAmount - advanceAmount);
+
+    let paymentStatus = data.paymentStatus;
+    if (advanceAmount >= cabAmount && cabAmount > 0) {
+      paymentStatus = 'PAID';
+    } else if (advanceAmount > 0 && advanceAmount < cabAmount) {
+      paymentStatus = 'PARTIAL';
+    }
+
+    const updated = await prisma.cabBooking.update({
+      where: { id },
+      data: {
+        customerId: data.customerId || null,
+        customerName: data.customerName.trim(),
+        customerPhone: data.customerPhone.trim(),
+        customerEmail: data.customerEmail ? data.customerEmail.trim() : null,
+        leadId: data.leadId || null,
+        bookingId: data.bookingId || null,
+        packageId: data.packageId || null,
+        assignedStaffId: data.assignedStaffId || existing.assignedStaffId,
+        pickupDate: new Date(data.pickupDate),
+        pickupTime: data.pickupTime.trim(),
+        pickupPlace: data.pickupPlace.trim(),
+        dropPlace: data.dropPlace.trim(),
+        travelRoute: data.travelRoute ? data.travelRoute.trim() : null,
+        enquiryDate: data.enquiryDate ? new Date(data.enquiryDate) : existing.enquiryDate,
+        carNumber: data.carNumber ? data.carNumber.trim().toUpperCase() : null,
+        vehicleType: data.vehicleType,
+        passengerCount: data.passengerCount,
+        driverName: data.driverName ? data.driverName.trim() : null,
+        driverPhone: data.driverPhone ? data.driverPhone.trim() : null,
+        cabProvider: data.cabProvider ? data.cabProvider.trim() : null,
+        requiredCabType: data.requiredCabType,
+        tripType: data.tripType,
+        estimatedDistance: data.estimatedDistance ? data.estimatedDistance.trim() : null,
+        estimatedDuration: data.estimatedDuration ? data.estimatedDuration.trim() : null,
+        cabAmount,
+        advanceAmount,
+        balanceAmount,
+        paymentStatus,
+        bookingStatus: data.bookingStatus,
+        specialInstructions: data.specialInstructions || null,
+        internalNotes: data.internalNotes || null,
+      },
+      include: {
+        customer: true,
+        assignedStaff: true,
+      },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'UPDATE',
+      entity: 'CAB_BOOKING',
+      entityId: id,
+      details: `Updated cab booking ${updated.bookingReference} for ${updated.customerName}`,
+      ipAddress: req.ip,
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update Status (Quick Status Toggle)
+router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { bookingStatus, paymentStatus } = req.body;
+
+    const dataToUpdate: any = {};
+    if (bookingStatus) dataToUpdate.bookingStatus = bookingStatus;
+    if (paymentStatus) dataToUpdate.paymentStatus = paymentStatus;
+
+    const updated = await prisma.cabBooking.update({
+      where: { id },
+      data: dataToUpdate,
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'STATUS_CHANGE',
+      entity: 'CAB_BOOKING',
+      entityId: id,
+      details: `Cab booking ${updated.bookingReference} updated: ${JSON.stringify(dataToUpdate)}`,
+      ipAddress: req.ip,
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete Cab Booking
+router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const existing = await prisma.cabBooking.findUnique({ where: { id } });
+
+    if (!existing) {
+      res.status(404).json({ message: 'Cab booking not found.' });
+      return;
+    }
+
+    await prisma.cabBooking.delete({ where: { id } });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'DELETE',
+      entity: 'CAB_BOOKING',
+      entityId: id,
+      details: `Deleted cab booking ${existing.bookingReference} for ${existing.customerName}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Cab booking ${existing.bookingReference} deleted successfully.` });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Import Cab Bookings from parsed Excel array
+router.post('/import', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ message: 'No cab booking records provided for import.' });
+      return;
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.customerName || !item.customerPhone || !item.pickupPlace || !item.dropPlace) {
+        skipped++;
+        errors.push(`Row ${i + 1}: Customer name, phone, pickup, and drop place are required.`);
+        continue;
+      }
+
+      const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
+      const count = (await prisma.cabBooking.count()) + imported;
+      const bookingReference = `OOT-CAB-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+
+      const cabAmount = Number(item.cabAmount || item['Cab Amount (INR)'] || 0);
+      const advanceAmount = Number(item.advanceAmount || item['Advance (INR)'] || 0);
+      const balanceAmount = Math.max(0, cabAmount - advanceAmount);
+
+      await prisma.cabBooking.create({
+        data: {
+          bookingReference,
+          customerName: String(item.customerName).trim(),
+          customerPhone: String(item.customerPhone).trim(),
+          customerEmail: item.customerEmail ? String(item.customerEmail).trim() : null,
+          pickupDate: item.pickupDate ? new Date(item.pickupDate) : new Date(),
+          pickupTime: String(item.pickupTime || '09:00 AM').trim(),
+          pickupPlace: String(item.pickupPlace).trim(),
+          dropPlace: String(item.dropPlace).trim(),
+          travelRoute: item.travelRoute ? String(item.travelRoute).trim() : null,
+          carNumber: item.carNumber ? String(item.carNumber).trim().toUpperCase() : null,
+          vehicleType: item.vehicleType || 'SEDAN',
+          passengerCount: Number(item.passengerCount || 1),
+          driverName: item.driverName ? String(item.driverName).trim() : null,
+          driverPhone: item.driverPhone ? String(item.driverPhone).trim() : null,
+          cabProvider: item.cabProvider ? String(item.cabProvider).trim() : null,
+          tripType: item.tripType || 'OUTSTATION',
+          cabAmount,
+          advanceAmount,
+          balanceAmount,
+          paymentStatus: item.paymentStatus || (advanceAmount >= cabAmount && cabAmount > 0 ? 'PAID' : 'PENDING'),
+          bookingStatus: item.bookingStatus || 'CONFIRMED',
+          assignedStaffId: req.user!.id,
+          specialInstructions: item.specialInstructions || null,
+          internalNotes: item.internalNotes || null,
+        },
+      });
+      imported++;
+    }
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'IMPORT',
+      entity: 'CAB_BOOKING',
+      details: `Imported ${imported} cab bookings, skipped ${skipped}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: `Successfully imported ${imported} cab bookings. Skipped ${skipped} records.`,
+      imported,
+      skipped,
+      errors,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+export default router;

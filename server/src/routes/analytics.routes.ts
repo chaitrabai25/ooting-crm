@@ -5,61 +5,167 @@ import { authenticate, AuthRequest } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticate);
 
-// Main Dashboard KPIs
+// Main Dashboard KPIs & Today's Tasks
 router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
   try {
+    const startDateQuery = (req.query.startDate as string || '').trim();
+    const endDateQuery = (req.query.endDate as string || '').trim();
+
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
+    const dateFilter: any = {};
+    if (startDateQuery || endDateQuery) {
+      if (startDateQuery) dateFilter.gte = new Date(startDateQuery);
+      if (endDateQuery) {
+        const d = new Date(endDateQuery);
+        d.setHours(23, 59, 59, 999);
+        dateFilter.lte = d;
+      }
+    }
+
+    const leadDateWhere = Object.keys(dateFilter).length ? { createdAt: dateFilter } : {};
+    const bookingDateWhere = Object.keys(dateFilter).length ? { bookingDate: dateFilter } : {};
+    const quotationDateWhere = Object.keys(dateFilter).length ? { createdAt: dateFilter } : {};
+    const cabDateWhere = Object.keys(dateFilter).length ? { pickupDate: dateFilter } : {};
+
     const [
       totalLeads,
       newLeads,
-      followUpsToday,
+      inProgressLeads,
+      wonLeads,
+      qualifiedPoolCount,
+      totalQuotations,
+      draftQuotations,
+      acceptedQuotations,
+      totalBookings,
       confirmedBookingsCount,
       confirmedBookings,
+      totalCabs,
+      activeCabs,
+      allCabs,
+      totalCustomers,
       successfulPayments,
       b2bBookingsCount,
-      wonLeadsCount,
-      qualifiedPoolCount,
+      todayFollowUpsList,
+      overdueFollowUpsList,
+      todayDeparturesList,
+      todayCabsList,
+      expiringQuotationsList,
       recentEnquiries,
       recentBookings,
-      upcomingFollowUps,
     ] = await Promise.all([
-      // 1. Total Leads
-      prisma.lead.count(),
-      // 2. New Leads
-      prisma.lead.count({ where: { enquiryStatus: 'NEW' } }),
-      // 3. Follow-ups Today
-      prisma.followUp.count({
-        where: {
-          status: 'PENDING',
-          scheduledAt: { gte: startOfToday, lte: endOfToday },
-        },
-      }),
-      // 4. Confirmed Bookings Count
-      prisma.booking.count({
-        where: { bookingStatus: { in: ['CONFIRMED', 'COMPLETED'] } },
-      }),
-      // Confirmed & Completed Bookings for Total Revenue calculation
+      // Leads
+      prisma.lead.count({ where: leadDateWhere }),
+      prisma.lead.count({ where: { ...leadDateWhere, enquiryStatus: 'NEW' } }),
+      prisma.lead.count({ where: { ...leadDateWhere, enquiryStatus: { in: ['CONTACTED', 'QUALIFIED', 'QUOTATION_SENT', 'FOLLOW_UP'] } } }),
+      prisma.lead.count({ where: { ...leadDateWhere, enquiryStatus: 'WON' } }),
+      prisma.lead.count({ where: { ...leadDateWhere, enquiryStatus: { in: ['QUALIFIED', 'QUOTATION_SENT', 'FOLLOW_UP', 'WON', 'LOST'] } } }),
+
+      // Quotations
+      prisma.quotation.count({ where: quotationDateWhere }),
+      prisma.quotation.count({ where: { ...quotationDateWhere, status: { in: ['DRAFT', 'SENT'] } } }),
+      prisma.quotation.count({ where: { ...quotationDateWhere, status: { in: ['ACCEPTED', 'CONVERTED'] } } }),
+
+      // Bookings
+      prisma.booking.count({ where: bookingDateWhere }),
+      prisma.booking.count({ where: { ...bookingDateWhere, bookingStatus: { in: ['CONFIRMED', 'COMPLETED'] } } }),
       prisma.booking.findMany({
-        where: { bookingStatus: { in: ['CONFIRMED', 'COMPLETED'] } },
+        where: { ...bookingDateWhere, bookingStatus: { in: ['CONFIRMED', 'COMPLETED'] } },
         select: { id: true, finalAmount: true },
       }),
-      // Successful Payments
+
+      // Cabs
+      prisma.cabBooking.count({ where: cabDateWhere }),
+      prisma.cabBooking.count({ where: { ...cabDateWhere, bookingStatus: { in: ['CONFIRMED', 'ON_TRIP'] } } }),
+      prisma.cabBooking.findMany({
+        where: cabDateWhere,
+        select: { cabAmount: true, advanceAmount: true, balanceAmount: true },
+      }),
+
+      // Customers
+      prisma.customer.count(),
+
+      // Payments
       prisma.payment.findMany({
         where: { paymentStatus: 'SUCCESS' },
         select: { amount: true },
       }),
-      // B2B Bookings Count
+
+      // B2B
       prisma.agentBooking.count(),
-      // Won Leads Count
-      prisma.lead.count({ where: { enquiryStatus: 'WON' } }),
-      // Qualified pool (leads that reached at least QUALIFIED, QUOTATION_SENT, FOLLOW_UP, WON, or LOST)
-      prisma.lead.count({
-        where: { enquiryStatus: { in: ['QUALIFIED', 'QUOTATION_SENT', 'FOLLOW_UP', 'WON', 'LOST'] } },
+
+      // TODAY'S TASKS
+      // 1. Follow-ups Today
+      prisma.followUp.findMany({
+        where: {
+          status: 'PENDING',
+          scheduledAt: { gte: startOfToday, lte: endOfToday },
+        },
+        include: {
+          lead: { include: { customer: { select: { fullName: true, phone: true } } } },
+          assignedUser: { select: { name: true } },
+        },
+        orderBy: { scheduledAt: 'asc' },
+        take: 15,
       }),
-      // Recent 5 enquiries
+
+      // 2. Overdue Follow-ups
+      prisma.followUp.findMany({
+        where: {
+          status: 'PENDING',
+          scheduledAt: { lt: startOfToday },
+        },
+        include: {
+          lead: { include: { customer: { select: { fullName: true, phone: true } } } },
+          assignedUser: { select: { name: true } },
+        },
+        orderBy: { scheduledAt: 'desc' },
+        take: 15,
+      }),
+
+      // 3. Departures Today
+      prisma.booking.findMany({
+        where: {
+          travelStartDate: { gte: startOfToday, lte: endOfToday },
+          bookingStatus: { not: 'CANCELLED' },
+        },
+        include: {
+          customer: { select: { fullName: true, phone: true } },
+          package: { select: { packageName: true, destination: true } },
+          assignedUser: { select: { name: true } },
+        },
+        take: 15,
+      }),
+
+      // 4. Cab Pickups Today
+      prisma.cabBooking.findMany({
+        where: {
+          pickupDate: { gte: startOfToday, lte: endOfToday },
+          bookingStatus: { not: 'CANCELLED' },
+        },
+        include: {
+          assignedStaff: { select: { name: true } },
+        },
+        orderBy: { pickupTime: 'asc' },
+        take: 15,
+      }),
+
+      // 5. Expiring / Open Quotations
+      prisma.quotation.findMany({
+        where: {
+          status: { in: ['SENT', 'DRAFT'] },
+          createdAt: { lt: new Date(Date.now() - 5 * 86400000) },
+        },
+        include: {
+          customer: { select: { fullName: true, phone: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 10,
+      }),
+
+      // Recent Activity
       prisma.lead.findMany({
         take: 5,
         orderBy: { createdAt: 'desc' },
@@ -68,7 +174,6 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
           package: { select: { packageName: true } },
         },
       }),
-      // Recent 5 bookings
       prisma.booking.findMany({
         take: 5,
         orderBy: { createdAt: 'desc' },
@@ -77,58 +182,73 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
           package: { select: { packageName: true } },
         },
       }),
-      // Upcoming 5 followups
-      prisma.followUp.findMany({
-        where: { status: 'PENDING' },
-        take: 5,
-        orderBy: { scheduledAt: 'asc' },
-        include: {
-          lead: { include: { customer: { select: { fullName: true, phone: true } } } },
-          assignedUser: { select: { name: true } },
-        },
-      }),
     ]);
 
-    // Financial formulas
-    const totalRevenue = confirmedBookings.reduce((sum, b) => sum + b.finalAmount, 0);
-    const totalCollected = successfulPayments.reduce((sum, p) => sum + p.amount, 0);
-    const pendingPayments = Math.max(0, totalRevenue - totalCollected);
+    // Financial calculations
+    const tourRevenue = confirmedBookings.reduce((sum, b) => sum + Number(b.finalAmount || 0), 0);
+    const cabRevenue = allCabs.reduce((sum, c) => sum + Number(c.cabAmount || 0), 0);
+    const totalRevenue = tourRevenue + cabRevenue;
 
-    // Conversion rate formula: Won Leads / Qualified Pool * 100
+    const tourCollected = successfulPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const cabAdvance = allCabs.reduce((sum, c) => sum + Number(c.advanceAmount || 0), 0);
+    const totalCollected = tourCollected + cabAdvance;
+
+    const cabBalance = allCabs.reduce((sum, c) => sum + Number(c.balanceAmount || 0), 0);
+    const pendingPayments = Math.max(0, tourRevenue - tourCollected) + cabBalance;
+
     const conversionRate = qualifiedPoolCount > 0
-      ? Number(((wonLeadsCount / qualifiedPoolCount) * 100).toFixed(1))
+      ? Number(((wonLeads / qualifiedPoolCount) * 100).toFixed(1))
       : 0;
 
     res.json({
       cards: {
+        // 16 Critical Metrics
         totalLeads,
         newLeads,
-        followUpsToday,
+        inProgressLeads,
+        wonLeads,
+        totalQuotations,
+        draftQuotations,
+        acceptedQuotations,
+        totalBookings,
         confirmedBookings: confirmedBookingsCount,
+        departuresToday: todayDeparturesList.length,
+        totalCabs,
+        activeCabs,
+        totalCustomers,
         totalRevenue,
         totalCollected,
         pendingPayments,
+        // Extras
         b2bBookings: b2bBookingsCount,
         conversionRate,
+        followUpsToday: todayFollowUpsList.length,
+      },
+      todaysTasks: {
+        todayFollowUps: todayFollowUpsList,
+        overdueFollowUps: overdueFollowUpsList,
+        todayDepartures: todayDeparturesList,
+        todayCabs: todayCabsList,
+        expiringQuotations: expiringQuotationsList,
       },
       recentEnquiries,
       recentBookings,
-      upcomingFollowUps,
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Detailed Analytics: Trends, Funnel, Destinations, Staff Rankings
+// Detailed Analytics: Trends, Funnel, Destinations, Staff Rankings, Quotations, Cabs
 router.get('/charts', async (req: AuthRequest, res: Response, next) => {
   try {
-    const [allLeads, allBookings, allPayments, allExpenses, allStaff] = await Promise.all([
+    const [allLeads, allBookings, allPayments, allExpenses, allStaff, allQuotations, allCabs] = await Promise.all([
       prisma.lead.findMany({
         select: {
           id: true,
           enquiryStatus: true,
           destination: true,
+          source: true,
           assignedUserId: true,
           createdAt: true,
         },
@@ -155,6 +275,12 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
       prisma.user.findMany({
         where: { status: 'ACTIVE' },
         select: { id: true, name: true, role: true },
+      }),
+      prisma.quotation.findMany({
+        select: { id: true, status: true, finalAmount: true, createdAt: true },
+      }),
+      prisma.cabBooking.findMany({
+        select: { id: true, bookingStatus: true, vehicleType: true, tripType: true, cabAmount: true, pickupDate: true },
       }),
     ]);
 
@@ -295,10 +421,64 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
       amount: expenseCategoryMap[cat],
     }));
 
+    // 7. Quotation Status Breakdown
+    const quotationStatusMap: Record<string, number> = {
+      DRAFT: 0,
+      SENT: 0,
+      ACCEPTED: 0,
+      REJECTED: 0,
+      EXPIRED: 0,
+    };
+    allQuotations.forEach(q => {
+      if (quotationStatusMap[q.status] !== undefined) {
+        quotationStatusMap[q.status]++;
+      } else {
+        quotationStatusMap[q.status] = 1;
+      }
+    });
+    const quotationAnalytics = Object.keys(quotationStatusMap).map(status => ({
+      status,
+      count: quotationStatusMap[status],
+    }));
+
+    // 8. Cab Booking Status Breakdown
+    const cabStatusMap: Record<string, number> = {
+      CONFIRMED: 0,
+      ON_TRIP: 0,
+      COMPLETED: 0,
+      CANCELLED: 0,
+      PENDING: 0,
+    };
+    allCabs.forEach(c => {
+      if (cabStatusMap[c.bookingStatus] !== undefined) {
+        cabStatusMap[c.bookingStatus]++;
+      } else {
+        cabStatusMap[c.bookingStatus] = 1;
+      }
+    });
+    const cabAnalytics = Object.keys(cabStatusMap).map(status => ({
+      status,
+      count: cabStatusMap[status],
+    }));
+
+    // 9. Lead Sources Breakdown
+    const leadSourceMap: Record<string, number> = {};
+    allLeads.forEach(l => {
+      const src = l.source || 'DIRECT';
+      leadSourceMap[src] = (leadSourceMap[src] || 0) + 1;
+    });
+    const leadSourceAnalytics = Object.keys(leadSourceMap).map(source => ({
+      source,
+      count: leadSourceMap[source],
+    })).sort((a, b) => b.count - a.count);
+
     res.json({
       salesTrend,
       leadFunnel,
       bookingAnalytics,
+      quotationAnalytics,
+      cabAnalytics,
+      leadSourceAnalytics,
       destinationAnalytics,
       staffPerformance,
       expenseBreakdown,

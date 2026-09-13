@@ -17,6 +17,9 @@ import {
   History,
   LogOut,
   Sparkles,
+  Car,
+  Calendar,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 
@@ -28,17 +31,20 @@ export const Sidebar: React.FC = () => {
       title: 'Main',
       items: [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+        { name: 'CRM Calendar', path: '/calendar', icon: Calendar },
       ],
     },
     {
-      title: 'Sales & Enquiries',
+      title: 'Sales & Operations',
       items: [
         { name: 'Leads & Enquiries', path: '/leads', icon: Sparkles },
+        { name: 'Quotations', path: '/quotations', icon: FileText },
+        { name: 'Tour Bookings', path: '/bookings', icon: BookmarkCheck },
+        { name: 'CAB Bookings', path: '/cabs', icon: Car },
         { name: 'Follow-ups', path: '/followups', icon: CalendarCheck },
         { name: 'Customers', path: '/customers', icon: Users },
-        { name: 'Quotations', path: '/quotations', icon: FileText },
-        { name: 'Bookings', path: '/bookings', icon: BookmarkCheck },
         { name: 'Passenger List', path: '/passengers', icon: Users },
+        { name: 'Bulk WhatsApp', path: '/whatsapp', icon: MessageSquare },
       ],
     },
     {

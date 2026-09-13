@@ -103,7 +103,7 @@ export function DataTable<T extends { id?: string | number }>({
             {data.map((item, rowIdx) => (
               <tr
                 key={item.id ? String(item.id) : rowIdx}
-                className="hover:bg-slate-50/70 dark:hover:bg-slate-850/60 transition-colors"
+                className={`${rowIdx % 2 === 1 ? 'bg-slate-50/40 dark:bg-slate-850/30' : 'bg-white dark:bg-slate-900'} hover:bg-brand-50/30 dark:hover:bg-slate-800/50 transition-colors`}
               >
                 {columns.map((col, colIdx) => {
                   let cellContent: React.ReactNode = null;

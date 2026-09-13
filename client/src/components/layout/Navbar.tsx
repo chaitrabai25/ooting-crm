@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Sun,
   Moon,
+  Car,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
@@ -301,12 +302,22 @@ export const Navbar: React.FC<NavbarProps> = () => {
               <button
                 onClick={() => {
                   setIsQuickOpen(false);
-                  navigate('/quotations?action=create');
+                  navigate('/quotations/new');
                 }}
                 className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-2.5"
               >
                 <FileText className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                 <span>New Quotation</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsQuickOpen(false);
+                  navigate('/cabs?action=create');
+                }}
+                className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-2.5"
+              >
+                <Car className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                <span>New Cab Booking</span>
               </button>
               <button
                 onClick={() => {

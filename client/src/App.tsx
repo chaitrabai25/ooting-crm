@@ -12,10 +12,11 @@ import { Dashboard } from './pages/Dashboard.js';
 import { LeadList } from './pages/leads/LeadList.js';
 import { LeadDetail } from './pages/leads/LeadDetail.js';
 
+import { FollowUpList } from './pages/followups/FollowUpList.js';
+import { CalendarPage } from './pages/calendar/CalendarPage.js';
+
 import { CustomerList } from './pages/customers/CustomerList.js';
 import { CustomerDetail } from './pages/customers/CustomerDetail.js';
-
-import { FollowUpList } from './pages/followups/FollowUpList.js';
 
 import { PackageList } from './pages/packages/PackageList.js';
 import { PackageDetail } from './pages/packages/PackageDetail.js';
@@ -28,6 +29,12 @@ import { QuotationView } from './pages/quotations/QuotationView.js';
 import { BookingList } from './pages/bookings/BookingList.js';
 import { BookingDetail } from './pages/bookings/BookingDetail.js';
 import { PassengerList } from './pages/passengers/PassengerList.js';
+
+import { CabList } from './pages/cabs/CabList.js';
+import { CabDetail } from './pages/cabs/CabDetail.js';
+import { CabVoucher } from './pages/cabs/CabVoucher.js';
+
+import { BulkWhatsAppPage } from './pages/whatsapp/BulkWhatsAppPage.js';
 
 import { PaymentList } from './pages/payments/PaymentList.js';
 import { ExpenseList } from './pages/expenses/ExpenseList.js';
@@ -56,7 +63,10 @@ export const App: React.FC = () => {
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Dashboard />} />
 
-                {/* Leads */}
+                {/* CRM Calendar & Schedule */}
+                <Route path="/calendar" element={<CalendarPage />} />
+
+                {/* Leads & Enquiries */}
                 <Route path="/leads" element={<LeadList />} />
                 <Route path="/leads/:id" element={<LeadDetail />} />
 
@@ -78,10 +88,18 @@ export const App: React.FC = () => {
                 <Route path="/quotations/:id" element={<QuotationView />} />
                 <Route path="/quotations/:id/edit" element={<QuotationBuilder />} />
 
-                {/* Bookings */}
+                {/* Tour Bookings */}
                 <Route path="/bookings" element={<BookingList />} />
                 <Route path="/bookings/:id" element={<BookingDetail />} />
                 <Route path="/passengers" element={<PassengerList />} />
+
+                {/* Tourist Cab Transfers & Duty Slips */}
+                <Route path="/cabs" element={<CabList />} />
+                <Route path="/cabs/:id" element={<CabDetail />} />
+                <Route path="/cabs/:id/voucher" element={<CabVoucher />} />
+
+                {/* Automated & Bulk WhatsApp */}
+                <Route path="/whatsapp" element={<BulkWhatsAppPage />} />
 
                 {/* Payments & Financials */}
                 <Route path="/payments" element={<PaymentList />} />

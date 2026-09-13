@@ -15,12 +15,18 @@ export interface AuthRequest extends Request {
 
 export async function authenticate(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  let token: string | undefined;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.query && typeof req.query.token === 'string') {
+    token = req.query.token;
+  }
+
+  if (!token) {
     res.status(401).json({ message: 'Authentication required. Please log in.' });
     return;
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as { id: string };

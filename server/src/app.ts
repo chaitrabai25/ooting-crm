@@ -21,6 +21,8 @@ import settingRoutes from './routes/setting.routes.js';
 import searchRoutes from './routes/search.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import whatsappRoutes from './routes/whatsapp.routes.js';
+import cabRoutes from './routes/cab.routes.js';
+import calendarRoutes from './routes/calendar.routes.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -75,6 +77,8 @@ app.use('/api/settings', settingRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/cabs', cabRoutes);
+app.use('/api/calendar', calendarRoutes);
 
 // Serve compiled client frontend if available (Production Full-Stack Mode)
 const clientDistPath = path.resolve(__dirname, '../../client/dist');

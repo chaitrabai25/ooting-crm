@@ -185,9 +185,16 @@ export interface Quotation {
   basePrice: number;
   discount: number;
   tax: number;
+  cabDetails?: string | null;
+  additionalCharges?: number;
+  paymentTerms?: string | null;
+  cancellationTerms?: string | null;
+  notes?: string | null;
   finalAmount: number;
-  status: 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+  status: 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | string;
   termsAndConditions?: string | null;
+  createdById?: string | null;
+  createdByUser?: { id: string; name: string; email: string; phone?: string | null } | null;
   createdAt: string;
 }
 
@@ -270,11 +277,108 @@ export interface Expense {
 export interface DashboardCards {
   totalLeads: number;
   newLeads: number;
-  followUpsToday: number;
+  inProgressLeads?: number;
+  wonLeads?: number;
+  totalQuotations?: number;
+  draftQuotations?: number;
+  acceptedQuotations?: number;
+  totalBookings: number;
   confirmedBookings: number;
+  departuresToday?: number;
+  totalCabs?: number;
+  activeCabs?: number;
+  totalCustomers?: number;
   totalRevenue: number;
   totalCollected: number;
   pendingPayments: number;
-  b2bBookings: number;
-  conversionRate: number;
+  b2bBookings?: number;
+  conversionRate?: number;
+  followUpsToday?: number;
 }
+
+export interface TodaysTasks {
+  todayFollowUps: any[];
+  overdueFollowUps: any[];
+  todayDepartures: any[];
+  todayCabs: any[];
+  expiringQuotations: any[];
+}
+
+export interface CabBooking {
+  id: string;
+  bookingReference: string;
+  customerId?: string | null;
+  customer?: Customer | null;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string | null;
+  leadId?: string | null;
+  bookingId?: string | null;
+  booking?: Booking | null;
+  packageId?: string | null;
+  package?: Package | null;
+  assignedStaffId?: string | null;
+  assignedStaff?: { id: string; name: string; phone?: string | null; email?: string | null } | null;
+  pickupDate: string;
+  pickupTime: string;
+  pickupPlace: string;
+  dropPlace: string;
+  travelRoute?: string | null;
+  enquiryDate?: string | null;
+  carNumber?: string | null;
+  vehicleType: 'SEDAN' | 'SUV' | 'INNOVA' | 'TEMPO_TRAVELLER' | 'HATCHBACK' | 'LUXURY' | string;
+  passengerCount: number;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  cabProvider?: string | null;
+  requiredCabType: 'AC' | 'NON_AC' | string;
+  tripType: 'ONE_WAY' | 'ROUND_TRIP' | 'LOCAL' | 'OUTSTATION' | string;
+  estimatedDistance?: string | null;
+  estimatedDuration?: string | null;
+  cabAmount: number;
+  advanceAmount: number;
+  balanceAmount: number;
+  paymentStatus: 'PENDING' | 'PARTIAL' | 'PAID' | 'REFUNDED' | string;
+  bookingStatus: 'PENDING' | 'CONFIRMED' | 'ON_TRIP' | 'COMPLETED' | 'CANCELLED' | string;
+  specialInstructions?: string | null;
+  internalNotes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string | null;
+  eventType: 'MEETING' | 'TASK' | 'REMINDER' | 'FOLLOW_UP' | 'CAB_TRIP' | 'DEPARTURE' | 'PAYMENT_DUE' | 'LEAVE' | string;
+  startDate: string;
+  endDate?: string | null;
+  allDay: boolean;
+  userId?: string | null;
+  user?: { id: string; name: string } | null;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string;
+  color?: string | null;
+  source?: string;
+  refId?: string;
+  meta?: any;
+  createdAt?: string;
+}
+
+export interface StaffWorkload {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone?: string | null;
+  metrics: {
+    activeLeads: number;
+    todayFollowUps: number;
+    activeBookings: number;
+    upcomingCabs: number;
+    todayEvents: number;
+    totalActiveTasks: number;
+  };
+  availability: 'AVAILABLE' | 'BUSY' | 'OVERLOADED';
+}
+

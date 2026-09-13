@@ -122,6 +122,23 @@ export const QuotationView: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => {
+              const phoneDigits = quotation.customer?.phone?.replace(/\D/g, '') || '';
+              const dates = quotation.travelStartDate
+                ? `${new Date(quotation.travelStartDate).toLocaleDateString('en-IN')} to ${quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}`
+                : 'TBD';
+              const text = `Hello *${quotation.customer?.fullName || 'Valued Client'}*,\n\nHere is your travel quotation from *Ooting - Journeys Beyond Ordinary*:\n\n📋 *Quotation #:* ${quotation.quotationNumber}\n📍 *Destination:* ${quotation.destination}\n🗓 *Travel Dates:* ${dates}\n👥 *Guests:* ${quotation.adults} Adults${quotation.children > 0 ? `, ${quotation.children} Children` : ''}\n🚗 *Cab / Transport:* ${quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle'}\n💰 *Total Amount:* ₹${Number(quotation.finalAmount).toLocaleString('en-IN')}\n\nPlease review the details and let us know if you would like to confirm your booking.\n\nWarm regards,\n*Ooting Team*`;
+              const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`;
+              window.open(url, '_blank');
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Send on WhatsApp</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handlePrint}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors"
           >
@@ -232,9 +249,9 @@ export const QuotationView: React.FC = () => {
             </div>
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70">
               <span className="font-bold text-slate-800 block mb-1 text-[11px] uppercase tracking-wide">
-                Transport
+                Transport & Cab Details
               </span>
-              <p className="text-slate-600">{quotation.transport || 'Dedicated AC Vehicle for transfers'}</p>
+              <p className="text-slate-600">{quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle for transfers'}</p>
             </div>
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70">
               <span className="font-bold text-slate-800 block mb-1 text-[11px] uppercase tracking-wide">
@@ -308,6 +325,12 @@ export const QuotationView: React.FC = () => {
                   <span className="font-medium">+ ₹{Number(quotation.tax).toLocaleString('en-IN')}</span>
                 </div>
               )}
+              {Number(quotation.additionalCharges || 0) > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Additional Charges:</span>
+                  <span className="font-medium">+ ₹{Number(quotation.additionalCharges).toLocaleString('en-IN')}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 text-sm">
                 <span className="font-bold text-slate-900">Total Net Amount:</span>
                 <span className="font-extrabold text-brand-600 text-lg">
@@ -316,6 +339,28 @@ export const QuotationView: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Payment & Cancellation Policies */}
+          {(quotation.paymentTerms || quotation.cancellationTerms) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200 text-[11px]">
+              {quotation.paymentTerms && (
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                  <span className="font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                    Payment Milestones
+                  </span>
+                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">{quotation.paymentTerms}</p>
+                </div>
+              )}
+              {quotation.cancellationTerms && (
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                  <span className="font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                    Cancellation Policy
+                  </span>
+                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">{quotation.cancellationTerms}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Terms & Conditions */}
           {quotation.termsAndConditions && (
