@@ -270,29 +270,57 @@ export const CalendarPage: React.FC = () => {
           return (
             <div
               key={idx}
-              className={`min-h-[105px] sm:min-h-[120px] p-1.5 border-r border-b border-slate-200 dark:border-slate-800 transition-colors flex flex-col justify-between ${
+              className={`min-h-[105px] sm:min-h-[120px] p-1.5 border-r border-b border-slate-200 dark:border-slate-800 transition-colors flex flex-col justify-between group hover:bg-slate-50/90 dark:hover:bg-slate-800/60 ${
                 !isCurrentMonth
                   ? 'bg-slate-50/50 dark:bg-slate-900/40 text-slate-400'
                   : 'bg-white dark:bg-slate-900'
               } ${isToday ? 'ring-2 ring-brand-500 ring-inset z-10' : ''}`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span
-                  className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentDate(day);
+                    setViewMode('day');
+                  }}
+                  title={`View day schedule for ${day.toLocaleDateString()}`}
+                  className={`text-xs font-semibold px-1.5 py-0.5 rounded-full transition-transform hover:scale-105 cursor-pointer ${
                     isToday
                       ? 'bg-brand-600 text-white font-bold'
                       : isCurrentMonth
-                      ? 'text-slate-800 dark:text-slate-200'
-                      : 'text-slate-400'
+                      ? 'text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                   }`}
                 >
                   {day.getDate()}
-                </span>
-                {dayEvents.length > 0 && (
-                  <span className="text-[10px] text-slate-400 font-medium">
-                    {dayEvents.length} {dayEvents.length === 1 ? 'task' : 'tasks'}
-                  </span>
-                )}
+                </button>
+                <div className="flex items-center gap-1">
+                  {dayEvents.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentDate(day);
+                        setViewMode('day');
+                      }}
+                      title="View tasks for this day"
+                      className="text-[10px] text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 font-medium cursor-pointer"
+                    >
+                      {dayEvents.length} {dayEvents.length === 1 ? 'task' : 'tasks'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNewEventStartDate(day.toISOString().split('T')[0]);
+                      setIsNewEventModalOpen(true);
+                    }}
+                    title={`Add task for ${day.toLocaleDateString()}`}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
 
               {/* Event pills (up to 3, then +more) */}
@@ -325,6 +353,101 @@ export const CalendarPage: React.FC = () => {
             </div>
           );
         })}
+      </div>
+    );
+  };
+
+  // Render Day view
+  const renderDayView = () => {
+    const dayStr = currentDate.toDateString();
+    const dayEvents = events.filter((e) => {
+      const eDate = new Date(e.startDate);
+      return eDate.toDateString() === dayStr;
+    });
+
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <button
+              type="button"
+              onClick={() => setViewMode('month')}
+              className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 mb-1 cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Back to Month View
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {dayEvents.length} scheduled {dayEvents.length === 1 ? 'activity' : 'activities'} for this date
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setNewEventStartDate(currentDate.toISOString().split('T')[0]);
+              setIsNewEventModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Task for this Day</span>
+          </button>
+        </div>
+
+        {dayEvents.length === 0 ? (
+          <div className="py-12 text-center">
+            <CalendarIcon className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No events scheduled for this day</p>
+            <p className="text-xs text-slate-400 mt-1">Click the button above to schedule a follow-up, tour departure, or task.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {dayEvents.map((e) => (
+              <div
+                key={e.id}
+                onClick={() => setSelectedEvent(e)}
+                className="py-3.5 px-2 -mx-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex items-center justify-between gap-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 mt-0.5">
+                    {getEventIcon(e.eventType)}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 block">
+                      {e.title}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      <span className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        {new Date(e.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span>•</span>
+                      <span>Priority: {e.priority}</span>
+                      {e.meta?.assignedTo && (
+                        <>
+                          <span>•</span>
+                          <span>Assigned: {e.meta.assignedTo}</span>
+                        </>
+                      )}
+                    </div>
+                    {e.description && (
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 line-clamp-2">
+                        {e.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge status={e.eventType} />
+                  <Badge status={e.status} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -465,14 +588,14 @@ export const CalendarPage: React.FC = () => {
               </select>
 
               <div className="flex items-center p-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                {(['month', 'agenda'] as CalendarViewMode[]).map((mode) => (
+                {(['month', 'day', 'agenda'] as CalendarViewMode[]).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
                     className={`px-3 py-1 text-xs font-medium rounded-md capitalize transition-colors ${
                       viewMode === mode
                         ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                   >
                     {mode}
@@ -489,6 +612,8 @@ export const CalendarPage: React.FC = () => {
             </div>
           ) : viewMode === 'month' ? (
             renderMonthGrid()
+          ) : viewMode === 'day' ? (
+            renderDayView()
           ) : (
             renderAgendaView()
           )}

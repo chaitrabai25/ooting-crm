@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 
@@ -38,6 +38,7 @@ export const SettingsPage: React.FC = () => {
   const [masterData, setMasterData] = useState<MasterData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDumping, setIsDumping] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -79,6 +80,29 @@ export const SettingsPage: React.FC = () => {
       setErrorMessage(err.response?.data?.message || 'Failed to save settings.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDownloadDump = async () => {
+    try {
+      setIsDumping(true);
+      const res = await api.get('/settings/backup/dump', { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `ooting-crm-full-dump-${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setSuccessMessage('Full CRM database dump downloaded successfully.');
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Failed to download dump:', err);
+      setErrorMessage(err.response?.data?.message || 'Failed to download database dump.');
+    } finally {
+      setIsDumping(false);
     }
   };
 
@@ -328,6 +352,44 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Complete CRM Data Dump & Permanent Backup Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 rounded-lg">
+              <Database className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Permanent Data Backup & Complete CRM Dump</h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Download a complete, offline JSON archive of all customers, leads, bookings, quotations, payments, and cabs
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-200 font-medium">
+            Zero Data Loss Guarantee
+          </span>
+        </div>
+
+        <div className="p-6 text-xs text-slate-600 dark:text-slate-300 space-y-4">
+          <p>
+            Your CRM records are stored with full relational integrity. Use this one-click feature anytime to download a full raw data dump. This file can be kept as a safe offline backup or imported into any new database or CRM system in the future.
+          </p>
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleDownloadDump}
+              disabled={isDumping || !isAdmin}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl shadow-sm transition-colors cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>{isDumping ? 'Generating Database Dump...' : 'Download Complete Database Dump (.json)'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -20,6 +20,7 @@ import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Modal } from '../../components/ui/Modal.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 interface RecipientRow {
   Phone: string;
@@ -121,10 +122,9 @@ export const BulkWhatsAppPage: React.FC = () => {
     setMessageTemplate((prev) => prev + ' ' + placeholder);
   };
 
-  // Download Sample Excel Template (.xlsx)
-  const handleDownloadTemplate = () => {
-    const token = localStorage.getItem('token');
-    window.open(`/api/whatsapp/template/excel?token=${token || ''}`, '_blank');
+  // Download Sample Excel Template (.xlsx) with Bearer Authentication
+  const handleDownloadTemplate = async () => {
+    await downloadExcel('/whatsapp/template/excel', 'ooting-whatsapp-template.xlsx');
   };
 
   // Upload Excel Spreadsheet (.xlsx only)

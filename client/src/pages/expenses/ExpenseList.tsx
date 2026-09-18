@@ -5,6 +5,7 @@ import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { StatCard } from '../../components/ui/StatCard.js';
 import { ExpenseModal } from './ExpenseModal.js';
 import { Expense } from '../../types/index.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 export const ExpenseList: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -43,8 +44,10 @@ export const ExpenseList: React.FC = () => {
     fetchExpenses();
   }, [page, selectedCategory]);
 
-  const handleExportExcel = () => {
-    window.open('/api/expenses/export/excel', '_blank');
+  const handleExportExcel = async () => {
+    const params = new URLSearchParams();
+    if (selectedCategory) params.append('category', selectedCategory);
+    await downloadExcel(`/expenses/export/excel?${params.toString()}`, `ooting-expenses-${Date.now()}.xlsx`);
   };
 
   const formatCurrency = (val: number) => {

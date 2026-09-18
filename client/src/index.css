@@ -25,15 +25,37 @@
   background: #94a3b8;
 }
 
-/* Print layout optimizations for quotations */
+/* Print layout optimizations for quotations & documents */
 @media print {
+  @page {
+    margin: 8mm;
+    size: auto;
+  }
+  html,
   body {
     background: #ffffff !important;
+    color: #0f172a !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  .no-print {
+  .no-print,
+  aside,
+  nav,
+  header:not(.printable-header),
+  button {
     display: none !important;
   }
   .print-only {
     display: block !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
 }

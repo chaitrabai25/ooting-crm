@@ -76,7 +76,7 @@ export const QuotationView: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 pb-16 max-w-4xl mx-auto">
+    <div className="space-y-6 pb-16 max-w-4xl mx-auto print:max-w-none print:w-full print:p-0 print:m-0 print:space-y-0 print:pb-0">
       {/* Non-Printable Action Header */}
       <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-3">

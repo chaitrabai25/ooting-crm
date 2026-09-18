@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, User, Phone, Mail, Calendar, AlertCircle } from 'lucide-react';
+import { Users, User, Phone, Mail, Calendar, AlertCircle, Search, MapPin } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { Booking, Traveller } from '../../types/index.js';
@@ -31,6 +31,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [bookingStatus, setBookingStatus] = useState(initialData?.bookingStatus || 'CONFIRMED');
   const [assignedUserId, setAssignedUserId] = useState(initialData?.assignedUserId || '');
   const [notes, setNotes] = useState(initialData?.notes || '');
+
+  // Customer selection mode & manual creation
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerCity, setCustomerCity] = useState('');
 
   // Multi-traveller state
   const [travellersList, setTravellersList] = useState<Traveller[]>([]);
@@ -175,12 +183,51 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     });
   };
 
+  const filteredCustomers = customers.filter(
+    (c) =>
+      c.fullName?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      c.phone?.includes(customerSearch)
+  );
+
+  const handleManualCustomerChange = (field: 'name' | 'phone' | 'email' | 'city', value: string) => {
+    if (field === 'name') setCustomerName(value);
+    if (field === 'phone') setCustomerPhone(value);
+    if (field === 'email') setCustomerEmail(value);
+    if (field === 'city') setCustomerCity(value);
+
+    // Synchronize primary traveller
+    setTravellersList((prev) => {
+      const updated = [...prev];
+      if (updated.length === 0) {
+        updated.push({
+          name: field === 'name' ? value : customerName,
+          phone: field === 'phone' ? value : customerPhone,
+          email: field === 'email' ? value : customerEmail,
+          isPrimary: true,
+        });
+      } else {
+        updated[0] = {
+          ...updated[0],
+          name: field === 'name' ? value : updated[0].name,
+          phone: field === 'phone' ? value : updated[0].phone,
+          email: field === 'email' ? value : updated[0].email,
+          isPrimary: true,
+        };
+      }
+      return updated;
+    });
+  };
+
   const finalAmount = Math.max(0, Number(totalAmount) - Number(discount));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerId) {
-      setError('Customer is required.');
+    if (!isNewCustomer && !customerId) {
+      setError('Please select an existing customer or switch to Add Customer Manually.');
+      return;
+    }
+    if (isNewCustomer && (!customerName.trim() || !customerPhone.trim())) {
+      setError('Customer Full Name and Phone Number are required.');
       return;
     }
     if (!travelStartDate || !travelEndDate) {
@@ -200,8 +247,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        customerId,
+      const payload: any = {
         packageId: packageId || null,
         assignedUserId: assignedUserId || null,
         travelStartDate,
@@ -222,6 +268,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           isPrimary: idx === 0 || !!t.isPrimary,
         })),
       };
+
+      if (!isNewCustomer && customerId) {
+        payload.customerId = customerId;
+      } else {
+        payload.customerName = customerName.trim();
+        payload.customerPhone = customerPhone.trim();
+        payload.customerEmail = customerEmail.trim() || null;
+        payload.customerCity = customerCity.trim() || null;
+      }
 
       if (initialData?.id) {
         await api.put('/bookings/' + initialData.id, payload);
@@ -254,66 +309,165 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           </div>
         )}
 
-        {/* Customer & Package */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="font-semibold text-slate-700">Customer *</label>
-            <select
-              required
-              value={customerId}
-              onChange={(e) => handleCustomerSelect(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none bg-white font-medium"
-            >
-              <option value="">-- Select Customer --</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.fullName} ({c.phone})
-                </option>
-              ))}
-            </select>
+        {/* Customer Selection Section */}
+        <div className="p-3.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-850 dark:border-slate-800 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <label className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-[#C91F28]" />
+              Customer Information *
+            </label>
+            {!initialData && (
+              <div className="flex items-center p-0.5 bg-slate-200/70 dark:bg-slate-800 rounded-lg text-[11px] self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsNewCustomer(false)}
+                  className={`px-2.5 py-1 font-semibold rounded-md transition-colors ${
+                    !isNewCustomer
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                >
+                  Select Existing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsNewCustomer(true)}
+                  className={`px-2.5 py-1 font-semibold rounded-md transition-colors ${
+                    isNewCustomer
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                >
+                  + Add Customer Manually
+                </button>
+              </div>
+            )}
           </div>
 
-          <div>
-            <label className="font-semibold text-slate-700">Travel Package</label>
-            <select
-              value={packageId}
-              onChange={(e) => handlePackageSelect(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none bg-white font-medium"
-            >
-              <option value="">-- Custom Tour Package --</option>
-              {packages.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.packageName} ({p.duration})
-                </option>
-              ))}
-            </select>
-          </div>
+          {!isNewCustomer ? (
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  placeholder="Filter existing customers by name or phone..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                />
+              </div>
+
+              <select
+                required={!isNewCustomer}
+                value={customerId}
+                onChange={(e) => handleCustomerSelect(e.target.value)}
+                className="w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none bg-white font-medium text-xs"
+              >
+                <option value="">-- Choose Customer ({filteredCustomers.length} available) --</option>
+                {filteredCustomers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.fullName} ({c.phone}){c.city ? ` - ${c.city}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 text-[11px] block mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required={isNewCustomer}
+                  value={customerName}
+                  onChange={(e) => handleManualCustomerChange('name', e.target.value)}
+                  placeholder="e.g. Ramesh Kumar"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-xs"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 text-[11px] block mb-1">
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  required={isNewCustomer}
+                  value={customerPhone}
+                  onChange={(e) => handleManualCustomerChange('phone', e.target.value)}
+                  placeholder="e.g. 9876543210"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-xs"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 text-[11px] block mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => handleManualCustomerChange('email', e.target.value)}
+                  placeholder="e.g. ramesh@gmail.com"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-xs"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 text-[11px] block mb-1">
+                  City / Location
+                </label>
+                <input
+                  type="text"
+                  value={customerCity}
+                  onChange={(e) => handleManualCustomerChange('city', e.target.value)}
+                  placeholder="e.g. Bangalore"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Travel Package */}
+        <div>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Travel Package (Optional)</label>
+          <select
+            value={packageId}
+            onChange={(e) => handlePackageSelect(e.target.value)}
+            className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none bg-white font-medium"
+          >
+            <option value="">-- Custom Tour Package --</option>
+            {packages.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.packageName} ({p.duration})
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Dates & Count */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Travel Start Date *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Travel Start Date *</label>
             <input
               type="date"
               required
               value={travelStartDate}
               onChange={(e) => setTravelStartDate(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">Travel End Date *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Travel End Date *</label>
             <input
               type="date"
               required
               value={travelEndDate}
               onChange={(e) => setTravelEndDate(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">Number of Travellers *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Number of Travellers *</label>
             <input
               type="number"
               min="1"
@@ -321,21 +475,21 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               required
               value={travellers}
               onChange={(e) => handleTravellerCountChange(Number(e.target.value))}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none font-bold text-slate-900"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none font-bold text-slate-900"
             />
           </div>
         </div>
 
         {/* Multi-Traveller Details Card */}
-        <div className="p-4 bg-slate-50/90 border border-slate-200 rounded-2xl space-y-3.5">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+        <div className="p-4 bg-slate-50/90 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3.5">
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-[#C91F28]" />
-              <span className="font-bold text-slate-800 text-sm">
+              <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 Traveller Information ({travellersList.length} {travellersList.length === 1 ? 'Person' : 'People'})
               </span>
             </div>
-            <span className="text-[11px] text-slate-500 font-medium">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
               Fields adapt dynamically based on traveller count
             </span>
           </div>
@@ -344,19 +498,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             {travellersList.map((traveller, index) => (
               <div
                 key={index}
-                className="p-3 bg-white border border-slate-200/80 rounded-xl shadow-xs space-y-2.5"
+                className="p-3 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl shadow-xs space-y-2.5"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-red-100 text-[#C91F28] font-bold text-[11px] flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full bg-red-100 dark:bg-red-950/60 text-[#C91F28] dark:text-red-300 font-bold text-[11px] flex items-center justify-center">
                       {index + 1}
                     </span>
-                    <span className="font-semibold text-slate-900 text-xs">
+                    <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs">
                       Traveller {index + 1} {index === 0 ? '(Primary Contact)' : ''}
                     </span>
                   </div>
                   {index === 0 && (
-                    <span className="text-[10px] bg-red-50 text-[#C91F28] px-2 py-0.5 rounded-full font-medium">
+                    <span className="text-[10px] bg-red-50 dark:bg-red-950/40 text-[#C91F28] dark:text-red-300 px-2 py-0.5 rounded-full font-medium">
                       Primary Booker
                     </span>
                   )}
@@ -364,18 +518,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                   <div className="sm:col-span-2">
-                    <label className="text-[11px] font-medium text-slate-600">Full Name *</label>
+                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Full Name *</label>
                     <input
                       type="text"
                       required
                       placeholder="Full legal name"
                       value={traveller.name}
                       onChange={(e) => updateTravellerField(index, 'name', e.target.value)}
-                      className="mt-0.5 w-full p-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                      className="mt-0.5 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-850 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-slate-600">Age</label>
+                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Age</label>
                     <input
                       type="number"
                       min="0"
@@ -383,15 +537,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                       placeholder="Age"
                       value={traveller.age ?? ''}
                       onChange={(e) => updateTravellerField(index, 'age', e.target.value)}
-                      className="mt-0.5 w-full p-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                      className="mt-0.5 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-850 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-slate-600">Gender</label>
+                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Gender</label>
                     <select
                       value={traveller.gender || 'MALE'}
                       onChange={(e) => updateTravellerField(index, 'gender', e.target.value)}
-                      className="mt-0.5 w-full p-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none bg-white"
+                      className="mt-0.5 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-850 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                     >
                       <option value="MALE">Male</option>
                       <option value="FEMALE">Female</option>
@@ -402,23 +556,23 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[11px] font-medium text-slate-600">Phone (Optional)</label>
+                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Phone (Optional)</label>
                     <input
                       type="tel"
                       placeholder="Phone number"
                       value={traveller.phone || ''}
                       onChange={(e) => updateTravellerField(index, 'phone', e.target.value)}
-                      className="mt-0.5 w-full p-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                      className="mt-0.5 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-850 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-slate-600">Email (Optional)</label>
+                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Email (Optional)</label>
                     <input
                       type="email"
                       placeholder="Email address"
                       value={traveller.email || ''}
                       onChange={(e) => updateTravellerField(index, 'email', e.target.value)}
-                      className="mt-0.5 w-full p-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                      className="mt-0.5 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-850 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -428,33 +582,33 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         </div>
 
         {/* Pricing Calculation Card */}
-        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700">Total Booking Price (₹) *</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Total Booking Price (₹) *</label>
               <input
                 type="number"
                 min="0"
                 required
                 value={totalAmount}
                 onChange={(e) => setTotalAmount(Number(e.target.value))}
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none font-bold"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none font-bold"
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700">Discount Given (₹)</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Discount Given (₹)</label>
               <input
                 type="number"
                 min="0"
                 value={discount}
                 onChange={(e) => setDiscount(Number(e.target.value))}
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-            <span className="font-semibold text-slate-700">Final Booking Amount:</span>
+          <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
+            <span className="font-semibold text-slate-700 dark:text-slate-300">Final Booking Amount:</span>
             <span className="font-extrabold text-[#C91F28] text-base">
               ₹{finalAmount.toLocaleString('en-IN')}
             </span>
@@ -463,13 +617,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
         {/* B2B Agent connection */}
         {!initialData && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-850 dark:bg-slate-900/40">
             <div>
-              <label className="font-semibold text-slate-700">B2B Agent Partner (Optional)</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">B2B Agent Partner (Optional)</label>
               <select
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}
-                className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
               >
                 <option value="">-- Direct Customer (No Agent) --</option>
                 {agents.map((a) => (
@@ -481,7 +635,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             </div>
             {agentId && (
               <div>
-                <label className="font-semibold text-slate-700">Commission Rate (%)</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Commission Rate (%)</label>
                 <input
                   type="number"
                   min="0"
@@ -489,7 +643,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   value={commissionRate}
                   onChange={(e) => setCommissionRate(Number(e.target.value))}
                   placeholder="e.g. 10%"
-                  className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+                  className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
                 />
               </div>
             )}
@@ -498,11 +652,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Booking Status</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Booking Status</label>
             <select
               value={bookingStatus}
               onChange={(e) => setBookingStatus(e.target.value as any)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
             >
               <option value="CONFIRMED">Confirmed</option>
               <option value="HOLD">Hold</option>
@@ -513,11 +667,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700">Assigned Sales Executive</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Assigned Sales Executive</label>
             <select
               value={assignedUserId}
               onChange={(e) => setAssignedUserId(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
             >
               <option value="">-- Unassigned --</option>
               {staff.map((s) => (
@@ -530,21 +684,21 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         </div>
 
         <div>
-          <label className="font-semibold text-slate-700">Internal Booking Notes</label>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Internal Booking Notes</label>
           <textarea
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Special meal instructions, hotel confirmation codes, chauffeur details..."
-            className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+            className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
           />
         </div>
 
-        <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
+        <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+            className="px-4 py-2 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
           >
             Cancel
           </button>

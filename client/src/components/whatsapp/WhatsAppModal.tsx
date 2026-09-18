@@ -17,25 +17,31 @@ const TEMPLATES = [
     id: 'WELCOME',
     label: 'Welcome Greeting',
     content: (name: string) =>
-      `Hello ${name}, warm greetings from Ooting Holidays! 🌴 We received your travel enquiry and our expert holiday planner is reviewing the best options for your dream trip. How can we assist you today?`,
+      `Hello ${name}, warm greetings from Ooting Holidays! 🌴 We received your travel enquiry and our holiday expert is crafting the best holiday experience for you.\n\nHow can we assist you with your upcoming plans?`,
   },
   {
     id: 'QUOTATION',
     label: 'Quotation Follow-up',
     content: (name: string) =>
-      `Dear ${name}, thank you for considering Ooting Holidays! ✈️ We have tailored a customized holiday itinerary just for you. Have you had a chance to review the quotation, or would you like us to customize any inclusions?`,
+      `Dear ${name}, thank you for considering Ooting Holidays! ✈️\n\nWe have prepared a customized holiday package tailored for you:\n• Dedicated AC Vehicle with Chauffeur\n• Handpicked Resort / Hotel Stay\n• Sightseeing & Leisure Itinerary\n• 24/7 Concierge Support\n\nHave you had a chance to review the proposal? Let us know if you'd like any customizations!`,
   },
   {
     id: 'BOOKING_CONFIRMED',
     label: 'Booking Confirmation',
     content: (name: string) =>
-      `Dear ${name}, your booking with Ooting Holidays is officially confirmed! 🎉 All travel vouchers and hotel details are being processed. Thank you for traveling with us!`,
+      `Dear ${name}, your booking with Ooting Holidays is confirmed! 🎉\n\nTrip Details & Next Steps:\n• Hotel & Cab vouchers are being prepared\n• Chauffeur & vehicle contact will be shared 24h prior to arrival\n• Need assistance? Reach us anytime at +91 98765 43210\n\nThank you for choosing Ooting!`,
   },
   {
     id: 'PAYMENT_REMINDER',
     label: 'Payment Reminder',
     content: (name: string) =>
-      `Hello ${name}, friendly reminder from Ooting Holidays regarding the pending balance for your upcoming tour. Please let us know if you need our bank account details or UPI payment link. Thank you!`,
+      `Hello ${name}, friendly reminder from Ooting Holidays regarding the pending payment for your upcoming tour.\n\n• Bank / UPI details available on request\n• Instant payment receipt issued upon transfer\n\nPlease let us know if you need any assistance. Thank you!`,
+  },
+  {
+    id: 'ITINERARY',
+    label: 'Tour Highlights',
+    content: (name: string) =>
+      `Dear ${name}, here are the key highlights of your journey with Ooting Holidays:\n• Day 1: Arrival, Scenic Transfer & Leisure Evening\n• Day 2: Guided Sightseeing & Exploration\n• Day 3: Nature Trails & Memorable Departure\n\nLet us know if you'd like to adjust any activities!`,
   },
   {
     id: 'CUSTOM',
@@ -247,13 +253,54 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
             {/* Message Textarea */}
             <div>
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Message Content:
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Message Content:
+                </label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setMessage((prev) => `${prev.trimEnd()}\n• `)}
+                    title="Insert bullet point"
+                    className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded transition-colors"
+                  >
+                    • Bullet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMessage((prev) => `${prev.trimEnd()}\n✅ `)}
+                    title="Insert checkmark"
+                    className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded transition-colors"
+                  >
+                    ✅ Check
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMessage((prev) => `${prev.trimEnd()}\n📌 `)}
+                    title="Insert note pin"
+                    className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded transition-colors"
+                  >
+                    📌 Note
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const link = prompt('Enter Proposal or PDF Web Link:', window.location.origin);
+                      if (link) {
+                        setMessage((prev) => `${prev.trimEnd()}\n\n📄 View Your Trip Itinerary & Proposal:\n${link}`);
+                      }
+                    }}
+                    title="Attach proposal or itinerary PDF link"
+                    className="px-2 py-0.5 text-[11px] font-medium bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded border border-emerald-200 dark:border-emerald-800 transition-colors"
+                  >
+                    + PDF Link
+                  </button>
+                </div>
+              </div>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                rows={5}
+                rows={6}
                 placeholder="Type your WhatsApp message here..."
                 className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
               />

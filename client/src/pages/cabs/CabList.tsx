@@ -29,6 +29,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { CabModal } from './CabModal.js';
 import { CabBooking } from '../../types/index.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 export const CabList: React.FC = () => {
   const navigate = useNavigate();
@@ -139,14 +140,12 @@ export const CabList: React.FC = () => {
   // Safe Excel Export (.xlsx)
   const handleExportExcel = async () => {
     try {
-      const token = localStorage.getItem('token');
       const params = new URLSearchParams();
       if (search) params.append('search', search);
       if (selectedStatus) params.append('bookingStatus', selectedStatus);
       if (selectedVehicleType) params.append('vehicleType', selectedVehicleType);
-      if (token) params.append('token', token);
 
-      window.open(`/api/cabs/export/excel?${params.toString()}`, '_blank');
+      await downloadExcel(`/cabs/export/excel?${params.toString()}`, `ooting-cabs-${Date.now()}.xlsx`);
     } catch (err) {
       console.error('Failed to export cabs to excel:', err);
     }

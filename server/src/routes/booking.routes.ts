@@ -275,7 +275,11 @@ const travellerInputSchema = z.object({
 });
 
 const bookingCreateSchema = z.object({
-  customerId: z.string().min(1, 'Customer ID is required'),
+  customerId: z.string().optional().nullable(),
+  customerName: z.string().optional().nullable(),
+  customerPhone: z.string().optional().nullable(),
+  customerEmail: z.string().optional().nullable(),
+  customerCity: z.string().optional().nullable(),
   leadId: z.string().optional().nullable(),
   packageId: z.string().optional().nullable(),
   assignedUserId: z.string().optional().nullable(),
@@ -297,6 +301,30 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = bookingCreateSchema.parse(req.body);
 
+    // Resolve Customer ID (find existing, create on-the-fly, or use provided)
+    let finalCustomerId = data.customerId;
+    if (!finalCustomerId) {
+      if (data.customerName && data.customerPhone) {
+        let customer = await prisma.customer.findFirst({
+          where: { phone: data.customerPhone.trim() },
+        });
+        if (!customer) {
+          customer = await prisma.customer.create({
+            data: {
+              fullName: data.customerName.trim(),
+              phone: data.customerPhone.trim(),
+              email: data.customerEmail?.trim() || null,
+              city: data.customerCity?.trim() || null,
+            },
+          });
+        }
+        finalCustomerId = customer.id;
+      } else {
+        res.status(400).json({ message: 'Customer or Customer Details (Name & Phone) are required.' });
+        return;
+      }
+    }
+
     const finalAmount = Math.max(0, data.totalAmount - data.discount);
 
     // Generate unique Booking Number: OOT-BK-YYYYMM-XXXX
@@ -309,7 +337,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     if (travellersToCreate.length === 0) {
       // Auto-create Primary Traveller from Customer record
       const customer = await prisma.customer.findUnique({
-        where: { id: data.customerId },
+        where: { id: finalCustomerId },
       });
       if (customer) {
         travellersToCreate = [
@@ -326,7 +354,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const booking = await prisma.booking.create({
       data: {
         bookingNumber,
-        customerId: data.customerId,
+        customerId: finalCustomerId,
         leadId: data.leadId || null,
         packageId: data.packageId || null,
         assignedUserId: data.assignedUserId || req.user!.id,
@@ -776,6 +804,110 @@ router.get('/export/passengers', async (req: AuthRequest, res: Response, next) =
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=ooting-passengers-${Date.now()}.csv`);
     res.send(csvContent);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Import Bookings from Excel
+router.post('/import', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ message: 'No booking data provided for import.' });
+      return;
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const fullName = String(item.customerName || item.fullName || '').trim();
+      const rawPhone = String(item.customerPhone || item.phone || '').trim();
+
+      if (!fullName || !rawPhone) {
+        skipped++;
+        errors.push(`Row ${i + 1}: Customer name and phone are required.`);
+        continue;
+      }
+
+      const phone = rawPhone.replace(/[^\d+]/g, '');
+
+      // Find or create customer
+      let customer = await prisma.customer.findFirst({ where: { phone } });
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            fullName,
+            phone,
+            email: item.customerEmail || item.email ? String(item.customerEmail || item.email).trim() : null,
+            city: item.customerCity || item.city ? String(item.customerCity || item.city).trim() : null,
+            assignedToId: req.user!.id,
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      // Generate booking number
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const count = await prisma.booking.count();
+      const bookingNumber = `OOT-BK-${dateStr}-${String(count + 1 + i).padStart(4, '0')}`;
+
+      const totalAmount = Number(item.totalAmount || item.amount || 0);
+      const discount = Number(item.discount || 0);
+      const finalAmount = Math.max(0, totalAmount - discount);
+      const travellersCount = Math.max(1, Number(item.travellers || 1));
+
+      const travelStartDate = item.travelStartDate || item.startDate ? new Date(item.travelStartDate || item.startDate) : new Date();
+      const travelEndDate = item.travelEndDate || item.endDate ? new Date(item.travelEndDate || item.endDate) : new Date(Date.now() + 3 * 86400000);
+
+      const booking = await prisma.booking.create({
+        data: {
+          bookingNumber,
+          customerId: customer.id,
+          assignedUserId: req.user!.id,
+          travelStartDate,
+          travelEndDate,
+          travellers: travellersCount,
+          totalAmount,
+          discount,
+          finalAmount,
+          bookingStatus: item.bookingStatus ? String(item.bookingStatus).toUpperCase() : 'CONFIRMED',
+          notes: item.notes ? String(item.notes).trim() : null,
+          travellersList: {
+            create: [
+              {
+                name: fullName,
+                phone,
+                email: customer.email,
+                isPrimary: true,
+              },
+            ],
+          },
+        },
+      });
+
+      imported++;
+    }
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'IMPORT',
+      entity: 'BOOKING',
+      details: `Imported ${imported} bookings, skipped ${skipped}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: `Successfully imported ${imported} bookings. Skipped ${skipped} records.`,
+      imported,
+      skipped,
+      errors,
+    });
   } catch (error) {
     next(error);
   }

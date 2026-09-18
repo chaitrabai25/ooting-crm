@@ -125,4 +125,76 @@ router.get('/audit-logs', authorize('ADMIN'), async (req: AuthRequest, res: Resp
   }
 });
 
+// Complete Database Dump (Admin only)
+router.get('/backup/dump', authorize('ADMIN'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const [
+      customers,
+      leads,
+      bookings,
+      quotations,
+      cabs,
+      payments,
+      packages,
+      agents,
+      expenses,
+      followups,
+      users,
+    ] = await Promise.all([
+      prisma.customer.findMany(),
+      prisma.lead.findMany(),
+      prisma.booking.findMany({ include: { travellersList: true, payments: true } }),
+      prisma.quotation.findMany(),
+      prisma.cabBooking.findMany(),
+      prisma.payment.findMany(),
+      prisma.package.findMany({ include: { itineraries: true } }),
+      prisma.agent.findMany(),
+      prisma.expense.findMany(),
+      prisma.followUp.findMany(),
+      prisma.user.findMany({
+        select: { id: true, name: true, email: true, role: true, phone: true, status: true, createdAt: true },
+      }),
+    ]);
+
+    const backupData = {
+      app: 'Ooting CRM',
+      exportedAt: new Date().toISOString(),
+      exportedBy: req.user?.email || 'admin',
+      summary: {
+        customers: customers.length,
+        leads: leads.length,
+        bookings: bookings.length,
+        quotations: quotations.length,
+        cabBookings: cabs.length,
+        payments: payments.length,
+        packages: packages.length,
+        agents: agents.length,
+        expenses: expenses.length,
+        followups: followups.length,
+        users: users.length,
+      },
+      data: {
+        customers,
+        leads,
+        bookings,
+        quotations,
+        cabs,
+        payments,
+        packages,
+        agents,
+        expenses,
+        followups,
+        users,
+      },
+    };
+
+    const filename = `ooting-crm-full-dump-${new Date().toISOString().split('T')[0]}.json`;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(JSON.stringify(backupData, null, 2));
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

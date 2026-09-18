@@ -5,6 +5,7 @@ import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Payment } from '../../types/index.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 export const PaymentList: React.FC = () => {
   const navigate = useNavigate();
@@ -52,8 +53,12 @@ export const PaymentList: React.FC = () => {
     fetchPayments();
   };
 
-  const handleExportExcel = () => {
-    window.open('/api/payments/export/excel', '_blank');
+  const handleExportExcel = async () => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (selectedMethod) params.append('method', selectedMethod);
+    if (selectedStatus) params.append('status', selectedStatus);
+    await downloadExcel(`/payments/export/excel?${params.toString()}`, `ooting-payments-${Date.now()}.xlsx`);
   };
 
   const formatCurrency = (val: number) => {

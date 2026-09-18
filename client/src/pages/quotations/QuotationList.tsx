@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Quotation } from '../../types/index.js';
@@ -111,32 +112,14 @@ export const QuotationList: React.FC = () => {
   };
 
   const handleExportExcel = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (search.trim()) params.append('search', search.trim());
-      if (selectedStatus) params.append('status', selectedStatus);
+    const params = new URLSearchParams();
+    if (search.trim()) params.append('search', search.trim());
+    if (selectedStatus) params.append('status', selectedStatus);
 
-      const token = localStorage.getItem('token');
-      const response = await api.get(`/quotations/export/excel?${params.toString()}`, {
-        responseType: 'blob',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `ooting-quotations-${Date.now()}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Export failed:', err);
-      alert('Failed to export quotations to Excel.');
-    }
+    await downloadExcel(
+      `/quotations/export/excel?${params.toString()}`,
+      `ooting-quotations-${Date.now()}.xlsx`
+    );
   };
 
   const columns: Column<Quotation>[] = [
@@ -309,7 +292,7 @@ export const QuotationList: React.FC = () => {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-xs transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>+ New Quotation</span>
+            <span>New Quotation</span>
           </button>
         </div>
       </div>

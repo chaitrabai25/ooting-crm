@@ -119,9 +119,9 @@ export const LeadModal: React.FC<LeadModalProps> = ({
 
         {/* Customer Information Block */}
         {!initialData && (
-          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+              <span className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
                 Customer Details
               </span>
               <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                   type="button"
                   onClick={() => setIsNewCustomer(true)}
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
-                    isNewCustomer ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-200'
+                    isNewCustomer ? 'bg-brand-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                   }`}
                 >
                   + New Customer
@@ -138,7 +138,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                   type="button"
                   onClick={() => setIsNewCustomer(false)}
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
-                    !isNewCustomer ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-200'
+                    !isNewCustomer ? 'bg-brand-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                   }`}
                 >
                   Existing Customer
@@ -149,56 +149,56 @@ export const LeadModal: React.FC<LeadModalProps> = ({
             {isNewCustomer ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700">Full Name *</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Full Name *</label>
                   <input
                     type="text"
                     required
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="e.g. Ramesh Kulkarni"
-                    className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700">Phone Number *</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Phone Number *</label>
                   <input
                     type="tel"
                     required
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="e.g. +91 98450 12345"
-                    className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700">Email Address</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Email Address</label>
                   <input
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     placeholder="ramesh@example.com"
-                    className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700">City</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">City</label>
                   <input
                     type="text"
                     value={customerCity}
                     onChange={(e) => setCustomerCity(e.target.value)}
                     placeholder="e.g. Bangalore"
-                    className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
                   />
                 </div>
               </div>
             ) : (
               <div>
-                <label className="font-semibold text-slate-700">Select Customer *</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Select Customer *</label>
                 <select
                   required
                   value={customerId}
                   onChange={(e) => setCustomerId(e.target.value)}
-                  className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+                  className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
                 >
                   <option value="">-- Choose Existing Customer --</option>
                   {existingCustomers.map((c) => (
@@ -215,19 +215,19 @@ export const LeadModal: React.FC<LeadModalProps> = ({
         {/* Destination & Package */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Destination *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Destination *</label>
             <input
               type="text"
               required
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
               placeholder="e.g. Ooty, Coorg, Andaman"
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700">Preferred Travel Package</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Preferred Travel Package</label>
             <select
               value={packageId}
               onChange={(e) => {
@@ -235,7 +235,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                 const pkg = packages.find((p) => p.id === e.target.value);
                 if (pkg && !destination) setDestination(pkg.destination);
               }}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             >
               <option value="">-- Custom / No Specific Package --</option>
               {packages.map((p) => (
@@ -250,41 +250,41 @@ export const LeadModal: React.FC<LeadModalProps> = ({
         {/* Travel Dates & Travellers */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Start Date</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Start Date</label>
             <input
               type="date"
               value={travelStartDate}
               onChange={(e) => setTravelStartDate(e.target.value)}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">End Date</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">End Date</label>
             <input
               type="date"
               value={travelEndDate}
               onChange={(e) => setTravelEndDate(e.target.value)}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">Adults</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Adults</label>
             <input
               type="number"
               min="1"
               value={adults}
               onChange={(e) => setAdults(Number(e.target.value))}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">Children</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Children</label>
             <input
               type="number"
               min="0"
               value={children}
               onChange={(e) => setChildren(Number(e.target.value))}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
         </div>
@@ -292,22 +292,22 @@ export const LeadModal: React.FC<LeadModalProps> = ({
         {/* Budget, Source, Priority, Assigned User */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Approx Budget (₹)</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Approx Budget (₹)</label>
             <input
               type="number"
               min="0"
               placeholder="e.g. 50000"
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">Enquiry Source</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Enquiry Source</label>
             <select
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             >
               <option value="WEBSITE">Website</option>
               <option value="WHATSAPP">WhatsApp</option>
@@ -319,11 +319,11 @@ export const LeadModal: React.FC<LeadModalProps> = ({
             </select>
           </div>
           <div>
-            <label className="font-semibold text-slate-700">Priority</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Priority</label>
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             >
               <option value="LOW">Low</option>
               <option value="MEDIUM">Medium</option>
@@ -332,11 +332,11 @@ export const LeadModal: React.FC<LeadModalProps> = ({
             </select>
           </div>
           <div>
-            <label className="font-semibold text-slate-700">Assign Staff</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Assign Staff</label>
             <select
               value={assignedUserId}
               onChange={(e) => setAssignedUserId(e.target.value)}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             >
               <option value="">-- Unassigned --</option>
               {staffList.map((s) => (
@@ -351,32 +351,32 @@ export const LeadModal: React.FC<LeadModalProps> = ({
         {/* Initial Follow-up & Notes */}
         {!initialData && (
           <div>
-            <label className="font-semibold text-slate-700">Schedule First Follow-up (Optional)</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Schedule First Follow-up (Optional)</label>
             <input
               type="datetime-local"
               value={nextFollowUpAt}
               onChange={(e) => setNextFollowUpAt(e.target.value)}
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
         )}
 
         <div>
-          <label className="font-semibold text-slate-700">Notes & Special Requirements</label>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Notes & Special Requirements</label>
           <textarea
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Client requested 4-star hotel with pure vegetarian breakfast, celebrating anniversary..."
-            className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+            className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
           />
         </div>
 
-        <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
             Cancel
           </button>

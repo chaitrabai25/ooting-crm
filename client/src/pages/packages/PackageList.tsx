@@ -15,6 +15,7 @@ import { Badge } from '../../components/ui/Badge.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { PackageModal } from './PackageModal.js';
 import { Package } from '../../types/index.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 export const PackageList: React.FC = () => {
   const navigate = useNavigate();
@@ -54,8 +55,12 @@ export const PackageList: React.FC = () => {
     fetchPackages();
   };
 
-  const handleExportExcel = () => {
-    window.open('/api/packages/export/excel', '_blank');
+  const handleExportExcel = async () => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (selectedType) params.append('type', selectedType);
+    if (selectedStatus) params.append('status', selectedStatus);
+    await downloadExcel(`/packages/export/excel?${params.toString()}`, `ooting-packages-${Date.now()}.xlsx`);
   };
 
   return (

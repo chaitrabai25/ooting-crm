@@ -13,6 +13,7 @@ import {
   Package as PackageIcon,
   RefreshCw,
   MessageSquare,
+  Upload,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
@@ -20,7 +21,9 @@ import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { BookingModal } from './BookingModal.js';
+import { BookingImportModal } from './BookingImportModal.js';
 import { Booking, Package } from '../../types/index.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 export const BookingList: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +33,7 @@ export const BookingList: React.FC = () => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(searchParams.get('action') === 'create');
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<any | null>(null);
 
   // WhatsApp Modal state
@@ -62,9 +66,9 @@ export const BookingList: React.FC = () => {
     }).catch(console.error);
   }, []);
 
-  const fetchBookings = async () => {
+  const fetchBookings = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -81,12 +85,18 @@ export const BookingList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch bookings:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchBookings();
+
+    // Silent background auto-refresh every 60 seconds
+    const pollTimer = setInterval(() => {
+      fetchBookings(true);
+    }, 60000);
+    return () => clearInterval(pollTimer);
   }, [page, selectedStatus, selectedPackageId, sortBy, sortOrder]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -105,12 +115,13 @@ export const BookingList: React.FC = () => {
     setPage(1);
   };
 
-  // Strictly Excel (.xlsx) Export
-  const handleExportExcel = () => {
+  // Strictly Excel (.xlsx) Export with Bearer Authentication
+  const handleExportExcel = async () => {
     const params = new URLSearchParams();
     if (selectedPackageId) params.append('packageId', selectedPackageId);
     if (selectedStatus) params.append('status', selectedStatus);
-    window.open(`/api/bookings/export/excel?${params.toString()}`, '_blank');
+    if (search.trim()) params.append('search', search.trim());
+    await downloadExcel(`/bookings/export/excel?${params.toString()}`, `ooting-bookings-${Date.now()}.xlsx`);
   };
 
   const formatCurrency = (val: number) => {
@@ -278,6 +289,16 @@ export const BookingList: React.FC = () => {
             <span>Export Excel</span>
           </button>
 
+          {/* Excel Import */}
+          <button
+            type="button"
+            onClick={() => setIsImportOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span>Import Excel</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -392,6 +413,17 @@ export const BookingList: React.FC = () => {
             setIsModalOpen(false);
             setEditingBooking(null);
           }}
+          onSuccess={() => {
+            fetchBookings();
+          }}
+        />
+      )}
+
+      {/* Booking Import Modal */}
+      {isImportOpen && (
+        <BookingImportModal
+          isOpen={isImportOpen}
+          onClose={() => setIsImportOpen(false)}
           onSuccess={() => {
             fetchBookings();
           }}

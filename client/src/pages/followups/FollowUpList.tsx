@@ -22,6 +22,7 @@ import { EmptyState } from '../../components/ui/EmptyState.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 export const FollowUpList: React.FC = () => {
   const navigate = useNavigate();
@@ -107,8 +108,11 @@ export const FollowUpList: React.FC = () => {
     setPage(1);
   };
 
-  const handleExportExcel = () => {
-    window.open('/api/followups/export/excel', '_blank');
+  const handleExportExcel = async () => {
+    const params = new URLSearchParams();
+    if (activeTab) params.append('status', activeTab);
+    if (selectedDate) params.append('date', selectedDate);
+    await downloadExcel(`/followups/export/excel?${params.toString()}`, `ooting-followups-${Date.now()}.xlsx`);
   };
 
   const handleComplete = async () => {

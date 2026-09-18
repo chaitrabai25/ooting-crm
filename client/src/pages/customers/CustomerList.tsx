@@ -28,6 +28,7 @@ import { CustomerModal } from './CustomerModal.js';
 import { CustomerImportModal } from './CustomerImportModal.js';
 import { ForwardCustomerModal } from './ForwardCustomerModal.js';
 import { Customer } from '../../types/index.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 export const CustomerList: React.FC = () => {
   const navigate = useNavigate();
@@ -78,9 +79,9 @@ export const CustomerList: React.FC = () => {
   const [selectedSource, setSelectedSource] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -95,12 +96,18 @@ export const CustomerList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch customers:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchCustomers();
+
+    // Auto-refresh every 60 seconds to pull team updates without manual reload
+    const pollTimer = setInterval(() => {
+      fetchCustomers(true);
+    }, 60000);
+    return () => clearInterval(pollTimer);
   }, [page, selectedSource, selectedStatus]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -109,9 +116,13 @@ export const CustomerList: React.FC = () => {
     fetchCustomers();
   };
 
-  // Excel (.xlsx) Export
-  const handleExportExcel = () => {
-    window.open('/api/customers/export/excel', '_blank');
+  // Excel (.xlsx) Export with Bearer Authentication
+  const handleExportExcel = async () => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (selectedSource) params.append('source', selectedSource);
+    if (selectedStatus) params.append('status', selectedStatus);
+    await downloadExcel(`/customers/export/excel?${params.toString()}`, `ooting-customers-${Date.now()}.xlsx`);
   };
 
   // Row selection toggle

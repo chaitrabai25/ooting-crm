@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   AlertCircle,
   MoreVertical,
+  Upload,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
@@ -21,7 +22,9 @@ import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { LeadModal } from './LeadModal.js';
+import { LeadImportModal } from './LeadImportModal.js';
 import { Lead } from '../../types/index.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 export const LeadList: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +33,7 @@ export const LeadList: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(searchParams.get('action') === 'create');
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
   // Conversion status toast
@@ -71,9 +75,9 @@ export const LeadList: React.FC = () => {
     { label: 'Lost', value: 'LOST' },
   ];
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -102,12 +106,18 @@ export const LeadList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch leads:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchLeads();
+
+    // Silent background auto-refresh every 60 seconds
+    const pollInterval = setInterval(() => {
+      fetchLeads(true);
+    }, 60000);
+    return () => clearInterval(pollInterval);
   }, [page, activeTab, selectedStatus, selectedPriority]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -116,13 +126,12 @@ export const LeadList: React.FC = () => {
     fetchLeads();
   };
 
-  const handleExportExcel = () => {
-    const token = localStorage.getItem('token');
+  const handleExportExcel = async () => {
     const params = new URLSearchParams();
     if (activeTab !== 'all') params.append('tab', activeTab);
     if (selectedStatus) params.append('status', selectedStatus);
-    if (token) params.append('token', token);
-    window.open(`/api/leads/export/excel?${params.toString()}`, '_blank');
+    if (search.trim()) params.append('search', search.trim());
+    await downloadExcel(`/leads/export/excel?${params.toString()}`, `ooting-leads-${Date.now()}.xlsx`);
   };
 
   // Conversions
@@ -358,6 +367,15 @@ export const LeadList: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => setIsImportOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 shadow-xs transition-colors cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span>Import Excel</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               setEditingLead(null);
               setIsModalOpen(true);
@@ -553,6 +571,19 @@ export const LeadList: React.FC = () => {
           }}
           onSuccess={() => {
             fetchLeads();
+          }}
+        />
+      )}
+
+      {/* Lead Import Modal */}
+      {isImportOpen && (
+        <LeadImportModal
+          isOpen={isImportOpen}
+          onClose={() => setIsImportOpen(false)}
+          onSuccess={() => {
+            fetchLeads();
+            setActionMessage({ text: 'Leads successfully imported from Excel!' });
+            setTimeout(() => setActionMessage(null), 4000);
           }}
         />
       )}

@@ -640,4 +640,88 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
+// Import Leads from Excel
+router.post('/import', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ message: 'No lead data provided for import.' });
+      return;
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const fullName = String(item.customerName || item.fullName || '').trim();
+      const rawPhone = String(item.customerPhone || item.phone || '').trim();
+      const destination = String(item.destination || 'Unspecified').trim();
+
+      if (!fullName || !rawPhone) {
+        skipped++;
+        errors.push(`Row ${i + 1}: Customer name and phone are required.`);
+        continue;
+      }
+
+      const phone = rawPhone.replace(/[^\d+]/g, '');
+
+      // Check or create customer
+      let customer = await prisma.customer.findFirst({
+        where: { phone },
+      });
+
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            fullName,
+            phone,
+            email: item.customerEmail || item.email ? String(item.customerEmail || item.email).trim() : null,
+            city: item.customerCity || item.city ? String(item.customerCity || item.city).trim() : null,
+            source: item.source ? String(item.source).trim() : 'DIRECT',
+            assignedToId: req.user!.id,
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      await prisma.lead.create({
+        data: {
+          customerId: customer.id,
+          assignedUserId: req.user!.id,
+          destination,
+          adults: Number(item.adults) || 2,
+          children: Number(item.children) || 0,
+          budget: item.budget ? Number(item.budget) : null,
+          source: item.source ? String(item.source).trim() : 'DIRECT',
+          priority: item.priority ? String(item.priority).toUpperCase() : 'MEDIUM',
+          enquiryStatus: item.enquiryStatus ? String(item.enquiryStatus).toUpperCase() : 'NEW',
+          notes: item.notes ? String(item.notes).trim() : null,
+        },
+      });
+
+      imported++;
+    }
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'IMPORT',
+      entity: 'LEAD',
+      details: `Imported ${imported} leads, skipped ${skipped}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: `Successfully imported ${imported} leads. Skipped ${skipped} records.`,
+      imported,
+      skipped,
+      errors,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

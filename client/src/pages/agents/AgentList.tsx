@@ -21,6 +21,7 @@ import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { AgentModal } from './AgentModal.js';
 import { AgentImportModal } from './AgentImportModal.js';
 import { Agent } from '../../types/index.js';
+import { downloadExcel } from '../../utils/exportHelper.js';
 
 export const AgentList: React.FC = () => {
   const navigate = useNavigate();
@@ -92,8 +93,10 @@ export const AgentList: React.FC = () => {
     setPage(1);
   };
 
-  const handleExportExcel = () => {
-    window.open('/api/agents/export/excel', '_blank');
+  const handleExportExcel = async () => {
+    const params = new URLSearchParams();
+    if (search.trim()) params.append('search', search.trim());
+    await downloadExcel(`/agents/export/excel?${params.toString()}`, `ooting-b2b-agents-${Date.now()}.xlsx`);
   };
 
   const formatCurrency = (val: number) => {
