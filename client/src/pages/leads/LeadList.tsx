@@ -47,8 +47,8 @@ export const LeadList: React.FC = () => {
     customerPhone: '',
   });
 
-  // Dual Tabs & Filters
-  const [activeTab, setActiveTab] = useState<'all' | 'new' | 'existing'>('new');
+  // Dual Tabs & Filters (Default 'all' so all leads are visible immediately)
+  const [activeTab, setActiveTab] = useState<'all' | 'new' | 'existing'>('all');
   const [leadCounts, setLeadCounts] = useState<{ new: number; existing: number }>({ new: 0, existing: 0 });
 
   // Pagination (Default 10 per page)
@@ -388,8 +388,32 @@ export const LeadList: React.FC = () => {
         </div>
       )}
 
-      {/* Primary Dual Tabs: New Leads vs Existing Leads */}
+      {/* Primary Tabs: All Enquiries, New Leads, Existing Leads */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('all');
+            setPage(1);
+          }}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+            activeTab === 'all'
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <span>All Enquiries</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+              activeTab === 'all'
+                ? 'bg-white/20 text-white'
+                : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+          >
+            {leadCounts.new + leadCounts.existing}
+          </span>
+        </button>
+
         <button
           type="button"
           onClick={() => {
@@ -426,7 +450,7 @@ export const LeadList: React.FC = () => {
               : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
-          <span>Existing Leads</span>
+          <span>In Progress / Follow-up</span>
           <span
             className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
               activeTab === 'existing'
@@ -436,21 +460,6 @@ export const LeadList: React.FC = () => {
           >
             {leadCounts.existing}
           </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('all');
-            setPage(1);
-          }}
-          className={`px-3 py-2 text-xs font-medium rounded-xl transition-all ${
-            activeTab === 'all'
-              ? 'bg-slate-800 text-white dark:bg-slate-700'
-              : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          All Enquiries
         </button>
       </div>
 

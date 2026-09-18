@@ -12,7 +12,7 @@
     "dev:server": "npm --workspace=server run dev",
     "dev:client": "npm --workspace=client run dev",
     "build": "npm --workspace=server run prisma:generate && npm --workspace=client run build && npm --workspace=server run build",
-    "start": "npm --workspace=server run prisma:push && npm --workspace=server run start",
+    "start": "npm --workspace=server run start",
     "postinstall": "npm --workspace=server run prisma:generate",
     "prisma:generate": "npm --workspace=server run prisma:generate",
     "prisma:push": "npm --workspace=server run prisma:push",

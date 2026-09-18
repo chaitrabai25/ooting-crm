@@ -1,8 +1,6 @@
 import { app } from './app.js';
 import { config } from './config/index.js';
 import { connectDB, prisma } from './db/prisma.js';
-
-import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
@@ -12,14 +10,9 @@ const __dirname = path.dirname(__filename);
 
 async function ensureDBSchema() {
   try {
-    console.log('🔄 Checking & synchronizing database schema...');
-    const serverDir = path.resolve(__dirname, '..');
-    execSync('npx prisma db push --skip-generate --accept-data-loss', {
-      cwd: serverDir,
-      stdio: 'pipe',
-      env: { ...process.env },
-    });
-    console.log('✅ Database schema verified.');
+    console.log('🔄 Checking database connection...');
+    const userCount = await prisma.user.count();
+    console.log(`✅ Database connected and verified. Total registered users: ${userCount}`);
   } catch (err: any) {
     console.warn('⚠️ Note during DB schema check:', err.message);
   }
@@ -55,21 +48,24 @@ async function ensureInitialAdmin() {
         });
         console.log(`✅ Initialized verified account: ${acc.email}`);
       } else {
-        await prisma.user.update({
-          where: { id: existing.id },
-          data: { passwordHash: acc.hash, status: 'ACTIVE' },
-        });
+        // Preserve existing user passwords and data! Only ensure status is ACTIVE if inactive.
+        if (existing.status !== 'ACTIVE') {
+          await prisma.user.update({
+            where: { id: existing.id },
+            data: { status: 'ACTIVE' },
+          });
+        }
         console.log(`✅ Verified active status for: ${acc.email}`);
       }
     }
   } catch (err: any) {
-    console.warn('⚠️ DB tables check note:', err.message);
+    console.warn('⚠️ DB check note:', err.message);
   }
 }
 
 async function bootstrap() {
-  await ensureDBSchema();
   await connectDB();
+  await ensureDBSchema();
   await ensureInitialAdmin();
 
   const host = '0.0.0.0';
