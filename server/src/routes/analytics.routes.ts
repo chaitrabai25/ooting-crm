@@ -335,7 +335,7 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
       if (!destinationMap[dest]) destinationMap[dest] = { bookings: 0, revenue: 0, leads: 0 };
       if (b.bookingStatus !== 'CANCELLED') {
         destinationMap[dest].bookings++;
-        destinationMap[dest].revenue += b.finalAmount;
+        destinationMap[dest].revenue += Number(b.finalAmount);
       }
     });
     const destinationAnalytics = Object.keys(destinationMap)
@@ -365,7 +365,7 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
       if (b.bookingStatus !== 'CANCELLED') {
         const key = b.bookingDate.toISOString().slice(0, 7);
         if (monthlyMap[key]) {
-          monthlyMap[key].bookingValue += b.finalAmount;
+          monthlyMap[key].bookingValue += Number(b.finalAmount);
         }
       }
     });
@@ -373,14 +373,14 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
     allPayments.forEach(p => {
       const key = p.paymentDate.toISOString().slice(0, 7);
       if (monthlyMap[key]) {
-        monthlyMap[key].collected += p.amount;
+        monthlyMap[key].collected += Number(p.amount);
       }
     });
 
     allExpenses.forEach(e => {
       const key = e.expenseDate.toISOString().slice(0, 7);
       if (monthlyMap[key]) {
-        monthlyMap[key].expenses += e.amount;
+        monthlyMap[key].expenses += Number(e.amount);
       }
     });
 
@@ -395,7 +395,7 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
       const assignedLeads = allLeads.filter(l => l.assignedUserId === staff.id).length;
       const wonLeads = allLeads.filter(l => l.assignedUserId === staff.id && l.enquiryStatus === 'WON').length;
       const staffBookings = allBookings.filter(b => b.assignedUserId === staff.id && b.bookingStatus !== 'CANCELLED');
-      const revenue = staffBookings.reduce((sum, b) => sum + b.finalAmount, 0);
+      const revenue = staffBookings.reduce((sum, b) => sum + Number(b.finalAmount), 0);
       const completedFollowUps = followUps.filter(f => f.assignedUserId === staff.id && f.status === 'COMPLETED').length;
 
       return {
@@ -414,7 +414,7 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
     // 6. Expense Breakdown by Category
     const expenseCategoryMap: Record<string, number> = {};
     allExpenses.forEach(e => {
-      expenseCategoryMap[e.category] = (expenseCategoryMap[e.category] || 0) + e.amount;
+      expenseCategoryMap[e.category] = (expenseCategoryMap[e.category] || 0) + Number(e.amount);
     });
     const expenseBreakdown = Object.keys(expenseCategoryMap).map(cat => ({
       category: cat.replace('_', ' '),

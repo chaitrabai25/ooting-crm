@@ -99,8 +99,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
-    const totalPaidSoFar = booking.payments.reduce((acc, p) => acc + p.amount, 0);
-    const balanceDue = Math.max(0, booking.finalAmount - totalPaidSoFar);
+    const totalPaidSoFar = booking.payments.reduce((acc, p) => acc + Number(p.amount), 0);
+    const balanceDue = Math.max(0, Number(booking.finalAmount) - totalPaidSoFar);
 
     // Rule: Do not allow payment amount to exceed booking amount unless explicit overpayment allowed
     if (!data.allowOverpayment && data.paymentStatus === 'SUCCESS' && data.amount > (balanceDue + 0.01)) {
@@ -192,7 +192,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
       'Booking Ref': p.booking.bookingNumber,
       'Customer Name': p.booking.customer.fullName,
       'Phone': p.booking.customer.phone,
-      'Amount': p.amount,
+      'Amount': Number(p.amount),
       'Payment Method': p.paymentMethod,
       'Payment Status': p.paymentStatus,
       'Payment Date': p.paymentDate.toISOString().split('T')[0],

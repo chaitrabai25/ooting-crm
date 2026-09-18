@@ -10,10 +10,21 @@ const serverDir = path.resolve(__dirname, '..');
 
 const dbUrl = process.env.DATABASE_URL || '';
 const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
+const isSqlite = dbUrl.startsWith('file:');
 
-console.log(`[Prisma Init] Database URL detected: ${isPostgres ? 'PostgreSQL (Cloud)' : 'SQLite (Local)'}`);
+let dbType = 'MySQL (Local / Cloud Production)';
+let schemaFile = 'prisma/schema.prisma'; // Primary MySQL schema
 
-const schemaFile = isPostgres ? 'prisma/schema.postgresql.prisma' : 'prisma/schema.prisma';
+if (isPostgres) {
+  dbType = 'PostgreSQL (Cloud)';
+  schemaFile = 'prisma/schema.postgresql.prisma';
+} else if (isSqlite) {
+  dbType = 'SQLite (Legacy Local)';
+  schemaFile = 'prisma/schema.sqlite.prisma';
+}
+
+console.log(`[Prisma Init] Database Engine: ${dbType}`);
+console.log(`[Prisma Init] Target Schema: ${schemaFile}`);
 const schemaPath = path.resolve(serverDir, schemaFile);
 
 try {

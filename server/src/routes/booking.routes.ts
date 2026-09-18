@@ -76,8 +76,8 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 
     // Format with accurate financial summaries
     const data = bookings.map(b => {
-      const amountPaid = b.payments.reduce((acc, p) => acc + p.amount, 0);
-      const balanceDue = Math.max(0, b.finalAmount - amountPaid);
+      const amountPaid = b.payments.reduce((acc, p) => acc + Number(p.amount), 0);
+      const balanceDue = Math.max(0, Number(b.finalAmount) - amountPaid);
       return {
         ...b,
         amountPaid,
@@ -148,10 +148,10 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
     ]);
 
     const passengersData = bookings.map(b => {
-      const amountPaid = b.payments.reduce((acc, p) => acc + p.amount, 0);
-      const balanceDue = Math.max(0, b.finalAmount - amountPaid);
+      const amountPaid = b.payments.reduce((acc, p) => acc + Number(p.amount), 0);
+      const balanceDue = Math.max(0, Number(b.finalAmount) - amountPaid);
       let paymentStatus = 'UNPAID';
-      if (b.finalAmount > 0 && balanceDue === 0) paymentStatus = 'PAID';
+      if (Number(b.finalAmount) > 0 && balanceDue === 0) paymentStatus = 'PAID';
       else if (amountPaid > 0) paymentStatus = 'PARTIAL';
 
       // Guarantee at least the primary customer if no separate traveller was stored
@@ -241,11 +241,11 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
 
     const amountPaid = booking.payments
       .filter(p => p.paymentStatus === 'SUCCESS')
-      .reduce((acc, p) => acc + p.amount, 0);
-    const balanceDue = Math.max(0, booking.finalAmount - amountPaid);
+      .reduce((acc, p) => acc + Number(p.amount), 0);
+    const balanceDue = Math.max(0, Number(booking.finalAmount) - amountPaid);
 
-    const totalExpenses = booking.expenses.reduce((acc, e) => acc + e.amount, 0);
-    const grossProfit = booking.finalAmount - totalExpenses;
+    const totalExpenses = booking.expenses.reduce((acc, e) => acc + Number(e.amount), 0);
+    const grossProfit = Number(booking.finalAmount) - totalExpenses;
 
     res.json({
       ...booking,
@@ -430,9 +430,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
-    const totalAmount = data.totalAmount !== undefined ? data.totalAmount : currentBooking.totalAmount;
-    const discount = data.discount !== undefined ? data.discount : currentBooking.discount;
-    const finalAmount = Math.max(0, totalAmount - discount);
+    const totalAmount = data.totalAmount !== undefined ? data.totalAmount : Number(currentBooking.totalAmount);
+    const discount = data.discount !== undefined ? data.discount : Number(currentBooking.discount);
+    const finalAmount = Math.max(0, Number(totalAmount) - Number(discount));
 
     const updatePayload: any = {
       totalAmount,
@@ -534,8 +534,8 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     });
 
     const rows = bookings.map((b, idx) => {
-      const paid = b.payments.reduce((acc, p) => acc + p.amount, 0);
-      const balance = Math.max(0, b.finalAmount - paid);
+      const paid = b.payments.reduce((acc, p) => acc + Number(p.amount), 0);
+      const balance = Math.max(0, Number(b.finalAmount) - paid);
       return {
         'S.No.': idx + 1,
         'Booking Number': b.bookingNumber,
@@ -593,8 +593,8 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
 
     const headers = ['Booking Number', 'Customer', 'Phone', 'Package', 'Start Date', 'End Date', 'Travellers', 'Total Amount', 'Discount', 'Final Amount', 'Amount Paid', 'Balance Due', 'Status', 'Assigned To', 'Booking Date'];
     const rows = bookings.map(b => {
-      const paid = b.payments.reduce((acc, p) => acc + p.amount, 0);
-      const balance = Math.max(0, b.finalAmount - paid);
+      const paid = b.payments.reduce((acc, p) => acc + Number(p.amount), 0);
+      const balance = Math.max(0, Number(b.finalAmount) - paid);
       return [
         b.bookingNumber,
         `"${b.customer.fullName.replace(/"/g, '""')}"`,
@@ -655,8 +655,8 @@ router.get('/export/passengers/excel', async (req: AuthRequest, res: Response, n
     let sNo = 1;
 
     bookings.forEach((b) => {
-      const paid = b.payments.reduce((acc, p) => acc + p.amount, 0);
-      const balance = Math.max(0, b.finalAmount - paid);
+      const paid = b.payments.reduce((acc, p) => acc + Number(p.amount), 0);
+      const balance = Math.max(0, Number(b.finalAmount) - paid);
 
       const travellers = (b.travellersList && b.travellersList.length > 0)
         ? b.travellersList
@@ -754,8 +754,8 @@ router.get('/export/passengers', async (req: AuthRequest, res: Response, next) =
     const rows: string[] = [];
 
     bookings.forEach((b) => {
-      const paid = b.payments.reduce((acc, p) => acc + p.amount, 0);
-      const balance = Math.max(0, b.finalAmount - paid);
+      const paid = b.payments.reduce((acc, p) => acc + Number(p.amount), 0);
+      const balance = Math.max(0, Number(b.finalAmount) - paid);
 
       const travellers = (b.travellersList && b.travellersList.length > 0)
         ? b.travellersList

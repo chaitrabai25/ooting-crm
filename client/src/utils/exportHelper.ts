@@ -6,7 +6,7 @@ import { api } from '../api/client.js';
  */
 export async function downloadExcel(url: string, defaultFilename: string): Promise<void> {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('ooting_crm_token') || localStorage.getItem('token');
     const response = await api.get(url, {
       responseType: 'blob',
       headers: token ? { Authorization: `Bearer ${token}` } : {},

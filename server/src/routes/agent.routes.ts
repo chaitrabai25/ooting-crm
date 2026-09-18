@@ -58,10 +58,10 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 
       for (const ab of agent.agentBookings) {
         if (ab.booking && ab.booking.bookingStatus !== 'CANCELLED') {
-          totalRevenue += ab.booking.finalAmount;
-          totalCommission += ab.commissionAmount;
+          totalRevenue += Number(ab.booking.finalAmount);
+          totalCommission += Number(ab.commissionAmount);
           if (ab.payoutStatus === 'PENDING') {
-            pendingCommission += ab.commissionAmount;
+            pendingCommission += Number(ab.commissionAmount);
           }
         }
       }
@@ -134,12 +134,12 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
 
     for (const ab of agent.agentBookings) {
       if (ab.booking && ab.booking.bookingStatus !== 'CANCELLED') {
-        totalRevenue += ab.booking.finalAmount;
-        totalCommission += ab.commissionAmount;
+        totalRevenue += Number(ab.booking.finalAmount);
+        totalCommission += Number(ab.commissionAmount);
         if (ab.payoutStatus === 'PAID') {
-          paidCommission += ab.commissionAmount;
+          paidCommission += Number(ab.commissionAmount);
         } else {
-          pendingCommission += ab.commissionAmount;
+          pendingCommission += Number(ab.commissionAmount);
         }
       }
     }
@@ -381,10 +381,10 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 
       for (const ab of agent.agentBookings) {
         if (ab.booking && ab.booking.bookingStatus !== 'CANCELLED') {
-          totalRevenue += ab.booking.finalAmount;
-          totalCommission += ab.commissionAmount;
+          totalRevenue += Number(ab.booking.finalAmount);
+          totalCommission += Number(ab.commissionAmount);
           if (ab.payoutStatus !== 'PAID') {
-            pendingCommission += ab.commissionAmount;
+            pendingCommission += Number(ab.commissionAmount);
           }
         }
       }

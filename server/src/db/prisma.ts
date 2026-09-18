@@ -1,8 +1,24 @@
 import { PrismaClient } from '@prisma/client';
 
-export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
-});
+// ==============================================================================
+// Ooting CRM - Prisma Database Client Singleton
+// Purpose: Prevents connection pool exhaustion in serverless environments (Vercel)
+// and ensures connection reuse across local & production backend lifecycles.
+// ==============================================================================
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+  });
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
 
 export async function connectDB() {
   try {
@@ -10,6 +26,9 @@ export async function connectDB() {
     console.log('Successfully connected to the database.');
   } catch (error) {
     console.error('Failed to connect to the database:', error);
-    process.exit(1);
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
   }
 }
+

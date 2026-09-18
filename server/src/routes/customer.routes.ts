@@ -110,10 +110,10 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
     let totalPaid = 0;
     for (const b of customer.bookings) {
       if (b.bookingStatus !== 'CANCELLED') {
-        lifetimeValue += b.finalAmount;
+        lifetimeValue += Number(b.finalAmount);
         for (const p of b.payments) {
           if (p.paymentStatus === 'SUCCESS') {
-            totalPaid += p.amount;
+            totalPaid += Number(p.amount);
           }
         }
       }

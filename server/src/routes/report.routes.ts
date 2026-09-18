@@ -81,8 +81,8 @@ router.get('/bookings', async (req: AuthRequest, res: Response, next) => {
     });
 
     const data = bookings.map(b => {
-      const paid = b.payments.reduce((acc, p) => acc + p.amount, 0);
-      const balance = Math.max(0, b.finalAmount - paid);
+      const paid = b.payments.reduce((acc, p) => acc + Number(p.amount), 0);
+      const balance = Math.max(0, Number(b.finalAmount) - paid);
       return {
         id: b.id,
         bookingNumber: b.bookingNumber,
@@ -93,7 +93,7 @@ router.get('/bookings', async (req: AuthRequest, res: Response, next) => {
         startDate: b.travelStartDate.toISOString().split('T')[0],
         endDate: b.travelEndDate.toISOString().split('T')[0],
         travellers: b.travellers,
-        finalAmount: b.finalAmount,
+        finalAmount: Number(b.finalAmount),
         amountPaid: paid,
         balanceDue: balance,
         status: b.bookingStatus,
@@ -160,7 +160,7 @@ router.get('/payments', async (req: AuthRequest, res: Response, next) => {
       id: p.id,
       bookingNumber: p.booking.bookingNumber,
       customerName: p.booking.customer.fullName,
-      amount: p.amount,
+      amount: Number(p.amount),
       method: p.paymentMethod,
       reference: p.transactionReference || 'N/A',
       status: p.paymentStatus,
@@ -208,9 +208,9 @@ router.get('/revenue', async (req: AuthRequest, res: Response, next) => {
       }),
     ]);
 
-    const totalBookingValue = confirmedBookings.reduce((sum, b) => sum + b.finalAmount, 0);
-    const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalBookingValue = confirmedBookings.reduce((sum, b) => sum + Number(b.finalAmount), 0);
+    const totalCollected = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
     const outstanding = Math.max(0, totalBookingValue - totalCollected);
     const recordedProfit = totalCollected - totalExpenses;
 
