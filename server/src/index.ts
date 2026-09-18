@@ -2,6 +2,7 @@ import { app } from './app.js';
 import { config } from './config/index.js';
 import { connectDB, prisma } from './db/prisma.js';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { createRequire } from 'module';
@@ -10,6 +11,40 @@ import bcrypt from 'bcryptjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function ensureDatabaseSeed() {
+  const dbUrl = process.env.DATABASE_URL || '';
+  const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
+  const isMysql = dbUrl.startsWith('mysql://');
+  const isSqlite = dbUrl.startsWith('file:') || (!isPostgres && !isMysql);
+
+  if (isSqlite) {
+    const serverDir = path.resolve(__dirname, '..');
+    const backupDb = path.resolve(serverDir, 'prisma', 'backup', 'ooting.db.backup');
+    if (fs.existsSync(backupDb)) {
+      const candidatePaths = [
+        path.resolve(serverDir, 'prisma', 'ooting.db'),
+        path.resolve(serverDir, 'ooting.db'),
+        path.resolve(process.cwd(), 'ooting.db'),
+        path.resolve(process.cwd(), 'server', 'prisma', 'ooting.db'),
+      ];
+      for (const dest of candidatePaths) {
+        try {
+          const dir = path.dirname(dest);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          if (!fs.existsSync(dest) || fs.statSync(dest).size < 10000) {
+            fs.copyFileSync(backupDb, dest);
+            console.log(`[Auto-Seed] Pre-seeded verified database to: ${dest}`);
+          }
+        } catch (copyErr: any) {
+          console.warn(`[Auto-Seed] Note:`, copyErr?.message);
+        }
+      }
+    }
+  }
+}
 
 async function ensureDBSchema() {
   try {
@@ -31,7 +66,18 @@ async function ensureDBSchema() {
       try {
         const dbUrl = process.env.DATABASE_URL || '';
         const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
-        const schemaFile = isPostgres ? 'prisma/schema.postgresql.prisma' : 'prisma/schema.prisma';
+        const isMysql = dbUrl.startsWith('mysql://');
+        const isSqlite = dbUrl.startsWith('file:') || (!isPostgres && !isMysql);
+
+        let schemaFile = 'prisma/schema.mysql.prisma';
+        if (isPostgres) {
+          schemaFile = 'prisma/schema.postgresql.prisma';
+        } else if (isSqlite) {
+          schemaFile = 'prisma/schema.sqlite.prisma';
+        } else if (isMysql) {
+          schemaFile = 'prisma/schema.mysql.prisma';
+        }
+
         const serverDir = path.resolve(__dirname, '..');
         const schemaPath = path.resolve(serverDir, schemaFile);
 
@@ -45,8 +91,8 @@ async function ensureDBSchema() {
         }
 
         const pushCmd = prismaCli
-          ? `"${process.execPath}" "${prismaCli}" db push --skip-generate --schema="${schemaPath}"`
-          : `npx prisma db push --skip-generate --schema="${schemaPath}"`;
+          ? `"${process.execPath}" "${prismaCli}" db push --accept-data-loss --skip-generate --schema="${schemaPath}"`
+          : `npx prisma db push --accept-data-loss --skip-generate --schema="${schemaPath}"`;
 
         console.log(`[Auto-Schema] Executing: ${pushCmd}`);
         execSync(pushCmd, {
@@ -116,6 +162,7 @@ async function ensureInitialAdmin() {
 }
 
 async function bootstrap() {
+  ensureDatabaseSeed();
   await connectDB();
   await ensureDBSchema();
   await ensureInitialAdmin();

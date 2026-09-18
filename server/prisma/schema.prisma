@@ -1,31 +1,25 @@
-// ==============================================================================
-// Ooting CRM - Production MySQL Database Schema
-// Database Engine: MySQL 8.0+ (InnoDB)
-// Supports: Local MySQL (Development) and Cloud MySQL (Vercel Production)
-// ==============================================================================
+// Prisma Schema for OOTING CRM
+// Relational schema with foreign keys, indexes, and full relationship integrity
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-// ------------------------------------------------------------------------------
-// 1. User & Authentication
-// ------------------------------------------------------------------------------
 model User {
-  id                 String    @id @default(uuid()) @db.VarChar(36)
-  name               String    @db.VarChar(191)
-  email              String    @unique @db.VarChar(191)
-  passwordHash       String    @db.VarChar(255)
-  role               String    @default("SALES") @db.VarChar(50) // SUPER_ADMIN, ADMIN, SALES, OPERATIONS, ACCOUNTANT, AGENT
-  phone              String?   @db.VarChar(50)
-  status             String    @default("ACTIVE") @db.VarChar(50) // ACTIVE, INACTIVE, SUSPENDED
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         String    @default("SALES") // SUPER_ADMIN, ADMIN, SALES, OPERATIONS, ACCOUNTANT, AGENT
+  phone        String?
+  status             String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
   lastLoginAt        DateTime?
-  otpHash            String?   @db.VarChar(255)
+  otpHash            String?
   otpExpiresAt       DateTime?
   otpAttempts        Int       @default(0)
   lastOtpRequestedAt DateTime?
@@ -48,26 +42,23 @@ model User {
   @@index([status])
 }
 
-// ------------------------------------------------------------------------------
-// 2. Customer Directory
-// ------------------------------------------------------------------------------
 model Customer {
-  id             String    @id @default(uuid()) @db.VarChar(36)
-  fullName       String    @db.VarChar(191)
-  phone          String    @db.VarChar(50)
-  alternatePhone String?   @db.VarChar(50)
-  email          String?   @db.VarChar(191)
-  city           String?   @db.VarChar(100)
-  state          String?   @db.VarChar(100)
-  country        String?   @default("India") @db.VarChar(100)
-  source         String?   @default("DIRECT") @db.VarChar(50)
-  notes          String?   @db.Text
-  assignedToId   String?   @db.VarChar(36)
-  status         String    @default("ACTIVE") @db.VarChar(50)
+  id             String    @id @default(uuid())
+  fullName       String
+  phone          String
+  alternatePhone String?
+  email          String?
+  city           String?
+  state          String?
+  country        String?   @default("India")
+  source         String?   @default("DIRECT") // WEBSITE, WHATSAPP, REFERRAL, SOCIAL_MEDIA, B2B_AGENT, WALK_IN, OTHER
+  notes          String?
+  assignedToId   String?
+  status         String    @default("ACTIVE") // ACTIVE, INACTIVE
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  assignedTo     User?        @relation("CustomerAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo     User?       @relation("CustomerAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
   leads          Lead[]
   bookings       Booking[]
   quotations     Quotation[]
@@ -79,32 +70,29 @@ model Customer {
   @@index([assignedToId])
 }
 
-// ------------------------------------------------------------------------------
-// 3. Leads & Enquiries
-// ------------------------------------------------------------------------------
 model Lead {
-  id              String    @id @default(uuid()) @db.VarChar(36)
-  customerId      String    @db.VarChar(36)
-  assignedUserId  String?   @db.VarChar(36)
-  source          String    @default("WEBSITE") @db.VarChar(50)
-  destination     String    @db.VarChar(191)
+  id              String    @id @default(uuid())
+  customerId      String
+  assignedUserId  String?
+  source          String    @default("WEBSITE") // WEBSITE, WHATSAPP, PHONE, INSTAGRAM, REFERRAL, B2B_AGENT, OTHER
+  destination     String
   travelStartDate DateTime?
   travelEndDate   DateTime?
   adults          Int       @default(2)
   children        Int       @default(0)
   infants         Int       @default(0)
-  budget          Decimal?  @db.Decimal(12, 2)
-  packageId       String?   @db.VarChar(36)
-  enquiryStatus   String    @default("NEW") @db.VarChar(50)
-  priority        String    @default("MEDIUM") @db.VarChar(50)
-  notes           String?   @db.Text
+  budget          Float?
+  packageId       String?
+  enquiryStatus   String    @default("NEW") // NEW, CONTACTED, QUALIFIED, QUOTATION_SENT, FOLLOW_UP, WON, LOST, CANCELLED
+  priority        String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  notes           String?
   nextFollowUpAt  DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  customer        Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  assignedUser    User?        @relation("LeadAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  package         Package?     @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedUser    User?       @relation("LeadAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  package         Package?    @relation(fields: [packageId], references: [id], onDelete: SetNull)
   followUps       FollowUp[]
   quotations      Quotation[]
   bookings        Booking[]
@@ -118,17 +106,14 @@ model Lead {
   @@index([nextFollowUpAt])
 }
 
-// ------------------------------------------------------------------------------
-// 4. Follow-ups & Reminders
-// ------------------------------------------------------------------------------
 model FollowUp {
-  id             String    @id @default(uuid()) @db.VarChar(36)
-  leadId         String    @db.VarChar(36)
-  assignedUserId String?   @db.VarChar(36)
+  id             String    @id @default(uuid())
+  leadId         String
+  assignedUserId String?
   scheduledAt    DateTime
-  type           String    @default("CALL") @db.VarChar(50)
-  notes          String?   @db.Text
-  status         String    @default("PENDING") @db.VarChar(50)
+  type           String    @default("CALL") // CALL, WHATSAPP, EMAIL, MEETING, OTHER
+  notes          String?
+  status         String    @default("PENDING") // PENDING, COMPLETED, CANCELLED, RESCHEDULED
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -142,22 +127,19 @@ model FollowUp {
   @@index([status])
 }
 
-// ------------------------------------------------------------------------------
-// 5. Tour Packages & Catalog
-// ------------------------------------------------------------------------------
 model Package {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  packageName String   @db.VarChar(191)
-  destination String   @db.VarChar(191)
-  duration    String   @db.VarChar(100)
-  description String   @db.Text
-  price       Decimal  @default(0.00) @db.Decimal(12, 2)
-  packageType String   @default("HOLIDAY") @db.VarChar(50)
-  inclusions  String?  @db.Text
-  exclusions  String?  @db.Text
-  imageUrl    String?  @db.Text
-  gallery     String?  @db.Text
-  status      String   @default("ACTIVE") @db.VarChar(50)
+  id          String   @id @default(uuid())
+  packageName String
+  destination String
+  duration    String // e.g. "3 Days / 2 Nights"
+  description String
+  price       Float    @default(0)
+  packageType String   @default("HOLIDAY") // HOLIDAY, FLIGHT, HOTEL, BUS, CUSTOM
+  inclusions  String? // JSON or text list of inclusions
+  exclusions  String? // JSON or text list of exclusions
+  imageUrl    String?
+  gallery     String? // JSON string array of image URLs
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE, DRAFT
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -172,21 +154,18 @@ model Package {
   @@index([status])
 }
 
-// ------------------------------------------------------------------------------
-// 6. Day-Wise Itineraries
-// ------------------------------------------------------------------------------
 model ItineraryDay {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  packageId   String   @db.VarChar(36)
+  id          String   @id @default(uuid())
+  packageId   String
   dayNumber   Int
-  title       String   @db.VarChar(191)
-  description String   @db.Text
-  activities  String?  @db.Text
-  places      String?  @db.Text
-  startTime   String?  @db.VarChar(50)
-  endTime     String?  @db.VarChar(50)
-  imageUrl    String?  @db.Text
-  images      String?  @db.Text
+  title       String
+  description String
+  activities  String?
+  places      String?
+  startTime   String?
+  endTime     String?
+  imageUrl    String? // Primary photo for this day
+  images      String? // JSON array of day-wise photo URLs
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -196,38 +175,35 @@ model ItineraryDay {
   @@index([dayNumber])
 }
 
-// ------------------------------------------------------------------------------
-// 7. Quotations & Travel Proposals
-// ------------------------------------------------------------------------------
 model Quotation {
-  id                 String    @id @default(uuid()) @db.VarChar(36)
-  quotationNumber    String    @unique @db.VarChar(100)
-  leadId             String?   @db.VarChar(36)
-  customerId         String    @db.VarChar(36)
-  packageId          String?   @db.VarChar(36)
-  destination        String    @db.VarChar(191)
+  id                 String    @id @default(uuid())
+  quotationNumber    String    @unique // e.g. "OOT-QT-202609-001"
+  leadId             String?
+  customerId         String
+  packageId          String?
+  destination        String
   travelStartDate    DateTime?
   travelEndDate      DateTime?
   adults             Int       @default(2)
   children           Int       @default(0)
   infants            Int       @default(0)
-  accommodation      String?   @db.Text
-  transport          String?   @db.Text
-  activities         String?   @db.Text
-  inclusions         String?   @db.Text
-  exclusions         String?   @db.Text
-  cabDetails         String?   @db.Text
-  additionalCharges  Decimal   @default(0.00) @db.Decimal(12, 2)
-  paymentTerms       String?   @db.Text
-  cancellationTerms  String?   @db.Text
-  notes              String?   @db.Text
-  basePrice          Decimal   @default(0.00) @db.Decimal(12, 2)
-  discount           Decimal   @default(0.00) @db.Decimal(12, 2)
-  tax                Decimal   @default(0.00) @db.Decimal(12, 2)
-  finalAmount        Decimal   @default(0.00) @db.Decimal(12, 2)
-  status             String    @default("DRAFT") @db.VarChar(50)
-  termsAndConditions String?   @db.Text
-  createdById        String?   @db.VarChar(36)
+  accommodation      String?
+  transport          String?
+  activities         String?
+  inclusions         String?
+  exclusions         String?
+  cabDetails         String?
+  additionalCharges  Float     @default(0)
+  paymentTerms       String?
+  cancellationTerms  String?
+  notes              String?
+  basePrice          Float     @default(0)
+  discount           Float     @default(0)
+  tax                Float     @default(0)
+  finalAmount        Float     @default(0)
+  status             String    @default("DRAFT") // DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED, CONVERTED
+  termsAndConditions String?
+  createdById        String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -243,25 +219,22 @@ model Quotation {
   @@index([createdById])
 }
 
-// ------------------------------------------------------------------------------
-// 8. Bookings
-// ------------------------------------------------------------------------------
 model Booking {
-  id              String    @id @default(uuid()) @db.VarChar(36)
-  bookingNumber   String    @unique @db.VarChar(100)
-  customerId      String    @db.VarChar(36)
-  leadId          String?   @db.VarChar(36)
-  packageId       String?   @db.VarChar(36)
-  assignedUserId  String?   @db.VarChar(36)
+  id              String    @id @default(uuid())
+  bookingNumber   String    @unique // e.g. "OOT-BK-202609-001"
+  customerId      String
+  leadId          String?
+  packageId       String?
+  assignedUserId  String?
   travelStartDate DateTime
   travelEndDate   DateTime
   travellers      Int       @default(1)
-  totalAmount     Decimal   @default(0.00) @db.Decimal(12, 2)
-  discount        Decimal   @default(0.00) @db.Decimal(12, 2)
-  finalAmount     Decimal   @default(0.00) @db.Decimal(12, 2)
-  bookingStatus   String    @default("CONFIRMED") @db.VarChar(50)
+  totalAmount     Float     @default(0)
+  discount        Float     @default(0)
+  finalAmount     Float     @default(0)
+  bookingStatus   String    @default("CONFIRMED") // ENQUIRY, HOLD, CONFIRMED, COMPLETED, CANCELLED
   bookingDate     DateTime  @default(now())
-  notes           String?   @db.Text
+  notes           String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -282,17 +255,14 @@ model Booking {
   @@index([bookingDate])
 }
 
-// ------------------------------------------------------------------------------
-// 9. Passengers & Travellers
-// ------------------------------------------------------------------------------
 model Traveller {
-  id        String   @id @default(uuid()) @db.VarChar(36)
-  bookingId String   @db.VarChar(36)
-  name      String   @db.VarChar(191)
+  id        String   @id @default(uuid())
+  bookingId String
+  name      String
   age       Int?
-  gender    String?  @db.VarChar(50)
-  phone     String?  @db.VarChar(50)
-  email     String?  @db.VarChar(191)
+  gender    String? // MALE, FEMALE, OTHER
+  phone     String?
+  email     String?
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -302,18 +272,15 @@ model Traveller {
   @@index([bookingId])
 }
 
-// ------------------------------------------------------------------------------
-// 10. Payments & Receipts
-// ------------------------------------------------------------------------------
 model Payment {
-  id                   String   @id @default(uuid()) @db.VarChar(36)
-  bookingId            String   @db.VarChar(36)
-  amount               Decimal  @default(0.00) @db.Decimal(12, 2)
+  id                   String   @id @default(uuid())
+  bookingId            String
+  amount               Float    @default(0)
   paymentDate          DateTime @default(now())
-  paymentMethod        String   @default("UPI") @db.VarChar(50)
-  transactionReference String?  @db.VarChar(191)
-  paymentStatus        String   @default("SUCCESS") @db.VarChar(50)
-  notes                String?  @db.Text
+  paymentMethod        String   @default("UPI") // CASH, UPI, BANK_TRANSFER, CARD, OTHER
+  transactionReference String?
+  paymentStatus        String   @default("SUCCESS") // SUCCESS, PENDING, FAILED, REFUNDED
+  notes                String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -324,23 +291,20 @@ model Payment {
   @@index([paymentDate])
 }
 
-// ------------------------------------------------------------------------------
-// 11. B2B Travel Agents & Partners
-// ------------------------------------------------------------------------------
 model Agent {
-  id                 String   @id @default(uuid()) @db.VarChar(36)
-  companyName        String   @db.VarChar(191)
-  contactPerson      String   @db.VarChar(191)
-  phone              String   @db.VarChar(50)
-  email              String?  @db.VarChar(191)
-  city               String?  @db.VarChar(100)
-  state              String?  @db.VarChar(100)
-  gstNumber          String?  @db.VarChar(50)
-  status             String   @default("ACTIVE") @db.VarChar(50)
-  googleReviewUrl    String?  @db.Text
+  id                 String   @id @default(uuid())
+  companyName        String
+  contactPerson      String
+  phone              String
+  email              String?
+  city               String?
+  state              String?
+  gstNumber          String?
+  status             String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  googleReviewUrl    String?
   googleReviewRating Float?
-  googleReviewNotes  String?  @db.Text
-  notes              String?  @db.Text
+  googleReviewNotes  String?
+  notes              String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -353,13 +317,13 @@ model Agent {
 }
 
 model AgentBooking {
-  id               String   @id @default(uuid()) @db.VarChar(36)
-  agentId          String   @db.VarChar(36)
-  bookingId        String   @unique @db.VarChar(36)
-  commissionRate   Decimal  @default(0.00) @db.Decimal(5, 2)
-  commissionAmount Decimal  @default(0.00) @db.Decimal(12, 2)
-  netAmount        Decimal  @default(0.00) @db.Decimal(12, 2)
-  payoutStatus     String   @default("PENDING") @db.VarChar(50)
+  id               String   @id @default(uuid())
+  agentId          String
+  bookingId        String   @unique
+  commissionRate   Float    @default(0) // Percentage, e.g. 10%
+  commissionAmount Float    @default(0)
+  netAmount        Float    @default(0)
+  payoutStatus     String   @default("PENDING") // PENDING, PAID, CANCELLED
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -371,17 +335,14 @@ model AgentBooking {
   @@index([payoutStatus])
 }
 
-// ------------------------------------------------------------------------------
-// 12. Office & Tour Expenses
-// ------------------------------------------------------------------------------
 model Expense {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  category    String   @db.VarChar(50)
-  amount      Decimal  @default(0.00) @db.Decimal(12, 2)
+  id          String   @id @default(uuid())
+  category    String // HOTEL_BOOKING, TRANSPORT, GUIDE, FLIGHT_TICKETS, ENTRY_FEES, MARKETING, OFFICE, MISC
+  amount      Float    @default(0)
   expenseDate DateTime @default(now())
-  description String   @db.Text
-  bookingId   String?  @db.VarChar(36)
-  createdById String?  @db.VarChar(36)
+  description String
+  bookingId   String?
+  createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -393,18 +354,15 @@ model Expense {
   @@index([expenseDate])
 }
 
-// ------------------------------------------------------------------------------
-// 13. System Audit Logs
-// ------------------------------------------------------------------------------
 model AuditLog {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  userId      String?  @db.VarChar(36)
-  userName    String?  @db.VarChar(191)
-  action      String   @db.VarChar(50)
-  entity      String   @db.VarChar(50)
-  entityId    String?  @db.VarChar(191)
-  details     String?  @db.Text
-  ipAddress   String?  @db.VarChar(100)
+  id          String   @id @default(uuid())
+  userId      String?
+  userName    String?
+  action      String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, LOGIN, EXPORT, IMPORT
+  entity      String   // CUSTOMER, LEAD, BOOKING, PAYMENT, PACKAGE, AGENT, USER, EXPENSE
+  entityId    String?
+  details     String?  // Detailed description or JSON snapshot
+  ipAddress   String?
   createdAt   DateTime @default(now())
 
   user        User?    @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
@@ -416,33 +374,27 @@ model AuditLog {
   @@index([createdAt])
 }
 
-// ------------------------------------------------------------------------------
-// 14. Company Branding & Settings
-// ------------------------------------------------------------------------------
 model CompanySetting {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  key         String   @unique @db.VarChar(100)
-  value       String   @db.Text
-  description String?  @db.VarChar(255)
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
   updatedAt   DateTime @updatedAt
 
   @@index([key])
 }
 
-// ------------------------------------------------------------------------------
-// 15. WhatsApp Logs
-// ------------------------------------------------------------------------------
 model WhatsAppMessage {
-  id             String    @id @default(uuid()) @db.VarChar(36)
-  customerId     String?   @db.VarChar(36)
-  phone          String    @db.VarChar(50)
-  messageContent String    @db.Text
-  templateName   String?   @db.VarChar(100)
-  status         String    @default("PENDING") @db.VarChar(50)
-  provider       String?   @db.VarChar(50)
-  externalId     String?   @db.VarChar(191)
-  errorDetails   String?   @db.Text
-  sentByUserId   String?   @db.VarChar(36)
+  id             String    @id @default(uuid())
+  customerId     String?
+  phone          String
+  messageContent String
+  templateName   String?
+  status         String    @default("PENDING") // PENDING, SENT, DELIVERED, FAILED
+  provider       String?   // META_CLOUD_API, TWILIO, DIRECT_WEB
+  externalId     String?
+  errorDetails   String?
+  sentByUserId   String?
   createdAt      DateTime  @default(now())
 
   @@index([customerId])
@@ -450,43 +402,40 @@ model WhatsAppMessage {
   @@index([createdAt])
 }
 
-// ------------------------------------------------------------------------------
-// 16. Cab Bookings & Fleet Transfers
-// ------------------------------------------------------------------------------
 model CabBooking {
-  id                  String    @id @default(uuid()) @db.VarChar(36)
-  bookingReference    String    @unique @db.VarChar(100)
-  customerId          String?   @db.VarChar(36)
-  customerName        String    @db.VarChar(191)
-  customerPhone       String    @db.VarChar(50)
-  customerEmail       String?   @db.VarChar(191)
-  leadId              String?   @db.VarChar(36)
-  bookingId           String?   @db.VarChar(36)
-  packageId           String?   @db.VarChar(36)
-  assignedStaffId     String?   @db.VarChar(36)
+  id                  String    @id @default(uuid())
+  bookingReference    String    @unique // e.g. "OOT-CAB-202609-001"
+  customerId          String?
+  customerName        String
+  customerPhone       String
+  customerEmail       String?
+  leadId              String?
+  bookingId           String?
+  packageId           String?
+  assignedStaffId     String?
   pickupDate          DateTime
-  pickupTime          String    @db.VarChar(50)
-  pickupPlace         String    @db.VarChar(191)
-  dropPlace           String    @db.VarChar(191)
-  travelRoute         String?   @db.Text
+  pickupTime          String
+  pickupPlace         String
+  dropPlace           String
+  travelRoute         String?
   enquiryDate         DateTime? @default(now())
-  carNumber           String?   @db.VarChar(50)
-  vehicleType         String    @default("SEDAN") @db.VarChar(50)
+  carNumber           String?
+  vehicleType         String    @default("SEDAN") // SEDAN, SUV, INNOVA, TEMPO_TRAVELLER, HATCHBACK, LUXURY
   passengerCount      Int       @default(1)
-  driverName          String?   @db.VarChar(191)
-  driverPhone         String?   @db.VarChar(50)
-  cabProvider         String?   @db.VarChar(100)
-  requiredCabType     String?   @default("AC") @db.VarChar(50)
-  tripType            String    @default("OUTSTATION") @db.VarChar(50)
-  estimatedDistance   String?   @db.VarChar(50)
-  estimatedDuration   String?   @db.VarChar(50)
-  cabAmount           Decimal   @default(0.00) @db.Decimal(12, 2)
-  advanceAmount       Decimal   @default(0.00) @db.Decimal(12, 2)
-  balanceAmount       Decimal   @default(0.00) @db.Decimal(12, 2)
-  paymentStatus       String    @default("PENDING") @db.VarChar(50)
-  bookingStatus       String    @default("CONFIRMED") @db.VarChar(50)
-  specialInstructions String?   @db.Text
-  internalNotes       String?   @db.Text
+  driverName          String?
+  driverPhone         String?
+  cabProvider         String?
+  requiredCabType     String?   @default("AC") // AC, NON_AC
+  tripType            String    @default("OUTSTATION") // ONE_WAY, ROUND_TRIP, LOCAL, OUTSTATION
+  estimatedDistance   String?
+  estimatedDuration   String?
+  cabAmount           Float     @default(0)
+  advanceAmount       Float     @default(0)
+  balanceAmount       Float     @default(0)
+  paymentStatus       String    @default("PENDING") // PENDING, PARTIAL, PAID, REFUNDED
+  bookingStatus       String    @default("CONFIRMED") // PENDING, CONFIRMED, COMPLETED, CANCELLED, ON_TRIP
+  specialInstructions String?
+  internalNotes       String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -503,24 +452,21 @@ model CabBooking {
   @@index([assignedStaffId])
 }
 
-// ------------------------------------------------------------------------------
-// 17. Calendar & Tasks
-// ------------------------------------------------------------------------------
 model CalendarEvent {
-  id          String    @id @default(uuid()) @db.VarChar(36)
-  title       String    @db.VarChar(191)
-  description String?   @db.Text
-  eventType   String    @default("TASK") @db.VarChar(50)
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  eventType   String    @default("TASK") // MEETING, TASK, REMINDER, FOLLOW_UP, CAB_TRIP, DEPARTURE, PAYMENT_DUE, LEAVE
   startDate   DateTime
   endDate     DateTime?
   allDay      Boolean   @default(false)
-  userId      String?   @db.VarChar(36)
-  customerId  String?   @db.VarChar(36)
-  leadId      String?   @db.VarChar(36)
-  bookingId   String?   @db.VarChar(36)
-  status      String    @default("PENDING") @db.VarChar(50)
-  priority    String    @default("MEDIUM") @db.VarChar(50)
-  color       String?   @db.VarChar(50)
+  userId      String?
+  customerId  String?
+  leadId      String?
+  bookingId   String?
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  priority    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  color       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -531,3 +477,4 @@ model CalendarEvent {
   @@index([eventType])
   @@index([status])
 }
+

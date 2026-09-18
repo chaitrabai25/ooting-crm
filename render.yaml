@@ -1,11 +1,11 @@
-﻿services:
+services:
   - type: web
     name: ooting-crm
     env: node
     runtime: node
     region: singapore # or oregon / frankfurt
     plan: starter
-    buildCommand: npm install && npm run prisma:pg:generate && npm run build
+    buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     disk:
