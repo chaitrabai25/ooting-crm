@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { prisma } from './db/prisma.js';
 
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
@@ -51,10 +52,24 @@ if (!fs.existsSync(uploadsDir)) {
 app.use('/uploads', express.static(uploadsDir));
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'disconnected';
+  let userCount = 0;
+  try {
+    userCount = await prisma.user.count();
+    dbStatus = 'connected';
+  } catch (err: any) {
+    dbStatus = `error: ${err.message}`;
+  }
+
   res.json({
     status: 'healthy',
     system: 'Ooting CRM API Server',
+    version: '1.0.2',
+    database: {
+      status: dbStatus,
+      userCount,
+    },
     timestamp: new Date().toISOString(),
   });
 });
