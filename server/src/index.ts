@@ -46,23 +46,58 @@ function ensureDatabaseSeed() {
   }
 }
 
+async function ensureColumns() {
+  const dbUrl = process.env.DATABASE_URL || '';
+  const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
+  const isMysql = dbUrl.startsWith('mysql://');
+  const isSqlite = dbUrl.startsWith('file:') || (!isPostgres && !isMysql);
+
+  if (isSqlite) {
+    const migrations = [
+      `ALTER TABLE "User" ADD COLUMN "permissions" TEXT`,
+      `ALTER TABLE "Agent" ADD COLUMN "panNumber" TEXT`,
+      `ALTER TABLE "Agent" ADD COLUMN "agentType" TEXT`,
+      `ALTER TABLE "Booking" ADD COLUMN "serviceProviders" TEXT`,
+      `ALTER TABLE "Supplier" ADD COLUMN "district" TEXT`,
+      `ALTER TABLE "Supplier" ADD COLUMN "pincode" TEXT`,
+      `ALTER TABLE "Supplier" ADD COLUMN "panNumber" TEXT`,
+      `ALTER TABLE "Supplier" ADD COLUMN "tier" TEXT`,
+      `ALTER TABLE "Supplier" ADD COLUMN "serviceCategories" TEXT`,
+      `ALTER TABLE "Supplier" ADD COLUMN "categoryDetails" TEXT`,
+    ];
+    for (const sql of migrations) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+      } catch {
+        // column already exists
+      }
+    }
+  }
+}
+
 async function ensureDBSchema() {
+  await ensureColumns();
+
   try {
     console.log('🔄 Checking database connection and schema...');
+    await prisma.user.findFirst();
     const userCount = await prisma.user.count();
     console.log(`✅ Database connected and verified. Total registered users: ${userCount}`);
   } catch (err: any) {
     console.warn('⚠️ Database schema verification note:', err.message);
     const isTableMissing =
       err.code === 'P2021' ||
+      err.code === 'P2022' ||
       (err.message && (
         err.message.includes('does not exist') ||
         err.message.includes('no such table') ||
-        err.message.includes('The table')
+        err.message.includes('no such column') ||
+        err.message.includes('The table') ||
+        err.message.includes('The column')
       ));
 
     if (isTableMissing) {
-      console.log('🔄 Required database tables missing. Automatically initializing database schema...');
+      console.log('🔄 Required database tables/columns missing. Automatically initializing database schema...');
       try {
         const dbUrl = process.env.DATABASE_URL || '';
         const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
