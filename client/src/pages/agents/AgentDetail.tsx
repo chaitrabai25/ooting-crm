@@ -13,11 +13,15 @@ import {
   Percent,
   Star,
   ExternalLink,
+  Trash2,
+  Sparkles,
+  Award,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { StatCard } from '../../components/ui/StatCard.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { AgentModal } from './AgentModal.js';
 
 export const AgentDetail: React.FC = () => {
@@ -27,6 +31,8 @@ export const AgentDetail: React.FC = () => {
   const [agent, setAgent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchAgent = async () => {
     try {
@@ -43,6 +49,21 @@ export const AgentDetail: React.FC = () => {
   useEffect(() => {
     if (id) fetchAgent();
   }, [id]);
+
+  const handleDelete = async () => {
+    if (!agent) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/agents/${agent.id}`);
+      navigate('/agents');
+    } catch (err: any) {
+      console.error('Failed to delete agent:', err);
+      alert(err.response?.data?.message || 'Failed to delete agent.');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteOpen(false);
+    }
+  };
 
   const handlePayoutChange = async (agentBookingId: string, status: string) => {
     try {
@@ -94,24 +115,51 @@ export const AgentDetail: React.FC = () => {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-lg font-bold text-slate-900">{agent.companyName}</h1>
               <Badge status={agent.status} />
+              <span
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-full border shadow-2xs ${
+                  agent.agentType === 'Diamond'
+                    ? 'bg-cyan-50 text-cyan-700 border-cyan-300'
+                    : agent.agentType === 'Gold'
+                    ? 'bg-amber-50 text-amber-700 border-amber-300'
+                    : 'bg-slate-100 text-slate-700 border-slate-300'
+                }`}
+              >
+                {agent.agentType === 'Diamond' && <Sparkles className="w-3 h-3 text-cyan-600" />}
+                {agent.agentType === 'Gold' && <Award className="w-3 h-3 text-amber-600" />}
+                {agent.agentType || 'Silver'} Tier
+              </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Contact: {agent.contactPerson} • Phone: {agent.phone}
+            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+              <span>Contact: {agent.contactPerson}</span>
+              <span>• Phone: {agent.phone}</span>
+              {agent.city && <span>• Location: {agent.city}{agent.state ? `, ${agent.state}` : ''}</span>}
+              {agent.panNumber && <span className="font-mono bg-slate-100 px-1.5 py-0.2 rounded text-slate-700">PAN: {agent.panNumber}</span>}
+              {agent.gstNumber && <span className="font-mono bg-slate-100 px-1.5 py-0.2 rounded text-slate-700">GST: {agent.gstNumber}</span>}
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsEditOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-colors self-start sm:self-auto"
-        >
-          <Edit2 className="w-3.5 h-3.5" />
-          <span>Edit Agent</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setIsEditOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-colors"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+            <span>Edit Agent</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsDeleteOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-white hover:bg-rose-50 border border-rose-200 rounded-lg shadow-xs transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete</span>
+          </button>
+        </div>
       </div>
 
       {/* Commercial KPIs */}
@@ -281,6 +329,17 @@ export const AgentDetail: React.FC = () => {
           onSuccess={() => fetchAgent()}
         />
       )}
+
+      {/* Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title={`Delete Agent: ${agent.companyName}`}
+        message="Are you sure you want to delete this agent partner? This action cannot be undone."
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Agent'}
+        isDanger={true}
+      />
     </div>
   );
 };

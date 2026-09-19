@@ -24,6 +24,8 @@ export const AgentModal: React.FC<AgentModalProps> = ({
   const [city, setCity] = useState(initialData?.city || '');
   const [state, setState] = useState(initialData?.state || '');
   const [gstNumber, setGstNumber] = useState(initialData?.gstNumber || '');
+  const [panNumber, setPanNumber] = useState(initialData?.panNumber || '');
+  const [agentType, setAgentType] = useState(initialData?.agentType || 'Silver');
   const [status, setStatus] = useState(initialData?.status || 'ACTIVE');
 
   // Google Review Details
@@ -56,6 +58,8 @@ export const AgentModal: React.FC<AgentModalProps> = ({
         city: city ? city.trim() : null,
         state: state ? state.trim() : null,
         gstNumber: gstNumber ? gstNumber.trim() : null,
+        panNumber: panNumber ? panNumber.trim().toUpperCase() : null,
+        agentType: agentType || 'Silver',
         status,
         googleReviewUrl: googleReviewUrl ? googleReviewUrl.trim() : null,
         googleReviewRating: googleReviewRating !== '' ? Number(googleReviewRating) : null,
@@ -129,7 +133,7 @@ export const AgentModal: React.FC<AgentModalProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="font-semibold text-slate-700">Email Address</label>
             <input
@@ -141,18 +145,41 @@ export const AgentModal: React.FC<AgentModalProps> = ({
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">GSTIN / Registration</label>
+            <label className="font-semibold text-slate-700">GSTIN / Tax ID</label>
             <input
               type="text"
               value={gstNumber}
               onChange={(e) => setGstNumber(e.target.value)}
               placeholder="29AAAAA0000A1Z5"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none uppercase"
+              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none uppercase font-mono"
+            />
+          </div>
+          <div>
+            <label className="font-semibold text-slate-700">PAN Number</label>
+            <input
+              type="text"
+              value={panNumber}
+              onChange={(e) => setPanNumber(e.target.value)}
+              placeholder="ABCDE1234F"
+              maxLength={10}
+              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none uppercase font-mono"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div>
+            <label className="font-semibold text-slate-700">Agent Tier</label>
+            <select
+              value={agentType}
+              onChange={(e) => setAgentType(e.target.value)}
+              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white font-semibold"
+            >
+              <option value="Diamond">💎 Diamond</option>
+              <option value="Gold">🥇 Gold</option>
+              <option value="Silver">🥈 Silver</option>
+            </select>
+          </div>
           <div>
             <label className="font-semibold text-slate-700">City</label>
             <input

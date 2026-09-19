@@ -3,6 +3,7 @@ import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, Download, Re
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
+import { detectHeaderRow, cleanPhoneNumber } from '../../utils/excel.js';
 
 interface CustomerImportModalProps {
   isOpen: boolean;
@@ -73,7 +74,18 @@ export const CustomerImportModal: React.FC<CustomerImportModalProps> = ({
           return;
         }
 
-        const headers: string[] = (json[0] || []).map((h: any) => String(h || '').trim().toLowerCase());
+        const detected = detectHeaderRow(json, [
+          ['name', 'customer'],
+          ['phone', 'mobile', 'contact'],
+        ]);
+
+        if (!detected) {
+          setError('Spreadsheet must have columns for "Full Name" and "Phone Number".');
+          setParsedRows([]);
+          return;
+        }
+
+        const { headerIndex, headers } = detected;
         const nameIdx = headers.findIndex((h) => h.includes('name'));
         const phoneIdx = headers.findIndex((h) => h.includes('phone') || h.includes('mobile') || h.includes('contact'));
         const emailIdx = headers.findIndex((h) => h.includes('email') || h.includes('mail'));
@@ -81,22 +93,15 @@ export const CustomerImportModal: React.FC<CustomerImportModalProps> = ({
         const sourceIdx = headers.findIndex((h) => h.includes('source'));
         const notesIdx = headers.findIndex((h) => h.includes('notes') || h.includes('remark'));
 
-        if (nameIdx === -1 || phoneIdx === -1) {
-          setError('Spreadsheet must have columns for "Full Name" and "Phone".');
-          setParsedRows([]);
-          return;
-        }
-
         const rows: ParsedCustomerRow[] = [];
         const seenPhones = new Set<string>();
 
-        for (let i = 1; i < json.length; i++) {
+        for (let i = headerIndex + 1; i < json.length; i++) {
           const row = json[i];
-          if (!row || row.length === 0) continue;
+          if (!row || row.length === 0 || row.every((c: any) => c === null || c === undefined || c === '')) continue;
 
           const fullName = String(row[nameIdx] || '').trim();
-          const rawPhone = String(row[phoneIdx] || '').trim();
-          const cleanPhone = rawPhone.replace(/[^\d+]/g, '');
+          const cleanPhone = cleanPhoneNumber(row[phoneIdx]);
           const email = emailIdx !== -1 && row[emailIdx] ? String(row[emailIdx]).trim() : undefined;
           const city = cityIdx !== -1 && row[cityIdx] ? String(row[cityIdx]).trim() : undefined;
           const source = sourceIdx !== -1 && row[sourceIdx] ? String(row[sourceIdx]).trim().toUpperCase() : 'EXCEL_IMPORT';
@@ -122,7 +127,7 @@ export const CustomerImportModal: React.FC<CustomerImportModalProps> = ({
           rows.push({
             rowNumber: i + 1,
             fullName,
-            phone: rawPhone,
+            phone: cleanPhone || String(row[phoneIdx] || '').trim(),
             email,
             city,
             source,

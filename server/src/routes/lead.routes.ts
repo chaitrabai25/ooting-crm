@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, requirePermission } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 
 const router = Router();
@@ -719,6 +719,58 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       skipped,
       errors,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete Lead / Enquiry safely with cascade clean-up and audit logging
+router.delete('/:id', requirePermission('leads', 'delete'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = String(req.params.id);
+    const lead: any = await prisma.lead.findUnique({
+      where: { id },
+      include: {
+        customer: { select: { fullName: true } },
+        bookings: { select: { id: true, bookingNumber: true } },
+        quotations: { select: { id: true } },
+        followUps: { select: { id: true } },
+      },
+    });
+
+    if (!lead) {
+      res.status(404).json({ message: 'Lead / Enquiry not found.' });
+      return;
+    }
+
+    if (lead.bookings && lead.bookings.length > 0) {
+      res.status(400).json({
+        message: `Cannot delete this lead because it has ${lead.bookings.length} linked booking(s) (${lead.bookings.map((b: any) => b.bookingNumber).join(', ')}). Please manage or delete the booking records first.`,
+      });
+      return;
+    }
+
+    // Safely remove linked follow-ups and unbooked quotations
+    if (lead.followUps && lead.followUps.length > 0) {
+      await prisma.followUp.deleteMany({ where: { leadId: id } });
+    }
+    if (lead.quotations && lead.quotations.length > 0) {
+      await prisma.quotation.deleteMany({ where: { leadId: id } });
+    }
+
+    await prisma.lead.delete({ where: { id } });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'DELETE',
+      entity: 'LEAD',
+      entityId: id,
+      details: `Deleted lead for customer: ${lead.customer?.fullName || 'Unknown'}, destination: ${lead.destination}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: 'Lead / Enquiry deleted successfully.' });
   } catch (error) {
     next(error);
   }

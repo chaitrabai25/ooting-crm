@@ -18,6 +18,7 @@ model User {
   role         String    @default("SALES") // SUPER_ADMIN, ADMIN, SALES, OPERATIONS, ACCOUNTANT, AGENT
   phone        String?
   status             String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  permissions        String?   // JSON object with module-level permissions
   lastLoginAt        DateTime?
   otpHash            String?
   otpExpiresAt       DateTime?
@@ -34,6 +35,7 @@ model User {
   assignedCabBookings    CabBooking[]     @relation("CabBookingAssignedUser")
   assignedCalendarEvents CalendarEvent[]  @relation("CalendarEventAssignedUser")
   expensesCreated        Expense[]        @relation("ExpenseCreatedByUser")
+  assignedSuppliers      Supplier[]       @relation("SupplierAssignedUser")
   auditLogs              AuditLog[]       @relation("UserAuditLogs")
 
   @@index([email])
@@ -234,6 +236,7 @@ model Booking {
   finalAmount     Float     @default(0)
   bookingStatus   String    @default("CONFIRMED") // ENQUIRY, HOLD, CONFIRMED, COMPLETED, CANCELLED
   bookingDate     DateTime  @default(now())
+  serviceProviders String?  // JSON array of attached service providers
   notes           String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -300,6 +303,8 @@ model Agent {
   city               String?
   state              String?
   gstNumber          String?
+  panNumber          String?
+  agentType          String?  @default("Silver") // Diamond, Gold, Silver
   status             String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
   googleReviewUrl    String?
   googleReviewRating Float?
@@ -476,5 +481,51 @@ model CalendarEvent {
   @@index([startDate])
   @@index([eventType])
   @@index([status])
+}
+
+model Supplier {
+  id                  String    @id @default(uuid())
+  name                String
+  supplierType        String    @default("HOTEL") // HOTEL, TRANSPORT, CAB, FLIGHT, ACTIVITY, TOUR_OPERATOR, VISA, GUIDE, OTHER
+  contactPerson       String?
+  phone               String
+  whatsapp            String?
+  email               String?
+  alternateContact    String?
+  website             String?
+  address             String?
+  city                String?
+  district            String?
+  state               String?
+  country             String?   @default("India")
+  pincode             String?
+  gstNumber           String?
+  panNumber           String?
+  tier                String?   @default("Silver") // Diamond, Gold, Silver
+  serviceCategories   String?   // JSON array of service categories e.g. ["Hotel", "Bus"]
+  categoryDetails     String?   // JSON object with category specific fields
+  category            String?
+  servicesProvided    String?
+  destinationsCovered String?
+  contractDetails     String?
+  paymentTerms        String?
+  creditLimit         Float?    @default(0)
+  commissionDetails   String?
+  bankDetails         String?
+  status              String    @default("ACTIVE") // ACTIVE, INACTIVE
+  assignedToId        String?
+  tags                String?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  assignedUser        User?     @relation("SupplierAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([name])
+  @@index([supplierType])
+  @@index([phone])
+  @@index([city])
+  @@index([status])
+  @@index([assignedToId])
 }
 

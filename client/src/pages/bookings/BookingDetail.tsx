@@ -14,12 +14,19 @@ import {
   AlertCircle,
   Briefcase,
   MapPin,
+  FileText,
+  Trash2,
+  Building2,
+  Sparkles,
+  Award,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { StatCard } from '../../components/ui/StatCard.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
+import { BookingInvoiceModal } from './BookingInvoiceModal.js';
 
 export const BookingDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +35,9 @@ export const BookingDetail: React.FC = () => {
   const [booking, setBooking] = useState<any>(null);
   const [financials, setFinancials] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Add Payment Modal
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -73,6 +83,20 @@ export const BookingDetail: React.FC = () => {
       fetchBooking();
     } catch (err) {
       console.error('Failed to update status:', err);
+    }
+  };
+
+  const handleDeleteBooking = async () => {
+    if (!booking) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/bookings/${booking.id}`);
+      navigate('/bookings');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete booking.');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteOpen(false);
     }
   };
 
@@ -185,6 +209,15 @@ export const BookingDetail: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => setIsInvoiceOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Generate Invoice</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsPaymentOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors"
           >
@@ -199,6 +232,16 @@ export const BookingDetail: React.FC = () => {
           >
             <Receipt className="w-3.5 h-3.5" />
             <span>Add Expense</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsDeleteOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-white hover:bg-rose-50 border border-rose-200 rounded-lg shadow-xs transition-colors"
+            title="Delete Booking"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete</span>
           </button>
         </div>
       </div>
@@ -336,6 +379,47 @@ export const BookingDetail: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Linked B2B Service Providers */}
+          {(() => {
+            let providers: any[] = [];
+            if (Array.isArray(booking.serviceProviders)) {
+              providers = booking.serviceProviders;
+            } else if (typeof booking.serviceProviders === 'string' && booking.serviceProviders) {
+              try {
+                providers = JSON.parse(booking.serviceProviders);
+              } catch {
+                providers = [];
+              }
+            }
+            if (!providers || providers.length === 0) return null;
+
+            return (
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-[#C91F28]" />
+                  <span className="font-bold text-slate-800">Linked Service Providers ({providers.length})</span>
+                </div>
+                <div className="space-y-2">
+                  {providers.map((p: any, idx: number) => (
+                    <div key={idx} className="p-2.5 rounded-lg bg-white border border-slate-200/80 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900">{p.supplierName}</span>
+                        <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          {p.category}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-600">
+                        <span>Tier: <strong>{p.tier || 'Silver'}</strong></span>
+                        {p.rate > 0 && <span className="font-bold text-slate-900">Cost: ₹{Number(p.rate).toLocaleString('en-IN')}</span>}
+                      </div>
+                      {p.notes && <p className="text-[10px] text-slate-500 italic mt-0.5">Notes: {p.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Right 2 Columns: Travellers, Payment Ledger & Expense Breakdown */}
@@ -658,6 +742,26 @@ export const BookingDetail: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Booking Tax Invoice Modal */}
+      {isInvoiceOpen && (
+        <BookingInvoiceModal
+          isOpen={isInvoiceOpen}
+          booking={booking}
+          onClose={() => setIsInvoiceOpen(false)}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDeleteBooking}
+        title={`Delete Booking: ${booking?.bookingNumber}`}
+        message={`Are you sure you want to permanently delete this booking for ${booking?.customer?.fullName || 'Guest'}? This action cannot be undone.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Booking'}
+        isDanger={true}
+      />
     </div>
   );
 };

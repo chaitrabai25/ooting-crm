@@ -84,11 +84,12 @@ try {
     : `npx prisma generate --schema="${targetPath}"`;
 
   console.log(`[Prisma Init] Running: ${genCmd}`);
-  execSync(genCmd, {
+  const out = execSync(genCmd, {
     cwd: serverDir,
-    stdio: 'inherit',
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env },
   });
+  if (out) console.log(out.toString());
   console.log('[Prisma Init] Prisma Client generated successfully.');
 } catch (error) {
   console.warn('[Prisma Init] Warning during prisma generate:', error?.message || error);

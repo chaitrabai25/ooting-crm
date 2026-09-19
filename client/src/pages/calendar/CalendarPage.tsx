@@ -270,43 +270,41 @@ export const CalendarPage: React.FC = () => {
           return (
             <div
               key={idx}
-              className={`min-h-[105px] sm:min-h-[120px] p-1.5 border-r border-b border-slate-200 dark:border-slate-800 transition-colors flex flex-col justify-between group hover:bg-slate-50/90 dark:hover:bg-slate-800/60 ${
+              onClick={() => {
+                setCurrentDate(day);
+                setViewMode('day');
+              }}
+              className={`min-h-[105px] sm:min-h-[120px] p-2 border-r border-b border-slate-200 dark:border-slate-800 transition-colors flex flex-col justify-between group hover:bg-slate-50/90 dark:hover:bg-slate-800/60 cursor-pointer ${
                 !isCurrentMonth
                   ? 'bg-slate-50/50 dark:bg-slate-900/40 text-slate-400'
                   : 'bg-white dark:bg-slate-900'
-              } ${isToday ? 'ring-2 ring-brand-500 ring-inset z-10' : ''}`}
+              } ${isToday ? 'ring-2 ring-[#C91F28] ring-inset z-10 bg-red-50/20 dark:bg-red-950/10' : ''}`}
             >
               <div className="flex items-center justify-between mb-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrentDate(day);
-                    setViewMode('day');
-                  }}
-                  title={`View day schedule for ${day.toLocaleDateString()}`}
-                  className={`text-xs font-semibold px-1.5 py-0.5 rounded-full transition-transform hover:scale-105 cursor-pointer ${
-                    isToday
-                      ? 'bg-brand-600 text-white font-bold'
-                      : isCurrentMonth
-                      ? 'text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                  }`}
-                >
-                  {day.getDate()}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-full transition-transform ${
+                      isToday
+                        ? 'bg-[#C91F28] text-white font-bold shadow-xs'
+                        : isCurrentMonth
+                        ? 'text-slate-800 dark:text-slate-200 group-hover:text-[#C91F28] dark:group-hover:text-brand-400'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {day.getDate()}
+                  </span>
+                  {isToday && (
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 px-1.5 py-0.5 rounded-md">
+                      Today
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-1">
                   {dayEvents.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentDate(day);
-                        setViewMode('day');
-                      }}
-                      title="View tasks for this day"
-                      className="text-[10px] text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 font-medium cursor-pointer"
-                    >
-                      {dayEvents.length} {dayEvents.length === 1 ? 'task' : 'tasks'}
-                    </button>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
+                    </span>
                   )}
                   <button
                     type="button"
@@ -316,9 +314,9 @@ export const CalendarPage: React.FC = () => {
                       setIsNewEventModalOpen(true);
                     }}
                     title={`Add task for ${day.toLocaleDateString()}`}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all cursor-pointer"
+                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-[#C91F28] dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all cursor-pointer"
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -328,7 +326,10 @@ export const CalendarPage: React.FC = () => {
                 {dayEvents.slice(0, 3).map((e) => (
                   <div
                     key={e.id}
-                    onClick={() => setSelectedEvent(e)}
+                    onClick={(evt) => {
+                      evt.stopPropagation();
+                      setSelectedEvent(e);
+                    }}
                     className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate cursor-pointer flex items-center gap-1 hover:opacity-85 ${getEventBadgeColor(
                       e.eventType
                     )}`}
@@ -340,11 +341,12 @@ export const CalendarPage: React.FC = () => {
                 ))}
                 {dayEvents.length > 3 && (
                   <div
-                    onClick={() => {
+                    onClick={(evt) => {
+                      evt.stopPropagation();
                       setCurrentDate(day);
                       setViewMode('day');
                     }}
-                    className="text-[10px] text-brand-600 dark:text-brand-400 font-semibold cursor-pointer pl-1 hover:underline"
+                    className="text-[10px] text-[#C91F28] dark:text-brand-400 font-bold cursor-pointer pl-1 hover:underline"
                   >
                     +{dayEvents.length - 3} more
                   </div>
@@ -772,14 +774,20 @@ export const CalendarPage: React.FC = () => {
                   type="button"
                   onClick={() => {
                     if (selectedEvent.source === 'FOLLOW_UP') {
-                      navigate(`/leads/${selectedEvent.meta?.leadId}`);
+                      navigate(selectedEvent.meta?.leadId ? `/leads/${selectedEvent.meta.leadId}` : '/followups');
                     } else if (selectedEvent.source === 'BOOKING') {
                       navigate(`/bookings/${selectedEvent.refId}`);
                     } else if (selectedEvent.source === 'CAB_BOOKING') {
                       navigate(`/cabs/${selectedEvent.refId}`);
+                    } else if (selectedEvent.source === 'LEAD') {
+                      navigate(`/leads/${selectedEvent.refId}`);
+                    } else if (selectedEvent.source === 'CUSTOMER') {
+                      navigate(`/customers/${selectedEvent.refId}`);
+                    } else if (selectedEvent.source === 'SUPPLIER') {
+                      navigate(`/suppliers/${selectedEvent.refId}`);
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 text-brand-600 rounded-lg font-semibold hover:bg-brand-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800 rounded-lg font-semibold hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors"
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span>View Source Record</span>

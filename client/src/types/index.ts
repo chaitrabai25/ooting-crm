@@ -19,6 +19,7 @@ export interface User {
   role: Role;
   phone?: string | null;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  permissions?: string | null;
   lastLoginAt?: string | null;
   createdAt: string;
 }
@@ -218,6 +219,7 @@ export interface Booking {
   balanceDue?: number;
   bookingStatus: BookingStatus;
   bookingDate: string;
+  serviceProviders?: string | null;
   notes?: string | null;
   createdAt: string;
   travellersList?: Traveller[];
@@ -251,6 +253,8 @@ export interface Agent {
   city?: string | null;
   state?: string | null;
   gstNumber?: string | null;
+  panNumber?: string | null;
+  agentType?: 'Diamond' | 'Gold' | 'Silver' | string;
   googleReviewUrl?: string | null;
   googleReviewRating?: number | null;
   googleReviewNotes?: string | null;
@@ -380,5 +384,60 @@ export interface StaffWorkload {
     totalActiveTasks: number;
   };
   availability: 'AVAILABLE' | 'BUSY' | 'OVERLOADED';
+}
+
+export type SupplierType =
+  | 'HOTEL'
+  | 'CAB'
+  | 'CAB_VENDOR'
+  | 'TRANSPORT'
+  | 'ACTIVITY'
+  | 'ACTIVITY_PROVIDER'
+  | 'TOUR_GUIDE'
+  | 'GUIDE'
+  | 'HOUSEBOAT'
+  | 'CRUISE'
+  | 'VISA'
+  | 'VISA_AGENT'
+  | 'TOUR_OPERATOR'
+  | 'FLIGHT'
+  | 'OTHER';
+
+export interface Supplier {
+  id: string;
+  name: string;
+  supplierType: SupplierType | string;
+  contactPerson?: string | null;
+  phone: string;
+  whatsapp?: string | null;
+  email?: string | null;
+  alternateContact?: string | null;
+  website?: string | null;
+  address?: string | null;
+  city?: string | null;
+  district?: string | null;
+  state?: string | null;
+  country?: string | null;
+  pincode?: string | null;
+  gstNumber?: string | null;
+  panNumber?: string | null;
+  tier?: 'Diamond' | 'Gold' | 'Silver' | string;
+  serviceCategories?: string | null;
+  categoryDetails?: string | null;
+  category?: string | null;
+  servicesProvided?: string | null;
+  destinationsCovered?: string | null;
+  contractDetails?: string | null;
+  paymentTerms?: string | null;
+  creditLimit?: number;
+  commissionDetails?: string | null;
+  bankDetails?: string | null;
+  status: 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED' | string;
+  assignedToId?: string | null;
+  assignedUser?: { id: string; name: string; email: string; phone?: string | null } | null;
+  tags?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 

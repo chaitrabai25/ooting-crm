@@ -9,21 +9,27 @@ import {
   Edit2,
   Calendar,
   FileSpreadsheet,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { PackageModal } from './PackageModal.js';
 import { Package } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export const PackageList: React.FC = () => {
   const navigate = useNavigate();
+  const { can, isSuperAdmin } = useAuth();
 
   const [packages, setPackages] = useState<Package[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
+  const [deletingPackage, setDeletingPackage] = useState<Package | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState('');
@@ -61,6 +67,20 @@ export const PackageList: React.FC = () => {
     if (selectedType) params.append('type', selectedType);
     if (selectedStatus) params.append('status', selectedStatus);
     await downloadExcel(`/packages/export/excel?${params.toString()}`, `ooting-packages-${Date.now()}.xlsx`);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingPackage) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/packages/${deletingPackage.id}`);
+      setDeletingPackage(null);
+      fetchPackages();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete package.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -217,6 +237,17 @@ export const PackageList: React.FC = () => {
                     <Edit2 className="w-4 h-4" />
                   </button>
 
+                  {(isSuperAdmin || can('packages', 'delete')) && (
+                    <button
+                      type="button"
+                      onClick={() => setDeletingPackage(pkg)}
+                      title="Delete Package"
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => navigate(`/packages/${pkg.id}`)}
@@ -244,6 +275,17 @@ export const PackageList: React.FC = () => {
           onSuccess={() => fetchPackages()}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deletingPackage}
+        onClose={() => setDeletingPackage(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Travel Package"
+        message={`Are you sure you want to delete the package "${deletingPackage?.packageName}"? This will remove the package and its day itineraries. Packages with confirmed bookings cannot be deleted.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Package'}
+        isDanger={true}
+      />
     </div>
   );
 };

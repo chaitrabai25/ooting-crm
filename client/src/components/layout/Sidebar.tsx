@@ -10,6 +10,7 @@ import {
   CreditCard,
   Receipt,
   Briefcase,
+  Building2,
   BarChart3,
   FileSpreadsheet,
   ShieldCheck,
@@ -24,70 +25,71 @@ import {
 import { useAuth } from '../../context/AuthContext.js';
 
 export const Sidebar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
 
   const navigationSections = [
     {
       title: 'Main',
       items: [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'CRM Calendar', path: '/calendar', icon: Calendar },
+        { name: 'Dashboard', path: '/', icon: LayoutDashboard, module: 'dashboard' },
+        { name: 'CRM Calendar', path: '/calendar', icon: Calendar, module: 'calendar' },
       ],
     },
     {
       title: 'Sales & Operations',
       items: [
-        { name: 'Leads & Enquiries', path: '/leads', icon: Sparkles },
-        { name: 'Quotations', path: '/quotations', icon: FileText },
-        { name: 'Tour Bookings', path: '/bookings', icon: BookmarkCheck },
-        { name: 'CAB Bookings', path: '/cabs', icon: Car },
-        { name: 'Follow-ups', path: '/followups', icon: CalendarCheck },
-        { name: 'Customers', path: '/customers', icon: Users },
-        { name: 'Passenger List', path: '/passengers', icon: Users },
-        { name: 'Bulk WhatsApp', path: '/whatsapp', icon: MessageSquare },
+        { name: 'Leads & Enquiries', path: '/leads', icon: Sparkles, module: 'leads' },
+        { name: 'Quotations', path: '/quotations', icon: FileText, module: 'quotations' },
+        { name: 'Tour Bookings', path: '/bookings', icon: BookmarkCheck, module: 'bookings' },
+        { name: 'CAB Bookings', path: '/cabs', icon: Car, module: 'cabs' },
+        { name: 'Follow-ups', path: '/followups', icon: CalendarCheck, module: 'followups' },
+        { name: 'Customers', path: '/customers', icon: Users, module: 'customers' },
+        { name: 'Passenger List', path: '/passengers', icon: Users, module: 'customers' },
+        { name: 'Bulk WhatsApp', path: '/whatsapp', icon: MessageSquare, module: 'whatsapp' },
       ],
     },
     {
       title: 'Travel Products',
       items: [
-        { name: 'Packages & Itinerary', path: '/packages', icon: Compass },
+        { name: 'Packages & Itinerary', path: '/packages', icon: Compass, module: 'packages' },
       ],
     },
     {
       title: 'Partnerships',
       items: [
-        { name: 'B2B Travel Agents', path: '/agents', icon: Briefcase },
+        { name: 'B2B Travel Agents', path: '/agents', icon: Briefcase, module: 'agents' },
+        { name: 'B2B Service Providers', path: '/suppliers', icon: Building2, module: 'suppliers' },
       ],
     },
     {
       title: 'Finance & Accounts',
       items: [
-        { name: 'Payments', path: '/payments', icon: CreditCard },
-        { name: 'Expenses', path: '/expenses', icon: Receipt },
+        { name: 'Payments', path: '/payments', icon: CreditCard, module: 'payments' },
+        { name: 'Expenses', path: '/expenses', icon: Receipt, module: 'expenses' },
       ],
     },
     {
       title: 'Intelligence',
       items: [
-        { name: 'Business Reports', path: '/reports', icon: FileSpreadsheet },
-        { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+        { name: 'Business Reports', path: '/reports', icon: FileSpreadsheet, module: 'reports' },
+        { name: 'Analytics', path: '/analytics', icon: BarChart3, module: 'analytics' },
       ],
     },
     {
       title: 'Administration',
       adminOnly: true,
       items: [
-        { name: 'Staff Users', path: '/users', icon: ShieldCheck },
-        { name: 'Settings', path: '/settings', icon: Settings },
-        { name: 'Audit Logs', path: '/audit-logs', icon: History },
+        { name: 'Staff Users', path: '/users', icon: ShieldCheck, module: 'users' },
+        { name: 'Settings', path: '/settings', icon: Settings, module: 'settings' },
+        { name: 'Audit Logs', path: '/audit-logs', icon: History, module: 'audit-logs' },
       ],
     },
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0 h-screen sticky top-0 border-r border-slate-800 z-30 select-none">
+    <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col flex-shrink-0 h-screen sticky top-0 border-r border-slate-800 z-30 select-none shadow-xl">
       {/* Brand Header with authentic Ooting logo */}
-      <div className="h-16 px-4 flex items-center gap-3 border-b border-slate-800 bg-slate-950/60">
+      <div className="h-16 px-4 flex items-center gap-3 border-b border-slate-800 bg-slate-950/80">
         <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow-sm border border-slate-700">
           <img
             src="/assets/ooting-logo.jpg"
@@ -96,8 +98,8 @@ export const Sidebar: React.FC = () => {
           />
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="font-bold text-sm tracking-wide text-white truncate">OOTING CRM</span>
-          <span className="text-[10px] text-brand-400 font-medium tracking-tight truncate">
+          <span className="font-extrabold text-sm tracking-wide text-white truncate">OOTING CRM</span>
+          <span className="text-[10px] text-brand-400 font-semibold tracking-tight truncate">
             Journeys Beyond Ordinary
           </span>
         </div>
@@ -110,13 +112,20 @@ export const Sidebar: React.FC = () => {
             return null;
           }
 
+          const visibleItems = section.items.filter((item) => {
+            if (!item.module) return true;
+            return can(item.module, 'view');
+          });
+
+          if (visibleItems.length === 0) return null;
+
           return (
             <div key={idx}>
-              <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                 {section.title}
               </p>
               <div className="space-y-0.5">
-                {section.items.map((item) => {
+                {visibleItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <RouterNavLink
@@ -124,10 +133,10 @@ export const Sidebar: React.FC = () => {
                       to={item.path}
                       end={item.path === '/'}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        `flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
                           isActive
-                            ? 'bg-brand-600 text-white font-semibold shadow-sm'
-                            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                            ? 'bg-[#C91F28] text-white shadow-md shadow-red-950/40'
+                            : 'text-slate-200 hover:text-white hover:bg-slate-800/80 active:scale-[0.99]'
                         }`
                       }
                     >

@@ -82,6 +82,7 @@ model User {
   role         Role      @default(SALES)
   phone        String?
   status             String    @default("ACTIVE")
+  permissions        String?
   lastLoginAt        DateTime?
   otpHash            String?
   otpExpiresAt       DateTime?
@@ -98,6 +99,7 @@ model User {
   assignedCabBookings    CabBooking[]     @relation("CabBookingAssignedUser")
   assignedCalendarEvents CalendarEvent[]  @relation("CalendarEventAssignedUser")
   expensesCreated        Expense[]        @relation("ExpenseCreatedByUser")
+  assignedSuppliers      Supplier[]       @relation("SupplierAssignedUser")
   auditLogs              AuditLog[]       @relation("UserAuditLogs")
 
   @@index([email])
@@ -509,5 +511,45 @@ model CalendarEvent {
   @@index([startDate])
   @@index([eventType])
   @@index([status])
+}
+
+model Supplier {
+  id                  String    @id @default(uuid())
+  name                String
+  supplierType        String    @default("HOTEL")
+  contactPerson       String?
+  phone               String
+  whatsapp            String?
+  email               String?
+  alternateContact    String?
+  website             String?
+  address             String?
+  city                String?
+  state               String?
+  country             String?   @default("India")
+  gstNumber           String?
+  category            String?
+  servicesProvided    String?
+  destinationsCovered String?
+  contractDetails     String?
+  paymentTerms        String?
+  creditLimit         Decimal?  @default(0) @db.Decimal(12, 2)
+  commissionDetails   String?
+  bankDetails         String?
+  status              String    @default("ACTIVE")
+  assignedToId        String?
+  tags                String?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  assignedUser        User?     @relation("SupplierAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([name])
+  @@index([supplierType])
+  @@index([phone])
+  @@index([city])
+  @@index([status])
+  @@index([assignedToId])
 }
 

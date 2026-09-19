@@ -298,4 +298,50 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
+// Delete Package safely
+router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = String(req.params.id);
+    const pkg = await prisma.package.findUnique({
+      where: { id },
+      include: {
+        bookings: { select: { id: true } },
+      },
+    });
+
+    if (!pkg) {
+      res.status(404).json({ message: 'Package not found.' });
+      return;
+    }
+
+    if (pkg.bookings.length > 0) {
+      res.status(400).json({
+        message: `Cannot delete this package because it is linked to ${pkg.bookings.length} booking(s). You can archive or set status to INACTIVE instead.`,
+      });
+      return;
+    }
+
+    // Safely delete itineraries and unlink leads
+    await prisma.$transaction([
+      prisma.lead.updateMany({ where: { packageId: id }, data: { packageId: null } }),
+      prisma.itineraryDay.deleteMany({ where: { packageId: id } }),
+      prisma.package.delete({ where: { id } }),
+    ]);
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'DELETE',
+      entity: 'PACKAGE',
+      entityId: id,
+      details: `Deleted tour package "${pkg.packageName}" (${pkg.destination})`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Package "${pkg.packageName}" deleted successfully.` });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Shield, Phone, Mail, Edit, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Search, Shield, Phone, Mail, Edit, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { UserModal } from './UserModal.js';
 import { User, Role } from '../../types/index.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export const UserList: React.FC = () => {
+  const { user: currentUser, isSuperAdmin } = useAuth();
+
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -57,6 +63,20 @@ export const UserList: React.FC = () => {
       fetchUsers();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to update user status.');
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingUser) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/users/${deletingUser.id}`);
+      setDeletingUser(null);
+      fetchUsers();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete user.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -133,12 +153,21 @@ export const UserList: React.FC = () => {
             title={u.status === 'ACTIVE' ? 'Deactivate User' : 'Activate User'}
             className={`p-1.5 rounded transition ${
               u.status === 'ACTIVE'
-                ? 'text-emerald-600 hover:bg-emerald-50'
-                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             {u.status === 'ACTIVE' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
           </button>
+          {u.id !== currentUser?.id && (isSuperAdmin || currentUser?.role === 'ADMIN') && (
+            <button
+              onClick={() => setDeletingUser(u)}
+              title="Delete Staff User"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -251,6 +280,17 @@ export const UserList: React.FC = () => {
           initialData={editingUser}
         />
       )}
+
+      {/* Delete User Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deletingUser}
+        onClose={() => setDeletingUser(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Staff User"
+        message={`Are you sure you want to delete staff account for "${deletingUser?.name}" (${deletingUser?.email})? Any assigned bookings and customer leads will be preserved and reassigned to you. This action cannot be undone.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Staff'}
+        isDanger={true}
+      />
     </div>
   );
 };

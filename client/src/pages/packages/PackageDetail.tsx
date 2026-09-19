@@ -18,16 +18,21 @@ import {
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Modal } from '../../components/ui/Modal.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { ItineraryDay } from '../../types/index.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export const PackageDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { can, isSuperAdmin } = useAuth();
 
   const [pkg, setPkg] = useState<any>(null);
   const [itineraries, setItineraries] = useState<ItineraryDay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Add/Edit Day Modal
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
@@ -51,6 +56,19 @@ export const PackageDetail: React.FC = () => {
       console.error('Failed to load package:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeletePackage = async () => {
+    try {
+      setIsDeleting(true);
+      await api.delete('/packages/' + id);
+      navigate('/packages');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete package.');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteOpen(false);
     }
   };
 
@@ -223,6 +241,17 @@ export const PackageDetail: React.FC = () => {
             <Save className="w-3.5 h-3.5" />
             <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
           </button>
+
+          {(isSuperAdmin || can('packages', 'delete')) && (
+            <button
+              type="button"
+              onClick={() => setIsDeleteOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 rounded-xl border border-red-200 dark:border-red-800 shadow-xs transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -537,6 +566,17 @@ export const PackageDetail: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDeletePackage}
+        title="Delete Travel Package"
+        message={`Are you sure you want to delete the package "${pkg?.packageName}"? This will remove the package and all its day itineraries. This action cannot be undone.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Package'}
+        isDanger={true}
+      />
     </div>
   );
 };

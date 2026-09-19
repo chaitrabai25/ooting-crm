@@ -42,6 +42,9 @@ import { ExpenseList } from './pages/expenses/ExpenseList.js';
 import { AgentList } from './pages/agents/AgentList.js';
 import { AgentDetail } from './pages/agents/AgentDetail.js';
 
+import { SupplierList } from './pages/suppliers/SupplierList.js';
+import { SupplierDetail } from './pages/suppliers/SupplierDetail.js';
+
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage.js';
 import { ReportsPage } from './pages/reports/ReportsPage.js';
 
@@ -108,6 +111,10 @@ export const App: React.FC = () => {
                 {/* B2B Travel Agents */}
                 <Route path="/agents" element={<AgentList />} />
                 <Route path="/agents/:id" element={<AgentDetail />} />
+
+                {/* B2B Suppliers */}
+                <Route path="/suppliers" element={<SupplierList />} />
+                <Route path="/suppliers/:id" element={<SupplierDetail />} />
 
                 {/* Reports & Analytics */}
                 <Route path="/analytics" element={<AnalyticsPage />} />

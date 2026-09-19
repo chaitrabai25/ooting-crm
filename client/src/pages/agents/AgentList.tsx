@@ -12,25 +12,34 @@ import {
   FileSpreadsheet,
   RefreshCw,
   MessageSquare,
+  Edit2,
+  Trash2,
+  Sparkles,
+  Award,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { AgentModal } from './AgentModal.js';
 import { AgentImportModal } from './AgentImportModal.js';
 import { Agent } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export const AgentList: React.FC = () => {
   const navigate = useNavigate();
+  const { can, isSuperAdmin } = useAuth();
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [deletingAgent, setDeletingAgent] = useState<Agent | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // WhatsApp modal state
   const [whatsAppModalData, setWhatsAppModalData] = useState<{
@@ -103,6 +112,20 @@ export const AgentList: React.FC = () => {
     return '₹' + Number(val || 0).toLocaleString('en-IN');
   };
 
+  const handleDeleteConfirm = async () => {
+    if (!deletingAgent) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/agents/${deletingAgent.id}`);
+      setDeletingAgent(null);
+      fetchAgents();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete agent.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const columns: Column<Agent>[] = [
     {
       header: 'S.No.',
@@ -114,13 +137,28 @@ export const AgentList: React.FC = () => {
       sortKey: 'companyName',
       render: (a) => (
         <div>
-          <span
-            onClick={() => navigate(`/agents/${a.id}`)}
-            className="font-bold text-slate-900 dark:text-slate-100 hover:text-[#C91F28] dark:hover:text-brand-400 cursor-pointer block text-xs sm:text-sm"
-          >
-            {a.companyName}
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              onClick={() => navigate(`/agents/${a.id}`)}
+              className="font-bold text-slate-900 dark:text-slate-100 hover:text-[#C91F28] dark:hover:text-brand-400 cursor-pointer block text-xs sm:text-sm"
+            >
+              {a.companyName}
+            </span>
+            <span
+              className={`inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-bold rounded-full border shadow-2xs ${
+                a.agentType === 'Diamond'
+                  ? 'bg-cyan-50 text-cyan-700 border-cyan-300 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800'
+                  : a.agentType === 'Gold'
+                  ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                  : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+              }`}
+            >
+              {a.agentType === 'Diamond' && <Sparkles className="w-2.5 h-2.5 text-cyan-600" />}
+              {a.agentType === 'Gold' && <Award className="w-2.5 h-2.5 text-amber-600" />}
+              {a.agentType || 'Silver'}
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
             Contact: {a.contactPerson}
           </span>
         </div>
@@ -146,14 +184,19 @@ export const AgentList: React.FC = () => {
       ),
     },
     {
-      header: 'City & GST',
+      header: 'Location & Tax ID',
       sortKey: 'city',
       render: (a) => (
-        <div className="text-xs text-slate-600 dark:text-slate-300">
-          <span>{a.city || '—'}</span>
+        <div className="text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
+          <span className="font-medium text-slate-800 dark:text-slate-200">{a.city || '—'}</span>
+          {a.panNumber && (
+            <span className="text-[10px] text-slate-600 dark:text-slate-300 block font-mono">
+              PAN: {a.panNumber}
+            </span>
+          )}
           {a.gstNumber && (
             <span className="text-[10px] text-slate-400 block font-mono">
-              {a.gstNumber}
+              GST: {a.gstNumber}
             </span>
           )}
         </div>
@@ -246,6 +289,31 @@ export const AgentList: React.FC = () => {
           >
             <Eye className="w-4 h-4" />
           </button>
+
+          {(isSuperAdmin || can('agents', 'edit')) && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingAgent(a);
+                setIsModalOpen(true);
+              }}
+              title="Edit Agent Details"
+              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
+          )}
+
+          {(isSuperAdmin || can('agents', 'delete')) && (
+            <button
+              type="button"
+              onClick={() => setDeletingAgent(a)}
+              title="Delete Agent Partner"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -376,6 +444,17 @@ export const AgentList: React.FC = () => {
           }}
         />
       )}
+
+      {/* Delete Agent Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deletingAgent}
+        onClose={() => setDeletingAgent(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Travel Agent Partner"
+        message={`Are you sure you want to delete "${deletingAgent?.companyName}" (${deletingAgent?.contactPerson || 'Agent'})? Agents with active tour bookings cannot be deleted.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Agent'}
+        isDanger={true}
+      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-﻿# Dependencies
+# Dependencies
 node_modules/
 .pnp
 .pnp.js
@@ -22,8 +22,10 @@ build/
 *.db-journal
 *.sqlite
 *.sqlite3
+*.db.backup
 server/prisma/*.db
 server/prisma/*.db-journal
+server/prisma/*.db.backup
 
 # Uploaded Files & User Media
 uploads/*

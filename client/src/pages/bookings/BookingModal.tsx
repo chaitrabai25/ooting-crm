@@ -1,8 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Users, User, Phone, Mail, Calendar, AlertCircle, Search, MapPin } from 'lucide-react';
+import {
+  Users,
+  User,
+  Phone,
+  Mail,
+  Calendar,
+  AlertCircle,
+  Search,
+  MapPin,
+  Building2,
+  Sparkles,
+  Award,
+  Trash2,
+  Plus,
+} from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
-import { Booking, Traveller } from '../../types/index.js';
+import { Booking, Traveller, Supplier } from '../../types/index.js';
+import { ServiceProviderSelectModal } from './ServiceProviderSelectModal.js';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -47,6 +62,21 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [agentId, setAgentId] = useState('');
   const [commissionRate, setCommissionRate] = useState(0);
 
+  // B2B Service Providers Option
+  interface BookingServiceProviderItem {
+    supplierId: string;
+    supplierName: string;
+    category: string;
+    tier: string;
+    contactPerson?: string;
+    phone?: string;
+    rate?: number;
+    details?: string;
+    notes?: string;
+  }
+  const [selectedProviders, setSelectedProviders] = useState<BookingServiceProviderItem[]>([]);
+  const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+
   // Dropdown data
   const [customers, setCustomers] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
@@ -63,7 +93,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       api.get('/users/staff').then((res) => setStaff(res.data || []));
       api.get('/agents?limit=100').then((res) => setAgents(res.data.data || []));
 
-      // If editing, load full booking with travellersList
+      // If editing, load full booking with travellersList & serviceProviders
       if (initialData?.id) {
         api.get('/bookings/' + initialData.id).then((res) => {
           const b = res.data;
@@ -78,6 +108,21 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             setBookingStatus(b.bookingStatus || 'CONFIRMED');
             setAssignedUserId(b.assignedUserId || '');
             setNotes(b.notes || '');
+
+            if (b.serviceProviders) {
+              try {
+                const parsed =
+                  typeof b.serviceProviders === 'string'
+                    ? JSON.parse(b.serviceProviders)
+                    : b.serviceProviders;
+                if (Array.isArray(parsed)) setSelectedProviders(parsed);
+                else setSelectedProviders([]);
+              } catch {
+                setSelectedProviders([]);
+              }
+            } else {
+              setSelectedProviders([]);
+            }
 
             if (b.travellersList && b.travellersList.length > 0) {
               setTravellersList(b.travellersList);
@@ -96,6 +141,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         });
       } else {
         // New booking: initialize 1 traveller
+        setSelectedProviders([]);
         setTravellersList([
           {
             name: '',
@@ -218,6 +264,52 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     });
   };
 
+  const handleAddProvider = (provider: Supplier) => {
+    if (selectedProviders.some((p) => p.supplierId === provider.id)) return;
+    let cat = provider.category || provider.supplierType || 'Service Provider';
+    if (Array.isArray(provider.serviceCategories) && provider.serviceCategories.length > 0) {
+      cat = provider.serviceCategories[0];
+    } else if (typeof provider.serviceCategories === 'string') {
+      try {
+        const parsed = JSON.parse(provider.serviceCategories);
+        if (Array.isArray(parsed) && parsed.length > 0) cat = parsed[0];
+      } catch {}
+    }
+
+    setSelectedProviders((prev) => [
+      ...prev,
+      {
+        supplierId: provider.id,
+        supplierName: provider.name,
+        category: cat,
+        tier: provider.tier || 'Silver',
+        contactPerson: provider.contactPerson || '',
+        phone: provider.phone || '',
+        rate: 0,
+        details: provider.servicesProvided || '',
+        notes: '',
+      },
+    ]);
+  };
+
+  const handleRemoveProvider = (supplierId: string) => {
+    setSelectedProviders((prev) => prev.filter((p) => p.supplierId !== supplierId));
+  };
+
+  const updateProviderField = (
+    index: number,
+    field: 'rate' | 'notes' | 'category',
+    val: any
+  ) => {
+    setSelectedProviders((prev) => {
+      const copy = [...prev];
+      if (copy[index]) {
+        copy[index] = { ...copy[index], [field]: val };
+      }
+      return copy;
+    });
+  };
+
   const finalAmount = Math.max(0, Number(totalAmount) - Number(discount));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -259,6 +351,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         notes: notes || null,
         agentId: agentId || null,
         commissionRate: Number(commissionRate) || 0,
+        serviceProviders:
+          selectedProviders.length > 0 ? JSON.stringify(selectedProviders) : null,
         travellersList: travellersList.map((t, idx) => ({
           name: t.name.trim(),
           age: t.age ? Number(t.age) : null,
@@ -683,6 +777,98 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           </div>
         </div>
 
+        {/* Linked B2B Service Providers Section */}
+        <div className="p-3.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-[#C91F28]" />
+              <label className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                Linked B2B Service Providers ({selectedProviders.length})
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsProviderModalOpen(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#C91F28] hover:bg-[#a81920] text-white shadow-2xs transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Link Provider</span>
+            </button>
+          </div>
+
+          {selectedProviders.length === 0 ? (
+            <p className="text-[11px] text-slate-400 italic">
+              No service providers linked yet. Click "+ Link Provider" to attach hotels, cabs, buses, guides, or activities.
+            </p>
+          ) : (
+            <div className="space-y-2.5">
+              {selectedProviders.map((p, idx) => (
+                <div
+                  key={p.supplierId || idx}
+                  className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs space-y-2 text-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {p.supplierName}
+                      </span>
+                      <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                        {p.category}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                          p.tier === 'Diamond'
+                            ? 'bg-cyan-50 text-cyan-700 border-cyan-300'
+                            : p.tier === 'Gold'
+                            ? 'bg-amber-50 text-amber-700 border-amber-300'
+                            : 'bg-slate-100 text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        {p.tier === 'Diamond' && <Sparkles className="w-2.5 h-2.5 text-cyan-600" />}
+                        {p.tier === 'Gold' && <Award className="w-2.5 h-2.5 text-amber-600" />}
+                        {p.tier}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveProvider(p.supplierId)}
+                      className="text-slate-400 hover:text-red-600 transition-colors p-1"
+                      title="Remove provider"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <label className="text-slate-500 font-medium block">Agreed Cost / Rate (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={p.rate || ''}
+                        onChange={(e) => updateProviderField(idx, 'rate', Number(e.target.value))}
+                        placeholder="0"
+                        className="mt-0.5 w-full p-1.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-900 rounded-lg text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-500 font-medium block">Confirmation / Specs / Notes</label>
+                      <input
+                        type="text"
+                        value={p.notes || ''}
+                        onChange={(e) => updateProviderField(idx, 'notes', e.target.value)}
+                        placeholder="Confirmation code, vehicle number, room type..."
+                        className="mt-0.5 w-full p-1.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-900 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div>
           <label className="font-semibold text-slate-700 dark:text-slate-300">Internal Booking Notes</label>
           <textarea
@@ -711,6 +897,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Service Provider Selection Modal */}
+      {isProviderModalOpen && (
+        <ServiceProviderSelectModal
+          isOpen={isProviderModalOpen}
+          onClose={() => setIsProviderModalOpen(false)}
+          onSelect={handleAddProvider}
+        />
+      )}
     </Modal>
   );
 };

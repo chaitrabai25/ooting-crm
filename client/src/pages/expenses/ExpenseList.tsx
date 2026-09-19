@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Receipt, FileSpreadsheet, Search, Filter } from 'lucide-react';
+import { Plus, Receipt, FileSpreadsheet, Search, Filter, Trash2 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { StatCard } from '../../components/ui/StatCard.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { ExpenseModal } from './ExpenseModal.js';
 import { Expense } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export const ExpenseList: React.FC = () => {
+  const { can, isSuperAdmin } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [totalExpense, setTotalExpense] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Default limit 10
   const [page, setPage] = useState(1);
@@ -52,6 +57,20 @@ export const ExpenseList: React.FC = () => {
 
   const formatCurrency = (val: number) => {
     return '₹' + Number(val || 0).toLocaleString('en-IN');
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingExpense) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/expenses/${deletingExpense.id}`);
+      setDeletingExpense(null);
+      fetchExpenses();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete expense record.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const columns: Column<Expense>[] = [
@@ -99,6 +118,24 @@ export const ExpenseList: React.FC = () => {
         <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">
           {formatCurrency(e.amount)}
         </span>
+      ),
+    },
+    {
+      header: 'Actions',
+      className: 'text-right w-20',
+      render: (e) => (
+        <div className="flex items-center justify-end">
+          {(isSuperAdmin || can('expenses', 'delete')) && (
+            <button
+              type="button"
+              onClick={() => setDeletingExpense(e)}
+              title="Delete Expense"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       ),
     },
   ];
@@ -196,6 +233,17 @@ export const ExpenseList: React.FC = () => {
           onSuccess={() => fetchExpenses()}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deletingExpense}
+        onClose={() => setDeletingExpense(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Expense Record"
+        message={`Are you sure you want to delete this ${deletingExpense?.category?.replace('_', ' ')} expense record for ${formatCurrency(deletingExpense?.amount || 0)}? This action cannot be undone.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Expense'}
+        isDanger={true}
+      />
     </div>
   );
 };

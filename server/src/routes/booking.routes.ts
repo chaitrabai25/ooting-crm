@@ -291,6 +291,7 @@ const bookingCreateSchema = z.object({
   discount: z.number().min(0).default(0),
   bookingStatus: z.enum(['ENQUIRY', 'HOLD', 'CONFIRMED', 'COMPLETED', 'CANCELLED']).default('CONFIRMED'),
   notes: z.string().optional().nullable(),
+  serviceProviders: z.union([z.string(), z.array(z.any())]).optional().nullable(),
   // Optional B2B Agent connection
   agentId: z.string().optional().nullable(),
   commissionRate: z.number().min(0).max(100).optional(),
@@ -365,6 +366,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         discount: data.discount,
         finalAmount,
         bookingStatus: data.bookingStatus,
+        serviceProviders: data.serviceProviders ? (typeof data.serviceProviders === 'string' ? data.serviceProviders : JSON.stringify(data.serviceProviders)) : null,
         notes: data.notes?.trim() || null,
         travellersList: travellersToCreate.length > 0 ? {
           create: travellersToCreate.map((t, idx) => ({
@@ -445,6 +447,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     if (data.travelEndDate) updatePayload.travelEndDate = new Date(data.travelEndDate);
     if (data.travellers !== undefined) updatePayload.travellers = data.travellers;
     if (data.bookingStatus) updatePayload.bookingStatus = data.bookingStatus;
+    if (data.serviceProviders !== undefined) {
+      updatePayload.serviceProviders = data.serviceProviders ? (typeof data.serviceProviders === 'string' ? data.serviceProviders : JSON.stringify(data.serviceProviders)) : null;
+    }
     if (data.notes !== undefined) updatePayload.notes = data.notes?.trim() || null;
 
     // Update travellers if provided

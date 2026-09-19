@@ -13,11 +13,13 @@ import {
   FileText,
   Clock,
   Plus,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { StatCard } from '../../components/ui/StatCard.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { CustomerModal } from './CustomerModal.js';
 
 export const CustomerDetail: React.FC = () => {
@@ -28,6 +30,8 @@ export const CustomerDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'bookings' | 'leads' | 'quotations' | 'notes'>('bookings');
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchCustomer = async () => {
     try {
@@ -38,6 +42,20 @@ export const CustomerDetail: React.FC = () => {
       console.error('Failed to load customer profile:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!customer) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/customers/${customer.id}`);
+      navigate('/customers');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete customer.');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteOpen(false);
     }
   };
 
@@ -112,6 +130,15 @@ export const CustomerDetail: React.FC = () => {
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Create Enquiry</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsDeleteOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-white hover:bg-rose-50 border border-rose-200 rounded-lg shadow-xs transition-colors"
+            title="Delete Customer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete</span>
           </button>
         </div>
       </div>
@@ -372,6 +399,17 @@ export const CustomerDetail: React.FC = () => {
           onSuccess={() => fetchCustomer()}
         />
       )}
+
+      {/* Delete Customer Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDeleteCustomer}
+        title={`Delete Customer: ${customer?.fullName}`}
+        message={`Are you sure you want to permanently delete this customer profile for ${customer?.fullName}? This action cannot be undone.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Customer'}
+        isDanger={true}
+      />
     </div>
   );
 };

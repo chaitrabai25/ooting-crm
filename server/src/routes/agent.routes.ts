@@ -167,6 +167,8 @@ const agentSchema = z.object({
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
   gstNumber: z.string().optional().nullable(),
+  panNumber: z.string().optional().nullable(),
+  agentType: z.string().optional().nullable().default('Silver'),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).default('ACTIVE'),
   googleReviewUrl: z.string().optional().nullable().or(z.literal('')),
   googleReviewRating: z.number().min(1).max(5).optional().nullable(),
@@ -188,6 +190,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         city: data.city?.trim() || null,
         state: data.state?.trim() || null,
         gstNumber: data.gstNumber?.trim() || null,
+        panNumber: data.panNumber ? data.panNumber.trim().toUpperCase() : null,
+        agentType: data.agentType ? String(data.agentType).trim() : 'Silver',
         status: data.status,
         googleReviewUrl: data.googleReviewUrl?.trim() || null,
         googleReviewRating: data.googleReviewRating || null,
@@ -226,6 +230,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     if (data.city !== undefined) updatePayload.city = data.city?.trim() || null;
     if (data.state !== undefined) updatePayload.state = data.state?.trim() || null;
     if (data.gstNumber !== undefined) updatePayload.gstNumber = data.gstNumber?.trim() || null;
+    if (data.panNumber !== undefined) updatePayload.panNumber = data.panNumber ? data.panNumber.trim().toUpperCase() : null;
+    if (data.agentType !== undefined) updatePayload.agentType = data.agentType ? String(data.agentType).trim() : 'Silver';
     if (data.googleReviewUrl !== undefined) updatePayload.googleReviewUrl = data.googleReviewUrl?.trim() || null;
     if (data.googleReviewRating !== undefined) updatePayload.googleReviewRating = data.googleReviewRating;
     if (data.googleReviewNotes !== undefined) updatePayload.googleReviewNotes = data.googleReviewNotes?.trim() || null;
@@ -423,6 +429,47 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=ooting-agents-${Date.now()}.xlsx`);
     res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete Agent safely
+router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = String(req.params.id);
+    const agent = await prisma.agent.findUnique({
+      where: { id },
+      include: {
+        agentBookings: { select: { id: true } },
+      },
+    });
+
+    if (!agent) {
+      res.status(404).json({ message: 'Agent not found.' });
+      return;
+    }
+
+    if (agent.agentBookings.length > 0) {
+      res.status(400).json({
+        message: `Cannot delete agent because they have ${agent.agentBookings.length} associated booking(s). You can change status to INACTIVE instead.`,
+      });
+      return;
+    }
+
+    await prisma.agent.delete({ where: { id } });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'DELETE',
+      entity: 'AGENT',
+      entityId: id,
+      details: `Deleted agent "${agent.companyName}" (${agent.contactPerson})`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Agent "${agent.companyName}" deleted successfully.` });
   } catch (error) {
     next(error);
   }

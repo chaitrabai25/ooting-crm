@@ -28,6 +28,7 @@ import { CopyButton } from '../../components/ui/CopyButton.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { CabModal } from './CabModal.js';
+import { CabImportModal } from './CabImportModal.js';
 import { CabBooking } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 
@@ -42,6 +43,7 @@ export const CabList: React.FC = () => {
 
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(searchParams.get('action') === 'create');
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingCab, setEditingCab] = useState<CabBooking | null>(null);
   const [deletingCab, setDeletingCab] = useState<CabBooking | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -437,12 +439,11 @@ export const CabList: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importStatus.loading}
+            onClick={() => setIsImportOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors"
           >
             <Upload className="w-3.5 h-3.5 text-brand-600" />
-            <span>{importStatus.loading ? 'Importing...' : 'Import Excel'}</span>
+            <span>Import Excel</span>
           </button>
 
           <button
@@ -665,6 +666,18 @@ export const CabList: React.FC = () => {
               setSearchParams(searchParams);
             }
           }}
+          onSuccess={() => {
+            fetchCabs();
+            fetchStats();
+          }}
+        />
+      )}
+
+      {/* Excel Import Modal */}
+      {isImportOpen && (
+        <CabImportModal
+          isOpen={isImportOpen}
+          onClose={() => setIsImportOpen(false)}
           onSuccess={() => {
             fetchCabs();
             fetchStats();

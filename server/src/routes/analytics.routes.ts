@@ -5,30 +5,132 @@ import { authenticate, AuthRequest } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticate);
 
+// Asia/Kolkata (IST = UTC+5:30) Offset in milliseconds
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+export function getISTDateRange(
+  range?: string,
+  customStart?: string,
+  customEnd?: string,
+  targetMonth?: number,
+  targetYear?: number
+): { gte?: Date; lte?: Date } {
+  const now = new Date();
+  const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+  const currentYearIST = nowIST.getUTCFullYear();
+  const currentMonthIST = nowIST.getUTCMonth(); // 0-11
+  const currentDateIST = nowIST.getUTCDate();
+
+  if (range === 'today') {
+    const startIST = Date.UTC(currentYearIST, currentMonthIST, currentDateIST, 0, 0, 0, 0);
+    const endIST = Date.UTC(currentYearIST, currentMonthIST, currentDateIST, 23, 59, 59, 999);
+    return {
+      gte: new Date(startIST - IST_OFFSET_MS),
+      lte: new Date(endIST - IST_OFFSET_MS),
+    };
+  }
+
+  if (range === 'this_month' || range === 'month') {
+    const yr = targetYear || currentYearIST;
+    const mo = targetMonth !== undefined ? targetMonth - 1 : currentMonthIST;
+    const startIST = Date.UTC(yr, mo, 1, 0, 0, 0, 0);
+    // Find last millisecond of month: 1st of next month minus 1 ms
+    const nextMonthIST = Date.UTC(yr, mo + 1, 1, 0, 0, 0, 0);
+    const endIST = nextMonthIST - 1;
+    return {
+      gte: new Date(startIST - IST_OFFSET_MS),
+      lte: new Date(endIST - IST_OFFSET_MS),
+    };
+  }
+
+  if (range === 'this_year' || range === 'year') {
+    const yr = targetYear || currentYearIST;
+    const startIST = Date.UTC(yr, 0, 1, 0, 0, 0, 0);
+    const endIST = Date.UTC(yr, 11, 31, 23, 59, 59, 999);
+    return {
+      gte: new Date(startIST - IST_OFFSET_MS),
+      lte: new Date(endIST - IST_OFFSET_MS),
+    };
+  }
+
+  if (customStart || customEnd) {
+    const filter: { gte?: Date; lte?: Date } = {};
+    if (customStart) {
+      const parts = customStart.split('-').map(Number);
+      if (parts.length === 3) {
+        const startIST = Date.UTC(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+        filter.gte = new Date(startIST - IST_OFFSET_MS);
+      } else {
+        filter.gte = new Date(customStart);
+      }
+    }
+    if (customEnd) {
+      const parts = customEnd.split('-').map(Number);
+      if (parts.length === 3) {
+        const endIST = Date.UTC(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+        filter.lte = new Date(endIST - IST_OFFSET_MS);
+      } else {
+        const d = new Date(customEnd);
+        d.setHours(23, 59, 59, 999);
+        filter.lte = d;
+      }
+    }
+    return filter;
+  }
+
+  // 'all' or unspecified
+  return {};
+}
+
 // Main Dashboard KPIs & Today's Tasks
 router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
   try {
+    const range = (req.query.range as string || '').toLowerCase().trim();
     const startDateQuery = (req.query.startDate as string || '').trim();
     const endDateQuery = (req.query.endDate as string || '').trim();
+    const monthQuery = req.query.month ? parseInt(req.query.month as string, 10) : undefined;
+    const yearQuery = req.query.year ? parseInt(req.query.year as string, 10) : undefined;
+    const search = (req.query.search as string || '').trim();
 
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const dateFilter = getISTDateRange(range, startDateQuery, endDateQuery, monthQuery, yearQuery);
+    const hasDateFilter = Object.keys(dateFilter).length > 0;
 
-    const dateFilter: any = {};
-    if (startDateQuery || endDateQuery) {
-      if (startDateQuery) dateFilter.gte = new Date(startDateQuery);
-      if (endDateQuery) {
-        const d = new Date(endDateQuery);
-        d.setHours(23, 59, 59, 999);
-        dateFilter.lte = d;
-      }
+    // Fixed TODAY boundaries in IST for today's tasks
+    const todayBounds = getISTDateRange('today');
+    const startOfToday = todayBounds.gte!;
+    const endOfToday = todayBounds.lte!;
+
+    // Construct model-specific where clauses
+    const leadDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
+    const bookingDateWhere: any = hasDateFilter ? { bookingDate: dateFilter } : {};
+    const quotationDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
+    const cabDateWhere: any = hasDateFilter ? { pickupDate: dateFilter } : {};
+    const customerDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
+    const paymentDateWhere: any = hasDateFilter ? { paymentDate: dateFilter } : {};
+
+    // Search conditions if search query provided
+    if (search) {
+      leadDateWhere.OR = [
+        { customer: { fullName: { contains: search } } },
+        { customer: { phone: { contains: search } } },
+        { customer: { email: { contains: search } } },
+        { destination: { contains: search } },
+      ];
+      bookingDateWhere.OR = [
+        { bookingNumber: { contains: search } },
+        { customer: { fullName: { contains: search } } },
+        { customer: { phone: { contains: search } } },
+        { package: { packageName: { contains: search } } },
+        { package: { destination: { contains: search } } },
+      ];
+      cabDateWhere.OR = [
+        { bookingRef: { contains: search } },
+        { customerName: { contains: search } },
+        { customerPhone: { contains: search } },
+        { pickupPlace: { contains: search } },
+        { dropPlace: { contains: search } },
+      ];
     }
-
-    const leadDateWhere = Object.keys(dateFilter).length ? { createdAt: dateFilter } : {};
-    const bookingDateWhere = Object.keys(dateFilter).length ? { bookingDate: dateFilter } : {};
-    const quotationDateWhere = Object.keys(dateFilter).length ? { createdAt: dateFilter } : {};
-    const cabDateWhere = Object.keys(dateFilter).length ? { pickupDate: dateFilter } : {};
 
     const [
       totalLeads,
@@ -84,17 +186,17 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         select: { cabAmount: true, advanceAmount: true, balanceAmount: true },
       }),
 
-      // Customers
-      prisma.customer.count(),
+      // Customers (respect date range)
+      prisma.customer.count({ where: customerDateWhere }),
 
-      // Payments
+      // Payments (respect date range)
       prisma.payment.findMany({
-        where: { paymentStatus: 'SUCCESS' },
+        where: { ...paymentDateWhere, paymentStatus: 'SUCCESS' },
         select: { amount: true },
       }),
 
-      // B2B
-      prisma.agentBooking.count(),
+      // B2B Bookings (respect date range)
+      prisma.agentBooking.count({ where: bookingDateWhere }),
 
       // TODAY'S TASKS
       // 1. Follow-ups Today
@@ -167,6 +269,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
 
       // Recent Activity
       prisma.lead.findMany({
+        where: leadDateWhere,
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -175,6 +278,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         },
       }),
       prisma.booking.findMany({
+        where: bookingDateWhere,
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -242,8 +346,25 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
 // Detailed Analytics: Trends, Funnel, Destinations, Staff Rankings, Quotations, Cabs
 router.get('/charts', async (req: AuthRequest, res: Response, next) => {
   try {
+    const range = (req.query.range as string || '').toLowerCase().trim();
+    const startDateQuery = (req.query.startDate as string || '').trim();
+    const endDateQuery = (req.query.endDate as string || '').trim();
+    const monthQuery = req.query.month ? parseInt(req.query.month as string, 10) : undefined;
+    const yearQuery = req.query.year ? parseInt(req.query.year as string, 10) : undefined;
+
+    const dateFilter = getISTDateRange(range, startDateQuery, endDateQuery, monthQuery, yearQuery);
+    const hasDateFilter = Object.keys(dateFilter).length > 0;
+
+    const leadDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
+    const bookingDateWhere: any = hasDateFilter ? { bookingDate: dateFilter } : {};
+    const quotationDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
+    const cabDateWhere: any = hasDateFilter ? { pickupDate: dateFilter } : {};
+    const paymentDateWhere: any = hasDateFilter ? { paymentDate: dateFilter } : {};
+    const expenseDateWhere: any = hasDateFilter ? { expenseDate: dateFilter } : {};
+
     const [allLeads, allBookings, allPayments, allExpenses, allStaff, allQuotations, allCabs] = await Promise.all([
       prisma.lead.findMany({
+        where: leadDateWhere,
         select: {
           id: true,
           enquiryStatus: true,
@@ -254,6 +375,7 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
         },
       }),
       prisma.booking.findMany({
+        where: bookingDateWhere,
         select: {
           id: true,
           bookingNumber: true,
@@ -266,10 +388,11 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
         },
       }),
       prisma.payment.findMany({
-        where: { paymentStatus: 'SUCCESS' },
+        where: { ...paymentDateWhere, paymentStatus: 'SUCCESS' },
         select: { amount: true, paymentDate: true },
       }),
       prisma.expense.findMany({
+        where: expenseDateWhere,
         select: { amount: true, category: true, expenseDate: true },
       }),
       prisma.user.findMany({
@@ -277,9 +400,11 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
         select: { id: true, name: true, role: true },
       }),
       prisma.quotation.findMany({
+        where: quotationDateWhere,
         select: { id: true, status: true, finalAmount: true, createdAt: true },
       }),
       prisma.cabBooking.findMany({
+        where: cabDateWhere,
         select: { id: true, bookingStatus: true, vehicleType: true, tripType: true, cabAmount: true, pickupDate: true },
       }),
     ]);

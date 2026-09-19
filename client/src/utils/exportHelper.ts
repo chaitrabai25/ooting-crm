@@ -31,3 +31,34 @@ export async function downloadExcel(url: string, defaultFilename: string): Promi
     throw error;
   }
 }
+
+/**
+ * Downloads a CSV file using authenticated Axios client.
+ */
+export async function downloadCsv(url: string, defaultFilename: string): Promise<void> {
+  try {
+    const token = localStorage.getItem('ooting_crm_token') || localStorage.getItem('token');
+    const response = await api.get(url, {
+      responseType: 'blob',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    const blob = new Blob([response.data], {
+      type: 'text/csv;charset=utf-8;',
+    });
+
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.setAttribute('download', defaultFilename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error: any) {
+    console.error(`CSV Export failed for ${url}:`, error);
+    const message = error.response?.data?.message || 'Failed to download CSV file. Please try again.';
+    alert(message);
+    throw error;
+  }
+}

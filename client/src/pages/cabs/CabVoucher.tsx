@@ -438,18 +438,18 @@ export const CabVoucher: React.FC = () => {
             )}
           </div>
 
-          {/* Signatures */}
-          <div className="grid grid-cols-2 gap-12 pt-8">
-            <div className="text-center">
-              <div className="border-b border-slate-400 h-10 mb-2"></div>
-              <span className="text-xs font-bold text-slate-800 block">Guest Signature</span>
-              <span className="text-[10px] text-slate-500">I confirm vehicle reporting & service satisfaction</span>
+          {/* Official Authorization Notice (Replaced signatures & stamps) */}
+          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/80 text-center space-y-1 mt-6">
+            <div className="flex items-center justify-center gap-2 text-slate-900 font-black text-xs uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-[#C91F28]" />
+              <span>Officially Authorized by Ooting</span>
             </div>
-            <div className="text-center">
-              <div className="border-b border-slate-400 h-10 mb-2"></div>
-              <span className="text-xs font-bold text-slate-800 block">Driver / Duty In-charge Signature</span>
-              <span className="text-[10px] text-slate-500">Authorized Ooting Transport Representative</span>
-            </div>
+            <p className="text-[11px] text-slate-600 font-medium">
+              This duty slip is issued by Ooting for official travel service coordination.
+            </p>
+            <p className="text-[10px] text-slate-400">
+              Computer-generated document. Valid without physical signature or rubber stamp.
+            </p>
           </div>
         </div>
 

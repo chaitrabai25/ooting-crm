@@ -525,46 +525,120 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      if (!item.customerName || !item.customerPhone || !item.pickupPlace || !item.dropPlace) {
+
+      // Normalize Customer Name
+      const customerName = (
+        item.customerName ||
+        item['Customer Name'] ||
+        item.guestName ||
+        item['Guest Name'] ||
+        item.name ||
+        item['Name'] ||
+        item.passenger ||
+        item['Passenger'] ||
+        ''
+      ).toString().trim();
+
+      // Normalize Phone
+      let rawPhone = (
+        item.customerPhone ||
+        item['Customer Phone'] ||
+        item.phone ||
+        item['Phone'] ||
+        item.mobile ||
+        item['Mobile'] ||
+        item.contact ||
+        item['Contact'] ||
+        item['Contact Number'] ||
+        ''
+      ).toString().trim();
+      // Clean scientific notation or float artifacts like 9876543210.0
+      rawPhone = rawPhone.replace(/\.0$/, '').replace(/[^0-9+]/g, '');
+
+      if (!customerName) {
         skipped++;
-        errors.push(`Row ${i + 1}: Customer name, phone, pickup, and drop place are required.`);
+        errors.push(`Row ${i + 1}: Passenger / Customer Name is missing.`);
         continue;
+      }
+
+      if (!rawPhone || rawPhone.length < 7) {
+        skipped++;
+        errors.push(`Row ${i + 1} (${customerName}): Valid contact phone number is required.`);
+        continue;
+      }
+
+      // Pickup & Drop fallbacks
+      const pickupPlace = (
+        item.pickupPlace ||
+        item['Pickup Place'] ||
+        item.pickupLocation ||
+        item['Pickup Location'] ||
+        item.from ||
+        item['From'] ||
+        'Bangalore'
+      ).toString().trim();
+
+      const dropPlace = (
+        item.dropPlace ||
+        item['Drop Place'] ||
+        item.dropLocation ||
+        item['Drop Location'] ||
+        item.to ||
+        item['To'] ||
+        item.destination ||
+        item['Destination'] ||
+        'Outstation'
+      ).toString().trim();
+
+      // Parse dates cleanly (handles Excel numbers, DD-MM-YYYY, YYYY-MM-DD, etc.)
+      let pickupDate = new Date();
+      const rawDate = item.pickupDate || item['Pickup Date'] || item.date || item['Date'];
+      if (rawDate) {
+        if (typeof rawDate === 'number') {
+          // Excel serial date number
+          pickupDate = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
+        } else {
+          const parsed = new Date(rawDate);
+          if (!isNaN(parsed.getTime())) {
+            pickupDate = parsed;
+          }
+        }
       }
 
       const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
       const count = (await prisma.cabBooking.count()) + imported;
       const bookingReference = `OOT-CAB-${dateStr}-${String(count + 1).padStart(4, '0')}`;
 
-      const cabAmount = Number(item.cabAmount || item['Cab Amount (INR)'] || 0);
-      const advanceAmount = Number(item.advanceAmount || item['Advance (INR)'] || 0);
+      const cabAmount = Math.max(0, Number(item.cabAmount || item['Cab Amount (INR)'] || item['Cab Amount'] || item['Amount'] || 0));
+      const advanceAmount = Math.max(0, Number(item.advanceAmount || item['Advance (INR)'] || item['Advance'] || item['Paid'] || 0));
       const balanceAmount = Math.max(0, cabAmount - advanceAmount);
 
       await prisma.cabBooking.create({
         data: {
           bookingReference,
-          customerName: String(item.customerName).trim(),
-          customerPhone: String(item.customerPhone).trim(),
-          customerEmail: item.customerEmail ? String(item.customerEmail).trim() : null,
-          pickupDate: item.pickupDate ? new Date(item.pickupDate) : new Date(),
-          pickupTime: String(item.pickupTime || '09:00 AM').trim(),
-          pickupPlace: String(item.pickupPlace).trim(),
-          dropPlace: String(item.dropPlace).trim(),
-          travelRoute: item.travelRoute ? String(item.travelRoute).trim() : null,
-          carNumber: item.carNumber ? String(item.carNumber).trim().toUpperCase() : null,
-          vehicleType: item.vehicleType || 'SEDAN',
-          passengerCount: Number(item.passengerCount || 1),
-          driverName: item.driverName ? String(item.driverName).trim() : null,
-          driverPhone: item.driverPhone ? String(item.driverPhone).trim() : null,
-          cabProvider: item.cabProvider ? String(item.cabProvider).trim() : null,
-          tripType: item.tripType || 'OUTSTATION',
+          customerName,
+          customerPhone: rawPhone,
+          customerEmail: item.customerEmail || item['Customer Email'] || item.email || item['Email'] ? String(item.customerEmail || item['Customer Email'] || item.email || item['Email']).trim().toLowerCase() : null,
+          pickupDate,
+          pickupTime: String(item.pickupTime || item['Pickup Time'] || item.time || item['Time'] || '08:00 AM').trim(),
+          pickupPlace,
+          dropPlace,
+          travelRoute: item.travelRoute || item['Route'] || item['Travel Route'] ? String(item.travelRoute || item['Route'] || item['Travel Route']).trim() : `${pickupPlace} - ${dropPlace}`,
+          carNumber: item.carNumber || item['Car Number'] || item['Vehicle No'] ? String(item.carNumber || item['Car Number'] || item['Vehicle No']).trim().toUpperCase() : null,
+          vehicleType: (item.vehicleType || item['Vehicle Type'] || 'SEDAN').toString().trim().toUpperCase(),
+          passengerCount: Math.max(1, Number(item.passengerCount || item['Passengers'] || item['Persons'] || 1)),
+          driverName: item.driverName || item['Driver Name'] ? String(item.driverName || item['Driver Name']).trim() : null,
+          driverPhone: item.driverPhone || item['Driver Phone'] ? String(item.driverPhone || item['Driver Phone']).replace(/[^0-9+]/g, '').trim() : null,
+          cabProvider: item.cabProvider || item['Cab Provider'] || item['Vendor'] ? String(item.cabProvider || item['Cab Provider'] || item['Vendor']).trim() : null,
+          tripType: (item.tripType || item['Trip Type'] || 'OUTSTATION').toString().trim().toUpperCase(),
           cabAmount,
           advanceAmount,
           balanceAmount,
-          paymentStatus: item.paymentStatus || (advanceAmount >= cabAmount && cabAmount > 0 ? 'PAID' : 'PENDING'),
-          bookingStatus: item.bookingStatus || 'CONFIRMED',
+          paymentStatus: item.paymentStatus || (advanceAmount >= cabAmount && cabAmount > 0 ? 'PAID' : (advanceAmount > 0 ? 'PARTIAL' : 'PENDING')),
+          bookingStatus: (item.bookingStatus || item['Booking Status'] || 'CONFIRMED').toString().trim().toUpperCase(),
           assignedStaffId: req.user!.id,
-          specialInstructions: item.specialInstructions || null,
-          internalNotes: item.internalNotes || null,
+          specialInstructions: item.specialInstructions || item['Special Instructions'] ? String(item.specialInstructions || item['Special Instructions']).trim() : null,
+          internalNotes: item.internalNotes || item['Notes'] ? String(item.internalNotes || item['Notes']).trim() : null,
         },
       });
       imported++;

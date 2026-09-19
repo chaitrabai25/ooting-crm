@@ -15,26 +15,32 @@ import {
   AlertCircle,
   MoreVertical,
   Upload,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { LeadModal } from './LeadModal.js';
 import { LeadImportModal } from './LeadImportModal.js';
 import { Lead } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export const LeadList: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { can, isSuperAdmin } = useAuth();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(searchParams.get('action') === 'create');
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Conversion status toast
   const [actionMessage, setActionMessage] = useState<{ text: string; isError?: boolean } | null>(null);
@@ -180,6 +186,22 @@ export const LeadList: React.FC = () => {
     } catch (err: any) {
       setActionMessage({ text: err.response?.data?.message || 'Failed to convert to booking', isError: true });
       setTimeout(() => setActionMessage(null), 4000);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingLead) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/leads/${deletingLead.id}`);
+      setDeletingLead(null);
+      setActionMessage({ text: 'Lead enquiry deleted successfully.' });
+      fetchLeads();
+      setTimeout(() => setActionMessage(null), 4000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete lead.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -336,6 +358,18 @@ export const LeadList: React.FC = () => {
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
+
+          {/* Delete Lead */}
+          {(isSuperAdmin || can('leads', 'delete')) && (
+            <button
+              type="button"
+              onClick={() => setDeletingLead(lead)}
+              title="Delete Enquiry"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -587,6 +621,17 @@ export const LeadList: React.FC = () => {
           }}
         />
       )}
+
+      {/* Delete Lead Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deletingLead}
+        onClose={() => setDeletingLead(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Lead Enquiry"
+        message={`Are you sure you want to delete lead enquiry for "${deletingLead?.customer?.fullName || 'this customer'}" (${deletingLead?.destination || 'Tour'})? Associated unbooked quotations and follow-ups will be removed. This cannot be undone.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Lead'}
+        isDanger={true}
+      />
     </div>
   );
 };

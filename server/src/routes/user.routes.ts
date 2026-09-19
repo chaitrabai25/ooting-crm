@@ -53,6 +53,7 @@ router.get('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next
           role: true,
           phone: true,
           status: true,
+          permissions: true,
           lastLoginAt: true,
           createdAt: true,
         },
@@ -82,6 +83,7 @@ const createUserSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   role: z.enum(['SUPER_ADMIN', 'ADMIN', 'SALES', 'OPERATIONS', 'ACCOUNTANT', 'AGENT']),
   phone: z.string().optional(),
+  permissions: z.string().optional().nullable(),
 });
 
 // Create new user (ADMIN or SUPER_ADMIN)
@@ -106,6 +108,7 @@ router.post('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, nex
         passwordHash,
         role: data.role,
         phone: data.phone?.trim() || null,
+        permissions: data.permissions || null,
         status: 'ACTIVE',
       },
       select: {
@@ -115,6 +118,7 @@ router.post('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, nex
         role: true,
         phone: true,
         status: true,
+        permissions: true,
         createdAt: true,
       },
     });
@@ -142,6 +146,7 @@ const updateUserSchema = z.object({
   phone: z.string().optional().nullable(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
   password: z.string().min(6).optional(),
+  permissions: z.string().optional().nullable(),
 });
 
 // Update user (ADMIN or SUPER_ADMIN)
@@ -167,6 +172,7 @@ router.put('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response, n
         role: true,
         phone: true,
         status: true,
+        permissions: true,
         updatedAt: true,
       },
     });
@@ -182,6 +188,67 @@ router.put('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response, n
     });
 
     res.json(updatedUser);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete user safely with full protection safeguards (ADMIN or SUPER_ADMIN)
+router.delete('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = String(req.params.id);
+
+    // Rule 1: Prevent user from deleting their own account
+    if (req.user!.id === id) {
+      res.status(400).json({ message: 'You cannot delete your own account.' });
+      return;
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    // Rule 2: Only SUPER_ADMIN can delete another SUPER_ADMIN
+    if (targetUser.role === 'SUPER_ADMIN') {
+      if (req.user!.role !== 'SUPER_ADMIN') {
+        res.status(403).json({ message: 'Only a Super Admin can delete another Super Admin.' });
+        return;
+      }
+
+      // Rule 3: Cannot delete the last remaining active Super Admin
+      const superAdminCount = await prisma.user.count({
+        where: { role: 'SUPER_ADMIN', status: 'ACTIVE' },
+      });
+      if (superAdminCount <= 1) {
+        res.status(400).json({ message: 'Cannot delete the only remaining active Super Admin.' });
+        return;
+      }
+    }
+
+    // Unlink or safely reassign dependent relations before deletion
+    await prisma.$transaction([
+      prisma.supplier.updateMany({ where: { assignedToId: id }, data: { assignedToId: null } }),
+      prisma.cabBooking.updateMany({ where: { assignedStaffId: id }, data: { assignedStaffId: null } }),
+      prisma.customer.updateMany({ where: { assignedToId: id }, data: { assignedToId: null } }),
+      prisma.booking.updateMany({ where: { assignedUserId: id }, data: { assignedUserId: req.user!.id } }),
+      prisma.lead.updateMany({ where: { assignedUserId: id }, data: { assignedUserId: req.user!.id } }),
+      prisma.followUp.updateMany({ where: { assignedUserId: id }, data: { assignedUserId: req.user!.id } }),
+      prisma.user.delete({ where: { id } }),
+    ]);
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'DELETE',
+      entity: 'USER',
+      entityId: id,
+      details: `Deleted user ${targetUser.name} (${targetUser.role}, ${targetUser.email})`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Staff member "${targetUser.name}" has been deleted successfully.` });
   } catch (error) {
     next(error);
   }

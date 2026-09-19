@@ -3,6 +3,7 @@ import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, Download, Re
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
+import { detectHeaderRow, parseExcelDate, parseExcelNumber, cleanPhoneNumber } from '../../utils/excel.js';
 
 interface BookingImportModalProps {
   isOpen: boolean;
@@ -128,7 +129,18 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
           return;
         }
 
-        const headers: string[] = (json[0] || []).map((h: any) => String(h || '').trim().toLowerCase());
+        const detected = detectHeaderRow(json, [
+          ['name', 'customer'],
+          ['phone', 'mobile', 'contact'],
+        ]);
+
+        if (!detected) {
+          setError('Spreadsheet must include identifiable columns for "Customer Name" and "Phone Number".');
+          setParsedRows([]);
+          return;
+        }
+
+        const { headerIndex, headers } = detected;
         const nameIdx = headers.findIndex((h) => h.includes('name') || h.includes('customer'));
         const phoneIdx = headers.findIndex((h) => h.includes('phone') || h.includes('mobile') || h.includes('contact'));
         const emailIdx = headers.findIndex((h) => h.includes('email') || h.includes('mail'));
@@ -136,27 +148,20 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
         const destIdx = headers.findIndex((h) => h.includes('dest') || h.includes('package'));
         const startIdx = headers.findIndex((h) => h.includes('start'));
         const endIdx = headers.findIndex((h) => h.includes('end'));
-        const travellersIdx = headers.findIndex((h) => h.includes('traveller') || h.includes('person') || h.includes('count'));
+        const travellersIdx = headers.findIndex((h) => h.includes('traveller') || h.includes('person') || h.includes('count') || h.includes('pax'));
         const amountIdx = headers.findIndex((h) => h.includes('amount') || h.includes('total') || h.includes('price'));
         const discountIdx = headers.findIndex((h) => h.includes('discount'));
         const statusIdx = headers.findIndex((h) => h.includes('status'));
         const notesIdx = headers.findIndex((h) => h.includes('note') || h.includes('remark'));
 
-        if (nameIdx === -1 || phoneIdx === -1) {
-          setError('Spreadsheet must include columns for "Customer Name" and "Phone".');
-          setParsedRows([]);
-          return;
-        }
-
         const rows: ParsedBookingRow[] = [];
 
-        for (let i = 1; i < json.length; i++) {
+        for (let i = headerIndex + 1; i < json.length; i++) {
           const row = json[i];
-          if (!row || row.length === 0) continue;
+          if (!row || row.length === 0 || row.every((c: any) => c === null || c === undefined || c === '')) continue;
 
           const customerName = String(row[nameIdx] || '').trim();
-          const rawPhone = String(row[phoneIdx] || '').trim();
-          const cleanPhone = rawPhone.replace(/[^\d+]/g, '');
+          const cleanPhone = cleanPhoneNumber(row[phoneIdx]);
 
           let isValid = true;
           let validationError: string | undefined;
@@ -176,11 +181,11 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
             customerEmail: emailIdx !== -1 && row[emailIdx] ? String(row[emailIdx]).trim() : undefined,
             customerCity: cityIdx !== -1 && row[cityIdx] ? String(row[cityIdx]).trim() : undefined,
             destination: destIdx !== -1 && row[destIdx] ? String(row[destIdx]).trim() : undefined,
-            travelStartDate: startIdx !== -1 && row[startIdx] ? String(row[startIdx]).trim() : undefined,
-            travelEndDate: endIdx !== -1 && row[endIdx] ? String(row[endIdx]).trim() : undefined,
-            travellers: travellersIdx !== -1 && Number(row[travellersIdx]) ? Number(row[travellersIdx]) : 2,
-            totalAmount: amountIdx !== -1 && Number(row[amountIdx]) ? Number(row[amountIdx]) : 0,
-            discount: discountIdx !== -1 && Number(row[discountIdx]) ? Number(row[discountIdx]) : 0,
+            travelStartDate: startIdx !== -1 ? parseExcelDate(row[startIdx]) : undefined,
+            travelEndDate: endIdx !== -1 ? parseExcelDate(row[endIdx]) : undefined,
+            travellers: travellersIdx !== -1 ? parseExcelNumber(row[travellersIdx], 2) : 2,
+            totalAmount: amountIdx !== -1 ? parseExcelNumber(row[amountIdx], 0) : 0,
+            discount: discountIdx !== -1 ? parseExcelNumber(row[discountIdx], 0) : 0,
             bookingStatus: statusIdx !== -1 && row[statusIdx] ? String(row[statusIdx]).trim().toUpperCase() : 'CONFIRMED',
             notes: notesIdx !== -1 && row[notesIdx] ? String(row[notesIdx]).trim() : undefined,
             isValid,

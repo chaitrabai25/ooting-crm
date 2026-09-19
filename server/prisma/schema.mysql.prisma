@@ -24,6 +24,7 @@ model User {
   role               String    @default("SALES") @db.VarChar(50) // SUPER_ADMIN, ADMIN, SALES, OPERATIONS, ACCOUNTANT, AGENT
   phone              String?   @db.VarChar(50)
   status             String    @default("ACTIVE") @db.VarChar(50) // ACTIVE, INACTIVE, SUSPENDED
+  permissions        String?   @db.Text
   lastLoginAt        DateTime?
   otpHash            String?   @db.VarChar(255)
   otpExpiresAt       DateTime?
@@ -40,6 +41,7 @@ model User {
   assignedCabBookings    CabBooking[]     @relation("CabBookingAssignedUser")
   assignedCalendarEvents CalendarEvent[]  @relation("CalendarEventAssignedUser")
   expensesCreated        Expense[]        @relation("ExpenseCreatedByUser")
+  assignedSuppliers      Supplier[]       @relation("SupplierAssignedUser")
   auditLogs              AuditLog[]       @relation("UserAuditLogs")
 
   @@index([email])
@@ -261,6 +263,7 @@ model Booking {
   finalAmount     Decimal   @default(0.00) @db.Decimal(12, 2)
   bookingStatus   String    @default("CONFIRMED") @db.VarChar(50)
   bookingDate     DateTime  @default(now())
+  serviceProviders String?   @db.Text
   notes           String?   @db.Text
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -336,6 +339,8 @@ model Agent {
   city               String?  @db.VarChar(100)
   state              String?  @db.VarChar(100)
   gstNumber          String?  @db.VarChar(50)
+  panNumber          String?  @db.VarChar(50)
+  agentType          String?  @default("Silver") @db.VarChar(50) // Diamond, Gold, Silver
   status             String   @default("ACTIVE") @db.VarChar(50)
   googleReviewUrl    String?  @db.Text
   googleReviewRating Float?
@@ -530,4 +535,53 @@ model CalendarEvent {
   @@index([startDate])
   @@index([eventType])
   @@index([status])
+}
+
+// ------------------------------------------------------------------------------
+// 18. B2B Suppliers Directory
+// ------------------------------------------------------------------------------
+model Supplier {
+  id                  String    @id @default(uuid()) @db.VarChar(36)
+  name                String    @db.VarChar(191)
+  supplierType        String    @default("HOTEL") @db.VarChar(50)
+  contactPerson       String?   @db.VarChar(191)
+  phone               String    @db.VarChar(50)
+  whatsapp            String?   @db.VarChar(50)
+  email               String?   @db.VarChar(191)
+  alternateContact    String?   @db.VarChar(50)
+  website             String?   @db.VarChar(255)
+  address             String?   @db.Text
+  city                String?   @db.VarChar(100)
+  district            String?   @db.VarChar(100)
+  state               String?   @db.VarChar(100)
+  country             String?   @default("India") @db.VarChar(100)
+  pincode             String?   @db.VarChar(20)
+  gstNumber           String?   @db.VarChar(50)
+  panNumber           String?   @db.VarChar(50)
+  tier                String?   @default("Silver") @db.VarChar(50) // Diamond, Gold, Silver
+  serviceCategories   String?   @db.Text
+  categoryDetails     String?   @db.Text
+  category            String?   @db.VarChar(100)
+  servicesProvided    String?   @db.Text
+  destinationsCovered String?   @db.Text
+  contractDetails     String?   @db.Text
+  paymentTerms        String?   @db.VarChar(191)
+  creditLimit         Decimal?  @default(0) @db.Decimal(12, 2)
+  commissionDetails   String?   @db.Text
+  bankDetails         String?   @db.Text
+  status              String    @default("ACTIVE") @db.VarChar(50)
+  assignedToId        String?   @db.VarChar(36)
+  tags                String?   @db.VarChar(255)
+  notes               String?   @db.Text
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  assignedUser        User?     @relation("SupplierAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([name])
+  @@index([supplierType])
+  @@index([phone])
+  @@index([city])
+  @@index([status])
+  @@index([assignedToId])
 }

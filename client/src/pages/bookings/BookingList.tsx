@@ -14,14 +14,18 @@ import {
   RefreshCw,
   MessageSquare,
   Upload,
+  FileText,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { BookingModal } from './BookingModal.js';
 import { BookingImportModal } from './BookingImportModal.js';
+import { BookingInvoiceModal } from './BookingInvoiceModal.js';
 import { Booking, Package } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 
@@ -35,6 +39,9 @@ export const BookingList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(searchParams.get('action') === 'create');
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<any | null>(null);
+  const [invoiceBooking, setInvoiceBooking] = useState<any | null>(null);
+  const [deleteBooking, setDeleteBooking] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // WhatsApp Modal state
   const [whatsAppModalData, setWhatsAppModalData] = useState<{
@@ -47,6 +54,20 @@ export const BookingList: React.FC = () => {
     customerName: '',
     customerPhone: '',
   });
+
+  const handleDeleteBooking = async () => {
+    if (!deleteBooking) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/bookings/${deleteBooking.id}`);
+      setDeleteBooking(null);
+      fetchBookings();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete booking.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Default limit 10
   const [page, setPage] = useState(1);
@@ -221,9 +242,19 @@ export const BookingList: React.FC = () => {
     },
     {
       header: 'Actions',
-      className: 'text-right w-24',
+      className: 'text-right w-36',
       render: (b) => (
         <div className="flex items-center justify-end gap-1">
+          {/* Generate Tax Invoice button */}
+          <button
+            type="button"
+            onClick={() => setInvoiceBooking(b)}
+            title="Generate & Print Tax Invoice"
+            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+          </button>
+
           {/* WhatsApp message button */}
           {b.customer?.phone && (
             <button
@@ -250,6 +281,15 @@ export const BookingList: React.FC = () => {
             className="p-1.5 text-slate-500 hover:text-[#C91F28] hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
           >
             <Eye className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDeleteBooking(b)}
+            title="Delete Booking"
+            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       ),
@@ -429,6 +469,26 @@ export const BookingList: React.FC = () => {
           }}
         />
       )}
+
+      {/* Tax Invoice Modal */}
+      {invoiceBooking && (
+        <BookingInvoiceModal
+          isOpen={!!invoiceBooking}
+          booking={invoiceBooking}
+          onClose={() => setInvoiceBooking(null)}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteBooking}
+        onClose={() => setDeleteBooking(null)}
+        onConfirm={handleDeleteBooking}
+        title={`Delete Booking: ${deleteBooking?.bookingNumber}`}
+        message={`Are you sure you want to delete this booking for ${deleteBooking?.customer?.fullName || 'Guest'}? This action cannot be undone.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Booking'}
+        isDanger={true}
+      />
     </div>
   );
 };

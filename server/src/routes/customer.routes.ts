@@ -461,34 +461,66 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      if (!item.fullName || !item.phone) {
+
+      const fullName = (
+        item.fullName ||
+        item['Full Name'] ||
+        item.customerName ||
+        item['Customer Name'] ||
+        item.name ||
+        item['Name'] ||
+        item.touristName ||
+        item['Tourist Name'] ||
+        ''
+      ).toString().trim();
+
+      let rawPhone = (
+        item.phone ||
+        item['Phone'] ||
+        item.mobile ||
+        item['Mobile'] ||
+        item.customerPhone ||
+        item['Customer Phone'] ||
+        item.contact ||
+        item['Contact'] ||
+        item['Contact Number'] ||
+        ''
+      ).toString().trim();
+      rawPhone = rawPhone.replace(/\.0$/, '').replace(/[^0-9+]/g, '');
+
+      if (!fullName) {
         skipped++;
-        errors.push(`Row ${i + 1}: Name and phone are required.`);
+        errors.push(`Row ${i + 1}: Customer / Tourist Name is missing.`);
         continue;
       }
 
-      const phone = String(item.phone).trim();
+      if (!rawPhone || rawPhone.length < 7) {
+        skipped++;
+        errors.push(`Row ${i + 1} (${fullName}): Valid phone number is required.`);
+        continue;
+      }
+
       const existing = await prisma.customer.findFirst({
-        where: { phone },
+        where: { phone: rawPhone },
       });
 
       if (existing) {
         skipped++;
-        errors.push(`Row ${i + 1}: Phone ${phone} already exists.`);
+        errors.push(`Row ${i + 1} (${fullName}): Phone ${rawPhone} is already registered to "${existing.fullName}".`);
         continue;
       }
 
       await prisma.customer.create({
         data: {
-          fullName: String(item.fullName).trim(),
-          phone,
-          alternatePhone: item.alternatePhone ? String(item.alternatePhone).trim() : null,
-          email: item.email ? String(item.email).trim() : null,
-          city: item.city ? String(item.city).trim() : null,
-          state: item.state ? String(item.state).trim() : null,
-          country: item.country ? String(item.country).trim() : 'India',
-          source: item.source ? String(item.source).trim() : 'DIRECT',
-          notes: item.notes ? String(item.notes).trim() : null,
+          fullName,
+          phone: rawPhone,
+          alternatePhone: item.alternatePhone || item['Alternate Phone'] ? String(item.alternatePhone || item['Alternate Phone']).trim() : null,
+          email: item.email || item['Email'] ? String(item.email || item['Email']).trim().toLowerCase() : null,
+          city: item.city || item['City'] ? String(item.city || item['City']).trim() : null,
+          state: item.state || item['State'] ? String(item.state || item['State']).trim() : null,
+          country: item.country || item['Country'] ? String(item.country || item['Country']).trim() : 'India',
+          source: item.source || item['Source'] ? String(item.source || item['Source']).trim() : 'DIRECT',
+          notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : null,
           assignedToId: req.user!.id,
           status: 'ACTIVE',
         },

@@ -16,19 +16,27 @@ import {
   CheckCircle,
   XCircle,
   MessageSquare,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Modal } from '../../components/ui/Modal.js';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export const LeadDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { can, isSuperAdmin } = useAuth();
 
   const [leadData, setLeadData] = useState<any>(null);
   const [timelineLogs, setTimelineLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Delete Lead state
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Conversion to Booking Modal
   const [isConvertOpen, setIsConvertOpen] = useState(false);
@@ -42,6 +50,19 @@ export const LeadDetail: React.FC = () => {
   const [followUpType, setFollowUpType] = useState('CALL');
   const [followUpNotes, setFollowUpNotes] = useState('');
   const [isScheduling, setIsScheduling] = useState(false);
+
+  const handleDeleteConfirm = async () => {
+    try {
+      setIsDeleting(true);
+      await api.delete(`/leads/${id}`);
+      navigate('/leads');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete lead.');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteOpen(false);
+    }
+  };
 
   const fetchLead = async () => {
     try {
@@ -184,11 +205,22 @@ export const LeadDetail: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsConvertOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors"
           >
             <BookmarkCheck className="w-3.5 h-3.5" />
             <span>Convert to Booking</span>
           </button>
+
+          {(isSuperAdmin || can('leads', 'delete')) && (
+            <button
+              type="button"
+              onClick={() => setIsDeleteOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 rounded-lg shadow-xs transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -554,6 +586,17 @@ export const LeadDetail: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Lead Enquiry"
+        message={`Are you sure you want to delete this enquiry for "${leadData?.customer?.fullName || 'this client'}" (${leadData?.destination || 'Destination'})? Unbooked quotations and follow-ups will be permanently deleted. This cannot be undone.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Lead'}
+        isDanger={true}
+      />
     </div>
   );
 };

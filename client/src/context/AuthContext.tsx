@@ -6,6 +6,8 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  isSuperAdmin: boolean;
+  can: (moduleName: string, action?: string) => boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -20,6 +22,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('ooting_crm_token'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
+  const can = (moduleName: string, action: string = 'view'): boolean => {
+    if (!user) return false;
+    if (user.role === 'SUPER_ADMIN') return true;
+
+    // Check custom permissions if configured
+    if (user.permissions) {
+      try {
+        const perms = JSON.parse(user.permissions);
+        if (Array.isArray(perms)) {
+          const directMatch = `${moduleName}:${action}`;
+          const dotMatch = `${moduleName}.${action}`;
+          const wildMatch = `${moduleName}:*`;
+          if (perms.includes('*') || perms.includes(directMatch) || perms.includes(dotMatch) || perms.includes(wildMatch)) {
+            return true;
+          }
+        } else if (typeof perms === 'object' && perms !== null) {
+          const modulePerms = perms[moduleName];
+          if (modulePerms === true || modulePerms === '*') return true;
+          if (Array.isArray(modulePerms) && (modulePerms.includes(action) || modulePerms.includes('*'))) return true;
+          if (typeof modulePerms === 'object' && modulePerms !== null && modulePerms[action] === true) return true;
+        }
+      } catch (err) {
+        console.error('Failed to parse permissions:', err);
+      }
+    }
+
+    // Role-based defaults when custom permissions not set
+    if (user.role === 'ADMIN') return true;
+
+    if (user.role === 'SALES') {
+      if (['leads', 'customers', 'bookings', 'cabs', 'suppliers', 'calendar', 'dashboard'].includes(moduleName)) {
+        return action !== 'delete';
+      }
+    }
+
+    if (user.role === 'OPERATIONS') {
+      if (['bookings', 'cabs', 'calendar', 'suppliers', 'dashboard'].includes(moduleName)) {
+        return action !== 'delete';
+      }
+    }
+
+    if (user.role === 'ACCOUNTANT') {
+      if (['reports', 'payments', 'bookings', 'cabs', 'dashboard'].includes(moduleName)) {
+        return action !== 'delete';
+      }
+    }
+
+    if (user.role === 'AGENT') {
+      if (['bookings', 'calendar', 'dashboard'].includes(moduleName)) {
+        return action === 'view';
+      }
+    }
+
+    return false;
+  };
 
   const login = (newToken: string, newUser: User) => {
     localStorage.setItem('ooting_crm_token', newToken);
@@ -59,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, isSuperAdmin, can, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
