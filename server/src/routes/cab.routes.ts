@@ -290,6 +290,12 @@ const cabBookingSchema = z.object({
   bookingStatus: z.string().default('CONFIRMED'),
   specialInstructions: z.string().optional().nullable(),
   internalNotes: z.string().optional().nullable(),
+  driverAllowanceType: z.string().optional().nullable(),
+  driverAllowanceRate: z.coerce.number().optional().nullable(),
+  driverAllowanceDays: z.coerce.number().int().optional().nullable(),
+  driverAllowanceTotal: z.coerce.number().optional().nullable(),
+  dutyRange: z.string().optional().nullable(),
+  customTableRows: z.string().optional().nullable(),
 });
 
 // Create Cab Booking
@@ -313,41 +319,71 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       paymentStatus = 'PARTIAL';
     }
 
+    const driverAllowanceTotal = (data.driverAllowanceRate && data.driverAllowanceDays)
+      ? Number(data.driverAllowanceRate) * Number(data.driverAllowanceDays)
+      : (data.driverAllowanceTotal ? Number(data.driverAllowanceTotal) : null);
+
+    let specialInstructions = data.specialInstructions?.trim() || '';
+    if (driverAllowanceTotal && driverAllowanceTotal > 0) {
+      const typeLabel = data.driverAllowanceType === 'NIGHT_WISE' ? 'Night-wise' : (data.driverAllowanceType === 'CUSTOM' ? 'Custom' : 'Day-wise');
+      const allowanceStr = `[Driver Allowance: ${typeLabel} @ ₹${data.driverAllowanceRate} × ${data.driverAllowanceDays || 1} = ₹${driverAllowanceTotal}]`;
+      if (!specialInstructions.includes('Driver Allowance:')) {
+        specialInstructions = specialInstructions ? `${specialInstructions} | ${allowanceStr}` : allowanceStr;
+      }
+    }
+    if (data.dutyRange?.trim()) {
+      const rangeStr = `[Duty Range: ${data.dutyRange.trim()}]`;
+      if (!specialInstructions.includes('Duty Range:')) {
+        specialInstructions = specialInstructions ? `${specialInstructions} | ${rangeStr}` : rangeStr;
+      }
+    }
+
+    const createPayload: any = {
+      bookingReference,
+      customerId: data.customerId || null,
+      customerName: data.customerName.trim(),
+      customerPhone: data.customerPhone.trim(),
+      customerEmail: data.customerEmail ? data.customerEmail.trim() : null,
+      leadId: data.leadId || null,
+      bookingId: data.bookingId || null,
+      packageId: data.packageId || null,
+      assignedStaffId: data.assignedStaffId || req.user?.id || null,
+      pickupDate: new Date(data.pickupDate),
+      pickupTime: data.pickupTime.trim(),
+      pickupPlace: data.pickupPlace.trim(),
+      dropPlace: data.dropPlace.trim(),
+      travelRoute: data.travelRoute ? data.travelRoute.trim() : null,
+      enquiryDate: data.enquiryDate ? new Date(data.enquiryDate) : new Date(),
+      carNumber: data.carNumber ? data.carNumber.trim().toUpperCase() : null,
+      vehicleType: data.vehicleType,
+      passengerCount: data.passengerCount,
+      driverName: data.driverName ? data.driverName.trim() : null,
+      driverPhone: data.driverPhone ? data.driverPhone.trim() : null,
+      cabProvider: data.cabProvider ? data.cabProvider.trim() : null,
+      requiredCabType: data.requiredCabType,
+      tripType: data.tripType,
+      estimatedDistance: data.estimatedDistance ? data.estimatedDistance.trim() : null,
+      estimatedDuration: data.estimatedDuration ? data.estimatedDuration.trim() : null,
+      cabAmount,
+      advanceAmount,
+      balanceAmount,
+      paymentStatus,
+      bookingStatus: data.bookingStatus,
+      specialInstructions: specialInstructions || null,
+      internalNotes: data.internalNotes || null,
+    };
+
+    try {
+      createPayload.driverAllowanceType = data.driverAllowanceType || null;
+      createPayload.driverAllowanceRate = data.driverAllowanceRate ? Number(data.driverAllowanceRate) : null;
+      createPayload.driverAllowanceDays = data.driverAllowanceDays ? Number(data.driverAllowanceDays) : null;
+      createPayload.driverAllowanceTotal = driverAllowanceTotal;
+      createPayload.dutyRange = data.dutyRange?.trim() || null;
+      createPayload.customTableRows = data.customTableRows || null;
+    } catch {}
+
     const cab = await prisma.cabBooking.create({
-      data: {
-        bookingReference,
-        customerId: data.customerId || null,
-        customerName: data.customerName.trim(),
-        customerPhone: data.customerPhone.trim(),
-        customerEmail: data.customerEmail ? data.customerEmail.trim() : null,
-        leadId: data.leadId || null,
-        bookingId: data.bookingId || null,
-        packageId: data.packageId || null,
-        assignedStaffId: data.assignedStaffId || req.user?.id || null,
-        pickupDate: new Date(data.pickupDate),
-        pickupTime: data.pickupTime.trim(),
-        pickupPlace: data.pickupPlace.trim(),
-        dropPlace: data.dropPlace.trim(),
-        travelRoute: data.travelRoute ? data.travelRoute.trim() : null,
-        enquiryDate: data.enquiryDate ? new Date(data.enquiryDate) : new Date(),
-        carNumber: data.carNumber ? data.carNumber.trim().toUpperCase() : null,
-        vehicleType: data.vehicleType,
-        passengerCount: data.passengerCount,
-        driverName: data.driverName ? data.driverName.trim() : null,
-        driverPhone: data.driverPhone ? data.driverPhone.trim() : null,
-        cabProvider: data.cabProvider ? data.cabProvider.trim() : null,
-        requiredCabType: data.requiredCabType,
-        tripType: data.tripType,
-        estimatedDistance: data.estimatedDistance ? data.estimatedDistance.trim() : null,
-        estimatedDuration: data.estimatedDuration ? data.estimatedDuration.trim() : null,
-        cabAmount,
-        advanceAmount,
-        balanceAmount,
-        paymentStatus,
-        bookingStatus: data.bookingStatus,
-        specialInstructions: data.specialInstructions || null,
-        internalNotes: data.internalNotes || null,
-      },
+      data: createPayload,
       include: {
         customer: true,
         assignedStaff: true,
@@ -393,41 +429,71 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       paymentStatus = 'PARTIAL';
     }
 
+    const driverAllowanceTotal = (data.driverAllowanceRate && data.driverAllowanceDays)
+      ? Number(data.driverAllowanceRate) * Number(data.driverAllowanceDays)
+      : (data.driverAllowanceTotal ? Number(data.driverAllowanceTotal) : null);
+
+    let specialInstructions = data.specialInstructions?.trim() || '';
+    if (driverAllowanceTotal && driverAllowanceTotal > 0) {
+      const typeLabel = data.driverAllowanceType === 'NIGHT_WISE' ? 'Night-wise' : (data.driverAllowanceType === 'CUSTOM' ? 'Custom' : 'Day-wise');
+      const allowanceStr = `[Driver Allowance: ${typeLabel} @ ₹${data.driverAllowanceRate} × ${data.driverAllowanceDays || 1} = ₹${driverAllowanceTotal}]`;
+      if (!specialInstructions.includes('Driver Allowance:')) {
+        specialInstructions = specialInstructions ? `${specialInstructions} | ${allowanceStr}` : allowanceStr;
+      }
+    }
+    if (data.dutyRange?.trim()) {
+      const rangeStr = `[Duty Range: ${data.dutyRange.trim()}]`;
+      if (!specialInstructions.includes('Duty Range:')) {
+        specialInstructions = specialInstructions ? `${specialInstructions} | ${rangeStr}` : rangeStr;
+      }
+    }
+
+    const updatePayload: any = {
+      customerId: data.customerId || null,
+      customerName: data.customerName.trim(),
+      customerPhone: data.customerPhone.trim(),
+      customerEmail: data.customerEmail ? data.customerEmail.trim() : null,
+      leadId: data.leadId || null,
+      bookingId: data.bookingId || null,
+      packageId: data.packageId || null,
+      assignedStaffId: data.assignedStaffId || existing.assignedStaffId,
+      pickupDate: new Date(data.pickupDate),
+      pickupTime: data.pickupTime.trim(),
+      pickupPlace: data.pickupPlace.trim(),
+      dropPlace: data.dropPlace.trim(),
+      travelRoute: data.travelRoute ? data.travelRoute.trim() : null,
+      enquiryDate: data.enquiryDate ? new Date(data.enquiryDate) : existing.enquiryDate,
+      carNumber: data.carNumber ? data.carNumber.trim().toUpperCase() : null,
+      vehicleType: data.vehicleType,
+      passengerCount: data.passengerCount,
+      driverName: data.driverName ? data.driverName.trim() : null,
+      driverPhone: data.driverPhone ? data.driverPhone.trim() : null,
+      cabProvider: data.cabProvider ? data.cabProvider.trim() : null,
+      requiredCabType: data.requiredCabType,
+      tripType: data.tripType,
+      estimatedDistance: data.estimatedDistance ? data.estimatedDistance.trim() : null,
+      estimatedDuration: data.estimatedDuration ? data.estimatedDuration.trim() : null,
+      cabAmount,
+      advanceAmount,
+      balanceAmount,
+      paymentStatus,
+      bookingStatus: data.bookingStatus,
+      specialInstructions: specialInstructions || null,
+      internalNotes: data.internalNotes || null,
+    };
+
+    try {
+      updatePayload.driverAllowanceType = data.driverAllowanceType || null;
+      updatePayload.driverAllowanceRate = data.driverAllowanceRate ? Number(data.driverAllowanceRate) : null;
+      updatePayload.driverAllowanceDays = data.driverAllowanceDays ? Number(data.driverAllowanceDays) : null;
+      updatePayload.driverAllowanceTotal = driverAllowanceTotal;
+      updatePayload.dutyRange = data.dutyRange?.trim() || null;
+      updatePayload.customTableRows = data.customTableRows || null;
+    } catch {}
+
     const updated = await prisma.cabBooking.update({
       where: { id },
-      data: {
-        customerId: data.customerId || null,
-        customerName: data.customerName.trim(),
-        customerPhone: data.customerPhone.trim(),
-        customerEmail: data.customerEmail ? data.customerEmail.trim() : null,
-        leadId: data.leadId || null,
-        bookingId: data.bookingId || null,
-        packageId: data.packageId || null,
-        assignedStaffId: data.assignedStaffId || existing.assignedStaffId,
-        pickupDate: new Date(data.pickupDate),
-        pickupTime: data.pickupTime.trim(),
-        pickupPlace: data.pickupPlace.trim(),
-        dropPlace: data.dropPlace.trim(),
-        travelRoute: data.travelRoute ? data.travelRoute.trim() : null,
-        enquiryDate: data.enquiryDate ? new Date(data.enquiryDate) : existing.enquiryDate,
-        carNumber: data.carNumber ? data.carNumber.trim().toUpperCase() : null,
-        vehicleType: data.vehicleType,
-        passengerCount: data.passengerCount,
-        driverName: data.driverName ? data.driverName.trim() : null,
-        driverPhone: data.driverPhone ? data.driverPhone.trim() : null,
-        cabProvider: data.cabProvider ? data.cabProvider.trim() : null,
-        requiredCabType: data.requiredCabType,
-        tripType: data.tripType,
-        estimatedDistance: data.estimatedDistance ? data.estimatedDistance.trim() : null,
-        estimatedDuration: data.estimatedDuration ? data.estimatedDuration.trim() : null,
-        cabAmount,
-        advanceAmount,
-        balanceAmount,
-        paymentStatus,
-        bookingStatus: data.bookingStatus,
-        specialInstructions: data.specialInstructions || null,
-        internalNotes: data.internalNotes || null,
-      },
+      data: updatePayload,
       include: {
         customer: true,
         assignedStaff: true,

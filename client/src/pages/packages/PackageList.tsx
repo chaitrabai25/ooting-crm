@@ -10,12 +10,14 @@ import {
   Calendar,
   FileSpreadsheet,
   Trash2,
+  Sparkles,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { PackageModal } from './PackageModal.js';
+import { CustomItineraryModal } from '../../components/packages/CustomItineraryModal.js';
 import { Package } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
@@ -27,6 +29,7 @@ export const PackageList: React.FC = () => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCustomItineraryOpen, setIsCustomItineraryOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
   const [deletingPackage, setDeletingPackage] = useState<Package | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -113,10 +116,19 @@ export const PackageList: React.FC = () => {
               setEditingPackage(null);
               setIsModalOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-lg shadow-sm transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Package</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsCustomItineraryOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-500 rounded-lg shadow-xs transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+            <span>Custom Itinerary</span>
           </button>
         </div>
       </div>
@@ -272,6 +284,15 @@ export const PackageList: React.FC = () => {
             setIsModalOpen(false);
             setEditingPackage(null);
           }}
+          onSuccess={() => fetchPackages()}
+        />
+      )}
+
+      {/* Custom Itinerary Modal */}
+      {isCustomItineraryOpen && (
+        <CustomItineraryModal
+          isOpen={isCustomItineraryOpen}
+          onClose={() => setIsCustomItineraryOpen(false)}
           onSuccess={() => fetchPackages()}
         />
       )}

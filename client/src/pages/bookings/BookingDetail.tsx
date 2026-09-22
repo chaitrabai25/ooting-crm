@@ -27,6 +27,7 @@ import { Modal } from '../../components/ui/Modal.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { BookingInvoiceModal } from './BookingInvoiceModal.js';
+import { PaymentOcrModal } from '../../components/payments/PaymentOcrModal.js';
 
 export const BookingDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -592,88 +593,20 @@ export const BookingDetail: React.FC = () => {
         </div>
       </div>
 
-      {/* Record Payment Modal */}
-      <Modal
-        isOpen={isPaymentOpen}
-        onClose={() => setIsPaymentOpen(false)}
-        title="Record Payment"
-        subtitle={`Booking: ${booking.bookingNumber} • Remaining Due: ${formatCurrency(financials.balanceDue)}`}
-        maxWidth="sm"
-      >
-        <form onSubmit={handleRecordPayment} className="space-y-4 text-xs">
-          {paymentError && (
-            <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg">
-              {paymentError}
-            </div>
-          )}
-
-          <div>
-            <label className="font-semibold text-slate-700">Payment Amount (₹) *</label>
-            <input
-              type="number"
-              min="1"
-              required
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-bold text-emerald-700 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="font-semibold text-slate-700">Payment Method *</label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
-            >
-              <option value="UPI">UPI (Google Pay / PhonePe / Paytm)</option>
-              <option value="BANK_TRANSFER">NEFT / RTGS / Bank Transfer</option>
-              <option value="CARD">Credit / Debit Card</option>
-              <option value="CASH">Cash</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="font-semibold text-slate-700">Transaction Reference / UTR</label>
-            <input
-              type="text"
-              value={paymentRef}
-              onChange={(e) => setPaymentRef(e.target.value)}
-              placeholder="e.g. UPI Ref: 423984712093"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="font-semibold text-slate-700">Notes</label>
-            <textarea
-              rows={2}
-              value={paymentNotes}
-              onChange={(e) => setPaymentNotes(e.target.value)}
-              placeholder="e.g. 50% advance received, balance due prior to departure..."
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsPaymentOpen(false)}
-              className="px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-100 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSavingPayment}
-              className="px-4 py-1.5 font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm disabled:opacity-50"
-            >
-              {isSavingPayment ? 'Recording...' : 'Confirm Receipt'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {/* Record Payment Modal with OCR */}
+      {isPaymentOpen && (
+        <PaymentOcrModal
+          isOpen={isPaymentOpen}
+          onClose={() => setIsPaymentOpen(false)}
+          onSuccess={() => {
+            fetchBooking();
+          }}
+          bookingId={id || ''}
+          bookingNumber={booking.bookingNumber || 'OOT'}
+          customerName={booking.customer?.fullName || 'Guest'}
+          expectedAmount={Number(financials.balanceDue || 0)}
+        />
+      )}
 
       {/* Record Expense Modal */}
       <Modal

@@ -346,6 +346,12 @@ export interface CabBooking {
   bookingStatus: 'PENDING' | 'CONFIRMED' | 'ON_TRIP' | 'COMPLETED' | 'CANCELLED' | string;
   specialInstructions?: string | null;
   internalNotes?: string | null;
+  driverAllowanceType?: 'NONE' | 'DAY_WISE' | 'NIGHT_WISE' | 'CUSTOM' | string | null;
+  driverAllowanceRate?: number | null;
+  driverAllowanceDays?: number | null;
+  driverAllowanceTotal?: number | null;
+  dutyRange?: string | null;
+  customTableRows?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

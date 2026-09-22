@@ -55,8 +55,42 @@ export const CabModal: React.FC<CabModalProps> = ({
   const [specialInstructions, setSpecialInstructions] = useState<string>(initialData?.specialInstructions || '');
   const [internalNotes, setInternalNotes] = useState<string>(initialData?.internalNotes || '');
 
+  // Driver Allowance & Duty Range
+  const [dutyRange, setDutyRange] = useState<string>(initialData?.dutyRange || '');
+  const [driverAllowanceType, setDriverAllowanceType] = useState<string>(initialData?.driverAllowanceType || 'DAY_WISE');
+  const [driverAllowanceRate, setDriverAllowanceRate] = useState<number>(initialData?.driverAllowanceRate || 0);
+  const [driverAllowanceDays, setDriverAllowanceDays] = useState<number>(initialData?.driverAllowanceDays || 1);
+  const [driverAllowanceTotal, setDriverAllowanceTotal] = useState<number>(initialData?.driverAllowanceTotal || 0);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleAllowanceRateChange = (rate: number) => {
+    setDriverAllowanceRate(rate);
+    if (driverAllowanceType !== 'CUSTOM') {
+      setDriverAllowanceTotal(rate * (driverAllowanceDays || 1));
+    }
+  };
+
+  const handleAllowanceDaysChange = (days: number) => {
+    setDriverAllowanceDays(days);
+    if (driverAllowanceType !== 'CUSTOM') {
+      setDriverAllowanceTotal((driverAllowanceRate || 0) * days);
+    }
+  };
+
+  const handleAllowanceTypeChange = (type: string) => {
+    setDriverAllowanceType(type);
+    if (type === 'NONE') {
+      setDriverAllowanceRate(0);
+      setDriverAllowanceDays(0);
+      setDriverAllowanceTotal(0);
+    } else if (type === 'DAY_WISE' || type === 'NIGHT_WISE') {
+      const days = driverAllowanceDays > 0 ? driverAllowanceDays : 1;
+      setDriverAllowanceDays(days);
+      setDriverAllowanceTotal((driverAllowanceRate || 0) * days);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -95,6 +129,11 @@ export const CabModal: React.FC<CabModalProps> = ({
         setAssignedStaffId(initialData.assignedStaffId || '');
         setSpecialInstructions(initialData.specialInstructions || '');
         setInternalNotes(initialData.internalNotes || '');
+        setDutyRange(initialData.dutyRange || '');
+        setDriverAllowanceType(initialData.driverAllowanceType || (initialData.driverAllowanceTotal ? 'DAY_WISE' : 'NONE'));
+        setDriverAllowanceRate(initialData.driverAllowanceRate || 0);
+        setDriverAllowanceDays(initialData.driverAllowanceDays || 1);
+        setDriverAllowanceTotal(initialData.driverAllowanceTotal || 0);
       } else {
         // Reset
         setCustomerId('');
@@ -123,6 +162,11 @@ export const CabModal: React.FC<CabModalProps> = ({
         setAssignedStaffId('');
         setSpecialInstructions('');
         setInternalNotes('');
+        setDutyRange('');
+        setDriverAllowanceType('DAY_WISE');
+        setDriverAllowanceRate(0);
+        setDriverAllowanceDays(1);
+        setDriverAllowanceTotal(0);
       }
       setError(null);
     }
@@ -190,6 +234,11 @@ export const CabModal: React.FC<CabModalProps> = ({
         assignedStaffId: assignedStaffId || null,
         specialInstructions: specialInstructions.trim() || null,
         internalNotes: internalNotes.trim() || null,
+        driverAllowanceType,
+        driverAllowanceRate: Number(driverAllowanceRate) || 0,
+        driverAllowanceDays: Number(driverAllowanceDays) || 1,
+        driverAllowanceTotal: Number(driverAllowanceTotal) || 0,
+        dutyRange: dutyRange.trim() || null,
       };
 
       if (initialData?.id) {
@@ -425,6 +474,20 @@ export const CabModal: React.FC<CabModalProps> = ({
               className="w-full px-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
             />
           </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+              <span>Duty Range / Operating Circuit</span>
+              <span className="text-[10px] text-slate-400 font-normal">Printed on official Duty Slip</span>
+            </label>
+            <input
+              type="text"
+              value={dutyRange}
+              onChange={(e) => setDutyRange(e.target.value)}
+              placeholder="e.g. Coimbatore - Ooty - Coonoor - Pykara - Coimbatore"
+              className="w-full px-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+            />
+          </div>
         </div>
 
         {/* Section 3: Vehicle & Driver Details */}
@@ -616,6 +679,89 @@ export const CabModal: React.FC<CabModalProps> = ({
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Driver Allowance Sub-panel */}
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Car className="w-3.5 h-3.5 text-amber-500" />
+                Driver Allowance (Bata / Stay)
+              </span>
+              <span className="text-[10px] text-slate-400">
+                Printed on Duty Slip
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                  Allowance Mode
+                </label>
+                <select
+                  value={driverAllowanceType}
+                  onChange={(e) => handleAllowanceTypeChange(e.target.value)}
+                  className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                >
+                  <option value="DAY_WISE">Day-wise (Daily Bata)</option>
+                  <option value="NIGHT_WISE">Night-wise (Night Stay)</option>
+                  <option value="CUSTOM">Custom / Fixed Amount</option>
+                  <option value="NONE">None / Included</option>
+                </select>
+              </div>
+
+              {driverAllowanceType !== 'NONE' && (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                      {driverAllowanceType === 'DAY_WISE' ? 'Rate / Day (₹)' : driverAllowanceType === 'NIGHT_WISE' ? 'Rate / Night (₹)' : 'Rate (₹)'}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={driverAllowanceRate}
+                      onChange={(e) => handleAllowanceRateChange(parseFloat(e.target.value) || 0)}
+                      placeholder="e.g. 500"
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                      {driverAllowanceType === 'DAY_WISE' ? 'No. of Days' : driverAllowanceType === 'NIGHT_WISE' ? 'No. of Nights' : 'Quantity'}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={driverAllowanceDays}
+                      onChange={(e) => handleAllowanceDaysChange(parseInt(e.target.value, 10) || 1)}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <span>Total Allowance (₹)</span>
+                      {driverAllowanceType === 'CUSTOM' && (
+                        <span className="text-[10px] text-brand-600 dark:text-brand-400">Custom</span>
+                      )}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={driverAllowanceTotal}
+                      onChange={(e) => setDriverAllowanceTotal(parseFloat(e.target.value) || 0)}
+                      readOnly={driverAllowanceType !== 'CUSTOM'}
+                      className={`w-full px-2.5 py-1.5 text-xs border rounded-lg font-bold ${
+                        driverAllowanceType === 'CUSTOM'
+                          ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100'
+                          : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200'
+                      }`}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

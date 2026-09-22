@@ -148,26 +148,48 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
+function parseSafeDate(val: any): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? null : val;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+    const d = new Date(trimmed);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+const emptyStringToNull = (val: unknown) => {
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    return trimmed === '' ? null : trimmed;
+  }
+  return val;
+};
+
 const leadCreateSchema = z.object({
-  customerId: z.string().optional(),
-  customerName: z.string().optional(),
-  customerPhone: z.string().optional(),
-  customerEmail: z.string().optional(),
-  customerCity: z.string().optional(),
+  customerId: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
+  customerName: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
+  customerPhone: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
+  customerEmail: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
+  customerCity: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
   destination: z.string().min(2, 'Destination is required'),
-  travelStartDate: z.string().optional().nullable(),
-  travelEndDate: z.string().optional().nullable(),
-  adults: z.number().int().min(1).default(2),
-  children: z.number().int().min(0).default(0),
-  infants: z.number().int().min(0).default(0),
-  budget: z.number().optional().nullable(),
-  packageId: z.string().optional().nullable(),
+  travelStartDate: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
+  travelEndDate: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
+  adults: z.coerce.number().int().min(1).default(2),
+  children: z.coerce.number().int().min(0).default(0),
+  infants: z.coerce.number().int().min(0).default(0),
+  budget: z.preprocess(emptyStringToNull, z.coerce.number().optional().nullable()),
+  packageId: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
   source: z.string().default('WEBSITE'),
   enquiryStatus: z.enum(['NEW', 'CONTACTED', 'QUALIFIED', 'QUOTATION_SENT', 'FOLLOW_UP', 'WON', 'LOST', 'CANCELLED']).default('NEW'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
-  notes: z.string().optional().nullable(),
-  assignedUserId: z.string().optional().nullable(),
-  nextFollowUpAt: z.string().optional().nullable(),
+  notes: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
+  assignedUserId: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
+  nextFollowUpAt: z.preprocess(emptyStringToNull, z.string().optional().nullable()),
 });
 
 // Create Lead (handles existing or new customer on the fly)
@@ -176,6 +198,33 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const data = leadCreateSchema.parse(req.body);
 
     let customerId = data.customerId;
+
+    // Validate assigned staff user against database
+    let assignedUserId: string | null = null;
+    if (data.assignedUserId) {
+      const staffExists = await prisma.user.findUnique({
+        where: { id: data.assignedUserId },
+        select: { id: true },
+      });
+      if (staffExists) {
+        assignedUserId = staffExists.id;
+      }
+    }
+    if (!assignedUserId && req.user?.id) {
+      assignedUserId = req.user.id;
+    }
+
+    // Validate package if provided
+    let packageId: string | null = null;
+    if (data.packageId) {
+      const pkgExists = await prisma.package.findUnique({
+        where: { id: data.packageId },
+        select: { id: true },
+      });
+      if (pkgExists) {
+        packageId = pkgExists.id;
+      }
+    }
 
     // If customerId is not provided, check or create customer by phone
     if (!customerId) {
@@ -196,46 +245,58 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
             email: data.customerEmail?.trim() || null,
             city: data.customerCity?.trim() || null,
             source: data.source,
-            assignedToId: data.assignedUserId || req.user!.id,
+            assignedToId: assignedUserId,
             status: 'ACTIVE',
           },
         });
       }
       customerId = customer.id;
+    } else {
+      // Verify customer exists
+      const custExists = await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { id: true },
+      });
+      if (!custExists) {
+        res.status(400).json({ message: 'Selected customer not found.' });
+        return;
+      }
     }
+
+    const scheduledDate = parseSafeDate(data.nextFollowUpAt);
 
     const lead = await prisma.lead.create({
       data: {
         customerId,
         destination: data.destination.trim(),
-        travelStartDate: data.travelStartDate ? new Date(data.travelStartDate) : null,
-        travelEndDate: data.travelEndDate ? new Date(data.travelEndDate) : null,
+        travelStartDate: parseSafeDate(data.travelStartDate),
+        travelEndDate: parseSafeDate(data.travelEndDate),
         adults: data.adults,
         children: data.children,
         infants: data.infants,
         budget: data.budget ? Number(data.budget) : null,
-        packageId: data.packageId || null,
+        packageId,
         source: data.source || 'WEBSITE',
         enquiryStatus: data.enquiryStatus || 'NEW',
         priority: data.priority || 'MEDIUM',
         notes: data.notes?.trim() || null,
-        assignedUserId: data.assignedUserId || req.user!.id,
-        nextFollowUpAt: data.nextFollowUpAt ? new Date(data.nextFollowUpAt) : null,
+        assignedUserId,
+        nextFollowUpAt: scheduledDate,
       },
       include: {
         customer: true,
-        assignedUser: { select: { id: true, name: true } },
-        package: { select: { id: true, packageName: true } },
+        assignedUser: { select: { id: true, name: true, email: true, role: true } },
+        package: { select: { id: true, packageName: true, price: true } },
       },
     });
 
     // If a next follow-up date was specified, schedule a follow-up record automatically
-    if (data.nextFollowUpAt) {
+    if (scheduledDate) {
       await prisma.followUp.create({
         data: {
           leadId: lead.id,
           assignedUserId: lead.assignedUserId,
-          scheduledAt: new Date(data.nextFollowUpAt),
+          scheduledAt: scheduledDate,
           type: 'CALL',
           notes: `Initial follow-up scheduled upon lead creation: ${data.notes || ''}`,
           status: 'PENDING',
@@ -273,27 +334,47 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 
     const updatePayload: any = {};
     if (body.destination !== undefined) updatePayload.destination = body.destination.trim();
-    if (body.travelStartDate !== undefined) updatePayload.travelStartDate = body.travelStartDate ? new Date(body.travelStartDate) : null;
-    if (body.travelEndDate !== undefined) updatePayload.travelEndDate = body.travelEndDate ? new Date(body.travelEndDate) : null;
+    if (body.travelStartDate !== undefined) updatePayload.travelStartDate = parseSafeDate(body.travelStartDate);
+    if (body.travelEndDate !== undefined) updatePayload.travelEndDate = parseSafeDate(body.travelEndDate);
     if (body.adults !== undefined) updatePayload.adults = Number(body.adults);
     if (body.children !== undefined) updatePayload.children = Number(body.children);
     if (body.infants !== undefined) updatePayload.infants = Number(body.infants);
-    if (body.budget !== undefined) updatePayload.budget = body.budget !== null ? Number(body.budget) : null;
-    if (body.packageId !== undefined) updatePayload.packageId = body.packageId || null;
+    if (body.budget !== undefined) updatePayload.budget = body.budget !== null && body.budget !== '' ? Number(body.budget) : null;
+    
+    if (body.packageId !== undefined) {
+      if (body.packageId) {
+        const pkgExists = await prisma.package.findUnique({ where: { id: body.packageId }, select: { id: true } });
+        updatePayload.packageId = pkgExists ? pkgExists.id : null;
+      } else {
+        updatePayload.packageId = null;
+      }
+    }
+
     if (body.source !== undefined) updatePayload.source = body.source;
     if (body.enquiryStatus !== undefined) updatePayload.enquiryStatus = body.enquiryStatus;
     if (body.priority !== undefined) updatePayload.priority = body.priority;
     if (body.notes !== undefined) updatePayload.notes = body.notes?.trim() || null;
-    if (body.assignedUserId !== undefined) updatePayload.assignedUserId = body.assignedUserId || null;
-    if (body.nextFollowUpAt !== undefined) updatePayload.nextFollowUpAt = body.nextFollowUpAt ? new Date(body.nextFollowUpAt) : null;
+    
+    if (body.assignedUserId !== undefined) {
+      if (body.assignedUserId) {
+        const staffExists = await prisma.user.findUnique({ where: { id: body.assignedUserId }, select: { id: true } });
+        updatePayload.assignedUserId = staffExists ? staffExists.id : null;
+      } else {
+        updatePayload.assignedUserId = null;
+      }
+    }
+
+    if (body.nextFollowUpAt !== undefined) {
+      updatePayload.nextFollowUpAt = parseSafeDate(body.nextFollowUpAt);
+    }
 
     const updated = await prisma.lead.update({
       where: { id },
       data: updatePayload,
       include: {
         customer: true,
-        assignedUser: { select: { id: true, name: true } },
-        package: { select: { id: true, packageName: true } },
+        assignedUser: { select: { id: true, name: true, email: true, role: true } },
+        package: { select: { id: true, packageName: true, price: true } },
       },
     });
 

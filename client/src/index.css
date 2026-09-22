@@ -29,7 +29,7 @@
 @media print {
   @page {
     margin: 8mm;
-    size: auto;
+    size: A4 portrait;
   }
   html,
   body {
@@ -46,9 +46,38 @@
   aside,
   nav,
   header:not(.printable-header),
-  button {
+  button,
+  .print-hidden,
+  .crm-sidebar,
+  .crm-navbar {
     display: none !important;
   }
+
+  /* Complete CRM UI suppression when printing dedicated documents */
+  body.printing-dedicated * {
+    visibility: hidden !important;
+  }
+  body.printing-dedicated #invoice-document,
+  body.printing-dedicated #invoice-document *,
+  body.printing-dedicated #duty-slip-document,
+  body.printing-dedicated #duty-slip-document *,
+  body.printing-dedicated #itinerary-document,
+  body.printing-dedicated #itinerary-document * {
+    visibility: visible !important;
+  }
+  body.printing-dedicated #invoice-document,
+  body.printing-dedicated #duty-slip-document,
+  body.printing-dedicated #itinerary-document {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
   .print-only {
     display: block !important;
   }
@@ -59,3 +88,4 @@
     width: 100% !important;
   }
 }
+

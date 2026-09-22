@@ -64,8 +64,30 @@ async function ensureColumns() {
       `ALTER TABLE "Supplier" ADD COLUMN "tier" TEXT`,
       `ALTER TABLE "Supplier" ADD COLUMN "serviceCategories" TEXT`,
       `ALTER TABLE "Supplier" ADD COLUMN "categoryDetails" TEXT`,
+      `ALTER TABLE "CabBooking" ADD COLUMN "driverAllowanceType" TEXT`,
+      `ALTER TABLE "CabBooking" ADD COLUMN "driverAllowanceRate" REAL`,
+      `ALTER TABLE "CabBooking" ADD COLUMN "driverAllowanceDays" INTEGER`,
+      `ALTER TABLE "CabBooking" ADD COLUMN "driverAllowanceTotal" REAL`,
+      `ALTER TABLE "CabBooking" ADD COLUMN "dutyRange" TEXT`,
+      `ALTER TABLE "CabBooking" ADD COLUMN "customTableRows" TEXT`,
     ];
     for (const sql of migrations) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+      } catch {
+        // column already exists
+      }
+    }
+  } else if (isPostgres) {
+    const pgMigrations = [
+      `ALTER TABLE "CabBooking" ADD COLUMN IF NOT EXISTS "driverAllowanceType" TEXT`,
+      `ALTER TABLE "CabBooking" ADD COLUMN IF NOT EXISTS "driverAllowanceRate" DOUBLE PRECISION`,
+      `ALTER TABLE "CabBooking" ADD COLUMN IF NOT EXISTS "driverAllowanceDays" INTEGER`,
+      `ALTER TABLE "CabBooking" ADD COLUMN IF NOT EXISTS "driverAllowanceTotal" DOUBLE PRECISION`,
+      `ALTER TABLE "CabBooking" ADD COLUMN IF NOT EXISTS "dutyRange" TEXT`,
+      `ALTER TABLE "CabBooking" ADD COLUMN IF NOT EXISTS "customTableRows" TEXT`,
+    ];
+    for (const sql of pgMigrations) {
       try {
         await prisma.$executeRawUnsafe(sql);
       } catch {
