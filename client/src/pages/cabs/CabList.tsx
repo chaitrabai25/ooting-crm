@@ -31,6 +31,8 @@ import { CabModal } from './CabModal.js';
 import { CabImportModal } from './CabImportModal.js';
 import { CabBooking } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
+import { BookmarkCheck } from 'lucide-react';
 
 export const CabList: React.FC = () => {
   const navigate = useNavigate();
@@ -415,6 +417,23 @@ export const CabList: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Group Sub-Navigation */}
+      <ModuleSubNav
+        items={[
+          {
+            name: 'Tour Bookings',
+            path: '/bookings',
+            icon: BookmarkCheck,
+          },
+          {
+            name: 'Cab Bookings',
+            path: '/cabs',
+            icon: Car,
+            count: cabs.length,
+          },
+        ]}
+      />
+
       {/* Header & Quick Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

@@ -261,7 +261,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 // Bulk Import Agents from Excel / JSON
 router.post('/import', async (req: AuthRequest, res: Response, next) => {
   try {
-    const { items } = req.body;
+    const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No agent records provided for import.' });
       return;
@@ -273,15 +273,18 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      if (!item.companyName || !item.contactPerson || !item.phone) {
+      const companyName = String(item.companyName || item['Agency / Company Name'] || item['Company Name'] || '').trim();
+      const contactPerson = String(item.contactPerson || item['Contact Person'] || '').trim();
+      const rawPhone = String(item.phone || item['Phone'] || '').trim();
+
+      if (!companyName || !contactPerson || !rawPhone) {
         skipped++;
         errors.push(`Row ${i + 1}: Agency name, contact person, and phone are required.`);
         continue;
       }
 
-      const phone = String(item.phone).trim();
-      const companyName = String(item.companyName).trim();
-      const email = item.email ? String(item.email).trim() : null;
+      const phone = rawPhone.replace(/[^\d+]/g, '');
+      const email = item.email || item['Email'] ? String(item.email || item['Email']).trim().toLowerCase() : null;
 
       const existing = await prisma.agent.findFirst({
         where: {
@@ -294,14 +297,32 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       });
 
       if (existing) {
-        skipped++;
-        errors.push(`Row ${i + 1}: Agent "${companyName}" or phone ${phone} already exists.`);
-        continue;
+        if (duplicateAction === 'update') {
+          await prisma.agent.update({
+            where: { id: existing.id },
+            data: {
+              contactPerson: contactPerson || existing.contactPerson,
+              city: item.city || item['City'] ? String(item.city || item['City']).trim() : existing.city,
+              state: item.state || item['State'] ? String(item.state || item['State']).trim() : existing.state,
+              gstNumber: item.gstNumber || item['GST Number'] ? String(item.gstNumber || item['GST Number']).trim() : existing.gstNumber,
+              panNumber: item.panNumber || item['PAN Number'] ? String(item.panNumber || item['PAN Number']).trim() : existing.panNumber,
+              agentType: item.agentType || item['Agent Tier'] ? String(item.agentType || item['Agent Tier']).trim() : existing.agentType,
+              status: item.status && ['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(String(item.status).toUpperCase()) ? String(item.status).toUpperCase() : existing.status,
+              notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : existing.notes,
+            },
+          });
+          imported++;
+          continue;
+        } else if (duplicateAction !== 'new') {
+          skipped++;
+          errors.push(`Row ${i + 1}: Agent "${companyName}" or phone ${phone} already exists.`);
+          continue;
+        }
       }
 
       await prisma.agent.create({
         data: {
-          companyName,
+          companyName: duplicateAction === 'new' && existing ? `${companyName} (Copy)` : companyName,
           contactPerson: String(item.contactPerson).trim(),
           phone,
           email,

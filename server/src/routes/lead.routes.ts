@@ -643,7 +643,7 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
 // Import Leads from Excel
 router.post('/import', async (req: AuthRequest, res: Response, next) => {
   try {
-    const { items } = req.body;
+    const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No lead data provided for import.' });
       return;
@@ -655,9 +655,9 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      const fullName = String(item.customerName || item.fullName || '').trim();
-      const rawPhone = String(item.customerPhone || item.phone || '').trim();
-      const destination = String(item.destination || 'Unspecified').trim();
+      const fullName = String(item.customerName || item['Customer Name'] || item.fullName || item['Full Name'] || '').trim();
+      const rawPhone = String(item.customerPhone || item['Customer Phone'] || item.phone || item['Phone'] || '').trim();
+      const destination = String(item.destination || item['Destination'] || 'Unspecified').trim();
 
       if (!fullName || !rawPhone) {
         skipped++;
@@ -677,13 +677,43 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
           data: {
             fullName,
             phone,
-            email: item.customerEmail || item.email ? String(item.customerEmail || item.email).trim() : null,
-            city: item.customerCity || item.city ? String(item.customerCity || item.city).trim() : null,
-            source: item.source ? String(item.source).trim() : 'DIRECT',
+            email: item.customerEmail || item['Customer Email'] || item.email || item['Email'] ? String(item.customerEmail || item['Customer Email'] || item.email || item['Email']).trim().toLowerCase() : null,
+            city: item.customerCity || item['Customer City'] || item.city || item['City'] ? String(item.customerCity || item['Customer City'] || item.city || item['City']).trim() : null,
+            source: item.source || item['Source'] ? String(item.source || item['Source']).trim() : 'DIRECT',
             assignedToId: req.user!.id,
             status: 'ACTIVE',
           },
         });
+      }
+
+      // Duplicate lead check for this customer & destination
+      const existingLead = await prisma.lead.findFirst({
+        where: {
+          customerId: customer.id,
+          destination: { equals: destination },
+          enquiryStatus: { notIn: ['WON', 'LOST'] },
+        },
+      });
+
+      if (existingLead) {
+        if (duplicateAction === 'update') {
+          await prisma.lead.update({
+            where: { id: existingLead.id },
+            data: {
+              adults: Number(item.adults || item['Adults']) || existingLead.adults,
+              children: Number(item.children || item['Children']) || existingLead.children,
+              budget: item.budget || item['Budget'] ? Number(item.budget || item['Budget']) : existingLead.budget,
+              priority: item.priority || item['Priority'] ? String(item.priority || item['Priority']).toUpperCase() : existingLead.priority,
+              notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : existingLead.notes,
+            },
+          });
+          imported++;
+          continue;
+        } else if (duplicateAction !== 'new') {
+          skipped++;
+          errors.push(`Row ${i + 1}: Open enquiry for "${fullName}" to "${destination}" already exists.`);
+          continue;
+        }
       }
 
       await prisma.lead.create({
@@ -691,13 +721,13 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
           customerId: customer.id,
           assignedUserId: req.user!.id,
           destination,
-          adults: Number(item.adults) || 2,
-          children: Number(item.children) || 0,
-          budget: item.budget ? Number(item.budget) : null,
-          source: item.source ? String(item.source).trim() : 'DIRECT',
-          priority: item.priority ? String(item.priority).toUpperCase() : 'MEDIUM',
-          enquiryStatus: item.enquiryStatus ? String(item.enquiryStatus).toUpperCase() : 'NEW',
-          notes: item.notes ? String(item.notes).trim() : null,
+          adults: Number(item.adults || item['Adults']) || 2,
+          children: Number(item.children || item['Children']) || 0,
+          budget: item.budget || item['Budget'] ? Number(item.budget || item['Budget']) : null,
+          source: item.source || item['Source'] ? String(item.source || item['Source']).trim() : 'DIRECT',
+          priority: item.priority || item['Priority'] ? String(item.priority || item['Priority']).toUpperCase() : 'MEDIUM',
+          enquiryStatus: item.enquiryStatus || item['Enquiry Status'] || item['Status'] ? String(item.enquiryStatus || item['Enquiry Status'] || item['Status']).toUpperCase() : 'NEW',
+          notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : null,
         },
       });
 

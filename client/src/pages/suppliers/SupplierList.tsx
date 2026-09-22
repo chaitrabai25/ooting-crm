@@ -32,6 +32,8 @@ import { Supplier, SupplierType } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { ALL_INDIAN_STATES } from '../../data/indiaLocations.js';
+import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
+import { Briefcase } from 'lucide-react';
 
 const SUPPLIER_TYPE_LABELS: Record<string, string> = {
   HOTEL: 'Hotels & Resorts',
@@ -425,6 +427,23 @@ export const SupplierList: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Group Sub-Navigation */}
+      <ModuleSubNav
+        items={[
+          {
+            name: 'Travel Agents',
+            path: '/agents',
+            icon: Briefcase,
+          },
+          {
+            name: 'Service Providers',
+            path: '/suppliers',
+            icon: Building2,
+            count: total,
+          },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

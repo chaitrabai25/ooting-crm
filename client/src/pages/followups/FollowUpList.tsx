@@ -23,6 +23,8 @@ import { Modal } from '../../components/ui/Modal.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
+import { Sparkles, UserCheck } from 'lucide-react';
 
 export const FollowUpList: React.FC = () => {
   const navigate = useNavigate();
@@ -166,6 +168,30 @@ export const FollowUpList: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Group Sub-Navigation */}
+      <ModuleSubNav
+        items={[
+          {
+            name: 'Leads',
+            path: '/leads?tab=new',
+            icon: UserCheck,
+            matchQuery: { param: 'tab', value: 'new' },
+          },
+          {
+            name: 'Enquiries',
+            path: '/leads?tab=all',
+            icon: Sparkles,
+            matchQuery: { param: 'tab', value: 'all' },
+          },
+          {
+            name: 'Follow-ups',
+            path: '/followups',
+            icon: CalendarCheck,
+            count: counts.today + counts.overdue + counts.upcoming,
+          },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

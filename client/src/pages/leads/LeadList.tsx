@@ -16,6 +16,8 @@ import {
   MoreVertical,
   Upload,
   Trash2,
+  Sparkles,
+  CalendarCheck,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
@@ -28,6 +30,7 @@ import { LeadImportModal } from './LeadImportModal.js';
 import { Lead } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
 
 export const LeadList: React.FC = () => {
   const navigate = useNavigate();
@@ -57,9 +60,27 @@ export const LeadList: React.FC = () => {
     customerPhone: '',
   });
 
-  // Dual Tabs & Filters (Default 'all' so all leads are visible immediately)
-  const [activeTab, setActiveTab] = useState<'all' | 'new' | 'existing'>('all');
+  // Dual Tabs & Filters (Synced with ?tab=new | ?tab=all | ?tab=existing)
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'all' | 'new' | 'existing'>(
+    tabParam === 'new' ? 'new' : tabParam === 'existing' ? 'existing' : 'all'
+  );
   const [leadCounts, setLeadCounts] = useState<{ new: number; existing: number }>({ new: 0, existing: 0 });
+
+  // Synchronize activeTab when navigating via sidebar query parameter
+  useEffect(() => {
+    const currentTab = searchParams.get('tab');
+    if (currentTab === 'new' && activeTab !== 'new') {
+      setActiveTab('new');
+      setPage(1);
+    } else if (currentTab === 'existing' && activeTab !== 'existing') {
+      setActiveTab('existing');
+      setPage(1);
+    } else if ((currentTab === 'all' || !currentTab) && activeTab !== 'all') {
+      setActiveTab('all');
+      setPage(1);
+    }
+  }, [searchParams]);
 
   // Pagination (Default 10 per page)
   const [page, setPage] = useState(1);
@@ -377,6 +398,31 @@ export const LeadList: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      {/* Group Sub-Navigation */}
+      <ModuleSubNav
+        items={[
+          {
+            name: 'Leads',
+            path: '/leads?tab=new',
+            icon: UserCheck,
+            count: leadCounts.new,
+            matchQuery: { param: 'tab', value: 'new' },
+          },
+          {
+            name: 'Enquiries',
+            path: '/leads?tab=all',
+            icon: Sparkles,
+            count: leadCounts.new + leadCounts.existing,
+            matchQuery: { param: 'tab', value: 'all' },
+          },
+          {
+            name: 'Follow-ups',
+            path: '/followups',
+            icon: CalendarCheck,
+          },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

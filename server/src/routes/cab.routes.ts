@@ -513,7 +513,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
 // Import Cab Bookings from parsed Excel array
 router.post('/import', async (req: AuthRequest, res: Response, next) => {
   try {
-    const { items } = req.body;
+    const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No cab booking records provided for import.' });
       return;
@@ -605,13 +605,46 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
         }
       }
 
-      const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
-      const count = (await prisma.cabBooking.count()) + imported;
-      const bookingReference = `OOT-CAB-${dateStr}-${String(count + 1).padStart(4, '0')}`;
-
       const cabAmount = Math.max(0, Number(item.cabAmount || item['Cab Amount (INR)'] || item['Cab Amount'] || item['Amount'] || 0));
       const advanceAmount = Math.max(0, Number(item.advanceAmount || item['Advance (INR)'] || item['Advance'] || item['Paid'] || 0));
       const balanceAmount = Math.max(0, cabAmount - advanceAmount);
+
+      // Duplicate cab booking check
+      const existingCab = await prisma.cabBooking.findFirst({
+        where: {
+          customerPhone: rawPhone,
+          pickupPlace,
+          dropPlace,
+        },
+      });
+
+      if (existingCab) {
+        if (duplicateAction === 'update') {
+          await prisma.cabBooking.update({
+            where: { id: existingCab.id },
+            data: {
+              customerName,
+              vehicleType: item.vehicleType || item['Vehicle Type'] ? String(item.vehicleType || item['Vehicle Type']).trim() : existingCab.vehicleType,
+              driverName: item.driverName || item['Driver Name'] ? String(item.driverName || item['Driver Name']).trim() : existingCab.driverName,
+              driverPhone: item.driverPhone || item['Driver Phone'] ? String(item.driverPhone || item['Driver Phone']).trim() : existingCab.driverPhone,
+              carNumber: item.carNumber || item['Vehicle Number'] || item['Car Number'] ? String(item.carNumber || item['Vehicle Number'] || item['Car Number']).trim() : existingCab.carNumber,
+              cabAmount: cabAmount > 0 ? cabAmount : existingCab.cabAmount,
+              balanceAmount: cabAmount > 0 ? Math.max(0, cabAmount - existingCab.advanceAmount) : existingCab.balanceAmount,
+              internalNotes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : existingCab.internalNotes,
+            },
+          });
+          imported++;
+          continue;
+        } else if (duplicateAction !== 'new') {
+          skipped++;
+          errors.push(`Row ${i + 1}: Cab booking for ${customerName} (${pickupPlace} → ${dropPlace}) already exists.`);
+          continue;
+        }
+      }
+
+      const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
+      const count = (await prisma.cabBooking.count()) + imported;
+      const bookingReference = `OOT-CAB-${dateStr}-${String(count + 1).padStart(4, '0')}`;
 
       await prisma.cabBooking.create({
         data: {

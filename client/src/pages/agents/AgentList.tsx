@@ -28,6 +28,8 @@ import { AgentImportModal } from './AgentImportModal.js';
 import { Agent } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
+import { Building2 } from 'lucide-react';
 
 export const AgentList: React.FC = () => {
   const navigate = useNavigate();
@@ -321,6 +323,23 @@ export const AgentList: React.FC = () => {
 
   return (
     <div className="space-y-5 pb-12">
+      {/* Group Sub-Navigation */}
+      <ModuleSubNav
+        items={[
+          {
+            name: 'Travel Agents',
+            path: '/agents',
+            icon: Briefcase,
+            count: total,
+          },
+          {
+            name: 'Service Providers',
+            path: '/suppliers',
+            icon: Building2,
+          },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div>

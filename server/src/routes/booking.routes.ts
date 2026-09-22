@@ -817,7 +817,7 @@ router.get('/export/passengers', async (req: AuthRequest, res: Response, next) =
 // Import Bookings from Excel
 router.post('/import', async (req: AuthRequest, res: Response, next) => {
   try {
-    const { items } = req.body;
+    const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No booking data provided for import.' });
       return;
@@ -829,8 +829,8 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      const fullName = String(item.customerName || item.fullName || '').trim();
-      const rawPhone = String(item.customerPhone || item.phone || '').trim();
+      const fullName = String(item.customerName || item['Customer Name'] || item.fullName || item['Full Name'] || '').trim();
+      const rawPhone = String(item.customerPhone || item['Customer Phone'] || item.phone || item['Phone'] || '').trim();
 
       if (!fullName || !rawPhone) {
         skipped++;
@@ -847,12 +847,51 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
           data: {
             fullName,
             phone,
-            email: item.customerEmail || item.email ? String(item.customerEmail || item.email).trim() : null,
-            city: item.customerCity || item.city ? String(item.customerCity || item.city).trim() : null,
+            email: item.customerEmail || item['Customer Email'] || item.email || item['Email'] ? String(item.customerEmail || item['Customer Email'] || item.email || item['Email']).trim().toLowerCase() : null,
+            city: item.customerCity || item['Customer City'] || item.city || item['City'] ? String(item.customerCity || item['Customer City'] || item.city || item['City']).trim() : null,
             assignedToId: req.user!.id,
             status: 'ACTIVE',
           },
         });
+      }
+
+      const totalAmount = Number(item.totalAmount || item['Total Amount'] || item.amount || 0);
+      const discount = Number(item.discount || item['Discount'] || 0);
+      const finalAmount = Math.max(0, totalAmount - discount);
+      const travellersCount = Math.max(1, Number(item.travellers || item['Pax'] || item['Travellers'] || 1));
+
+      const travelStartDate = item.travelStartDate || item['Start Date'] || item.startDate ? new Date(item.travelStartDate || item['Start Date'] || item.startDate) : new Date();
+      const travelEndDate = item.travelEndDate || item['End Date'] || item.endDate ? new Date(item.travelEndDate || item['End Date'] || item.endDate) : new Date(Date.now() + 3 * 86400000);
+
+      const existingBooking = await prisma.booking.findFirst({
+        where: {
+          customerId: customer.id,
+          travelStartDate: {
+            gte: new Date(travelStartDate.getTime() - 86400000),
+            lte: new Date(travelStartDate.getTime() + 86400000),
+          },
+        },
+      });
+
+      if (existingBooking) {
+        if (duplicateAction === 'update') {
+          await prisma.booking.update({
+            where: { id: existingBooking.id },
+            data: {
+              travellers: travellersCount,
+              totalAmount: totalAmount > 0 ? totalAmount : existingBooking.totalAmount,
+              finalAmount: finalAmount > 0 ? finalAmount : existingBooking.finalAmount,
+              bookingStatus: item.bookingStatus || item['Status'] ? String(item.bookingStatus || item['Status']).toUpperCase() : existingBooking.bookingStatus,
+              notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : existingBooking.notes,
+            },
+          });
+          imported++;
+          continue;
+        } else if (duplicateAction !== 'new') {
+          skipped++;
+          errors.push(`Row ${i + 1}: Booking for ${fullName} starting around ${travelStartDate.toISOString().split('T')[0]} already exists.`);
+          continue;
+        }
       }
 
       // Generate booking number
@@ -860,14 +899,6 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
       const count = await prisma.booking.count();
       const bookingNumber = `OOT-BK-${dateStr}-${String(count + 1 + i).padStart(4, '0')}`;
-
-      const totalAmount = Number(item.totalAmount || item.amount || 0);
-      const discount = Number(item.discount || 0);
-      const finalAmount = Math.max(0, totalAmount - discount);
-      const travellersCount = Math.max(1, Number(item.travellers || 1));
-
-      const travelStartDate = item.travelStartDate || item.startDate ? new Date(item.travelStartDate || item.startDate) : new Date();
-      const travelEndDate = item.travelEndDate || item.endDate ? new Date(item.travelEndDate || item.endDate) : new Date(Date.now() + 3 * 86400000);
 
       const booking = await prisma.booking.create({
         data: {

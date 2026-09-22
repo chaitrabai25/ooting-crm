@@ -408,6 +408,112 @@ router.put('/:id', requirePermission('suppliers', 'edit'), async (req: AuthReque
   }
 });
 
+// Bulk Import Suppliers from Excel / JSON
+router.post('/import', requirePermission('suppliers', 'create'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { items, duplicateAction = 'skip' } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ message: 'No supplier records provided for import.' });
+      return;
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const name = String(item.name || item['Supplier / Company Name'] || item.companyName || '').trim();
+      const rawPhone = String(item.phone || item['Phone'] || item.contact || '').trim();
+      const rawSupplierType = String(item.supplierType || item['Supplier Type'] || item.category || 'OTHER').trim().toUpperCase();
+
+      if (!name || !rawPhone) {
+        skipped++;
+        errors.push(`Row ${i + 1}: Supplier company name and phone are required.`);
+        continue;
+      }
+
+      const phone = rawPhone.replace(/[^\d+]/g, '');
+      const validTypes = ['HOTEL', 'CAB', 'BUS', 'GUIDE', 'ADVENTURE', 'ENTRY_TICKET', 'FOOD', 'CLUB', 'OTHER'];
+      const supplierType = validTypes.includes(rawSupplierType) ? rawSupplierType : 'OTHER';
+      const email = item.email || item['Email'] ? String(item.email || item['Email']).trim().toLowerCase() : null;
+
+      const existing = await prisma.supplier.findFirst({
+        where: {
+          OR: [
+            { phone },
+            { name: { equals: name } },
+            ...(email ? [{ email: { equals: email } }] : []),
+          ],
+        },
+      });
+
+      if (existing) {
+        if (duplicateAction === 'update') {
+          await prisma.supplier.update({
+            where: { id: existing.id },
+            data: {
+              contactPerson: item.contactPerson || item['Contact Person'] ? String(item.contactPerson || item['Contact Person']).trim() : existing.contactPerson,
+              email: email || existing.email,
+              city: item.city || item['City'] ? String(item.city || item['City']).trim() : existing.city,
+              state: item.state || item['State'] ? String(item.state || item['State']).trim() : existing.state,
+              district: item.district || item['District'] ? String(item.district || item['District']).trim() : existing.district,
+              tier: item.tier || item['Tier'] ? String(item.tier || item['Tier']).trim() : existing.tier,
+              status: item.status || item['Status'] ? String(item.status || item['Status']).trim().toUpperCase() : existing.status,
+              notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : existing.notes,
+            },
+          });
+          imported++;
+          continue;
+        } else if (duplicateAction !== 'new') {
+          skipped++;
+          errors.push(`Row ${i + 1}: Supplier "${name}" or phone ${phone} already exists.`);
+          continue;
+        }
+      }
+
+      await prisma.supplier.create({
+        data: {
+          name: duplicateAction === 'new' && existing ? `${name} (Copy)` : name,
+          supplierType,
+          contactPerson: item.contactPerson || item['Contact Person'] ? String(item.contactPerson || item['Contact Person']).trim() : null,
+          phone,
+          email,
+          city: item.city || item['City'] ? String(item.city || item['City']).trim() : null,
+          state: item.state || item['State'] ? String(item.state || item['State']).trim() : null,
+          district: item.district || item['District'] ? String(item.district || item['District']).trim() : null,
+          pincode: item.pincode || item['Pincode'] ? String(item.pincode || item['Pincode']).trim() : null,
+          panNumber: item.panNumber || item['PAN Number'] ? String(item.panNumber || item['PAN Number']).trim() : null,
+          tier: item.tier || item['Tier'] ? String(item.tier || item['Tier']).trim() : 'Silver',
+          status: item.status && ['ACTIVE', 'INACTIVE', 'BLACKLISTED'].includes(String(item.status).toUpperCase()) ? String(item.status).toUpperCase() : 'ACTIVE',
+          notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : null,
+          assignedToId: req.user?.id || null,
+        },
+      });
+
+      imported++;
+    }
+
+    await logAudit({
+      userId: req.user?.id,
+      userName: req.user?.name,
+      action: 'IMPORT',
+      entity: 'SUPPLIER',
+      details: `Imported ${imported} suppliers, skipped ${skipped} (Duplicate Action: ${duplicateAction})`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: `Successfully processed suppliers. Imported/Updated: ${imported}, Skipped: ${skipped}`,
+      imported,
+      skipped,
+      errors,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete Supplier
 router.delete('/:id', requirePermission('suppliers', 'delete'), async (req: AuthRequest, res: Response, next) => {
   try {
@@ -437,3 +543,4 @@ router.delete('/:id', requirePermission('suppliers', 'delete'), async (req: Auth
 });
 
 export default router;
+

@@ -51,6 +51,7 @@ import { ReportsPage } from './pages/reports/ReportsPage.js';
 import { UserList } from './pages/users/UserList.js';
 import { SettingsPage } from './pages/settings/SettingsPage.js';
 import { AuditLogsPage } from './pages/audit-logs/AuditLogsPage.js';
+import { ImportExportPage } from './pages/import-export/ImportExportPage.js';
 
 export const App: React.FC = () => {
   return (
@@ -119,6 +120,9 @@ export const App: React.FC = () => {
                 {/* Reports & Analytics */}
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
+
+                {/* Import & Export Center */}
+                <Route path="/import-export" element={<ImportExportPage />} />
 
                 {/* Administration (Admin & Super Admin only) */}
                 <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']} />}>

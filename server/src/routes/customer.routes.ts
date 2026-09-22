@@ -449,7 +449,7 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
 // Import customers from JSON array (parsed from CSV)
 router.post('/import', async (req: AuthRequest, res: Response, next) => {
   try {
-    const { items } = req.body;
+    const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No customer data provided for import.' });
       return;
@@ -505,9 +505,25 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       });
 
       if (existing) {
-        skipped++;
-        errors.push(`Row ${i + 1} (${fullName}): Phone ${rawPhone} is already registered to "${existing.fullName}".`);
-        continue;
+        if (duplicateAction === 'update') {
+          await prisma.customer.update({
+            where: { id: existing.id },
+            data: {
+              fullName: fullName || existing.fullName,
+              alternatePhone: item.alternatePhone || item['Alternate Phone'] ? String(item.alternatePhone || item['Alternate Phone']).trim() : existing.alternatePhone,
+              email: item.email || item['Email'] ? String(item.email || item['Email']).trim().toLowerCase() : existing.email,
+              city: item.city || item['City'] ? String(item.city || item['City']).trim() : existing.city,
+              state: item.state || item['State'] ? String(item.state || item['State']).trim() : existing.state,
+              notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : existing.notes,
+            },
+          });
+          imported++;
+          continue;
+        } else if (duplicateAction !== 'new') {
+          skipped++;
+          errors.push(`Row ${i + 1} (${fullName}): Phone ${rawPhone} is already registered to "${existing.fullName}".`);
+          continue;
+        }
       }
 
       await prisma.customer.create({
