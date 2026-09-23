@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Loader2,
   Globe,
+  FileText,
 } from 'lucide-react';
 import { Booking } from '../../types/index.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
@@ -398,32 +399,36 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Details (Neatly aligned and right-justified) */}
-                <div className="flex flex-col items-end text-right text-xs text-slate-600 space-y-1 ml-auto">
-                  <div className="flex items-center justify-end gap-1.5 leading-tight">
-                    <span className="font-semibold text-slate-500 text-[11px]">Website:</span>
-                    <span className="text-slate-800 font-medium">{company.website || 'https://ooting.in'}</span>
-                  </div>
-                  <div className="flex items-center justify-end gap-1.5 leading-tight">
-                    <span className="font-semibold text-slate-500 text-[11px]">Phone:</span>
-                    <span className="text-slate-800 font-medium">{company.phone || '+91 98765 43210'}</span>
-                  </div>
-                  <div className="flex items-center justify-end gap-1.5 leading-tight">
-                    <span className="font-semibold text-slate-500 text-[11px]">Email:</span>
-                    <span className="text-slate-800 font-medium">{company.email || 'contact@ooting.com'}</span>
-                  </div>
-                  {company.gstin && (
-                    <div className="flex items-center justify-end gap-1.5 leading-tight">
-                      <span className="font-semibold text-slate-500 text-[11px]">GSTIN:</span>
-                      <span className="font-mono text-slate-800 font-bold">{company.gstin}</span>
+                {/* RIGHT SIDE: Company Details (Professional Left-Aligned Icons) */}
+                <div className="flex justify-end ml-auto">
+                  <div className="space-y-1.5 text-xs text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
+                      <span className="font-medium text-slate-800">{company.website || 'https://ooting.in'}</span>
                     </div>
-                  )}
-                  {company.address && (
-                    <div className="text-right text-slate-600 text-[11px] max-w-[320px] leading-snug pt-0.5">
-                      <span className="font-semibold text-slate-500 mr-1.5">Address:</span>
-                      <span>{company.address}</span>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
+                      <span className="font-medium text-slate-800">{company.phone || '+91 98765 43210'}</span>
                     </div>
-                  )}
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
+                      <span className="font-medium text-slate-800">{company.email || 'contact@ooting.com'}</span>
+                    </div>
+                    {company.gstin && (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
+                        <span className="font-mono font-bold text-slate-900">{company.gstin}</span>
+                      </div>
+                    )}
+                    {company.address && (
+                      <div className="flex items-start gap-2 pt-0.5">
+                        <MapPin className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-600 leading-snug max-w-[280px]">
+                          {company.address}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -610,7 +615,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 )}
 
                 <div className="flex justify-between text-slate-600">
-                  <span>Taxable Amount:</span>
+                  <span>Amount:</span>
                   <span className="font-semibold text-slate-900">₹{subtotal.toLocaleString('en-IN')}</span>
                 </div>
 
