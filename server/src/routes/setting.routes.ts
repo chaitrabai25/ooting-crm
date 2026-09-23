@@ -24,7 +24,7 @@ export async function getCompanySettings() {
       address: settingsMap['company_address'] || config.company.address,
       website: settingsMap['company_website'] || (config.company as any).website || 'https://ooting.in',
       gstin: settingsMap['company_gstin'] || config.company.gstin,
-      logoUrl: settingsMap['company_logo_url'] || '/assets/ooting-banner.jpg',
+      logoUrl: settingsMap['company_logo_url'] || '/assets/ooting-logo.jpg',
     };
   } catch (error) {
     return {
@@ -35,7 +35,7 @@ export async function getCompanySettings() {
       address: config.company.address,
       website: (config.company as any).website || 'https://ooting.in',
       gstin: config.company.gstin,
-      logoUrl: '/assets/ooting-banner.jpg',
+      logoUrl: '/assets/ooting-logo.jpg',
     };
   }
 }

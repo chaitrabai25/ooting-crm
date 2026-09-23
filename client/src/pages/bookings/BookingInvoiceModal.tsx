@@ -179,7 +179,9 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         `Your Tax Invoice *${invoiceNumber}* for Booking *${booking.bookingNumber}* is generated.\n\n` +
         `• Tour: ${booking.package?.packageName || 'Custom Holiday Itinerary'}\n` +
         `• Travel Dates: ${travelStartDate} to ${travelEndDate}\n` +
-        `• Subtotal: ₹${subtotal.toLocaleString('en-IN')}\n` +
+        `• Subtotal: ₹${rawTotal.toLocaleString('en-IN')}\n` +
+        (discount > 0 ? `• Promotional Discount: - ₹${discount.toLocaleString('en-IN')}\n` : '') +
+        `• Amount: ₹${subtotal.toLocaleString('en-IN')}\n` +
         `• CGST (${cgstPercent}%): ₹${cgstAmount.toLocaleString('en-IN')}\n` +
         `• SGST (${sgstPercent}%): ₹${sgstAmount.toLocaleString('en-IN')}\n` +
         `• Grand Total: ₹${grandTotal.toLocaleString('en-IN')}\n` +
@@ -399,35 +401,41 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Details (Professional Left-Aligned Icons) */}
-                <div className="flex justify-end ml-auto">
-                  <div className="space-y-1.5 text-xs text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
-                      <span className="font-medium text-slate-800">{company.website || 'https://ooting.in'}</span>
+                {/* RIGHT SIDE: Company Contact Details (Neat Left-Aligned Vertical List with Fixed-Width Icons) */}
+                <div className="flex justify-end">
+                  <div className="flex flex-col space-y-1.5 text-xs text-slate-700 min-w-[250px]">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                        <Globe className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="font-medium text-slate-800 tracking-tight">{company.website || 'https://ooting.in'}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
-                      <span className="font-medium text-slate-800">{company.phone || '+91 98765 43210'}</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                        <Phone className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="font-medium text-slate-800 tracking-tight">{company.phone || '+91 98765 43210'}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
-                      <span className="font-medium text-slate-800">{company.email || 'contact@ooting.com'}</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                        <Mail className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="font-medium text-slate-800 tracking-tight">{company.email || 'contact@ooting.com'}</span>
                     </div>
-                    {company.gstin && (
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
-                        <span className="font-mono font-bold text-slate-900">{company.gstin}</span>
-                      </div>
-                    )}
-                    {company.address && (
-                      <div className="flex items-start gap-2 pt-0.5">
-                        <MapPin className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0 mt-0.5" />
-                        <span className="text-slate-600 leading-snug max-w-[280px]">
-                          {company.address}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                        <FileText className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="font-mono font-bold text-slate-900 tracking-tight">{company.gstin || '29AABCO1234F1Z5'}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 pt-0.5">
+                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
+                        <MapPin className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="text-slate-600 leading-snug max-w-[280px]">
+                        {company.address || 'Ooting Holidays Private Limited, Bangalore, Karnataka, India'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
