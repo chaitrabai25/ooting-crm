@@ -42,6 +42,7 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrRawText, setOcrRawText] = useState('');
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+  const [isDarkModeInverted, setIsDarkModeInverted] = useState(false);
   const [utrWarning, setUtrWarning] = useState<string | null>(null);
   const [fieldWarnings, setFieldWarnings] = useState<{
     utr?: string | null;
@@ -78,6 +79,7 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     setOcrProgress(0);
     setOcrRawText('');
     setOcrConfidence(null);
+    setIsDarkModeInverted(false);
     setUtrWarning(null);
     setFieldWarnings({});
     setUtr('');
@@ -107,39 +109,135 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     reader.readAsDataURL(selectedFile);
   };
 
-  const runOcr = async (imageUrl: string, originalFile: File) => {
+  // High-accuracy Canvas Preprocessor
+  const preprocessScreenshot = async (
+    dataUrl: string,
+    invertOverride?: boolean
+  ): Promise<{ canvas: HTMLCanvasElement; isDarkMode: boolean; width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        // High-DPI target width for recognizing small 10pt UPI ref numbers and timestamps
+        const targetWidth = Math.max(1200, Math.min(Math.round(img.width * 1.5), 2400));
+        const scale = targetWidth / img.width;
+        const targetHeight = Math.round(img.height * scale);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve({ canvas, isDarkMode: false, width: targetWidth, height: targetHeight });
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+        const data = imgData.data;
+
+        // Sample average luminance to detect dark mode screenshots (common in PhonePe/GPay)
+        let totalLuminance = 0;
+        let count = 0;
+        const step = 4 * 16;
+        for (let i = 0; i < data.length; i += step) {
+          totalLuminance += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          count++;
+        }
+        const avg = count > 0 ? totalLuminance / count : 255;
+        const shouldInvert = invertOverride !== undefined ? invertOverride : avg < 125;
+
+        // High contrast boost + grayscale + inversion if dark mode
+        const contrast = 1.35;
+        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+        for (let i = 0; i < data.length; i += 4) {
+          let gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          if (shouldInvert) {
+            gray = 255 - gray;
+          }
+          gray = factor * (gray - 128) + 128;
+          if (gray < 0) gray = 0;
+          if (gray > 255) gray = 255;
+
+          data[i] = gray;
+          data[i + 1] = gray;
+          data[i + 2] = gray;
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        resolve({ canvas, isDarkMode: shouldInvert, width: targetWidth, height: targetHeight });
+      };
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  };
+
+  const runOcr = async (imageUrl: string, originalFile?: File, invertOverride?: boolean) => {
     setIsProcessingOcr(true);
-    setOcrProgress(10);
+    setOcrProgress(15);
     setUtrWarning(null);
 
     try {
-      // 1. Upload screenshot to server for secure permanent attachment
-      const formData = new FormData();
-      formData.append('image', originalFile);
-      api
-        .post('/upload/image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-        .then((res) => {
-          if (res.data?.url) setScreenshotUrl(res.data.url);
-        })
-        .catch(() => {});
+      // 1. Upload screenshot to server for secure permanent attachment if file available
+      if (originalFile && !screenshotUrl) {
+        const formData = new FormData();
+        formData.append('image', originalFile);
+        api
+          .post('/upload/image', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          })
+          .then((res) => {
+            if (res.data?.url) setScreenshotUrl(res.data.url);
+          })
+          .catch(() => {});
+      }
 
-      // 2. Initialize Tesseract worker in Web Worker
+      // 2. Preprocess screenshot with high-DPI scaling, dark mode detection, and contrast enhancement
+      const preprocessed = await preprocessScreenshot(imageUrl, invertOverride);
+      setIsDarkModeInverted(preprocessed.isDarkMode);
+      setOcrProgress(35);
+
+      // 3. Initialize Tesseract worker in Web Worker
       const worker = await createWorker('eng');
-      setOcrProgress(40);
+      setOcrProgress(55);
 
-      const ret = await worker.recognize(imageUrl);
-      setOcrProgress(90);
+      // Pass 1: Recognize preprocessed canvas
+      const ret1 = await worker.recognize(preprocessed.canvas);
+      setOcrProgress(80);
+
+      let fullText = ret1.data.text || '';
+      let combinedLines: any[] = (ret1.data as any).lines || [];
+      let overallConfidence = ret1.data.confidence || 0;
+
+      // Pass 2 Fallback: If confidence is lower than 65 or text is very sparse, recognize original
+      if (overallConfidence < 65 || fullText.length < 25) {
+        setOcrProgress(85);
+        try {
+          const ret2 = await worker.recognize(imageUrl);
+          if (ret2.data.text) {
+            fullText = fullText + '\n' + ret2.data.text;
+            if ((ret2.data as any).lines) {
+              combinedLines = [...combinedLines, ...((ret2.data as any).lines || [])];
+            }
+            overallConfidence = Math.max(overallConfidence, ret2.data.confidence || 0);
+          }
+        } catch (pass2Err) {
+          console.warn('OCR Pass 2 warning:', pass2Err);
+        }
+      }
+
+      setOcrProgress(95);
       await worker.terminate();
 
-      const text = ret.data.text || '';
-      const confidence = ret.data.confidence || 0;
-      setOcrRawText(text);
-      setOcrConfidence(confidence);
+      setOcrRawText(fullText);
+      setOcrConfidence(overallConfidence);
 
-      // Parse text for Banking & UPI indicators
-      parsePaymentText(text, confidence);
+      // 4. Parse text with advanced UPI patterns, device status-bar filtering, and candidate scoring
+      parsePaymentText(fullText, combinedLines, preprocessed.height, overallConfidence);
     } catch (err: any) {
       console.error('OCR Error:', err);
       setUtrWarning('OCR could not read the screenshot. Please enter details manually.');
@@ -149,9 +247,20 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     }
   };
 
+  const handleToggleInvertAndRescan = () => {
+    if (!imagePreview) return;
+    const nextInvert = !isDarkModeInverted;
+    runOcr(imagePreview, file || undefined, nextInvert);
+  };
+
   const unreadFieldWarning = 'Unable to confidently read this field. Please verify or upload a clearer screenshot.';
 
-  const parsePaymentText = (text: string, confidence: number) => {
+  const parsePaymentText = (
+    text: string,
+    lines: Array<any>,
+    imageHeight: number,
+    confidence: number
+  ) => {
     const newWarnings: {
       utr?: string | null;
       amount?: string | null;
@@ -159,26 +268,49 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       time?: string | null;
     } = {};
 
-    // 1. Parse UTR / UPI Ref ID (12 digits)
-    let extractedUtr = '';
-    const utrRegexWithPrefix =
-      /(?:upi\s*ref(?:erence)?\s*(?:no|id)?|utr|txn\s*(?:id|ref)|ref\s*(?:no|id)?|reference)[\s:#-]*([0-9]{12})/i;
-    const matchPrefix = text.match(utrRegexWithPrefix);
+    // Filter out phone status bar (top 8% of screen clock / battery / signal icons)
+    const isStatusBarLine = (line: any, index: number) => {
+      if (index === 0 && lines.length > 3) {
+        const t = (line?.text || '').trim();
+        if (/^(\d{1,2}:\d{2}|[0-9]{1,3}%|lte|4g|5g|volte|\s)+$/i.test(t)) return true;
+      }
+      if (line?.bbox?.y0 !== undefined && imageHeight > 0) {
+        return line.bbox.y0 < imageHeight * 0.08;
+      }
+      return false;
+    };
 
-    if (matchPrefix && matchPrefix[1]) {
-      extractedUtr = matchPrefix[1];
+    const contentLines = lines.filter((l, idx) => !isStatusBarLine(l, idx));
+    const cleanBodyText = contentLines.map((l) => l.text).join('\n');
+
+    // 1. EXTRACT UTR / UPI REF ID (12 digits)
+    let extractedUtr = '';
+    const utrLabelRegex =
+      /(?:upi\s*ref(?:erence)?\s*(?:no|id)?|utr(?:\s*no|\s*id)?|txn\s*(?:id|ref)|reference\s*(?:no|id)?|ref\s*(?:no|id)?|google\s*pay\s*transaction\s*id|upi\s*transaction\s*id)[\s:#-]*([0-9]{12})/i;
+    const matchUtrLabel = (cleanBodyText || text).match(utrLabelRegex);
+
+    if (matchUtrLabel && matchUtrLabel[1]) {
+      extractedUtr = matchUtrLabel[1];
     } else {
-      // Fallback: search for any standalone 12-digit number
-      const standaloneMatch = text.match(/\b([0-9]{12})\b/);
-      if (standaloneMatch && standaloneMatch[1]) {
-        extractedUtr = standaloneMatch[1];
+      // Standalone 12-digit numeric in content lines
+      const all12Digits = (cleanBodyText || text).match(/\b([0-9]{12})\b/g);
+      if (all12Digits && all12Digits.length > 0) {
+        extractedUtr = all12Digits[0];
+      } else {
+        // Alphanumeric transaction ID (e.g. PhonePe T2409... or bank ref)
+        const txnIdMatch = (cleanBodyText || text).match(
+          /(?:transaction\s*id|txn\s*id|ref\s*id)[\s:#-]*([A-Za-z0-9]{12,24})/i
+        );
+        if (txnIdMatch && txnIdMatch[1]) {
+          extractedUtr = txnIdMatch[1].trim();
+        }
       }
     }
 
     if (extractedUtr) {
       setUtr(extractedUtr);
       checkUtrDuplication(extractedUtr);
-      if (confidence < 70) {
+      if (confidence < 60) {
         newWarnings.utr = 'Low OCR confidence on UTR. Please verify with screenshot before saving.';
         setUtrWarning('Low OCR confidence on UTR. Please verify with screenshot before saving.');
       } else {
@@ -190,65 +322,215 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       setUtrWarning(unreadFieldWarning);
     }
 
-    // 2. Parse Amount (Never guess or default to balance)
-    const amountRegex = /(?:₹|inr|rs\.?|paid|amount)\s*[:=]?\s*₹?\s*([0-9,]+(?:\.[0-9]{2})?)/i;
-    const matchAmount = text.match(amountRegex);
-    let amountFound = false;
+    // 2. EXTRACT AMOUNT (Handles corrupt rupee symbols like ?, *, F, z and preserves accuracy)
+    interface AmountCandidate {
+      val: number;
+      raw: string;
+      score: number;
+    }
+    const amountCandidates: AmountCandidate[] = [];
 
-    if (matchAmount && matchAmount[1]) {
-      const cleanNum = matchAmount[1].replace(/,/g, '');
-      const parsedNum = parseFloat(cleanNum);
-      if (!isNaN(parsedNum) && parsedNum > 0) {
-        setAmount(String(parsedNum));
-        amountFound = true;
-        if (parsedNum > expectedAmount && expectedAmount > 0) {
-          setShowExtraAmountNotice(true);
+    const testAmountCandidate = (rawNum: string, contextLine: string) => {
+      const cleanNum = rawNum.replace(/,/g, '');
+      const num = parseFloat(cleanNum);
+      if (isNaN(num) || num <= 0) return;
+
+      // Disqualifications
+      if (cleanNum === extractedUtr) return; // Disqualify if it's the UTR
+      if (cleanNum.length === 10 && /^[6-9]/.test(cleanNum)) return; // Disqualify phone numbers
+      if (num >= 2020 && num <= 2035 && !rawNum.includes('.')) return; // Disqualify years
+      if (num > 5000000 && !rawNum.includes(',')) return; // Disqualify non-grouped huge numbers
+
+      let score = 50;
+
+      // Has explicit currency indicator or symbol directly before or after
+      if (/[₹\u20B9\u20A8RsINRrp$€]/i.test(contextLine)) score += 120;
+      // Tesseract often recognizes ₹ as ?, *, >, #, z
+      if (/[?*~>#|]\s*[0-9]/.test(contextLine)) score += 70;
+
+      // Contextual payment words
+      if (/\b(paid|transferred|sent|payment\s*to|debited|amount|total)\b/i.test(contextLine)) {
+        score += 80;
+      }
+      // Has decimals (.00)
+      if (/\.[0-9]{2}$/.test(rawNum)) score += 50;
+      // Has commas (e.g. 5,000)
+      if (rawNum.includes(',')) score += 40;
+
+      // Standalone on line (hero amount layout in Google Pay / PhonePe)
+      if (contextLine.trim() === rawNum || contextLine.replace(/[₹\u20B9\u20A8RsINRrp$€?*~>#|:\s]/gi, '') === cleanNum) {
+        score += 60;
+      }
+
+      // Close to expected balance bonus
+      if (expectedAmount > 0 && Math.abs(num - expectedAmount) < 1) {
+        score += 40;
+      }
+
+      amountCandidates.push({ val: num, raw: rawNum, score });
+    };
+
+    // Scan lines for potential numbers
+    for (const line of contentLines) {
+      const lineText = line.text || '';
+      const numMatches = lineText.match(/[?*~>#|₹\u20B9\u20A8$€RsINR]*\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)/gi);
+      if (numMatches) {
+        for (const m of numMatches) {
+          const justNum = m.replace(/[^0-9.,]/g, '').trim();
+          if (justNum) {
+            testAmountCandidate(justNum, lineText);
+          }
         }
       }
     }
 
-    if (!amountFound) {
+    amountCandidates.sort((a, b) => b.score - a.score);
+    if (amountCandidates.length > 0 && amountCandidates[0].score >= 80) {
+      const best = amountCandidates[0];
+      setAmount(String(best.val));
+      if (best.val > expectedAmount && expectedAmount > 0) {
+        setShowExtraAmountNotice(true);
+      } else {
+        setShowExtraAmountNotice(false);
+      }
+    } else {
       setAmount('');
       newWarnings.amount = unreadFieldWarning;
     }
 
-    // 3. Parse Date
-    const dateRegex1 = /\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b/i;
-    const dateRegex2 = /\b(\d{2}[/-]\d{2}[/-]\d{4})\b/;
-    const matchDate1 = text.match(dateRegex1);
-    const matchDate2 = text.match(dateRegex2);
-    let dateFound = false;
+    // 3. EXTRACT TRANSACTION DATE (Google Pay, PhonePe, Paytm, Bank SMS)
+    let parsedDateStr = '';
+    const monthMap: Record<string, string> = {
+      jan: '01', january: '01',
+      feb: '02', february: '02',
+      mar: '03', march: '03',
+      apr: '04', april: '04',
+      may: '05',
+      jun: '06', june: '06',
+      jul: '07', july: '07',
+      aug: '08', august: '08',
+      sep: '09', sept: '09', september: '09',
+      oct: '10', october: '10',
+      nov: '11', november: '11',
+      dec: '12', december: '12',
+    };
+    const currentYear = new Date().getFullYear();
 
-    if (matchDate1 && matchDate1[1]) {
-      try {
-        const d = new Date(matchDate1[1]);
-        if (!isNaN(d.getTime())) {
-          setPaymentDate(d.toISOString().split('T')[0]);
-          dateFound = true;
+    // Pattern A: Day First (PhonePe / Paytm: "23 Sep 2026" or "23 September 2026" or "23rd Sep")
+    const regexDayFirst = /\b([0-3]?[0-9])(?:st|nd|rd|th)?[\s,-]+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*(?:[,\s]+(\d{4}|\d{2}))?\b/i;
+    // Pattern B: Month First (Google Pay: "Sep 23, 2026" or "Sep 23")
+    const regexMonthFirst = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*[\s,-]+([0-3]?[0-9])(?:st|nd|rd|th)?(?:[,\s]+(\d{4}|\d{2}))?\b/i;
+    // Pattern C: Numeric Slash/Dash (DD/MM/YYYY or DD-MM-YYYY)
+    const regexNumericDate = /\b([0-3]?[0-9])[/-](0?[1-9]|1[0-2])[/-](\d{4})\b/;
+    // Pattern D: ISO (YYYY-MM-DD)
+    const regexIsoDate = /\b(\d{4})[/-](0?[1-9]|1[0-2])[/-]([0-3]?[0-9])\b/;
+
+    for (const line of contentLines) {
+      const lt = line.text || '';
+
+      // Check Day First
+      const matchDay = lt.match(regexDayFirst);
+      if (matchDay) {
+        const day = parseInt(matchDay[1], 10);
+        const mStr = matchDay[2].toLowerCase();
+        const month = monthMap[mStr] || '01';
+        let year = matchDay[3] ? parseInt(matchDay[3], 10) : currentYear;
+        if (year < 100) year += 2000;
+        if (day >= 1 && day <= 31 && year >= 2020 && year <= 2035) {
+          parsedDateStr = `${year}-${month}-${String(day).padStart(2, '0')}`;
+          break;
         }
-      } catch {}
-    } else if (matchDate2 && matchDate2[1]) {
-      try {
-        const parts = matchDate2[1].split(/[-/]/);
-        if (parts.length === 3) {
-          const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-          if (!isNaN(d.getTime())) {
-            setPaymentDate(d.toISOString().split('T')[0]);
-            dateFound = true;
-          }
+      }
+
+      // Check Month First
+      const matchMonth = lt.match(regexMonthFirst);
+      if (matchMonth) {
+        const mStr = matchMonth[1].toLowerCase();
+        const month = monthMap[mStr] || '01';
+        const day = parseInt(matchMonth[2], 10);
+        let year = matchMonth[3] ? parseInt(matchMonth[3], 10) : currentYear;
+        if (year < 100) year += 2000;
+        if (day >= 1 && day <= 31 && year >= 2020 && year <= 2035) {
+          parsedDateStr = `${year}-${month}-${String(day).padStart(2, '0')}`;
+          break;
         }
-      } catch {}
+      }
+
+      // Check Numeric Date
+      const matchNum = lt.match(regexNumericDate);
+      if (matchNum) {
+        const day = parseInt(matchNum[1], 10);
+        const month = String(parseInt(matchNum[2], 10)).padStart(2, '0');
+        const year = parseInt(matchNum[3], 10);
+        if (day >= 1 && day <= 31 && year >= 2020 && year <= 2035) {
+          parsedDateStr = `${year}-${month}-${String(day).padStart(2, '0')}`;
+          break;
+        }
+      }
+
+      // Check ISO Date
+      const matchIso = lt.match(regexIsoDate);
+      if (matchIso) {
+        const year = parseInt(matchIso[1], 10);
+        const month = String(parseInt(matchIso[2], 10)).padStart(2, '0');
+        const day = parseInt(matchIso[3], 10);
+        if (day >= 1 && day <= 31 && year >= 2020 && year <= 2035) {
+          parsedDateStr = `${year}-${month}-${String(day).padStart(2, '0')}`;
+          break;
+        }
+      }
     }
 
-    if (!dateFound) {
+    if (parsedDateStr) {
+      setPaymentDate(parsedDateStr);
+    } else {
       newWarnings.date = unreadFieldWarning;
     }
 
-    // 4. Parse Time
-    const timeRegex = /\b(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\b/;
-    const matchTime = text.match(timeRegex);
-    if (matchTime && matchTime[1]) {
-      setPaymentTime(matchTime[1]);
+    // 4. EXTRACT TRANSACTION TIME (Skips device status-bar clock)
+    interface TimeCandidate {
+      timeStr: string;
+      score: number;
+    }
+    const timeCandidates: TimeCandidate[] = [];
+
+    for (const line of contentLines) {
+      const lt = line.text || '';
+
+      // Match 1: Time with AM/PM (Google Pay: "4:15 PM", PhonePe: "04:15 PM")
+      const matchAmPm = lt.match(/\b(0?[1-9]|1[0-2]):([0-5][0-9])(?::([0-5][0-9]))?\s*(am|pm|AM|PM)\b/);
+      if (matchAmPm) {
+        let score = 100;
+        if (/\b(on|at|completed|time|dated)\b/i.test(lt)) score += 50;
+        if (parsedDateStr && (lt.includes('Jan') || lt.includes('Feb') || lt.includes('Mar') || lt.includes('Apr') || lt.includes('May') || lt.includes('Jun') || lt.includes('Jul') || lt.includes('Aug') || lt.includes('Sep') || lt.includes('Oct') || lt.includes('Nov') || lt.includes('Dec') || lt.includes('/'))) {
+          score += 80;
+        }
+        const rawHour = parseInt(matchAmPm[1], 10);
+        const min = matchAmPm[2];
+        const meridiem = matchAmPm[4].toUpperCase();
+        timeCandidates.push({
+          timeStr: `${String(rawHour).padStart(2, '0')}:${min} ${meridiem}`,
+          score,
+        });
+      }
+
+      // Match 2: Labeled 24-hr or 12-hr time (e.g. "Time: 16:15" or "at 16:15:30")
+      const matchLabeledTime = lt.match(/(?:at|on|time|completed|dated|timestamp)[\s:•,-]*([0-1]?[0-9]|2[0-3]):([0-5][0-9])(?::([0-5][0-9]))?\s*(am|pm|AM|PM)?/i);
+      if (matchLabeledTime) {
+        let score = 85;
+        const hour = parseInt(matchLabeledTime[1], 10);
+        const min = matchLabeledTime[2];
+        const mer = matchLabeledTime[4] ? matchLabeledTime[4].toUpperCase() : '';
+        timeCandidates.push({
+          timeStr: mer ? `${String(hour).padStart(2, '0')}:${min} ${mer}` : `${String(hour).padStart(2, '0')}:${min}`,
+          score,
+        });
+      }
+    }
+
+    timeCandidates.sort((a, b) => b.score - a.score);
+    if (timeCandidates.length > 0) {
+      setPaymentTime(timeCandidates[0].timeStr);
     } else {
       setPaymentTime('');
       newWarnings.time = unreadFieldWarning;
@@ -421,6 +703,62 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Interactive Invert & Re-scan Controls */}
+              {imagePreview && (
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleToggleInvertAndRescan}
+                    disabled={isProcessingOcr}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer border border-slate-300 dark:border-slate-700 disabled:opacity-50"
+                    title="Toggle high-contrast screenshot inversion and re-run OCR"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-[#C91F28]" />
+                    <span>Invert Image ({isDarkModeInverted ? 'Dark' : 'Light'})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => runOcr(imagePreview, file || undefined)}
+                    disabled={isProcessingOcr}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer border border-slate-300 dark:border-slate-700 disabled:opacity-50"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Re-scan</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Live Extracted Fields Summary Chips */}
+              {imagePreview && !isProcessingOcr && (
+                <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px]">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="font-semibold text-slate-500">UTR:</span>
+                    <span className={utr ? 'font-mono font-bold text-emerald-700 dark:text-emerald-400 truncate' : 'text-amber-600 font-medium'}>
+                      {utr ? utr : 'Unread'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="font-semibold text-slate-500">Amount:</span>
+                    <span className={amount ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'text-amber-600 font-medium'}>
+                      {amount ? `₹${parseFloat(amount).toLocaleString('en-IN')}` : 'Unread'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="font-semibold text-slate-500">Date:</span>
+                    <span className={paymentDate ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-amber-600 font-medium'}>
+                      {paymentDate || 'Unread'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="font-semibold text-slate-500">Time:</span>
+                    <span className={paymentTime ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-amber-600 font-medium'}>
+                      {paymentTime || 'Unread'}
+                    </span>
+                  </div>
                 </div>
               )}
 

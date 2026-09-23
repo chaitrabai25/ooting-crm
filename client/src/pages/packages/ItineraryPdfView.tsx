@@ -139,26 +139,30 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Details (Strictly Left-Aligned within its column) */}
-            <div className="text-xs text-slate-600 space-y-1 pl-2">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Website:</span>
-                <span className="text-slate-700 font-medium break-all">{company.website || 'https://ooting.in'}</span>
+            {/* RIGHT SIDE: Company Details (Neatly aligned and right-justified) */}
+            <div className="flex flex-col items-end text-right text-xs text-slate-600 space-y-1 ml-auto">
+              <div className="flex items-center justify-end gap-1.5 leading-tight">
+                <span className="font-semibold text-slate-500 text-[11px]">Website:</span>
+                <span className="text-slate-800 font-medium">{company.website || 'https://ooting.in'}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Phone:</span>
-                <span className="text-slate-700 font-medium">{company.phone || '+91 98765 43210'}</span>
+              <div className="flex items-center justify-end gap-1.5 leading-tight">
+                <span className="font-semibold text-slate-500 text-[11px]">Phone:</span>
+                <span className="text-slate-800 font-medium">{company.phone || '+91 98765 43210'}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Email:</span>
-                <span className="text-slate-700 font-medium break-all">{company.email || 'contact@ooting.com'}</span>
+              <div className="flex items-center justify-end gap-1.5 leading-tight">
+                <span className="font-semibold text-slate-500 text-[11px]">Email:</span>
+                <span className="text-slate-800 font-medium">{company.email || 'contact@ooting.com'}</span>
               </div>
+              {company.gstin && (
+                <div className="flex items-center justify-end gap-1.5 leading-tight">
+                  <span className="font-semibold text-slate-500 text-[11px]">GSTIN:</span>
+                  <span className="font-mono text-slate-800 font-bold">{company.gstin}</span>
+                </div>
+              )}
               {company.address && (
-                <div className="flex items-start gap-2 pt-0.5">
-                  <span className="font-semibold text-slate-800 w-16 flex-shrink-0 pt-0.5">Address:</span>
-                  <span className="text-slate-600 leading-snug break-words flex-1">
-                    {company.address}
-                  </span>
+                <div className="text-right text-slate-600 text-[11px] max-w-[320px] leading-snug pt-0.5">
+                  <span className="font-semibold text-slate-500 mr-1.5">Address:</span>
+                  <span>{company.address}</span>
                 </div>
               )}
             </div>

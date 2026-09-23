@@ -358,11 +358,11 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center print:p-0 print:bg-white">
           <div
             id="invoice-document"
-            className="w-[794px] max-w-full mx-auto bg-white text-slate-800 font-sans p-8 shadow-xl print:shadow-none border border-slate-200 print:border-none print:p-6"
+            className="flex min-h-[1123px] w-[794px] max-w-full mx-auto flex-col bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none text-slate-800 font-sans print:m-0 border border-slate-200"
             style={{ boxSizing: 'border-box' }}
           >
             {/* Top Brand Accent */}
-            <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative mb-5 rounded-t-lg print:rounded-none">
+            <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative flex-shrink-0">
               <img
                 src="/assets/ooting-header-wave.png"
                 alt=""
@@ -371,7 +371,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             </div>
 
             {/* Letterhead Header Section */}
-            <div className="px-1 pt-1 pb-5 border-b border-slate-200">
+            <div className="px-8 pt-6 pb-5 border-b border-slate-200">
               <div className="grid grid-cols-2 gap-8 items-start">
                 {/* LEFT SIDE: Logo & Company Name/Tagline */}
                 <div className="flex items-start gap-4">
@@ -398,32 +398,30 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Details (Strictly Left-Aligned within its column) */}
-                <div className="text-xs text-slate-600 space-y-1 pl-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Website:</span>
-                    <span className="text-slate-700 font-medium break-all">{company.website || 'https://ooting.in'}</span>
+                {/* RIGHT SIDE: Company Details (Neatly aligned and right-justified) */}
+                <div className="flex flex-col items-end text-right text-xs text-slate-600 space-y-1 ml-auto">
+                  <div className="flex items-center justify-end gap-1.5 leading-tight">
+                    <span className="font-semibold text-slate-500 text-[11px]">Website:</span>
+                    <span className="text-slate-800 font-medium">{company.website || 'https://ooting.in'}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Phone:</span>
-                    <span className="text-slate-700 font-medium">{company.phone || '+91 98765 43210'}</span>
+                  <div className="flex items-center justify-end gap-1.5 leading-tight">
+                    <span className="font-semibold text-slate-500 text-[11px]">Phone:</span>
+                    <span className="text-slate-800 font-medium">{company.phone || '+91 98765 43210'}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Email:</span>
-                    <span className="text-slate-700 font-medium break-all">{company.email || 'contact@ooting.com'}</span>
+                  <div className="flex items-center justify-end gap-1.5 leading-tight">
+                    <span className="font-semibold text-slate-500 text-[11px]">Email:</span>
+                    <span className="text-slate-800 font-medium">{company.email || 'contact@ooting.com'}</span>
                   </div>
                   {company.gstin && (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-800 w-16 flex-shrink-0">GSTIN:</span>
-                      <span className="font-mono text-slate-800 font-semibold">{company.gstin}</span>
+                    <div className="flex items-center justify-end gap-1.5 leading-tight">
+                      <span className="font-semibold text-slate-500 text-[11px]">GSTIN:</span>
+                      <span className="font-mono text-slate-800 font-bold">{company.gstin}</span>
                     </div>
                   )}
                   {company.address && (
-                    <div className="flex items-start gap-2 pt-0.5">
-                      <span className="font-semibold text-slate-800 w-16 flex-shrink-0 pt-0.5">Address:</span>
-                      <span className="text-slate-600 leading-snug break-words flex-1">
-                        {company.address}
-                      </span>
+                    <div className="text-right text-slate-600 text-[11px] max-w-[320px] leading-snug pt-0.5">
+                      <span className="font-semibold text-slate-500 mr-1.5">Address:</span>
+                      <span>{company.address}</span>
                     </div>
                   )}
                 </div>
@@ -431,12 +429,12 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             </div>
 
             {/* Document Title & Meta Banner */}
-            <div className="bg-slate-900 text-white px-5 py-3 flex items-center justify-between rounded-lg my-4">
+            <div className="bg-slate-900 text-white px-8 py-3.5 flex items-center justify-between">
               <div>
                 <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-widest">
                   OFFICIAL COMMERCIAL DOCUMENT
                 </span>
-                <h2 className="text-sm font-black tracking-wide">
+                <h2 className="text-base font-black tracking-wide">
                   TAX INVOICE & BOOKING STATEMENT
                 </h2>
               </div>
@@ -466,8 +464,10 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               </div>
             </div>
 
-            {/* Customer & Booking Details Section */}
-            <div className="grid grid-cols-2 gap-4 py-4 border-b border-slate-200 text-xs">
+            {/* Main Invoice Body Content */}
+            <div className="flex-1 p-8 space-y-5">
+              {/* Customer & Booking Details Section */}
+              <div className="grid grid-cols-2 gap-4 py-2 border-b border-slate-200 text-xs">
               {/* Billed To Customer */}
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
                 <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block mb-0.5">
@@ -668,7 +668,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             </div>
 
             {/* Official Verification Notice (NO SIGNATURES) */}
-            <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/80 text-center space-y-0.5 mt-4">
+            <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/80 text-center space-y-0.5 mt-2">
               <div className="flex items-center justify-center gap-1.5 text-slate-900 font-bold text-xs uppercase tracking-wider">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28]" />
                 <span>Official Tax Invoice • {company.name || 'Ooting'}</span>
@@ -677,15 +677,16 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 This is a computer-generated commercial tax invoice verified by {company.name || 'Ooting'} CRM. Valid without physical signature.
               </p>
             </div>
+          </div>
 
-            {/* Bottom Wave Footer */}
-            <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative mt-5 rounded-b-lg print:rounded-none">
-              <img
-                src="/assets/ooting-header-wave.png"
-                alt=""
-                className="w-full h-full object-cover opacity-90 rotate-180"
-              />
-            </div>
+          {/* Bottom Wave Footer */}
+          <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative mt-auto flex-shrink-0">
+            <img
+              src="/assets/ooting-header-wave.png"
+              alt=""
+              className="w-full h-full object-cover opacity-90 rotate-180"
+            />
+          </div>
           </div>
         </div>
       </div>
