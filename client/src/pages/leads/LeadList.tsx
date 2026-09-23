@@ -427,10 +427,18 @@ export const LeadList: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Leads & Enquiries
+            {activeTab === 'new'
+              ? 'Leads Management'
+              : activeTab === 'all'
+              ? 'Enquiries Pipeline'
+              : 'In-Progress Leads & Follow-ups'}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Capture, qualify, follow-up, and convert travel enquiries into confirmed bookings.
+            {activeTab === 'new'
+              ? 'Capture, qualify, assign, and fast-track incoming travel leads.'
+              : activeTab === 'all'
+              ? 'Complete multi-stage travel enquiries pipeline from initial inquiry to booking.'
+              : 'Active leads undergoing negotiations, quotation closures, and follow-ups.'}
           </p>
         </div>
 
@@ -492,6 +500,7 @@ export const LeadList: React.FC = () => {
           type="button"
           onClick={() => {
             setActiveTab('all');
+            setSearchParams({ tab: 'all' });
             setPage(1);
           }}
           className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
@@ -516,6 +525,7 @@ export const LeadList: React.FC = () => {
           type="button"
           onClick={() => {
             setActiveTab('new');
+            setSearchParams({ tab: 'new' });
             setPage(1);
           }}
           className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
@@ -540,6 +550,7 @@ export const LeadList: React.FC = () => {
           type="button"
           onClick={() => {
             setActiveTab('existing');
+            setSearchParams({ tab: 'existing' });
             setPage(1);
           }}
           className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${

@@ -8,8 +8,7 @@ import { config } from '../config/index.js';
 const router = Router();
 router.use(authenticate);
 
-// Get Settings
-router.get('/', async (req: AuthRequest, res: Response, next) => {
+export async function getCompanySettings() {
   try {
     const settings = await prisma.companySetting.findMany();
     const settingsMap: Record<string, string> = {};
@@ -17,16 +16,47 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       settingsMap[s.key] = s.value;
     });
 
+    return {
+      name: settingsMap['company_name'] || config.company.name,
+      tagline: settingsMap['company_tagline'] || config.company.tagline,
+      email: settingsMap['company_email'] || config.company.email,
+      phone: settingsMap['company_phone'] || config.company.phone,
+      address: settingsMap['company_address'] || config.company.address,
+      website: settingsMap['company_website'] || (config.company as any).website || 'https://ooting.in',
+      gstin: settingsMap['company_gstin'] || config.company.gstin,
+      logoUrl: settingsMap['company_logo_url'] || '/assets/ooting-banner.jpg',
+    };
+  } catch (error) {
+    return {
+      name: config.company.name,
+      tagline: config.company.tagline,
+      email: config.company.email,
+      phone: config.company.phone,
+      address: config.company.address,
+      website: (config.company as any).website || 'https://ooting.in',
+      gstin: config.company.gstin,
+      logoUrl: '/assets/ooting-banner.jpg',
+    };
+  }
+}
+
+// Get Public / Authenticated Company Settings
+router.get('/company', async (_req: AuthRequest, res: Response, next) => {
+  try {
+    const company = await getCompanySettings();
+    res.json({ company });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get All Settings
+router.get('/', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const company = await getCompanySettings();
+
     res.json({
-      company: {
-        name: settingsMap['company_name'] || config.company.name,
-        tagline: settingsMap['company_tagline'] || config.company.tagline,
-        email: settingsMap['company_email'] || config.company.email,
-        phone: settingsMap['company_phone'] || config.company.phone,
-        address: settingsMap['company_address'] || config.company.address,
-        gstin: settingsMap['company_gstin'] || config.company.gstin,
-        logoUrl: settingsMap['company_logo_url'] || '/assets/ooting-logo.jpg',
-      },
+      company,
       masterData: {
         leadStatuses: ['NEW', 'CONTACTED', 'QUALIFIED', 'QUOTATION_SENT', 'FOLLOW_UP', 'WON', 'LOST', 'CANCELLED'],
         bookingStatuses: ['ENQUIRY', 'HOLD', 'CONFIRMED', 'COMPLETED', 'CANCELLED'],
@@ -46,6 +76,7 @@ const updateSettingsSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
+  website: z.string().optional(),
   gstin: z.string().optional(),
   logoUrl: z.string().optional(),
 });
@@ -61,6 +92,7 @@ router.put('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next
       { key: 'company_email', value: data.email },
       { key: 'company_phone', value: data.phone },
       { key: 'company_address', value: data.address },
+      { key: 'company_website', value: data.website },
       { key: 'company_gstin', value: data.gstin },
       { key: 'company_logo_url', value: data.logoUrl },
     ].filter(u => u.value !== undefined);

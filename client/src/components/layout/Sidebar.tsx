@@ -26,8 +26,12 @@ import {
   Download,
   UserCheck,
   ArrowDownUp,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
+import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 interface NavLinkItem {
   type: 'link';
@@ -54,9 +58,27 @@ interface NavigationSection {
   items: NavItem[];
 }
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
   const { user, logout, can } = useAuth();
+  const { company } = useCompanySettings();
   const location = useLocation();
+
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('ooting_sidebar_collapsed') === 'true';
+  });
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('ooting_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
 
   // Collapsible groups open/closed state
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -76,7 +98,6 @@ export const Sidebar: React.FC = () => {
   const isLinkActive = (item: NavLinkItem): boolean => {
     const itemUrl = new URL(item.path, 'http://dummy.com');
     const itemPath = itemUrl.pathname;
-    const itemParams = itemUrl.searchParams;
 
     if (item.path === '/') {
       return location.pathname === '/';
@@ -92,8 +113,8 @@ export const Sidebar: React.FC = () => {
       return currentVal === item.matchQuery.value;
     }
 
-    if (itemParams.has('tab')) {
-      const targetTab = itemParams.get('tab');
+    if (itemUrl.searchParams.has('tab')) {
+      const targetTab = itemUrl.searchParams.get('tab');
       const currentTab = new URLSearchParams(location.search).get('tab') || (itemPath === '/leads' ? 'all' : '');
       return currentTab === targetTab;
     }
@@ -113,6 +134,13 @@ export const Sidebar: React.FC = () => {
         }
       });
     });
+  }, [location.pathname, location.search]);
+
+  // Close mobile drawer on navigation
+  useEffect(() => {
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
   }, [location.pathname, location.search]);
 
   const navigationSections: NavigationSection[] = [
@@ -270,40 +298,83 @@ export const Sidebar: React.FC = () => {
     },
   ];
 
-  return (
-    <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col flex-shrink-0 h-screen sticky top-0 border-r border-slate-800 z-30 select-none shadow-xl">
-      {/* Brand Header with authentic Ooting logo */}
-      <div className="h-16 px-4 flex items-center gap-3 border-b border-slate-800 bg-slate-950/80">
-        <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow-sm border border-slate-700">
-          <img
-            src="/assets/ooting-logo.jpg"
-            alt="Ooting"
-            className="w-full h-full object-contain"
-          />
+  const sidebarContent = (
+    <div className="flex flex-col h-full">
+      {/* Brand Header */}
+      <div className={`h-16 px-3 flex items-center border-b border-slate-800 bg-slate-950/80 transition-all ${
+        isCollapsed ? 'justify-center' : 'justify-between'
+      }`}>
+        {isCollapsed ? (
+          <div className="flex flex-col items-center justify-center" title={`${company.name} — ${company.tagline}`}>
+            <img
+              src="/assets/ooting-icon-white.jpg"
+              alt={company.name}
+              className="w-9 h-9 object-contain rounded-md"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/assets/ooting-logo.png';
+              }}
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="flex-shrink-0">
+              <img
+                src={company.logoUrl || '/assets/ooting-banner.jpg'}
+                alt={company.name}
+                className="h-10 max-w-[130px] object-contain rounded"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/assets/ooting-banner.jpg';
+                }}
+              />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="font-extrabold text-sm tracking-wide text-white truncate">
+                {company.name.toUpperCase()} CRM
+              </span>
+              <span className="text-[10px] text-brand-400 font-semibold tracking-tight truncate">
+                {company.tagline}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Minimize / Maximize Button on Desktop */}
+        <div className="hidden md:flex items-center">
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            title={isCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+          >
+            {isCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
         </div>
-        <div className="flex flex-col min-w-0">
-          <span className="font-extrabold text-sm tracking-wide text-white truncate">OOTING CRM</span>
-          <span className="text-[10px] text-brand-400 font-semibold tracking-tight truncate">
-            Journeys Beyond Ordinary
-          </span>
-        </div>
+
+        {/* Close button on mobile */}
+        {mobileOpen && (
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="md:hidden p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
-      {/* Navigation menu */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+      {/* Navigation Menu */}
+      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 scrollbar-thin scrollbar-thumb-slate-700">
         {navigationSections.map((section, idx) => {
           if (section.adminOnly && user?.role !== 'SUPER_ADMIN' && user?.role !== 'ADMIN') {
             return null;
           }
 
-          // Filter items based on permissions
           const visibleItems = section.items
             .map((item) => {
               if (item.type === 'link') {
                 if (!item.module) return item;
                 return can(item.module, 'view') ? item : null;
               } else {
-                // Group item: only keep visible children
                 const visibleChildren = item.items.filter((child) => {
                   if (!child.module) return true;
                   return can(child.module, 'view');
@@ -317,10 +388,14 @@ export const Sidebar: React.FC = () => {
           if (visibleItems.length === 0) return null;
 
           return (
-            <div key={idx}>
-              <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                {section.title}
-              </p>
+            <div key={idx} className="space-y-1">
+              {!isCollapsed && (
+                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  {section.title}
+                </p>
+              )}
+              {isCollapsed && <div className="h-px bg-slate-800/80 my-1 mx-2" />}
+
               <div className="space-y-0.5">
                 {visibleItems.map((item) => {
                   if (item.type === 'link') {
@@ -331,14 +406,19 @@ export const Sidebar: React.FC = () => {
                       <Link
                         key={item.path}
                         to={item.path}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        title={isCollapsed ? item.name : undefined}
+                        className={`flex items-center rounded-xl text-xs font-semibold transition-all ${
+                          isCollapsed
+                            ? 'justify-center p-2.5 my-0.5'
+                            : 'gap-3 px-3 py-2'
+                        } ${
                           active
                             ? 'bg-[#C91F28] text-white shadow-md shadow-red-950/40 font-bold'
                             : 'text-slate-200 hover:text-white hover:bg-slate-800/80 active:scale-[0.99]'
                         }`}
                       >
                         <Icon className="w-4 h-4 flex-shrink-0" />
-                        <span>{item.name}</span>
+                        {!isCollapsed && <span className="truncate">{item.name}</span>}
                       </Link>
                     );
                   }
@@ -347,6 +427,25 @@ export const Sidebar: React.FC = () => {
                   const GroupIcon = item.icon;
                   const isOpen = !!openGroups[item.id];
                   const hasActiveChild = item.items.some((child) => isLinkActive(child));
+
+                  if (isCollapsed) {
+                    // In collapsed mode, render top group icon linking to first item
+                    const firstChild = item.items[0];
+                    return (
+                      <Link
+                        key={item.id}
+                        to={firstChild.path}
+                        title={`${item.title} (${item.items.map((i) => i.name).join(', ')})`}
+                        className={`flex items-center justify-center p-2.5 my-0.5 rounded-xl text-xs transition-all ${
+                          hasActiveChild
+                            ? 'bg-[#C91F28] text-white shadow-md font-bold'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <GroupIcon className="w-4 h-4 flex-shrink-0" />
+                      </Link>
+                    );
+                  }
 
                   return (
                     <div key={item.id} className="space-y-0.5">
@@ -360,7 +459,9 @@ export const Sidebar: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <GroupIcon className={`w-4 h-4 flex-shrink-0 ${hasActiveChild ? 'text-[#C91F28]' : 'text-slate-400'}`} />
+                          <GroupIcon
+                            className={`w-4 h-4 flex-shrink-0 ${hasActiveChild ? 'text-[#C91F28]' : 'text-slate-400'}`}
+                          />
                           <span>{item.title}</span>
                         </div>
                         <ChevronDown
@@ -403,25 +504,69 @@ export const Sidebar: React.FC = () => {
         })}
       </div>
 
-      {/* User profile & logout footer */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/40">
-        <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-slate-850/60 border border-slate-800/60">
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs font-semibold text-slate-200 truncate">{user?.name}</span>
-            <span className="text-[10px] text-brand-400 uppercase font-medium tracking-wide truncate">
-              {user?.role?.replace('_', ' ')}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={logout}
-            title="Sign out"
-            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+      {/* User Profile & Logout Footer */}
+      <div className="p-2 border-t border-slate-800 bg-slate-950/60">
+        <div className={`flex items-center rounded-lg bg-slate-850/60 border border-slate-800/60 ${
+          isCollapsed ? 'justify-center p-1.5' : 'justify-between px-2 py-1.5'
+        }`}>
+          {isCollapsed ? (
+            <button
+              type="button"
+              onClick={logout}
+              title={`Sign out (${user?.name})`}
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          ) : (
+            <>
+              <div className="flex flex-col min-w-0 pr-1">
+                <span className="text-xs font-semibold text-slate-200 truncate">{user?.name}</span>
+                <span className="text-[10px] text-brand-400 uppercase font-medium tracking-wide truncate">
+                  {user?.role?.replace('_', ' ')}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={logout}
+                title="Sign out"
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-md transition-colors cursor-pointer flex-shrink-0"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside
+        className={`hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 border-r border-slate-800 z-30 select-none shadow-xl bg-slate-900 text-slate-100 transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'w-20' : 'w-64'
+        }`}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Drawer (Overlay) */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity"
+            onClick={onCloseMobile}
+          />
+
+          {/* Drawer content */}
+          <div className="relative flex flex-col w-72 max-w-[85vw] h-full bg-slate-900 text-slate-100 shadow-2xl z-10 border-r border-slate-800">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 };

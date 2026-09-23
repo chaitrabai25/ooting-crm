@@ -81,10 +81,64 @@ const paymentCreateSchema = z.object({
   allowOverpayment: z.boolean().optional().default(false),
 });
 
+// Check UTR uniqueness endpoint
+router.get('/check-utr', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const utr = (req.query.utr as string || '').trim();
+    if (!utr) {
+      res.json({ exists: false });
+      return;
+    }
+    const existing = await prisma.payment.findFirst({
+      where: {
+        transactionReference: utr,
+      },
+      include: {
+        booking: {
+          include: { customer: true },
+        },
+      },
+    });
+
+    res.json({
+      exists: !!existing,
+      message: existing ? 'This UTR number already exists for another transaction. Please enter a unique UTR number.' : null,
+      bookingNumber: (existing as any)?.booking?.bookingNumber,
+      customerName: (existing as any)?.booking?.customer?.fullName,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Record new Payment
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = paymentCreateSchema.parse(req.body);
+
+    // Enforce Unique UTR check
+    if (data.transactionReference && data.transactionReference.trim()) {
+      const cleanUtr = data.transactionReference.trim();
+      const duplicate = await prisma.payment.findFirst({
+        where: {
+          transactionReference: cleanUtr,
+        },
+        include: {
+          booking: {
+            include: { customer: true },
+          },
+        },
+      });
+
+      if (duplicate) {
+        res.status(409).json({
+          message: 'This UTR number already exists for another transaction. Please enter a unique UTR number.',
+          duplicateBooking: (duplicate as any).booking?.bookingNumber,
+          duplicateCustomer: (duplicate as any).booking?.customer?.fullName,
+        });
+        return;
+      }
+    }
 
     const booking = await prisma.booking.findUnique({
       where: { id: data.bookingId },

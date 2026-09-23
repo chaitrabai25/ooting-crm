@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.js';
 import { ThemeProvider } from './context/ThemeContext.js';
+import { CompanySettingsProvider } from './context/CompanySettingsContext.js';
 import { ProtectedRoute } from './components/layout/ProtectedRoute.js';
 import { AppLayout } from './components/layout/AppLayout.js';
 
@@ -57,7 +58,8 @@ export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <CompanySettingsProvider>
+          <BrowserRouter>
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
@@ -137,6 +139,7 @@ export const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
+        </CompanySettingsProvider>
       </AuthProvider>
     </ThemeProvider>
   );

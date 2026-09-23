@@ -7,6 +7,32 @@
     @apply bg-slate-50 text-slate-900 antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+
+  /* High contrast inputs and controls for dark theme */
+  .dark {
+    color-scheme: dark;
+  }
+  .dark body {
+    background-color: #0f172a;
+    color: #f8fafc;
+  }
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  .dark select,
+  .dark textarea {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+  }
+  .dark input:focus,
+  .dark select:focus,
+  .dark textarea:focus {
+    border-color: #C91F28 !important;
+    outline: none !important;
+  }
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #94a3b8 !important;
+  }
 }
 
 /* Custom Scrollbar for professional CRM appearance */
@@ -17,12 +43,21 @@
 ::-webkit-scrollbar-track {
   background: #f1f5f9;
 }
+.dark ::-webkit-scrollbar-track {
+  background: #0f172a;
+}
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 3px;
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 /* Print layout optimizations for quotations & documents */

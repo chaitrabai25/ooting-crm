@@ -1,17 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
-
-interface CompanySettings {
-  name: string;
-  tagline: string;
-  email: string;
-  phone: string;
-  address: string;
-  gstin: string;
-  logoUrl: string;
-}
+import { useCompanySettings } from '../../context/CompanySettingsContext.js';
+import { CompanySettings } from '../../types/index.js';
 
 interface MasterData {
   leadStatuses: string[];
@@ -23,16 +15,18 @@ interface MasterData {
 
 export const SettingsPage: React.FC = () => {
   const { user } = useAuth();
+  const { updateCompany: syncGlobalCompany, refreshCompany } = useCompanySettings();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
   const [company, setCompany] = useState<CompanySettings>({
-    name: '',
-    tagline: '',
-    email: '',
-    phone: '',
-    address: '',
-    gstin: '',
-    logoUrl: '',
+    name: 'Ooting',
+    tagline: 'Journeys Beyond Ordinary',
+    email: 'contact@ooting.com',
+    phone: '+91 98765 43210',
+    address: 'Ooting Holidays Private Limited, Bangalore, Karnataka, India',
+    website: 'https://ooting.in',
+    gstin: '29AABCO1234F1Z5',
+    logoUrl: '/assets/ooting-banner.jpg',
   });
 
   const [masterData, setMasterData] = useState<MasterData | null>(null);
@@ -74,6 +68,8 @@ export const SettingsPage: React.FC = () => {
 
     try {
       await api.put('/settings', company);
+      syncGlobalCompany(company);
+      await refreshCompany();
       setSuccessMessage('Company profile settings saved successfully.');
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -118,9 +114,9 @@ export const SettingsPage: React.FC = () => {
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold text-slate-900">System & Company Settings</h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Configure business profile, quotation letterhead details, and view CRM master data
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">System & Company Settings</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Configure business profile, quotation letterhead details, duty slips, and tax invoices
         </p>
       </div>
 
@@ -139,16 +135,16 @@ export const SettingsPage: React.FC = () => {
       )}
 
       {/* Company Profile Form */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-brand-50 text-brand-600 rounded-lg">
+            <div className="p-2 bg-brand-50 dark:bg-brand-950/40 text-brand-600 rounded-lg">
               <Building2 className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Company Information & Letterhead</h2>
-              <p className="text-[11px] text-slate-500">
-                These details appear on official customer quotations, vouchers, and invoices
+              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Company Information & Single Source of Truth</h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Updating these values automatically updates all documents (Duty Slips, Invoices, Quotations, Itineraries, and Navigation)
               </p>
             </div>
           </div>
@@ -162,7 +158,7 @@ export const SettingsPage: React.FC = () => {
         <form onSubmit={handleSaveCompany} className="p-6 space-y-4 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="font-semibold text-slate-700">Company Name *</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Company Name *</label>
               <input
                 type="text"
                 required
@@ -170,37 +166,37 @@ export const SettingsPage: React.FC = () => {
                 value={company.name}
                 onChange={(e) => setCompany({ ...company, name: e.target.value })}
                 placeholder="Ooting"
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
 
             <div>
-              <label className="font-semibold text-slate-700">Tagline / Subtitle</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Tagline / Subtitle</label>
               <input
                 type="text"
                 disabled={!isAdmin}
                 value={company.tagline}
                 onChange={(e) => setCompany({ ...company, tagline: e.target.value })}
-                placeholder="Curating journeys, crafting memories"
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                placeholder="Journeys Beyond Ordinary"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
 
             <div>
-              <label className="font-semibold text-slate-700">Official Email *</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Official Email *</label>
               <input
                 type="email"
                 required
                 disabled={!isAdmin}
                 value={company.email}
                 onChange={(e) => setCompany({ ...company, email: e.target.value })}
-                placeholder="travel@ooting.com"
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                placeholder="contact@ooting.com"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
 
             <div>
-              <label className="font-semibold text-slate-700">Contact Phone Number *</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Contact Phone Number *</label>
               <input
                 type="text"
                 required
@@ -208,44 +204,98 @@ export const SettingsPage: React.FC = () => {
                 value={company.phone}
                 onChange={(e) => setCompany({ ...company, phone: e.target.value })}
                 placeholder="+91 98765 43210"
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
 
             <div>
-              <label className="font-semibold text-slate-700">GSTIN / Registration No.</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Website URL</label>
+              <input
+                type="text"
+                disabled={!isAdmin}
+                value={company.website || ''}
+                onChange={(e) => setCompany({ ...company, website: e.target.value })}
+                placeholder="https://ooting.in"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+              />
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">GSTIN / Registration No.</label>
               <input
                 type="text"
                 disabled={!isAdmin}
                 value={company.gstin}
                 onChange={(e) => setCompany({ ...company, gstin: e.target.value })}
-                placeholder="29AAAAA0000A1Z5"
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 uppercase"
-              />
-            </div>
-
-            <div>
-              <label className="font-semibold text-slate-700">Brand Logo Path / URL</label>
-              <input
-                type="text"
-                disabled={!isAdmin}
-                value={company.logoUrl}
-                onChange={(e) => setCompany({ ...company, logoUrl: e.target.value })}
-                placeholder="/assets/ooting-logo.jpg"
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                placeholder="29AABCO1234F1Z5"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 uppercase"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="font-semibold text-slate-700">Registered Office Address</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Registered Office Address</label>
               <textarea
                 rows={2}
                 disabled={!isAdmin}
                 value={company.address}
                 onChange={(e) => setCompany({ ...company, address: e.target.value })}
-                placeholder="Ooting Travels, Brigade Road, Bangalore, Karnataka, India"
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                placeholder="Ooting Holidays Private Limited, Bangalore, Karnataka, India"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
               />
+            </div>
+
+            <div className="md:col-span-2 space-y-2">
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Brand Logo</label>
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.logoUrl}
+                  onChange={(e) => setCompany({ ...company, logoUrl: e.target.value })}
+                  placeholder="/assets/ooting-banner.jpg"
+                  className="flex-1 min-w-[260px] p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                />
+                {isAdmin && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-banner.jpg' })}
+                      className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-[11px] font-medium transition"
+                    >
+                      Full Banner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-icon-white.jpg' })}
+                      className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-[11px] font-medium transition"
+                    >
+                      White Icon
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-logo.png' })}
+                      className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-[11px] font-medium transition"
+                    >
+                      Red Icon
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Logo Preview */}
+              {company.logoUrl && (
+                <div className="mt-2 p-3 bg-slate-900 border border-slate-800 rounded-lg inline-flex items-center gap-3">
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Preview:</span>
+                  <img
+                    src={company.logoUrl}
+                    alt="Logo Preview"
+                    className="h-9 max-w-[160px] object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 

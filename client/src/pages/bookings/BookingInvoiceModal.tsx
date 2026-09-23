@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Printer,
   X,
@@ -12,39 +12,25 @@ import {
   CreditCard,
   Percent,
   Clock,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { Booking } from '../../types/index.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
+import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 interface BookingInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   booking: Booking | any;
-  company?: {
-    name?: string;
-    tagline?: string;
-    phone?: string;
-    email?: string;
-    website?: string;
-    address?: string;
-    gstNumber?: string;
-  };
 }
 
 export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
   isOpen,
   onClose,
   booking,
-  company = {
-    name: 'OOTING HOLIDAYS',
-    tagline: 'Journeys Beyond Ordinary',
-    phone: '+91 80000 00000',
-    email: 'bookings@ooting.com',
-    website: 'https://ooting.in',
-    address: 'Nilgiri Commercial Complex, Commercial Road, Ooty, The Nilgiris, Tamil Nadu - 643001',
-    gstNumber: '33AABCO1234F1Z5',
-  },
 }) => {
+  const { company } = useCompanySettings();
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Manual staff controls for GST
@@ -54,7 +40,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
   // Due Date configuration
   const [dueOption, setDueOption] = useState<'7' | '10' | '15' | 'custom'>('7');
   const today = new Date();
-  
+
   const calculateDefaultDue = (days: number) => {
     const d = new Date();
     d.setDate(d.getDate() + days);
@@ -111,8 +97,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
   const subtotal = Math.max(0, rawTotal - discount);
 
   // Accurate GST Calculations
-  const cgstAmount = Math.round((subtotal * (Number(cgstPercent) || 0)) / 100 * 100) / 100;
-  const sgstAmount = Math.round((subtotal * (Number(sgstPercent) || 0)) / 100 * 100) / 100;
+  const cgstAmount = Math.round(((subtotal * (Number(cgstPercent) || 0)) / 100) * 100) / 100;
+  const sgstAmount = Math.round(((subtotal * (Number(sgstPercent) || 0)) / 100) * 100) / 100;
   const totalTax = cgstAmount + sgstAmount;
   const grandTotal = Math.round((subtotal + totalTax) * 100) / 100;
 
@@ -127,12 +113,13 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
   );
 
   const balanceDue = Math.max(0, Math.round((grandTotal - amountPaid) * 100) / 100);
-  const paymentStatus =
-    balanceDue === 0
-      ? 'PAID'
-      : amountPaid > 0
-      ? 'PARTIALLY PAID'
-      : 'UNPAID';
+  const isFullyPaid = balanceDue === 0;
+
+  const paymentStatus = isFullyPaid
+    ? 'PAID'
+    : amountPaid > 0
+    ? 'PARTIALLY PAID'
+    : 'UNPAID';
 
   // Dedicated Print: Isolates #invoice-document only
   const handlePrint = () => {
@@ -172,18 +159,22 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
       const cleanBooking = (booking.bookingNumber || 'OOT').replace(/[^a-zA-Z0-9]/g, '_');
       const filename = `Invoice_${cleanBooking}_${cleanGuest}.pdf`;
 
-      // Trigger instant PDF download so the staff has the exact PDF ready to attach
-      const { download, pdfBlob } = await generateA4Pdf({
+      // Trigger PDF download
+      const { download } = await generateA4Pdf({
         elementId: 'invoice-document',
         filename,
       });
       download();
 
       const phone = (booking.customer?.phone || '').replace(/[^0-9]/g, '');
+      const paymentSummaryText = isFullyPaid
+        ? `• *Payment Status: Payment Completed / Fully Paid* (Balance: ₹0)\n`
+        : `• *Balance Due: ₹${balanceDue.toLocaleString('en-IN')}*\n• *Payment Due Date: ${formattedDueDate}*\n• Status: ${paymentStatus}\n`;
+
       const text = encodeURIComponent(
-        `*OOTING HOLIDAYS - OFFICIAL TAX INVOICE*\n\n` +
+        `*${(company.name || 'OOTING').toUpperCase()} - OFFICIAL TAX INVOICE*\n\n` +
         `Dear ${booking.customer?.fullName || 'Guest'},\n` +
-        `Your Tax Invoice *${invoiceNumber}* for Booking *${booking.bookingNumber}* is ready.\n\n` +
+        `Your Tax Invoice *${invoiceNumber}* for Booking *${booking.bookingNumber}* is generated.\n\n` +
         `• Tour: ${booking.package?.packageName || 'Custom Holiday Itinerary'}\n` +
         `• Travel Dates: ${travelStartDate} to ${travelEndDate}\n` +
         `• Subtotal: ₹${subtotal.toLocaleString('en-IN')}\n` +
@@ -191,11 +182,9 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         `• SGST (${sgstPercent}%): ₹${sgstAmount.toLocaleString('en-IN')}\n` +
         `• Grand Total: ₹${grandTotal.toLocaleString('en-IN')}\n` +
         `• Amount Paid: ₹${amountPaid.toLocaleString('en-IN')}\n` +
-        `• *Balance Due: ₹${balanceDue.toLocaleString('en-IN')}*\n` +
-        `• *Payment Due Date: ${formattedDueDate}*\n` +
-        `• Status: ${paymentStatus}\n\n` +
-        `📄 The official A4 Tax Invoice PDF has been downloaded to your system to share directly as a WhatsApp Document.\n\n` +
-        `Thank you for traveling with Ooting Holidays!`
+        paymentSummaryText + '\n' +
+        `📄 The official A4 Tax Invoice PDF has been downloaded to attach as a document.\n\n` +
+        `Thank you for choosing ${company.name || 'Ooting'}!`
       );
 
       const waUrl = `https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${text}`;
@@ -232,7 +221,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 type="button"
                 onClick={handleShareWhatsApp}
                 disabled={isGeneratingPdf}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                 title="Send PDF Invoice to customer via WhatsApp"
               >
                 <Share2 className="w-3.5 h-3.5" />
@@ -243,17 +232,21 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 type="button"
                 onClick={handleDownloadPdf}
                 disabled={isGeneratingPdf}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                 title="Download A4 PDF of invoice only"
               >
-                <Download className="w-3.5 h-3.5 text-amber-400" />
+                {isGeneratingPdf ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                )}
                 <span>{isGeneratingPdf ? 'Generating...' : 'Download Invoice (PDF)'}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-[#C91F28] hover:bg-[#a81920] text-white shadow-xs transition-all"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-[#C91F28] hover:bg-[#a81920] text-white shadow-xs transition-all cursor-pointer"
                 title="Print invoice document only"
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -263,7 +256,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -304,47 +297,56 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               </div>
             </div>
 
-            {/* Due Date Controls */}
+            {/* Due Date Controls (Disabled/informative if balance is 0) */}
             <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
               <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-[#C91F28]" />
                 Due Date:
               </span>
-              <div className="flex items-center gap-1">
-                {(['7', '10', '15'] as const).map((days) => (
-                  <button
-                    key={days}
-                    type="button"
-                    onClick={() => setDueOption(days)}
-                    className={`px-2 py-1 rounded text-[11px] font-semibold transition-all ${
-                      dueOption === days
-                        ? 'bg-[#C91F28] text-white'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                    }`}
-                  >
-                    {days}D
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setDueOption('custom')}
-                  className={`px-2 py-1 rounded text-[11px] font-semibold transition-all ${
-                    dueOption === 'custom'
-                      ? 'bg-[#C91F28] text-white'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                  }`}
-                >
-                  Custom
-                </button>
-              </div>
+              {isFullyPaid ? (
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Fully Paid — No Due Date Needed
+                </span>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1">
+                    {(['7', '10', '15'] as const).map((days) => (
+                      <button
+                        key={days}
+                        type="button"
+                        onClick={() => setDueOption(days)}
+                        className={`px-2 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                          dueOption === days
+                            ? 'bg-[#C91F28] text-white'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                        }`}
+                      >
+                        {days}D
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setDueOption('custom')}
+                      className={`px-2 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                        dueOption === 'custom'
+                          ? 'bg-[#C91F28] text-white'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                      }`}
+                    >
+                      Custom
+                    </button>
+                  </div>
 
-              {dueOption === 'custom' && (
-                <input
-                  type="date"
-                  value={customDueDate}
-                  onChange={(e) => setCustomDueDate(e.target.value)}
-                  className="p-1 border border-slate-300 dark:border-slate-600 rounded text-[11px] bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100"
-                />
+                  {dueOption === 'custom' && (
+                    <input
+                      type="date"
+                      value={customDueDate}
+                      onChange={(e) => setCustomDueDate(e.target.value)}
+                      className="p-1 border border-slate-300 dark:border-slate-600 rounded text-[11px] bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -366,31 +368,36 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               {/* Ooting Logo & Business Details */}
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-xl border border-slate-200 overflow-hidden flex items-center justify-center p-1 bg-white shadow-2xs">
+                  <div className="h-14 max-w-[150px] flex items-center justify-center">
                     <img
-                      src="/assets/ooting-logo.jpg"
-                      alt="Ooting"
-                      className="w-full h-full object-contain"
+                      src={company.logoUrl || '/assets/ooting-banner.jpg'}
+                      alt={company.name || 'Ooting'}
+                      className="max-h-14 max-w-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/assets/ooting-logo.png';
+                      }}
                     />
                   </div>
                   <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
-                      OOTING
+                      {(company.name || 'OOTING').toUpperCase()}
                     </h1>
                     <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wider block mt-0.5">
-                      Journeys Beyond Ordinary
+                      {company.tagline || 'Journeys Beyond Ordinary'}
                     </span>
                     <span className="text-[10px] text-slate-500 block">
                       Licensed Tour Operator & Destination Specialist
                     </span>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-600 max-w-xs leading-relaxed">
-                  {company.address}
-                </p>
+                {company.address && (
+                  <p className="text-[11px] text-slate-600 max-w-xs leading-relaxed">
+                    {company.address}
+                  </p>
+                )}
                 <div className="text-[11px] text-slate-600 space-y-0.5">
                   <p>Phone: <strong>{company.phone}</strong> | Email: <strong>{company.email}</strong></p>
-                  <p>GSTIN: <strong className="font-mono">{company.gstNumber}</strong> | Web: <strong>{company.website}</strong></p>
+                  <p>GSTIN: <strong className="font-mono">{company.gstin}</strong> | Web: <strong>{company.website}</strong></p>
                 </div>
               </div>
 
@@ -420,7 +427,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                     Payment Due Date
                   </span>
                   <span className="text-xs font-bold text-slate-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
-                    {formattedDueDate}
+                    {isFullyPaid ? 'N/A (Fully Paid)' : formattedDueDate}
                   </span>
                 </div>
                 <div>
@@ -429,14 +436,14 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </span>
                   <span
                     className={`inline-block px-2.5 py-0.5 text-[10px] font-bold rounded-full mt-0.5 ${
-                      paymentStatus === 'PAID'
+                      isFullyPaid
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : paymentStatus === 'PARTIALLY PAID'
                         ? 'bg-amber-100 text-amber-800 border border-amber-300'
                         : 'bg-rose-100 text-rose-800 border border-rose-300'
                     }`}
                   >
-                    {paymentStatus}
+                    {isFullyPaid ? 'PAYMENT COMPLETED / FULLY PAID' : paymentStatus}
                   </span>
                 </div>
               </div>
@@ -476,7 +483,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   Booking & Journey Overview
                 </span>
                 <p className="font-bold text-slate-900 text-sm">
-                  {booking.package?.packageName || 'Custom Nilgiri Holiday Tour'}
+                  {booking.package?.packageName || 'Custom Holiday Tour'}
                 </p>
                 <div className="flex justify-between text-slate-600">
                   <span>Booking Reference:</span>
@@ -583,16 +590,23 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 {/* Balance Due */}
                 <div className="flex justify-between text-slate-800 font-black pt-1 border-t border-slate-200">
                   <span>Balance Due:</span>
-                  <span className={balanceDue > 0 ? 'text-rose-600' : 'text-slate-700'}>
+                  <span className={balanceDue > 0 ? 'text-rose-600' : 'text-emerald-700'}>
                     ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
 
-                {/* Due Date Note */}
-                <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 mt-2">
-                  <span className="font-bold">Payment Due Date: </span>
-                  <span>{formattedDueDate}</span>
-                </div>
+                {/* Due Date Note or Paid Badge */}
+                {isFullyPaid ? (
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-bold flex items-center justify-center gap-2 mt-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Payment Completed in Full. Thank you!</span>
+                  </div>
+                ) : (
+                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 mt-2">
+                    <span className="font-bold">Payment Due Date: </span>
+                    <span>{formattedDueDate}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -600,13 +614,13 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-1">
               <div className="flex items-center justify-center gap-2 text-slate-900 font-black text-xs uppercase tracking-wider">
                 <ShieldCheck className="w-4 h-4 text-[#C91F28]" />
-                <span>Officially Authorized by Ooting Holidays</span>
+                <span>Officially Authorized by {company.name || 'Ooting'}</span>
               </div>
               <p className="text-[11px] text-slate-600 font-medium">
                 Payments can be made via UPI, Bank Transfer (NEFT/RTGS), or authorized company payment channels.
               </p>
               <p className="text-[10px] text-slate-400">
-                This is a computer-generated tax invoice verified by Ooting CRM. Valid without physical signature.
+                This is a computer-generated tax invoice verified by {company.name || 'Ooting'} CRM. Valid without physical signature.
               </p>
             </div>
 

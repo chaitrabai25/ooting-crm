@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../db/prisma.js';
 import { config } from '../config/index.js';
+import { getCompanySettings } from './setting.routes.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 
@@ -193,7 +194,7 @@ router.post('/verify-otp', async (req, res, next) => {
         status: updatedUser.status,
         lastLoginAt: updatedUser.lastLoginAt,
       },
-      company: config.company,
+      company: await getCompanySettings(),
     });
   } catch (error) {
     next(error);
@@ -267,7 +268,8 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response, next) =>
       },
     });
 
-    res.json({ user, company: config.company });
+    const company = await getCompanySettings();
+    res.json({ user, company });
   } catch (error) {
     next(error);
   }

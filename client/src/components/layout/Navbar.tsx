@@ -14,17 +14,19 @@ import {
   Sun,
   Moon,
   Car,
+  Menu,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 
 interface NavbarProps {
+  onOpenMobileMenu?: () => void;
   onOpenLeadModal?: () => void;
   onOpenCustomerModal?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = () => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenMobileMenu }) => {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -105,15 +107,25 @@ export const Navbar: React.FC<NavbarProps> = () => {
 
   return (
     <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-colors">
-      {/* Left Section: Back Arrow & Search */}
-      <div className="flex items-center gap-3 flex-1 max-w-lg">
+      {/* Left Section: Mobile Menu, Back Arrow & Search */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 max-w-lg">
+        {/* Mobile Hamburger Menu Toggle */}
+        <button
+          type="button"
+          onClick={onOpenMobileMenu}
+          title="Open Menu"
+          className="md:hidden p-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors flex-shrink-0 cursor-pointer"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         {/* Navigation Back Arrow on Sub-Pages */}
         {isSubPage && (
           <button
             type="button"
             onClick={() => navigate(-1)}
             title="Go Back"
-            className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex-shrink-0"
+            className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex-shrink-0 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>

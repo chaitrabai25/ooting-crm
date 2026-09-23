@@ -8,12 +8,27 @@ import { logAudit } from '../middleware/audit.js';
 const router = Router();
 router.use(authenticate);
 
+// Asia/Kolkata (IST = UTC+5:30) Offset in milliseconds
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+function getTodayISTBounds() {
+  const now = new Date();
+  const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+  const yr = nowIST.getUTCFullYear();
+  const mo = nowIST.getUTCMonth();
+  const dt = nowIST.getUTCDate();
+  const startIST = Date.UTC(yr, mo, dt, 0, 0, 0, 0) - IST_OFFSET_MS;
+  const endIST = Date.UTC(yr, mo, dt, 23, 59, 59, 999) - IST_OFFSET_MS;
+  return {
+    startOfToday: new Date(startIST),
+    endOfToday: new Date(endIST),
+  };
+}
+
 // Quick counts for dashboard and navigation badges
 router.get('/counts', async (req: AuthRequest, res: Response, next) => {
   try {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const { startOfToday, endOfToday } = getTodayISTBounds();
 
     const [todayCount, overdueCount, upcomingCount] = await Promise.all([
       prisma.followUp.count({
@@ -56,9 +71,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const assignedUserId = (req.query.assignedUserId as string || '').trim();
     const dateParam = (req.query.date as string || '').trim();
 
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const { startOfToday, endOfToday } = getTodayISTBounds();
 
     const where: any = {};
     if (status) {
@@ -75,9 +88,9 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         const year = parseInt(parts[0], 10);
         const month = parseInt(parts[1], 10) - 1;
         const day = parseInt(parts[2], 10);
-        const startOfDate = new Date(year, month, day, 0, 0, 0, 0);
-        const endOfDate = new Date(year, month, day, 23, 59, 59, 999);
-        where.scheduledAt = { gte: startOfDate, lte: endOfDate };
+        const startIST = Date.UTC(year, month, day, 0, 0, 0, 0) - IST_OFFSET_MS;
+        const endIST = Date.UTC(year, month, day, 23, 59, 59, 999) - IST_OFFSET_MS;
+        where.scheduledAt = { gte: new Date(startIST), lte: new Date(endIST) };
       }
     } else if (filter === 'today') {
       where.scheduledAt = { gte: startOfToday, lte: endOfToday };

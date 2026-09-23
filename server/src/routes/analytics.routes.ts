@@ -124,7 +124,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         { package: { destination: { contains: search } } },
       ];
       cabDateWhere.OR = [
-        { bookingRef: { contains: search } },
+        { bookingReference: { contains: search } },
         { customerName: { contains: search } },
         { customerPhone: { contains: search } },
         { pickupPlace: { contains: search } },
@@ -196,7 +196,9 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
       }),
 
       // B2B Bookings (respect date range)
-      prisma.agentBooking.count({ where: bookingDateWhere }),
+      prisma.agentBooking.count({
+        where: hasDateFilter ? { createdAt: dateFilter } : {},
+      }),
 
       // TODAY'S TASKS
       // 1. Follow-ups Today

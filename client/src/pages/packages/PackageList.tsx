@@ -216,14 +216,13 @@ export const PackageList: React.FC = () => {
                 </p>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-medium">{pkg.duration}</span>
+                  <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-200">
+                    <Clock className="w-3.5 h-3.5 text-brand-500" />
+                    <span>{pkg.duration}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{pkg.itineraries?.length || 0} Days Plan</span>
-                  </div>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    {pkg.packageType || 'Tour'}
+                  </span>
                 </div>
               </div>
 

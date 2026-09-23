@@ -18,6 +18,7 @@ export const config = {
     email: process.env.COMPANY_EMAIL || 'contact@ooting.com',
     phone: process.env.COMPANY_PHONE || '+91 98765 43210',
     address: process.env.COMPANY_ADDRESS || 'Ooting Holidays Private Limited, Bangalore, Karnataka, India',
+    website: process.env.COMPANY_WEBSITE || 'https://ooting.in',
     gstin: process.env.COMPANY_GSTIN || '29AABCO1234F1Z5',
   },
 };

@@ -447,3 +447,13 @@ export interface Supplier {
   updatedAt: string;
 }
 
+export interface CompanySettings {
+  name: string;
+  tagline: string;
+  email: string;
+  phone: string;
+  address: string;
+  website: string;
+  gstin: string;
+  logoUrl: string;
+}

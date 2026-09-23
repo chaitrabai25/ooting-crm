@@ -115,9 +115,11 @@ export const LeadDetail: React.FC = () => {
     e.preventDefault();
     setIsScheduling(true);
     try {
+      // Ensure user local selection is accurately preserved as ISO
+      const isoDate = new Date(followUpDate).toISOString();
       await api.post('/followups', {
         leadId: id,
-        scheduledAt: followUpDate,
+        scheduledAt: isoDate,
         type: followUpType,
         notes: followUpNotes,
       });
@@ -411,7 +413,16 @@ export const LeadDetail: React.FC = () => {
                       </div>
                       <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
                         <Clock className="w-3 h-3 text-slate-400" />
-                        <span>{new Date(f.scheduledAt).toLocaleString()}</span>
+                        <span>
+                          {new Date(f.scheduledAt).toLocaleString('en-IN', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          })}
+                        </span>
                         {f.assignedUser && <span>• Assigned: {f.assignedUser.name}</span>}
                       </p>
                       {f.notes && <p className="text-slate-600 dark:text-slate-300 mt-1 italic">{f.notes}</p>}

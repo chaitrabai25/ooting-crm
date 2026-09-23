@@ -5,6 +5,7 @@ import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { config } from '../config/index.js';
+import { getCompanySettings } from './setting.routes.js';
 
 const router = Router();
 router.use(authenticate);
@@ -179,9 +180,11 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
+    const company = await getCompanySettings();
+
     res.json({
       quotation,
-      company: config.company,
+      company,
     });
   } catch (error) {
     next(error);

@@ -59,6 +59,29 @@ const SUPPLIER_TYPE_BADGES: Record<string, string> = {
   OTHER: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800/40 dark:text-slate-300 dark:border-slate-700',
 };
 
+const getCategoryBadgeClass = (category: string) => {
+  switch (category) {
+    case 'Hotel':
+      return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
+    case 'Bus':
+      return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800';
+    case 'Cab':
+      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800';
+    case 'Flight':
+      return 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800';
+    case 'Guide':
+      return 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800';
+    case 'Adventure Activity':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800';
+    case 'Entry Ticket':
+      return 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800';
+    case 'Food/Restaurant':
+      return 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800';
+    default:
+      return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+  }
+};
+
 export const SupplierList: React.FC = () => {
   const navigate = useNavigate();
   const { can, isSuperAdmin } = useAuth();
@@ -254,7 +277,7 @@ export const SupplierList: React.FC = () => {
               {cats.length > 0 && cats.map((c) => (
                 <span
                   key={c}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-medium"
+                  className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${getCategoryBadgeClass(c)}`}
                 >
                   {c}
                 </span>

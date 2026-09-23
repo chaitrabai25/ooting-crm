@@ -136,8 +136,10 @@ export const FollowUpList: React.FC = () => {
     if (!rescheduleItem || !newDate) return;
     setIsSubmitting(true);
     try {
+      // Ensure local browser time is accurately preserved as ISO
+      const isoDate = new Date(newDate).toISOString();
       await api.patch(`/followups/${rescheduleItem.id}/reschedule`, {
-        scheduledAt: newDate,
+        scheduledAt: isoDate,
         notes: rescheduleNotes,
       });
       setRescheduleItem(null);
@@ -421,13 +423,14 @@ export const FollowUpList: React.FC = () => {
                       <span>{item.lead?.destination || 'Tour'}</span>
                       <span>•</span>
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                        {new Date(item.scheduledAt).toLocaleString([], {
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {new Date(item.scheduledAt).toLocaleString('en-IN', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',
                           hour: '2-digit',
                           minute: '2-digit',
+                          hour12: true,
                         })}
                       </span>
                       {item.assignedUser?.name && (

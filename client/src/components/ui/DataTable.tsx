@@ -65,21 +65,21 @@ export function DataTable<T extends { id?: string | number }>({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[700px]">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-850 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 select-none">
+            <tr className="border-b-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100 select-none shadow-xs">
               {columns.map((col, idx) => {
                 const key = col.sortKey || (col.sortable && col.accessor && col.accessor !== 'sNo' ? String(col.accessor) : undefined);
                 const isCurrentSort = !!key && sortField === key;
 
                 return (
-                  <th key={idx} className={`px-5 py-3.5 ${col.className || ''}`}>
+                  <th key={idx} className={`px-5 py-3.5 text-slate-800 dark:text-slate-100 font-bold ${col.className || ''}`}>
                     {key && onSort ? (
                       <button
                         type="button"
                         onClick={() => onSort(key)}
-                        className="inline-flex items-center gap-1.5 font-semibold text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors group cursor-pointer"
+                        className="inline-flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 transition-colors group cursor-pointer"
                       >
                         <span>{col.header}</span>
-                        <span className="p-0.5 rounded group-hover:bg-red-50 dark:group-hover:bg-red-950/40">
+                        <span className="p-0.5 rounded group-hover:bg-slate-200 dark:group-hover:bg-slate-700">
                           {isCurrentSort ? (
                             sortOrder === 'asc' ? (
                               <ArrowUp className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
@@ -87,7 +87,7 @@ export function DataTable<T extends { id?: string | number }>({
                               <ArrowDown className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                             )
                           ) : (
-                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-60 group-hover:opacity-100" />
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400 opacity-70 group-hover:opacity-100" />
                           )}
                         </span>
                       </button>
