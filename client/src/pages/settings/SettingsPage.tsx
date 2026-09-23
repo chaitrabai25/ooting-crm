@@ -26,7 +26,7 @@ export const SettingsPage: React.FC = () => {
     address: 'Ooting Holidays Private Limited, Bangalore, Karnataka, India',
     website: 'https://ooting.in',
     gstin: '29AABCO1234F1Z5',
-    logoUrl: '/assets/ooting-banner.jpg',
+    logoUrl: '/assets/ooting-logo.jpg',
   });
 
   const [masterData, setMasterData] = useState<MasterData | null>(null);
@@ -252,17 +252,17 @@ export const SettingsPage: React.FC = () => {
                   disabled={!isAdmin}
                   value={company.logoUrl}
                   onChange={(e) => setCompany({ ...company, logoUrl: e.target.value })}
-                  placeholder="/assets/ooting-banner.jpg"
+                  placeholder="/assets/ooting-logo.jpg"
                   className="flex-1 min-w-[260px] p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
                 />
                 {isAdmin && (
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-banner.jpg' })}
+                      onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-logo.jpg' })}
                       className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-[11px] font-medium transition"
                     >
-                      Full Banner
+                      Default Logo
                     </button>
                     <button
                       type="button"
@@ -273,10 +273,10 @@ export const SettingsPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-logo.png' })}
+                      onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-banner.jpg' })}
                       className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-[11px] font-medium transition"
                     >
-                      Red Icon
+                      Full Banner
                     </button>
                   </div>
                 )}

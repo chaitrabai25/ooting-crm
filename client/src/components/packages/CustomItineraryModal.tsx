@@ -826,13 +826,13 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                 {/* Letterhead Header Section */}
                 <div className="flex items-center justify-between pb-6 border-b border-slate-200">
                   <div className="flex items-center gap-3">
-                    <div className="h-14 max-w-[150px] flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
                       <img
-                        src={company.logoUrl || '/assets/ooting-banner.jpg'}
+                        src={company.logoUrl || '/assets/ooting-logo.jpg'}
                         alt={company.name || 'Ooting'}
-                        className="max-h-14 max-w-full object-contain"
+                        className="w-full h-full object-contain"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/assets/ooting-logo.png';
+                          (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
                         }}
                       />
                     </div>

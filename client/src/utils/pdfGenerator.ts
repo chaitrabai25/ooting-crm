@@ -20,14 +20,26 @@ export async function generateA4Pdf({
     throw new Error(`Target container #${elementId} not found in document.`);
   }
 
-  // Ensure high quality canvas rendering
+  // Standard A4 width at 96 DPI is ~794px. We render at fixed 794px width on clone
+  // so mobile or responsive screen widths do not compress or distort the document layout.
+  const a4StandardPxWidth = 794;
+
   const canvas = await html2canvas(element, {
     scale: 2, // 2x crisp retina resolution
     useCORS: true,
     logging: false,
     backgroundColor: '#ffffff',
-    windowWidth: element.scrollWidth,
-    windowHeight: element.scrollHeight,
+    windowWidth: 1200,
+    onclone: (clonedDoc) => {
+      const el = clonedDoc.getElementById(elementId);
+      if (el) {
+        el.style.width = `${a4StandardPxWidth}px`;
+        el.style.maxWidth = `${a4StandardPxWidth}px`;
+        el.style.minWidth = `${a4StandardPxWidth}px`;
+        el.style.boxSizing = 'border-box';
+        el.style.margin = '0 auto';
+      }
+    },
   });
 
   const imgData = canvas.toDataURL('image/png', 1.0);
@@ -41,22 +53,32 @@ export async function generateA4Pdf({
 
   const pageWidth = 210;
   const pageHeight = 297;
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  const marginX = 8; // 8mm left and right margins for clean alignment
+  const marginY = 8; // 8mm top and bottom margins
+  const printableWidth = pageWidth - marginX * 2; // 194mm
+  const printableHeight = pageHeight - marginY * 2; // 281mm
 
-  let heightLeft = imgHeight;
-  let position = 0;
+  const contentHeight = (canvas.height * printableWidth) / canvas.width;
 
-  // First page
-  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-  heightLeft -= pageHeight;
+  // If the document content is close to fitting on a single page (within 10%), scale to 1 page
+  // to avoid creating an awkward 2nd page with just a footer line!
+  if (contentHeight <= printableHeight * 1.1) {
+    const finalHeight = Math.min(contentHeight, printableHeight);
+    pdf.addImage(imgData, 'PNG', marginX, marginY, printableWidth, finalHeight, undefined, 'FAST');
+  } else {
+    // Multi-page document handling with clean margins
+    let heightLeft = contentHeight;
+    let position = marginY;
 
-  // Add pages if document spans multiple A4 pages
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight;
-    pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-    heightLeft -= pageHeight;
+    pdf.addImage(imgData, 'PNG', marginX, position, printableWidth, contentHeight, undefined, 'FAST');
+    heightLeft -= printableHeight;
+
+    while (heightLeft > 0) {
+      position = heightLeft - contentHeight + marginY;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', marginX, position, printableWidth, contentHeight, undefined, 'FAST');
+      heightLeft -= printableHeight;
+    }
   }
 
   const pdfBlob = pdf.output('blob');

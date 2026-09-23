@@ -258,7 +258,8 @@ export const CabVoucher: React.FC = () => {
       {/* Main A4 Duty Slip Document (Container isolated for dedicated PDF and Print) */}
       <div
         id="duty-slip-document"
-        className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-sans print:m-0 border border-slate-200"
+        className="w-[794px] max-w-full mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none text-slate-800 font-sans print:m-0 border border-slate-200"
+        style={{ boxSizing: 'border-box' }}
       >
         {/* Top Header Wave Accent */}
         <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative">
@@ -271,17 +272,14 @@ export const CabVoucher: React.FC = () => {
 
         {/* Letterhead Header Section */}
         <div className="px-8 pt-6 pb-4 border-b border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-row items-center justify-between gap-4">
             {/* Logo & Company Identity */}
             <div className="flex items-center gap-3.5">
-              <div className="h-14 max-w-[160px] flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
                 <img
-                  src={company.logoUrl || '/assets/ooting-banner.jpg'}
-                  alt={company.name || 'Ooting'}
-                  className="max-h-14 max-w-full object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/assets/ooting-logo.png';
-                  }}
+                  src="/assets/ooting-logo.jpg"
+                  alt="Ooting"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <div>
@@ -667,8 +665,38 @@ export const CabVoucher: React.FC = () => {
             )}
           </div>
 
+          {/* Duty Slip Acknowledgement & Signatures */}
+          <div className="grid grid-cols-2 gap-6 pt-1">
+            <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 text-xs space-y-3">
+              <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] block">
+                Assigned Driver Acknowledgement
+              </span>
+              <div className="flex justify-between text-[11px] text-slate-500">
+                <span>Start Km: ________</span>
+                <span>End Km: ________</span>
+              </div>
+              <div className="pt-3 border-t border-dashed border-slate-300 flex justify-between items-end text-[10px] text-slate-500">
+                <span>Driver Signature:</span>
+                <span className="font-semibold text-slate-700">{cab.driverName || 'Driver'}</span>
+              </div>
+            </div>
+
+            <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 text-xs space-y-3">
+              <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] block">
+                Guest / Passenger Acknowledgement
+              </span>
+              <p className="text-[10px] text-slate-500 leading-tight">
+                I hereby confirm services rendered. Vehicle and driver reported on schedule.
+              </p>
+              <div className="pt-3 border-t border-dashed border-slate-300 flex justify-between items-end text-[10px] text-slate-500">
+                <span>Guest Signature:</span>
+                <span className="font-semibold text-slate-700">{cab.customerName}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Official Authorization Notice */}
-          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/80 text-center space-y-1 mt-4">
+          <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/80 text-center space-y-1 mt-2">
             <div className="flex items-center justify-center gap-2 text-slate-900 font-black text-xs uppercase tracking-wider">
               <ShieldCheck className="w-4 h-4 text-[#C91F28]" />
               <span>Officially Authorized by {company.name || 'Ooting'}</span>
@@ -683,7 +711,7 @@ export const CabVoucher: React.FC = () => {
         </div>
 
         {/* Bottom Wave Footer */}
-        <div className="w-full h-3 bg-[#C91F28] mt-4"></div>
+        <div className="w-full h-3 bg-[#C91F28] mt-2"></div>
       </div>
 
       {/* Print Preview Modal */}
@@ -730,11 +758,13 @@ export const CabVoucher: React.FC = () => {
                 <div className="w-full h-3 bg-[#C91F28]"></div>
                 <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={company.logoUrl || '/assets/ooting-banner.jpg'}
-                      alt=""
-                      className="h-10 max-w-[120px] object-contain"
-                    />
+                    <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 border border-slate-200">
+                      <img
+                        src="/assets/ooting-logo.jpg"
+                        alt="Ooting"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
                     <div>
                       <span className="font-black text-slate-900 block">{company.name}</span>
                       <span className="text-[10px] text-[#C91F28] font-bold block">{company.tagline}</span>

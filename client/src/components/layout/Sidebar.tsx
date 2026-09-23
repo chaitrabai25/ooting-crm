@@ -305,34 +305,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
         isCollapsed ? 'justify-center' : 'justify-between'
       }`}>
         {isCollapsed ? (
-          <div className="flex flex-col items-center justify-center" title={`${company.name} — ${company.tagline}`}>
+          <div
+            className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow-sm border border-slate-700 cursor-pointer"
+            onClick={toggleCollapse}
+            title="Expand sidebar"
+          >
             <img
-              src="/assets/ooting-icon-white.jpg"
-              alt={company.name}
-              className="w-9 h-9 object-contain rounded-md"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/assets/ooting-logo.png';
-              }}
+              src="/assets/ooting-logo.jpg"
+              alt="Ooting"
+              className="w-full h-full object-contain"
             />
           </div>
         ) : (
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="flex-shrink-0">
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow-sm border border-slate-700 flex-shrink-0">
               <img
-                src={company.logoUrl || '/assets/ooting-banner.jpg'}
-                alt={company.name}
-                className="h-10 max-w-[130px] object-contain rounded"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/assets/ooting-banner.jpg';
-                }}
+                src="/assets/ooting-logo.jpg"
+                alt="Ooting"
+                className="w-full h-full object-contain"
               />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-extrabold text-sm tracking-wide text-white truncate">
-                {company.name.toUpperCase()} CRM
-              </span>
+              <span className="font-extrabold text-sm tracking-wide text-white truncate">OOTING CRM</span>
               <span className="text-[10px] text-brand-400 font-semibold tracking-tight truncate">
-                {company.tagline}
+                Journeys Beyond Ordinary
               </span>
             </div>
           </div>

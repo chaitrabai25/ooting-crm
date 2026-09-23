@@ -14,6 +14,7 @@ import {
   Clock,
   CheckCircle2,
   Loader2,
+  Globe,
 } from 'lucide-react';
 import { Booking } from '../../types/index.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
@@ -357,103 +358,114 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center print:p-0 print:bg-white">
           <div
             id="invoice-document"
-            className="w-full max-w-[800px] bg-white text-slate-800 font-sans p-8 sm:p-10 shadow-lg print:shadow-none border border-slate-200 print:border-none print:p-6"
-            style={{ minHeight: '1050px' }}
+            className="w-[794px] max-w-full mx-auto bg-white text-slate-800 font-sans p-8 shadow-xl print:shadow-none border border-slate-200 print:border-none print:p-6"
+            style={{ boxSizing: 'border-box' }}
           >
             {/* Top Brand Accent */}
-            <div className="w-full h-2.5 bg-[#C91F28] mb-6 rounded-full print:rounded-none"></div>
+            <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative mb-5 rounded-t-lg print:rounded-none">
+              <img
+                src="/assets/ooting-header-wave.png"
+                alt=""
+                className="w-full h-full object-cover opacity-90"
+              />
+            </div>
 
             {/* Letterhead Header Section */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-slate-200">
+            <div className="flex flex-row items-center justify-between gap-4 pb-5 border-b border-slate-200">
               {/* Ooting Logo & Business Details */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="h-14 max-w-[150px] flex items-center justify-center">
-                    <img
-                      src={company.logoUrl || '/assets/ooting-banner.jpg'}
-                      alt={company.name || 'Ooting'}
-                      className="max-h-14 max-w-full object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/assets/ooting-logo.png';
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
-                      {(company.name || 'OOTING').toUpperCase()}
-                    </h1>
-                    <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wider block mt-0.5">
-                      {company.tagline || 'Journeys Beyond Ordinary'}
-                    </span>
-                    <span className="text-[10px] text-slate-500 block">
-                      Licensed Tour Operator & Destination Specialist
-                    </span>
-                  </div>
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
+                  <img
+                    src={company.logoUrl || '/assets/ooting-logo.jpg'}
+                    alt={company.name || 'Ooting'}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                    }}
+                  />
                 </div>
-                {company.address && (
-                  <p className="text-[11px] text-slate-600 max-w-xs leading-relaxed">
-                    {company.address}
-                  </p>
-                )}
-                <div className="text-[11px] text-slate-600 space-y-0.5">
-                  <p>Phone: <strong>{company.phone}</strong> | Email: <strong>{company.email}</strong></p>
-                  <p>GSTIN: <strong className="font-mono">{company.gstin}</strong> | Web: <strong>{company.website}</strong></p>
+                <div>
+                  <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight">
+                    {(company.name || 'OOTING').toUpperCase()}
+                  </h1>
+                  <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wider block">
+                    {company.tagline || 'Journeys Beyond Ordinary'}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">
+                    Licensed Tour Operator & Destination Specialist
+                  </span>
                 </div>
               </div>
 
-              {/* Invoice Meta Banner */}
-              <div className="text-left sm:text-right space-y-1.5">
-                <span className="inline-block px-3.5 py-1 bg-slate-900 text-amber-400 font-black text-xs uppercase tracking-widest rounded-lg">
-                  TAX INVOICE
+              {/* Official Contact & Registration */}
+              <div className="text-right text-[11px] text-slate-600 space-y-1 max-w-xs">
+                <div className="flex items-center justify-end gap-1.5 font-semibold text-slate-900">
+                  <Globe className="w-3.5 h-3.5 text-[#C91F28]" />
+                  <span>{company.website || 'https://ooting.in'}</span>
+                </div>
+                <div className="flex items-center justify-end gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
+                  <span>{company.phone || '+91 98765 43210'}</span>
+                </div>
+                <div className="flex items-center justify-end gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-[#C91F28]" />
+                  <span>{company.email || 'contact@ooting.com'}</span>
+                </div>
+                {company.gstin && (
+                  <p className="text-[10px] text-slate-500">
+                    GSTIN: <strong className="font-mono text-slate-700">{company.gstin}</strong>
+                  </p>
+                )}
+                {company.address && (
+                  <div className="flex items-center justify-end gap-1.5 text-slate-500 text-[10px] text-right">
+                    <MapPin className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
+                    <span className="line-clamp-2">{company.address}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Document Title & Meta Banner */}
+            <div className="bg-slate-900 text-white px-5 py-3 flex items-center justify-between rounded-lg my-4">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-widest">
+                  OFFICIAL COMMERCIAL DOCUMENT
                 </span>
-                <div className="pt-2">
-                  <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
-                    Invoice Number
-                  </span>
-                  <span className="font-mono font-bold text-sm text-slate-900 tracking-wide">
-                    {invoiceNumber}
-                  </span>
+                <h2 className="text-sm font-black tracking-wide">
+                  TAX INVOICE & BOOKING STATEMENT
+                </h2>
+              </div>
+              <div className="flex items-center gap-6 text-right">
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Invoice #</span>
+                  <span className="font-mono text-xs font-bold text-amber-300">{invoiceNumber}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
-                    Invoice Date
-                  </span>
-                  <span className="text-xs font-semibold text-slate-800">
-                    {invoiceDateStr}
-                  </span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Invoice Date</span>
+                  <span className="text-xs font-bold text-white">{invoiceDateStr}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-[#C91F28] font-bold block uppercase tracking-wider">
-                    Payment Due Date
-                  </span>
-                  <span className="text-xs font-bold text-slate-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
-                    {isFullyPaid ? 'N/A (Fully Paid)' : formattedDueDate}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
-                    Payment Status
-                  </span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Payment Status</span>
                   <span
-                    className={`inline-block px-2.5 py-0.5 text-[10px] font-bold rounded-full mt-0.5 ${
+                    className={`inline-block px-2.5 py-0.5 text-[10px] font-bold rounded-full ${
                       isFullyPaid
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                         : paymentStatus === 'PARTIALLY PAID'
-                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                        : 'bg-rose-100 text-rose-800 border border-rose-300'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                     }`}
                   >
-                    {isFullyPaid ? 'PAYMENT COMPLETED / FULLY PAID' : paymentStatus}
+                    {isFullyPaid ? 'FULLY PAID' : paymentStatus}
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Customer & Booking Details Section */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 py-5 border-b border-slate-200 text-xs">
+            <div className="grid grid-cols-2 gap-4 py-4 border-b border-slate-200 text-xs">
               {/* Billed To Customer */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block mb-1">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+                <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block mb-0.5">
                   Billed To (Guest Customer)
                 </span>
                 <p className="font-bold text-slate-900 text-sm">{booking.customer?.fullName || 'Guest Customer'}</p>
@@ -478,8 +490,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               </div>
 
               {/* Booking & Journey Information */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block mb-1">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+                <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block mb-0.5">
                   Booking & Journey Overview
                 </span>
                 <p className="font-bold text-slate-900 text-sm">
@@ -501,7 +513,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             </div>
 
             {/* Line Items Table */}
-            <div className="py-5 border-b border-slate-200">
+            <div className="py-4 border-b border-slate-200">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b-2 border-slate-200 text-slate-700 bg-slate-50 font-bold">
@@ -537,9 +549,49 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               </table>
             </div>
 
-            {/* Financial Calculations Breakdown */}
-            <div className="py-5 flex justify-end">
-              <div className="w-full max-w-sm space-y-2 text-xs">
+            {/* Balanced 2-Column Section: Banking on Left, Financial Calculations on Right */}
+            <div className="grid grid-cols-2 gap-6 py-4 border-b border-slate-200">
+              {/* Left: Banking / Remittance Details & Policy Notes */}
+              <div className="space-y-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block">
+                    Bank & Remittance Details
+                  </span>
+                  <div className="space-y-1 text-[11px] text-slate-600">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Beneficiary:</span>
+                      <span className="font-bold text-slate-900">{company.name || 'Ooting'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Bank Name:</span>
+                      <span className="font-medium text-slate-800">Authorized Commercial Bank</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">UPI ID / VPA:</span>
+                      <span className="font-mono font-semibold text-slate-800">ooting@upi</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Account Type:</span>
+                      <span className="font-medium text-slate-800">Current Account</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 pt-1.5 border-t border-slate-200/80">
+                    Please quote Booking Ref <strong>{booking.bookingNumber}</strong> during bank fund transfer.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-200/60 text-[11px] text-amber-950 space-y-1">
+                  <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wider">
+                    Payment Terms & Cancellation Policy
+                  </span>
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
+                    Standard cancellation charges apply as per booking itinerary policy. Peak season & holiday bookings are non-refundable within 7 days of departure.
+                  </p>
+                </div>
+              </div>
+
+              {/* Right: Financial Breakdown */}
+              <div className="space-y-1.5 text-xs bg-slate-50/60 p-4 rounded-xl border border-slate-200">
                 <div className="flex justify-between text-slate-600">
                   <span>Subtotal:</span>
                   <span className="font-semibold text-slate-900">₹{rawTotal.toLocaleString('en-IN')}</span>
@@ -582,50 +634,74 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 </div>
 
                 {/* Amount Paid */}
-                <div className="flex justify-between text-emerald-700 font-bold pt-1 border-t border-slate-100">
+                <div className="flex justify-between text-emerald-700 font-bold pt-1 border-t border-slate-200">
                   <span>Amount Paid:</span>
                   <span>₹{amountPaid.toLocaleString('en-IN')}</span>
                 </div>
 
                 {/* Balance Due */}
-                <div className="flex justify-between text-slate-800 font-black pt-1 border-t border-slate-200">
+                <div className="flex justify-between text-slate-900 font-black pt-1 border-t border-slate-200">
                   <span>Balance Due:</span>
-                  <span className={balanceDue > 0 ? 'text-rose-600' : 'text-emerald-700'}>
+                  <span className={balanceDue > 0 ? 'text-rose-600 text-sm' : 'text-emerald-700'}>
                     ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
 
                 {/* Due Date Note or Paid Badge */}
                 {isFullyPaid ? (
-                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-bold flex items-center justify-center gap-2 mt-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-bold flex items-center justify-center gap-1.5 mt-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Payment Completed in Full. Thank you!</span>
                   </div>
                 ) : (
-                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 mt-2">
-                    <span className="font-bold">Payment Due Date: </span>
-                    <span>{formattedDueDate}</span>
+                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 mt-2 flex justify-between items-center">
+                    <span className="font-bold">Payment Due Date:</span>
+                    <span className="font-black font-mono text-slate-900">{formattedDueDate}</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Official Terms & Authorization Notice */}
-            <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-1">
-              <div className="flex items-center justify-center gap-2 text-slate-900 font-black text-xs uppercase tracking-wider">
-                <ShieldCheck className="w-4 h-4 text-[#C91F28]" />
-                <span>Officially Authorized by {company.name || 'Ooting'}</span>
+            {/* Customer Acceptance & Signatory Notice */}
+            <div className="grid grid-cols-2 gap-6 pt-3 text-xs">
+              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-1">
+                <span className="font-bold text-slate-700 uppercase tracking-wider text-[10px] block">
+                  Customer Acceptance
+                </span>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  I accept the tour itinerary, terms, inclusions, and payment schedule.
+                </p>
+                <div className="pt-4 border-t border-dashed border-slate-300 flex justify-between items-end text-[10px] text-slate-500">
+                  <span>Guest Signature:</span>
+                  <span className="font-semibold text-slate-700">{booking.customer?.fullName || 'Guest'}</span>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-600 font-medium">
-                Payments can be made via UPI, Bank Transfer (NEFT/RTGS), or authorized company payment channels.
-              </p>
-              <p className="text-[10px] text-slate-400">
-                This is a computer-generated tax invoice verified by {company.name || 'Ooting'} CRM. Valid without physical signature.
-              </p>
+
+              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 text-center space-y-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-center gap-1.5 text-slate-900 font-black text-[11px] uppercase tracking-wider">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28]" />
+                    <span>Officially Authorized by {company.name || 'Ooting'}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    This is a computer-generated tax invoice verified by {company.name || 'Ooting'} CRM. Valid without physical signature.
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-dashed border-slate-300 flex justify-between items-end text-[10px] text-slate-500">
+                  <span>Authorized Signatory:</span>
+                  <span className="font-semibold text-[#C91F28]">{company.name || 'Ooting'}</span>
+                </div>
+              </div>
             </div>
 
             {/* Bottom Wave Footer */}
-            <div className="w-full h-2.5 bg-[#C91F28] mt-6 rounded-full print:rounded-none"></div>
+            <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative mt-5 rounded-b-lg print:rounded-none">
+              <img
+                src="/assets/ooting-header-wave.png"
+                alt=""
+                className="w-full h-full object-cover opacity-90 rotate-180"
+              />
+            </div>
           </div>
         </div>
       </div>

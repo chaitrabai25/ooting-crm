@@ -10,7 +10,7 @@ const defaultSettings: CompanySettings = {
   address: 'Ooting Holidays Private Limited, Bangalore, Karnataka, India',
   website: 'https://ooting.in',
   gstin: '29AABCO1234F1Z5',
-  logoUrl: '/assets/ooting-banner.jpg',
+  logoUrl: '/assets/ooting-logo.jpg',
 };
 
 interface CompanySettingsContextType {
@@ -25,7 +25,15 @@ const CompanySettingsContext = createContext<CompanySettingsContextType | undefi
 export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [company, setCompany] = useState<CompanySettings>(() => {
     const saved = localStorage.getItem('ooting_company_settings');
-    return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migrate away from banner if saved
+      if (parsed.logoUrl === '/assets/ooting-banner.jpg') {
+        parsed.logoUrl = '/assets/ooting-logo.jpg';
+      }
+      return { ...defaultSettings, ...parsed };
+    }
+    return defaultSettings;
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
 

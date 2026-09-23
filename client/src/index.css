@@ -8,7 +8,6 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  /* High contrast inputs and controls for dark theme */
   .dark {
     color-scheme: dark;
   }
@@ -16,23 +15,120 @@
     background-color: #0f172a;
     color: #f8fafc;
   }
-  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
-  .dark select,
-  .dark textarea {
-    background-color: #1e293b !important;
-    color: #f8fafc !important;
-    border-color: #334155 !important;
-  }
-  .dark input:focus,
-  .dark select:focus,
-  .dark textarea:focus {
-    border-color: #C91F28 !important;
-    outline: none !important;
-  }
-  .dark input::placeholder,
-  .dark textarea::placeholder {
-    color: #94a3b8 !important;
-  }
+}
+
+/* ==========================================================================
+   DARK THEME FORM CONTROLS & TEXT FIELD VISIBILITY (High Specificity)
+   Guarantees all inputs, textareas, selects, and options are 100% visible
+   ========================================================================== */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+html.dark textarea,
+html.dark select,
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.dark textarea,
+.dark select {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  border-color: #475569 !important;
+}
+
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark select:focus,
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #C91F28 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 1px #C91F28 !important;
+}
+
+/* Placeholders in Dark Theme */
+html.dark input::placeholder,
+html.dark textarea::placeholder,
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #94a3b8 !important;
+  -webkit-text-fill-color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+/* Dropdown Option tags inside dark selects */
+html.dark select option,
+.dark select option {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Date and Time picker calendar/clock icons in Dark Theme */
+html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark input[type="time"]::-webkit-calendar-picker-indicator,
+html.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.2) !important;
+  cursor: pointer;
+}
+
+/* Disabled text fields in Dark Theme */
+html.dark input:disabled,
+html.dark textarea:disabled,
+html.dark select:disabled,
+.dark input:disabled,
+.dark textarea:disabled,
+.dark select:disabled {
+  background-color: #0f172a !important;
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+  border-color: #334155 !important;
+  cursor: not-allowed;
+}
+
+/* Chromium Autofill Background & Text Color in Dark Theme */
+html.dark input:-webkit-autofill,
+html.dark input:-webkit-autofill:hover,
+html.dark input:-webkit-autofill:focus,
+html.dark textarea:-webkit-autofill,
+html.dark textarea:-webkit-autofill:hover,
+html.dark textarea:-webkit-autofill:focus,
+html.dark select:-webkit-autofill,
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark textarea:-webkit-autofill,
+.dark textarea:-webkit-autofill:hover,
+.dark textarea:-webkit-autofill:focus,
+.dark select:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px #1e293b inset !important;
+  box-shadow: 0 0 0px 1000px #1e293b inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Preserve printable white documents from dark input overrides */
+#invoice-document input,
+#invoice-document textarea,
+#invoice-document select,
+#duty-slip-document input,
+#duty-slip-document textarea,
+#duty-slip-document select,
+#itinerary-document input,
+#itinerary-document textarea,
+#itinerary-document select {
+  background-color: transparent !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+#invoice-document input::placeholder,
+#duty-slip-document input::placeholder,
+#itinerary-document input::placeholder {
+  color: #94a3b8 !important;
+  -webkit-text-fill-color: #94a3b8 !important;
 }
 
 /* Custom Scrollbar for professional CRM appearance */
