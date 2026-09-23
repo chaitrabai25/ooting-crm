@@ -35,6 +35,467 @@ interface DutySlipTableRow {
   remarks: string;
 }
 
+const DutySlipDocumentBody: React.FC<{
+  cab: CabBooking;
+  company: any;
+  showCustomTable: boolean;
+  customRows: DutySlipTableRow[];
+  onRowChange?: (id: string, field: keyof DutySlipTableRow, value: string) => void;
+  onAddRow?: () => void;
+  onRemoveRow?: (id: string) => void;
+  isStaticPreview?: boolean;
+}> = ({
+  cab,
+  company,
+  showCustomTable,
+  customRows,
+  onRowChange,
+  onAddRow,
+  onRemoveRow,
+  isStaticPreview = false,
+}) => {
+  return (
+    <>
+      {/* Top Header Wave Accent */}
+      <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative">
+        <img
+          src="/assets/ooting-header-wave.png"
+          alt=""
+          className="w-full h-full object-cover opacity-90"
+        />
+      </div>
+
+      {/* Letterhead Header Section */}
+      <div className="px-8 pt-6 pb-5 border-b border-slate-200">
+        <div className="grid grid-cols-2 gap-8 items-start">
+          {/* LEFT SIDE: Logo & Company Name/Tagline */}
+          <div className="flex items-start gap-4">
+            <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
+              <img
+                src={company.logoUrl || '/assets/ooting-logo.jpg'}
+                alt={company.name || 'Ooting'}
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                }}
+              />
+            </div>
+            <div className="min-w-0">
+              <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                {(company.name || 'OOTING').toUpperCase()}
+              </span>
+              <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                {company.tagline || 'Journeys Beyond Ordinary'}
+              </span>
+              <span className="text-[10px] text-slate-500 block mt-0.5">
+                Tourist Cab & Travel Services
+              </span>
+            </div>
+          </div>
+
+          {/* RIGHT SIDE: Company Details (Strictly Left-Aligned within its column) */}
+          <div className="text-xs text-slate-600 space-y-1 pl-2">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Website:</span>
+              <span className="text-slate-700 font-medium break-all">{company.website || 'https://ooting.in'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Phone:</span>
+              <span className="text-slate-700 font-medium">{company.phone || '+91 98765 43210'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Email:</span>
+              <span className="text-slate-700 font-medium break-all">{company.email || 'contact@ooting.com'}</span>
+            </div>
+            {company.address && (
+              <div className="flex items-start gap-2 pt-0.5">
+                <span className="font-semibold text-slate-800 w-16 flex-shrink-0 pt-0.5">Address:</span>
+                <span className="text-slate-600 leading-snug break-words flex-1">
+                  {company.address}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Document Title & Reference Banner */}
+      <div className="bg-slate-900 text-white px-8 py-3 flex items-center justify-between">
+        <div>
+          <span className="text-[10px] tracking-widest uppercase text-amber-400 font-bold block">
+            OFFICIAL TRAVEL VOUCHER
+          </span>
+          <h1 className="text-base font-black tracking-wide">
+            CAB DUTY SLIP & PASSENGER MANIFEST
+          </h1>
+        </div>
+        <div className="flex items-center gap-6 text-right">
+          <div>
+            <span className="text-[10px] text-slate-400 block uppercase font-medium">Duty Slip #</span>
+            <span className="font-mono text-sm font-bold text-amber-300 tracking-wider">
+              {cab.bookingReference}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-400 block uppercase font-medium">Duty Date</span>
+            <span className="text-xs font-bold text-white">
+              {new Date(cab.pickupDate).toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 p-8 space-y-5">
+        {/* Guest & Journey Overview Grid */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Passenger / Guest Details */}
+          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#C91F28] mb-3 flex items-center gap-1.5">
+              <User className="w-4 h-4" />
+              Guest / Passenger Details
+            </h3>
+            <div className="space-y-2 text-xs">
+              <div className="grid grid-cols-[130px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Customer Name:</span>
+                <span className="font-bold text-slate-900">{cab.customerName}</span>
+              </div>
+              <div className="grid grid-cols-[130px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Phone Number:</span>
+                <span className="font-semibold text-slate-800">{cab.customerPhone}</span>
+              </div>
+              {cab.customerEmail && (
+                <div className="grid grid-cols-[130px_1fr] items-center">
+                  <span className="text-slate-500 font-medium">Email:</span>
+                  <span className="text-slate-700">{cab.customerEmail}</span>
+                </div>
+              )}
+              <div className="grid grid-cols-[130px_1fr] items-center">
+                <span className="text-slate-500 font-medium">No. of Guests:</span>
+                <span className="font-bold text-slate-900">{cab.passengerCount} Guest(s)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Reporting & Schedule Details */}
+          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#C91F28] mb-3 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" />
+              Schedule & Reporting Details
+            </h3>
+            <div className="space-y-2 text-xs">
+              <div className="grid grid-cols-[130px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Reporting Date:</span>
+                <span className="font-bold text-slate-900">
+                  {new Date(cab.pickupDate).toLocaleDateString('en-IN', {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </span>
+              </div>
+              <div className="grid grid-cols-[130px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Reporting Time:</span>
+                <span className="font-bold text-[#C91F28]">{cab.pickupTime}</span>
+              </div>
+              <div className="grid grid-cols-[130px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Trip Category:</span>
+                <span className="font-semibold text-slate-800">{cab.tripType}</span>
+              </div>
+              <div className="grid grid-cols-[130px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Booking Status:</span>
+                <span className="font-bold text-emerald-700">{cab.bookingStatus}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Route & Vehicle Assignment */}
+        <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-[#C91F28]" />
+              Journey Route & Vehicle Assignment
+            </h3>
+          </div>
+          <div className="p-4 grid grid-cols-2 gap-6 text-xs">
+            <div className="space-y-2.5 border-r border-slate-200 pr-4">
+              <div className="grid grid-cols-[120px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Pickup Location:</span>
+                <span className="font-bold text-slate-900">{cab.pickupPlace}</span>
+              </div>
+              <div className="grid grid-cols-[120px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Drop Location:</span>
+                <span className="font-bold text-slate-900">{cab.dropPlace}</span>
+              </div>
+              {cab.dutyRange && (
+                <div className="grid grid-cols-[120px_1fr] items-center">
+                  <span className="text-slate-500 font-medium">Duty Range:</span>
+                  <span className="font-bold text-[#C91F28]">{cab.dutyRange}</span>
+                </div>
+              )}
+              {cab.travelRoute && (
+                <div className="grid grid-cols-[120px_1fr] items-start">
+                  <span className="text-slate-500 font-medium">Tour Route:</span>
+                  <span className="text-slate-700 leading-snug">{cab.travelRoute}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-[120px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Vehicle Type:</span>
+                <span className="font-bold text-slate-900">
+                  {cab.vehicleType}{' '}
+                  <span className="font-normal text-slate-500">({cab.requiredCabType})</span>
+                </span>
+              </div>
+              <div className="grid grid-cols-[120px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Vehicle Number:</span>
+                <span className="font-mono font-bold text-xs text-slate-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 inline-block w-fit">
+                  {cab.carNumber || 'To Be Assigned'}
+                </span>
+              </div>
+              <div className="grid grid-cols-[120px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Driver Name:</span>
+                <span className="font-bold text-slate-900">
+                  {cab.driverName || 'Will be notified via SMS'}
+                </span>
+              </div>
+              <div className="grid grid-cols-[120px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Driver Contact:</span>
+                <span className="font-bold text-slate-900">{cab.driverPhone || '—'}</span>
+              </div>
+              {cab.assignedStaff?.name && (
+                <div className="grid grid-cols-[120px_1fr] items-center text-slate-500">
+                  <span className="font-medium">Coordinator:</span>
+                  <span className="font-semibold text-slate-700">{cab.assignedStaff.name}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Optional Additional Details / Duty Log Table */}
+        {showCustomTable && (
+          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+            <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-[#C91F28]" />
+                Additional Duty Details & Log
+              </h3>
+              {!isStaticPreview && onAddRow && (
+                <button
+                  type="button"
+                  onClick={onAddRow}
+                  className="print:hidden pdf-hide inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white px-2.5 py-1 rounded border border-slate-200 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Row</span>
+                </button>
+              )}
+            </div>
+
+            <table className="w-full text-xs text-center border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                  <th className="py-2.5 px-3 border-r border-slate-200 text-left">Reading / Description</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200">Starting</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200">Closing</th>
+                  <th className="py-2.5 px-3 border-r border-slate-200">Remarks / Total</th>
+                  {!isStaticPreview && <th className="py-2.5 px-2 print:hidden pdf-hide w-8"></th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {customRows.map((row) => (
+                  <tr key={row.id} className="h-9">
+                    <td className="font-semibold text-slate-700 bg-slate-50/50 border-r border-slate-200 text-left px-3">
+                      {isStaticPreview ? (
+                        <span>{row.label}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          value={row.label}
+                          onChange={(e) => onRowChange?.(row.id, 'label', e.target.value)}
+                          className="w-full bg-transparent border-none focus:outline-none font-semibold text-slate-800 text-xs"
+                        />
+                      )}
+                    </td>
+                    <td className="border-r border-slate-200 px-2 text-center">
+                      {isStaticPreview ? (
+                        <span>{row.startVal || '—'}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          value={row.startVal}
+                          onChange={(e) => onRowChange?.(row.id, 'startVal', e.target.value)}
+                          placeholder="—"
+                          className="w-full bg-transparent text-center border-none focus:outline-none text-xs"
+                        />
+                      )}
+                    </td>
+                    <td className="border-r border-slate-200 px-2 text-center">
+                      {isStaticPreview ? (
+                        <span>{row.endVal || '—'}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          value={row.endVal}
+                          onChange={(e) => onRowChange?.(row.id, 'endVal', e.target.value)}
+                          placeholder="—"
+                          className="w-full bg-transparent text-center border-none focus:outline-none text-xs"
+                        />
+                      )}
+                    </td>
+                    <td className="border-r border-slate-200 px-2 text-center">
+                      {isStaticPreview ? (
+                        <span>{row.remarks || '—'}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          value={row.remarks}
+                          onChange={(e) => onRowChange?.(row.id, 'remarks', e.target.value)}
+                          placeholder="—"
+                          className="w-full bg-transparent text-center border-none focus:outline-none text-xs"
+                        />
+                      )}
+                    </td>
+                    {!isStaticPreview && onRemoveRow && (
+                      <td className="print:hidden pdf-hide text-center px-1">
+                        <button
+                          type="button"
+                          onClick={() => onRemoveRow(row.id)}
+                          className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                          title="Remove row"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Tariff, Driver Allowance & Financial Summary */}
+        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/70">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <CreditCard className="w-4 h-4 text-[#C91F28]" />
+              Fare & Driver Allowance Summary
+            </h3>
+            <span
+              className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                cab.paymentStatus === 'PAID'
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-amber-100 text-amber-800'
+              }`}
+            >
+              Payment: {cab.paymentStatus}
+            </span>
+          </div>
+
+          <div
+            className={`grid ${
+              cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0
+                ? 'grid-cols-4'
+                : 'grid-cols-3'
+            } gap-3 pt-2 border-t border-slate-200 text-center`}
+          >
+            <div>
+              <span className="text-[11px] uppercase font-bold text-slate-400 block">Total Agreed Fare</span>
+              <span className="text-base font-black text-slate-900">
+                ₹{Number(cab.cabAmount).toLocaleString('en-IN')}
+              </span>
+            </div>
+
+            {cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0 && (
+              <div className="bg-amber-50/80 rounded-lg p-2 border border-amber-200/80">
+                <span className="text-[11px] uppercase font-bold text-amber-900 block">
+                  Driver Allowance / Driver Bata
+                </span>
+                <span className="text-base font-black text-amber-900">
+                  ₹{Number(cab.driverAllowanceTotal).toLocaleString('en-IN')}
+                </span>
+                {cab.driverAllowanceRate && cab.driverAllowanceDays ? (
+                  <span className="text-xs text-amber-800 block font-medium">
+                    {cab.driverAllowanceType === 'NIGHT_WISE'
+                      ? 'Night-wise'
+                      : cab.driverAllowanceType === 'CUSTOM'
+                      ? 'Custom'
+                      : 'Day-wise'}{' '}
+                    ₹{cab.driverAllowanceRate} × {cab.driverAllowanceDays}{' '}
+                    {cab.driverAllowanceType === 'NIGHT_WISE' ? 'nights' : 'days'}
+                  </span>
+                ) : null}
+              </div>
+            )}
+
+            <div>
+              <span className="text-[11px] uppercase font-bold text-slate-400 block">Advance Received</span>
+              <span className="text-base font-black text-emerald-700">
+                ₹{Number(cab.advanceAmount).toLocaleString('en-IN')}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-[11px] uppercase font-bold text-slate-400 block">Balance Payable</span>
+              <span className="text-base font-black text-[#C91F28]">
+                ₹{Number(cab.balanceAmount).toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Terms & Important Travel Notes */}
+        <div className="border border-slate-200 rounded-xl p-3.5 text-xs text-slate-600 space-y-1 bg-amber-50/40">
+          <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+            Standard Tour & Cab Guidelines
+          </h4>
+          <p>
+            1. <strong>Air Conditioning:</strong> As per standard hill and mountain terrain vehicle norms, AC may be turned off during steep hairpin climbs for passenger and engine safety.
+          </p>
+          <p>
+            2. <strong>Tolls & Parking:</strong> State border taxes, tolls, entry tickets, and parking fees are extra as per actual receipts unless explicitly included in the package.
+          </p>
+          {cab.specialInstructions && (
+            <p className="text-slate-900 font-semibold pt-0.5">
+              Special Note: {cab.specialInstructions}
+            </p>
+          )}
+        </div>
+
+        {/* Official Verification Notice (NO SIGNATURES) */}
+        <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/80 text-center space-y-0.5">
+          <div className="flex items-center justify-center gap-1.5 text-slate-900 font-bold text-xs uppercase tracking-wider">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28]" />
+            <span>Official Travel Duty Slip • {company.name || 'Ooting'}</span>
+          </div>
+          <p className="text-[10px] text-slate-500">
+            Computer-generated service document verified by {company.name || 'Ooting'} CRM. Valid for official travel coordination without physical signature.
+          </p>
+        </div>
+      </div>
+
+      {/* Bottom Wave Footer */}
+      <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative">
+        <img
+          src="/assets/ooting-header-wave.png"
+          alt=""
+          className="w-full h-full object-cover opacity-90 rotate-180"
+        />
+      </div>
+    </>
+  );
+};
+
 export const CabVoucher: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -258,460 +719,18 @@ export const CabVoucher: React.FC = () => {
       {/* Main A4 Duty Slip Document (Container isolated for dedicated PDF and Print) */}
       <div
         id="duty-slip-document"
-        className="w-[794px] max-w-full mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none text-slate-800 font-sans print:m-0 border border-slate-200"
+        className="flex min-h-[1123px] w-[794px] max-w-full mx-auto flex-col bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none text-slate-800 font-sans print:m-0 border border-slate-200"
         style={{ boxSizing: 'border-box' }}
       >
-        {/* Top Header Wave Accent */}
-        <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative">
-          <img
-            src="/assets/ooting-header-wave.png"
-            alt=""
-            className="w-full h-full object-cover opacity-90"
-          />
-        </div>
-
-        {/* Letterhead Header Section */}
-        <div className="px-8 pt-6 pb-4 border-b border-slate-200">
-          <div className="flex flex-row items-center justify-between gap-4">
-            {/* Logo & Company Identity */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
-                <img
-                  src="/assets/ooting-logo.jpg"
-                  alt="Ooting"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div>
-                <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight">
-                  {(company.name || 'OOTING').toUpperCase()}
-                </span>
-                <span className="text-xs font-bold text-[#C91F28] tracking-wide uppercase block">
-                  {company.tagline || 'Journeys Beyond Ordinary'}
-                </span>
-                <span className="text-[11px] text-slate-500 block">
-                  Tourist Cab & Travel Services
-                </span>
-              </div>
-            </div>
-
-            {/* Official Contact Details */}
-            <div className="text-right text-xs text-slate-600 space-y-1">
-              <div className="flex items-center justify-end gap-1.5 font-semibold text-slate-900">
-                <Globe className="w-3.5 h-3.5 text-[#C91F28]" />
-                <span>{company.website || 'https://ooting.in'}</span>
-              </div>
-              <div className="flex items-center justify-end gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
-                <span>{company.phone || '+91 98765 43210'}</span>
-              </div>
-              <div className="flex items-center justify-end gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-[#C91F28]" />
-                <span>{company.email || 'contact@ooting.com'}</span>
-              </div>
-              {company.address && (
-                <div className="flex items-center justify-end gap-1.5 text-slate-500 text-[11px] max-w-xs text-right">
-                  <MapPin className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
-                  <span className="line-clamp-2">{company.address}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Document Title Banner */}
-        <div className="bg-slate-900 text-white px-8 py-3 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] tracking-widest uppercase text-amber-400 font-bold block">
-              OFFICIAL TRAVEL VOUCHER
-            </span>
-            <h1 className="text-base font-black tracking-wide">
-              CAB DUTY SLIP & PASSENGER MANIFEST
-            </h1>
-          </div>
-          <div className="text-right">
-            <span className="text-[10px] text-slate-400 block uppercase">Duty Slip #</span>
-            <span className="font-mono text-sm font-bold text-white tracking-wider">
-              {cab.bookingReference}
-            </span>
-          </div>
-        </div>
-
-        <div className="p-8 space-y-6">
-          {/* Guest & Journey Overview Grid */}
-          <div className="grid grid-cols-2 gap-6">
-            {/* Passenger / Guest Details */}
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#C91F28] mb-3 flex items-center gap-1.5">
-                <User className="w-4 h-4" />
-                Guest / Passenger Details
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Lead Guest:</span>
-                  <span className="font-bold text-slate-900">{cab.customerName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Phone Number:</span>
-                  <span className="font-semibold text-slate-800">{cab.customerPhone}</span>
-                </div>
-                {cab.customerEmail && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Email:</span>
-                    <span className="text-slate-700">{cab.customerEmail}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-slate-500">No. of Passengers:</span>
-                  <span className="font-bold text-slate-900">{cab.passengerCount} Guest(s)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Reporting & Schedule Details */}
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#C91F28] mb-3 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4" />
-                Schedule & Reporting Details
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Reporting Date:</span>
-                  <span className="font-bold text-slate-900">
-                    {new Date(cab.pickupDate).toLocaleDateString('en-IN', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Reporting Time:</span>
-                  <span className="font-bold text-[#C91F28]">{cab.pickupTime}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Trip Category:</span>
-                  <span className="font-semibold text-slate-800">{cab.tripType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Booking Status:</span>
-                  <span className="font-bold text-emerald-700">{cab.bookingStatus}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Route & Vehicle Assignment */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="bg-slate-100 px-4 py-2.5 border-b border-slate-200">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-[#C91F28]" />
-                Journey Route & Vehicle Assignment
-              </h3>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-4 text-sm">
-              <div className="space-y-3 border-r border-slate-200 pr-4">
-                <div>
-                  <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                    Pickup Location
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm">{cab.pickupPlace}</span>
-                </div>
-                <div>
-                  <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                    Drop Location
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm">{cab.dropPlace}</span>
-                </div>
-
-                {cab.dutyRange && (
-                  <div>
-                    <span className="text-[11px] uppercase font-bold text-brand-600 block">
-                      Duty Range / Circuit
-                    </span>
-                    <span className="font-semibold text-slate-900 text-xs bg-amber-50/80 px-2.5 py-1.5 rounded-md border border-amber-200 block mt-0.5">
-                      {cab.dutyRange}
-                    </span>
-                  </div>
-                )}
-
-                {cab.travelRoute && (
-                  <div>
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                      Tour Route / Sightseeing
-                    </span>
-                    <span className="text-slate-700 text-xs">{cab.travelRoute}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                      Vehicle Type
-                    </span>
-                    <span className="font-bold text-slate-900">{cab.vehicleType}</span>
-                    <span className="text-xs text-slate-500 block">({cab.requiredCabType})</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                      Vehicle Plate No.
-                    </span>
-                    <span className="font-mono font-bold text-sm text-slate-900 bg-amber-100 px-2.5 py-1 rounded border border-amber-300 inline-block mt-0.5">
-                      {cab.carNumber || 'To Be Assigned'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                  <div>
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                      Driver Name
-                    </span>
-                    <span className="font-bold text-slate-900">
-                      {cab.driverName || 'Will be notified via SMS'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                      Driver Contact
-                    </span>
-                    <span className="font-bold text-slate-900">{cab.driverPhone || '—'}</span>
-                  </div>
-                </div>
-
-                {cab.assignedStaff?.name && (
-                  <div className="pt-2 border-t border-slate-100 text-xs">
-                    <span className="text-slate-400">Coordinator: </span>
-                    <span className="font-semibold text-slate-700">{cab.assignedStaff.name}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Optional Additional Details / Duty Log Table */}
-          {showCustomTable && (
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-              <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-[#C91F28]" />
-                  Additional Duty Details & Log
-                </h3>
-                <button
-                  type="button"
-                  onClick={handleAddRow}
-                  className="print:hidden pdf-hide inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white px-2.5 py-1 rounded border border-slate-200 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Row</span>
-                </button>
-              </div>
-
-              <table className="w-full text-xs text-center border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                    <th className="py-2.5 px-3 border-r border-slate-200 text-left">Reading / Description</th>
-                    <th className="py-2.5 px-3 border-r border-slate-200">Starting</th>
-                    <th className="py-2.5 px-3 border-r border-slate-200">Closing</th>
-                    <th className="py-2.5 px-3 border-r border-slate-200">Remarks / Total</th>
-                    <th className="py-2.5 px-2 print:hidden pdf-hide w-8"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {customRows.map((row) => (
-                    <tr key={row.id} className="h-9">
-                      <td className="font-semibold text-slate-700 bg-slate-50/50 border-r border-slate-200 text-left px-3">
-                        <input
-                          type="text"
-                          value={row.label}
-                          onChange={(e) => handleRowChange(row.id, 'label', e.target.value)}
-                          className="w-full bg-transparent border-none focus:outline-none font-semibold text-slate-800 text-xs"
-                        />
-                      </td>
-                      <td className="border-r border-slate-200 px-2">
-                        <input
-                          type="text"
-                          value={row.startVal}
-                          onChange={(e) => handleRowChange(row.id, 'startVal', e.target.value)}
-                          placeholder="—"
-                          className="w-full bg-transparent text-center border-none focus:outline-none text-xs"
-                        />
-                      </td>
-                      <td className="border-r border-slate-200 px-2">
-                        <input
-                          type="text"
-                          value={row.endVal}
-                          onChange={(e) => handleRowChange(row.id, 'endVal', e.target.value)}
-                          placeholder="—"
-                          className="w-full bg-transparent text-center border-none focus:outline-none text-xs"
-                        />
-                      </td>
-                      <td className="border-r border-slate-200 px-2">
-                        <input
-                          type="text"
-                          value={row.remarks}
-                          onChange={(e) => handleRowChange(row.id, 'remarks', e.target.value)}
-                          placeholder="—"
-                          className="w-full bg-transparent text-center border-none focus:outline-none text-xs"
-                        />
-                      </td>
-                      <td className="print:hidden pdf-hide text-center px-1">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveRow(row.id)}
-                          className="text-slate-400 hover:text-rose-600 transition-colors p-1"
-                          title="Remove row"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Tariff, Driver Allowance & Financial Summary */}
-          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/70">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                <CreditCard className="w-4 h-4 text-[#C91F28]" />
-                Fare & Driver Allowance Summary
-              </h3>
-              <span
-                className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
-                  cab.paymentStatus === 'PAID'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : 'bg-amber-100 text-amber-800'
-                }`}
-              >
-                Payment: {cab.paymentStatus}
-              </span>
-            </div>
-
-            <div
-              className={`grid ${
-                cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0
-                  ? 'grid-cols-4'
-                  : 'grid-cols-3'
-              } gap-3 pt-2 border-t border-slate-200 text-center`}
-            >
-              <div>
-                <span className="text-[11px] uppercase font-bold text-slate-400 block">Total Agreed Fare</span>
-                <span className="text-base font-black text-slate-900">
-                  ₹{Number(cab.cabAmount).toLocaleString('en-IN')}
-                </span>
-              </div>
-
-              {cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0 && (
-                <div className="bg-amber-50/80 rounded-lg p-2 border border-amber-200/80">
-                  <span className="text-[11px] uppercase font-bold text-amber-900 block">
-                    Driver Allowance (
-                    {cab.driverAllowanceType === 'NIGHT_WISE'
-                      ? 'Night-wise'
-                      : cab.driverAllowanceType === 'CUSTOM'
-                      ? 'Custom'
-                      : 'Day-wise'}
-                    )
-                  </span>
-                  <span className="text-base font-black text-amber-900">
-                    ₹{Number(cab.driverAllowanceTotal).toLocaleString('en-IN')}
-                  </span>
-                  {cab.driverAllowanceRate && cab.driverAllowanceDays ? (
-                    <span className="text-xs text-amber-800 block font-medium">
-                      ₹{cab.driverAllowanceRate} × {cab.driverAllowanceDays}{' '}
-                      {cab.driverAllowanceType === 'NIGHT_WISE' ? 'nights' : 'days'}
-                    </span>
-                  ) : null}
-                </div>
-              )}
-
-              <div>
-                <span className="text-[11px] uppercase font-bold text-slate-400 block">Advance Received</span>
-                <span className="text-base font-black text-emerald-700">
-                  ₹{Number(cab.advanceAmount).toLocaleString('en-IN')}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[11px] uppercase font-bold text-slate-400 block">Balance Payable</span>
-                <span className="text-base font-black text-[#C91F28]">
-                  ₹{Number(cab.balanceAmount).toLocaleString('en-IN')}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Terms & Important Travel Notes */}
-          <div className="border border-slate-200 rounded-xl p-4 text-xs text-slate-600 space-y-1.5 bg-amber-50/40">
-            <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-              Standard Tour & Cab Guidelines
-            </h4>
-            <p>
-              1. <strong>Air Conditioning:</strong> As per standard hill and mountain terrain vehicle norms, AC may be turned off during steep hairpin climbs for passenger and engine safety.
-            </p>
-            <p>
-              2. <strong>Tolls & Parking:</strong> State border taxes, tolls, entry tickets, and parking fees are extra as per actual receipts unless explicitly included in the package.
-            </p>
-            {cab.specialInstructions && (
-              <p className="text-slate-900 font-semibold pt-1">
-                Special Note: {cab.specialInstructions}
-              </p>
-            )}
-          </div>
-
-          {/* Duty Slip Acknowledgement & Signatures */}
-          <div className="grid grid-cols-2 gap-6 pt-1">
-            <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 text-xs space-y-3">
-              <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] block">
-                Assigned Driver Acknowledgement
-              </span>
-              <div className="flex justify-between text-[11px] text-slate-500">
-                <span>Start Km: ________</span>
-                <span>End Km: ________</span>
-              </div>
-              <div className="pt-3 border-t border-dashed border-slate-300 flex justify-between items-end text-[10px] text-slate-500">
-                <span>Driver Signature:</span>
-                <span className="font-semibold text-slate-700">{cab.driverName || 'Driver'}</span>
-              </div>
-            </div>
-
-            <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 text-xs space-y-3">
-              <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] block">
-                Guest / Passenger Acknowledgement
-              </span>
-              <p className="text-[10px] text-slate-500 leading-tight">
-                I hereby confirm services rendered. Vehicle and driver reported on schedule.
-              </p>
-              <div className="pt-3 border-t border-dashed border-slate-300 flex justify-between items-end text-[10px] text-slate-500">
-                <span>Guest Signature:</span>
-                <span className="font-semibold text-slate-700">{cab.customerName}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Official Authorization Notice */}
-          <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/80 text-center space-y-1 mt-2">
-            <div className="flex items-center justify-center gap-2 text-slate-900 font-black text-xs uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4 text-[#C91F28]" />
-              <span>Officially Authorized by {company.name || 'Ooting'}</span>
-            </div>
-            <p className="text-xs text-slate-600 font-medium">
-              This duty slip is issued by {company.name || 'Ooting'} for official travel service coordination.
-            </p>
-            <p className="text-[10px] text-slate-400">
-              Computer-generated document. Valid without physical signature or rubber stamp.
-            </p>
-          </div>
-        </div>
-
-        {/* Bottom Wave Footer */}
-        <div className="w-full h-3 bg-[#C91F28] mt-2"></div>
+        <DutySlipDocumentBody
+          cab={cab}
+          company={company}
+          showCustomTable={showCustomTable}
+          customRows={customRows}
+          onRowChange={handleRowChange}
+          onAddRow={handleAddRow}
+          onRemoveRow={handleRemoveRow}
+        />
       </div>
 
       {/* Print Preview Modal */}
@@ -753,76 +772,14 @@ export const CabVoucher: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center">
-              <div className="scale-[0.85] origin-top w-full max-w-3xl bg-white shadow-lg rounded-xl overflow-hidden pointer-events-none">
-                {/* Clone preview rendering */}
-                <div className="w-full h-3 bg-[#C91F28]"></div>
-                <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 border border-slate-200">
-                      <img
-                        src="/assets/ooting-logo.jpg"
-                        alt="Ooting"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div>
-                      <span className="font-black text-slate-900 block">{company.name}</span>
-                      <span className="text-[10px] text-[#C91F28] font-bold block">{company.tagline}</span>
-                    </div>
-                  </div>
-                  <div className="text-right text-[11px] text-slate-600">
-                    <p className="font-bold">{company.website}</p>
-                    <p>{company.phone}</p>
-                    <p>{company.email}</p>
-                  </div>
-                </div>
-                <div className="bg-slate-900 text-white px-6 py-2 flex justify-between">
-                  <span className="text-xs font-bold">CAB DUTY SLIP</span>
-                  <span className="font-mono text-xs">{cab.bookingReference}</span>
-                </div>
-                <div className="p-6 space-y-4 text-xs">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                      <span className="font-bold text-[#C91F28] block mb-1">Guest Details</span>
-                      <p><strong>Name:</strong> {cab.customerName}</p>
-                      <p><strong>Phone:</strong> {cab.customerPhone}</p>
-                      <p><strong>Guests:</strong> {cab.passengerCount}</p>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                      <span className="font-bold text-[#C91F28] block mb-1">Schedule</span>
-                      <p><strong>Date:</strong> {new Date(cab.pickupDate).toLocaleDateString('en-IN')}</p>
-                      <p><strong>Time:</strong> {cab.pickupTime}</p>
-                      <p><strong>Status:</strong> {cab.bookingStatus}</p>
-                    </div>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <p><strong>Pickup:</strong> {cab.pickupPlace}</p>
-                    <p><strong>Drop:</strong> {cab.dropPlace}</p>
-                    {cab.dutyRange && <p><strong>Duty Range:</strong> {cab.dutyRange}</p>}
-                    <p><strong>Vehicle:</strong> {cab.vehicleType} | <strong>Plate:</strong> {cab.carNumber || 'To Be Assigned'}</p>
-                    <p><strong>Driver:</strong> {cab.driverName || 'Will be notified via SMS'} ({cab.driverPhone || '—'})</p>
-                  </div>
-                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 flex justify-between">
-                    <div>
-                      <span>Total Agreed Fare</span>
-                      <p className="font-black text-sm">₹{Number(cab.cabAmount).toLocaleString('en-IN')}</p>
-                    </div>
-                    {cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0 && (
-                      <div>
-                        <span>Driver Allowance</span>
-                        <p className="font-black text-sm">₹{Number(cab.driverAllowanceTotal).toLocaleString('en-IN')}</p>
-                      </div>
-                    )}
-                    <div>
-                      <span>Advance</span>
-                      <p className="font-black text-sm text-emerald-700">₹{Number(cab.advanceAmount).toLocaleString('en-IN')}</p>
-                    </div>
-                    <div>
-                      <span>Balance</span>
-                      <p className="font-black text-sm text-[#C91F28]">₹{Number(cab.balanceAmount).toLocaleString('en-IN')}</p>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex min-h-[1123px] w-[794px] max-w-full mx-auto flex-col bg-white rounded-2xl shadow-2xl overflow-hidden text-slate-800 font-sans border border-slate-200">
+                <DutySlipDocumentBody
+                  cab={cab}
+                  company={company}
+                  showCustomTable={showCustomTable}
+                  customRows={customRows}
+                  isStaticPreview={true}
+                />
               </div>
             </div>
           </div>

@@ -821,42 +821,81 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                 style={{ minHeight: '1050px' }}
               >
                 {/* Header Wave Accent */}
-                <div className="w-full h-2.5 bg-[#C91F28] mb-6 rounded-full"></div>
+                <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative mb-5 rounded-t-lg">
+                  <img
+                    src="/assets/ooting-header-wave.png"
+                    alt=""
+                    className="w-full h-full object-cover opacity-90"
+                  />
+                </div>
 
                 {/* Letterhead Header Section */}
-                <div className="flex items-center justify-between pb-6 border-b border-slate-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
-                      <img
-                        src={company.logoUrl || '/assets/ooting-logo.jpg'}
-                        alt={company.name || 'Ooting'}
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
-                        }}
-                      />
+                <div className="px-1 pt-1 pb-5 border-b border-slate-200">
+                  <div className="grid grid-cols-2 gap-8 items-start">
+                    {/* LEFT SIDE: Logo & Company Name/Tagline */}
+                    <div className="flex items-start gap-4">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
+                        <img
+                          src={company.logoUrl || '/assets/ooting-logo.jpg'}
+                          alt={company.name || 'Ooting'}
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                          }}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                          {(company.name || 'OOTING').toUpperCase()}
+                        </span>
+                        <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                          {company.tagline || 'Journeys Beyond Ordinary'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          Licensed Tour Operator & Destination Specialist
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                        {(company.name || 'OOTING').toUpperCase()}
-                      </h1>
-                      <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block mt-0.5">
-                        {company.tagline || 'Journeys Beyond Ordinary'}
-                      </span>
-                      <span className="text-[10px] text-slate-500 block">
-                        Licensed Tour Operator & Destination Specialist
-                      </span>
+
+                    {/* RIGHT SIDE: Company Details (Strictly Left-Aligned within its column) */}
+                    <div className="text-xs text-slate-600 space-y-1 pl-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Website:</span>
+                        <span className="text-slate-700 font-medium break-all">{company.website || 'https://ooting.in'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Phone:</span>
+                        <span className="text-slate-700 font-medium">{company.phone || '+91 98765 43210'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Email:</span>
+                        <span className="text-slate-700 font-medium break-all">{company.email || 'contact@ooting.com'}</span>
+                      </div>
+                      {company.address && (
+                        <div className="flex items-start gap-2 pt-0.5">
+                          <span className="font-semibold text-slate-800 w-16 flex-shrink-0 pt-0.5">Address:</span>
+                          <span className="text-slate-600 leading-snug break-words flex-1">
+                            {company.address}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
+                </div>
 
-                  <div className="text-right text-xs">
-                    <span className="px-3 py-1 bg-slate-900 text-amber-400 font-black text-[11px] uppercase tracking-wider rounded-lg">
+                {/* Document Title Banner */}
+                <div className="bg-slate-900 text-white px-5 py-3 flex items-center justify-between rounded-lg my-4">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-widest">
                       CUSTOM TOUR ITINERARY
                     </span>
-                    <p className="font-bold text-slate-900 mt-1">{tripTitle}</p>
-                    <p className="text-[10px] text-slate-500">
-                      {selectedDistrict}, {selectedState}
-                    </p>
+                    <h2 className="text-sm font-black tracking-wide">
+                      {tripTitle.toUpperCase()}
+                    </h2>
+                  </div>
+                  <div className="text-right text-xs">
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Destination</span>
+                    <span className="font-bold text-white">{selectedDistrict}, {selectedState}</span>
                   </div>
                 </div>
 
@@ -909,9 +948,18 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                 {/* Fixed Footer Note */}
                 <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
                   <span>
-                    {company.name || 'Ooting'} • {company.email} • {company.website}
+                    {company.name || 'Ooting'} • {company.email || 'contact@ooting.com'} • {company.website || 'https://ooting.in'}
                   </span>
                   <span>Page 1 of 1</span>
+                </div>
+
+                {/* Bottom Wave Footer */}
+                <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative mt-4 rounded-b-lg">
+                  <img
+                    src="/assets/ooting-header-wave.png"
+                    alt=""
+                    className="w-full h-full object-cover opacity-90 rotate-180"
+                  />
                 </div>
               </div>
             </div>

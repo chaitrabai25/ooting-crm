@@ -371,57 +371,62 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             </div>
 
             {/* Letterhead Header Section */}
-            <div className="flex flex-row items-center justify-between gap-4 pb-5 border-b border-slate-200">
-              {/* Ooting Logo & Business Details */}
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
-                  <img
-                    src={company.logoUrl || '/assets/ooting-logo.jpg'}
-                    alt={company.name || 'Ooting'}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
-                    }}
-                  />
-                </div>
-                <div>
-                  <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight">
-                    {(company.name || 'OOTING').toUpperCase()}
-                  </h1>
-                  <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wider block">
-                    {company.tagline || 'Journeys Beyond Ordinary'}
-                  </span>
-                  <span className="text-[10px] text-slate-500 block">
-                    Licensed Tour Operator & Destination Specialist
-                  </span>
-                </div>
-              </div>
-
-              {/* Official Contact & Registration */}
-              <div className="text-right text-[11px] text-slate-600 space-y-1 max-w-xs">
-                <div className="flex items-center justify-end gap-1.5 font-semibold text-slate-900">
-                  <Globe className="w-3.5 h-3.5 text-[#C91F28]" />
-                  <span>{company.website || 'https://ooting.in'}</span>
-                </div>
-                <div className="flex items-center justify-end gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
-                  <span>{company.phone || '+91 98765 43210'}</span>
-                </div>
-                <div className="flex items-center justify-end gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-[#C91F28]" />
-                  <span>{company.email || 'contact@ooting.com'}</span>
-                </div>
-                {company.gstin && (
-                  <p className="text-[10px] text-slate-500">
-                    GSTIN: <strong className="font-mono text-slate-700">{company.gstin}</strong>
-                  </p>
-                )}
-                {company.address && (
-                  <div className="flex items-center justify-end gap-1.5 text-slate-500 text-[10px] text-right">
-                    <MapPin className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
-                    <span className="line-clamp-2">{company.address}</span>
+            <div className="px-1 pt-1 pb-5 border-b border-slate-200">
+              <div className="grid grid-cols-2 gap-8 items-start">
+                {/* LEFT SIDE: Logo & Company Name/Tagline */}
+                <div className="flex items-start gap-4">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
+                    <img
+                      src={company.logoUrl || '/assets/ooting-logo.jpg'}
+                      alt={company.name || 'Ooting'}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                      }}
+                    />
                   </div>
-                )}
+                  <div className="min-w-0">
+                    <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                      {(company.name || 'OOTING').toUpperCase()}
+                    </span>
+                    <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                      {company.tagline || 'Journeys Beyond Ordinary'}
+                    </span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                      Licensed Tour Operator & Destination Specialist
+                    </span>
+                  </div>
+                </div>
+
+                {/* RIGHT SIDE: Company Details (Strictly Left-Aligned within its column) */}
+                <div className="text-xs text-slate-600 space-y-1 pl-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Website:</span>
+                    <span className="text-slate-700 font-medium break-all">{company.website || 'https://ooting.in'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Phone:</span>
+                    <span className="text-slate-700 font-medium">{company.phone || '+91 98765 43210'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Email:</span>
+                    <span className="text-slate-700 font-medium break-all">{company.email || 'contact@ooting.com'}</span>
+                  </div>
+                  {company.gstin && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-800 w-16 flex-shrink-0">GSTIN:</span>
+                      <span className="font-mono text-slate-800 font-semibold">{company.gstin}</span>
+                    </div>
+                  )}
+                  {company.address && (
+                    <div className="flex items-start gap-2 pt-0.5">
+                      <span className="font-semibold text-slate-800 w-16 flex-shrink-0 pt-0.5">Address:</span>
+                      <span className="text-slate-600 leading-snug break-words flex-1">
+                        {company.address}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -662,36 +667,15 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               </div>
             </div>
 
-            {/* Customer Acceptance & Signatory Notice */}
-            <div className="grid grid-cols-2 gap-6 pt-3 text-xs">
-              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-1">
-                <span className="font-bold text-slate-700 uppercase tracking-wider text-[10px] block">
-                  Customer Acceptance
-                </span>
-                <p className="text-[10px] text-slate-500 leading-tight">
-                  I accept the tour itinerary, terms, inclusions, and payment schedule.
-                </p>
-                <div className="pt-4 border-t border-dashed border-slate-300 flex justify-between items-end text-[10px] text-slate-500">
-                  <span>Guest Signature:</span>
-                  <span className="font-semibold text-slate-700">{booking.customer?.fullName || 'Guest'}</span>
-                </div>
+            {/* Official Verification Notice (NO SIGNATURES) */}
+            <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/80 text-center space-y-0.5 mt-4">
+              <div className="flex items-center justify-center gap-1.5 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28]" />
+                <span>Official Tax Invoice • {company.name || 'Ooting'}</span>
               </div>
-
-              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 text-center space-y-1 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-center gap-1.5 text-slate-900 font-black text-[11px] uppercase tracking-wider">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28]" />
-                    <span>Officially Authorized by {company.name || 'Ooting'}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    This is a computer-generated tax invoice verified by {company.name || 'Ooting'} CRM. Valid without physical signature.
-                  </p>
-                </div>
-                <div className="pt-2 border-t border-dashed border-slate-300 flex justify-between items-end text-[10px] text-slate-500">
-                  <span>Authorized Signatory:</span>
-                  <span className="font-semibold text-[#C91F28]">{company.name || 'Ooting'}</span>
-                </div>
-              </div>
+              <p className="text-[10px] text-slate-500">
+                This is a computer-generated commercial tax invoice verified by {company.name || 'Ooting'} CRM. Valid without physical signature.
+              </p>
             </div>
 
             {/* Bottom Wave Footer */}

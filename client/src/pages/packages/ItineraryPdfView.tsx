@@ -16,10 +16,12 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Package, ItineraryDay } from '../../types/index.js';
+import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 export const ItineraryPdfView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { company } = useCompanySettings();
 
   const [pkg, setPkg] = useState<Package | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -110,44 +112,55 @@ export const ItineraryPdfView: React.FC = () => {
         </div>
 
         {/* Letterhead Header Section */}
-        <div className="px-8 pt-6 pb-4 border-b border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            {/* Logo & Company Identity */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-14 h-14 rounded-xl border border-slate-200 overflow-hidden flex items-center justify-center p-1 bg-white shadow-xs">
+        <div className="px-8 pt-6 pb-5 border-b border-slate-200">
+          <div className="grid grid-cols-2 gap-8 items-start">
+            {/* LEFT SIDE: Logo & Company Name/Tagline */}
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
                 <img
-                  src="/assets/ooting-logo.jpg"
-                  alt="Ooting"
+                  src={company.logoUrl || '/assets/ooting-logo.jpg'}
+                  alt={company.name || 'Ooting'}
                   className="w-full h-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                  }}
                 />
               </div>
-              <div>
-                <span className="text-lg font-black tracking-tight text-slate-900 block leading-tight">
-                  OOTING
+              <div className="min-w-0">
+                <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                  {(company.name || 'OOTING').toUpperCase()}
                 </span>
-                <span className="text-[11px] font-bold text-[#C91F28] tracking-wide uppercase block">
-                  Journeys Beyond Ordinary
+                <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                  {company.tagline || 'Journeys Beyond Ordinary'}
                 </span>
-                <span className="text-[10px] text-slate-500 block">
+                <span className="text-[10px] text-slate-500 block mt-0.5">
                   Premium Tour Operator & Destination Specialist
                 </span>
               </div>
             </div>
 
-            {/* Official Contact Details */}
-            <div className="text-right text-[11px] text-slate-600 space-y-0.5">
-              <div className="flex items-center justify-end gap-1.5 font-medium">
-                <Globe className="w-3 h-3 text-[#C91F28]" />
-                <span>www.ooting.com</span>
+            {/* RIGHT SIDE: Company Details (Strictly Left-Aligned within its column) */}
+            <div className="text-xs text-slate-600 space-y-1 pl-2">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Website:</span>
+                <span className="text-slate-700 font-medium break-all">{company.website || 'https://ooting.in'}</span>
               </div>
-              <div className="flex items-center justify-end gap-1.5">
-                <Mail className="w-3 h-3 text-[#C91F28]" />
-                <span>contact@ooting.in</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Phone:</span>
+                <span className="text-slate-700 font-medium">{company.phone || '+91 98765 43210'}</span>
               </div>
-              <div className="flex items-center justify-end gap-1.5">
-                <Phone className="w-3 h-3 text-[#C91F28]" />
-                <span>+91 98450 11223</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Email:</span>
+                <span className="text-slate-700 font-medium break-all">{company.email || 'contact@ooting.com'}</span>
               </div>
+              {company.address && (
+                <div className="flex items-start gap-2 pt-0.5">
+                  <span className="font-semibold text-slate-800 w-16 flex-shrink-0 pt-0.5">Address:</span>
+                  <span className="text-slate-600 leading-snug break-words flex-1">
+                    {company.address}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

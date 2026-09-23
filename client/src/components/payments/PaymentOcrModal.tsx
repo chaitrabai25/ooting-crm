@@ -43,6 +43,12 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
   const [ocrRawText, setOcrRawText] = useState('');
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [utrWarning, setUtrWarning] = useState<string | null>(null);
+  const [fieldWarnings, setFieldWarnings] = useState<{
+    utr?: string | null;
+    amount?: string | null;
+    date?: string | null;
+    time?: string | null;
+  }>({});
 
   // Form states to review and verify
   const [utr, setUtr] = useState('');
@@ -73,6 +79,7 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     setOcrRawText('');
     setOcrConfidence(null);
     setUtrWarning(null);
+    setFieldWarnings({});
     setUtr('');
     setAmount('');
     setPaymentDate(new Date().toISOString().split('T')[0]);
@@ -142,7 +149,16 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     }
   };
 
+  const unreadFieldWarning = 'Unable to confidently read this field. Please verify or upload a clearer screenshot.';
+
   const parsePaymentText = (text: string, confidence: number) => {
+    const newWarnings: {
+      utr?: string | null;
+      amount?: string | null;
+      date?: string | null;
+      time?: string | null;
+    } = {};
+
     // 1. Parse UTR / UPI Ref ID (12 digits)
     let extractedUtr = '';
     const utrRegexWithPrefix =
@@ -163,30 +179,37 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       setUtr(extractedUtr);
       checkUtrDuplication(extractedUtr);
       if (confidence < 70) {
+        newWarnings.utr = 'Low OCR confidence on UTR. Please verify with screenshot before saving.';
         setUtrWarning('Low OCR confidence on UTR. Please verify with screenshot before saving.');
       } else {
         setUtrWarning(null);
       }
     } else {
-      setUtrWarning('Low OCR confidence: UTR number was ambiguous or could not be detected. Please verify with screenshot before saving.');
+      setUtr('');
+      newWarnings.utr = unreadFieldWarning;
+      setUtrWarning(unreadFieldWarning);
     }
 
-    // 2. Parse Amount
+    // 2. Parse Amount (Never guess or default to balance)
     const amountRegex = /(?:₹|inr|rs\.?|paid|amount)\s*[:=]?\s*₹?\s*([0-9,]+(?:\.[0-9]{2})?)/i;
     const matchAmount = text.match(amountRegex);
+    let amountFound = false;
+
     if (matchAmount && matchAmount[1]) {
       const cleanNum = matchAmount[1].replace(/,/g, '');
       const parsedNum = parseFloat(cleanNum);
       if (!isNaN(parsedNum) && parsedNum > 0) {
         setAmount(String(parsedNum));
+        amountFound = true;
         if (parsedNum > expectedAmount && expectedAmount > 0) {
           setShowExtraAmountNotice(true);
         }
       }
-    } else {
-      if (expectedAmount > 0) {
-        setAmount(String(expectedAmount));
-      }
+    }
+
+    if (!amountFound) {
+      setAmount('');
+      newWarnings.amount = unreadFieldWarning;
     }
 
     // 3. Parse Date
@@ -194,20 +217,31 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     const dateRegex2 = /\b(\d{2}[/-]\d{2}[/-]\d{4})\b/;
     const matchDate1 = text.match(dateRegex1);
     const matchDate2 = text.match(dateRegex2);
+    let dateFound = false;
 
     if (matchDate1 && matchDate1[1]) {
       try {
         const d = new Date(matchDate1[1]);
-        if (!isNaN(d.getTime())) setPaymentDate(d.toISOString().split('T')[0]);
+        if (!isNaN(d.getTime())) {
+          setPaymentDate(d.toISOString().split('T')[0]);
+          dateFound = true;
+        }
       } catch {}
     } else if (matchDate2 && matchDate2[1]) {
       try {
         const parts = matchDate2[1].split(/[-/]/);
         if (parts.length === 3) {
           const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-          if (!isNaN(d.getTime())) setPaymentDate(d.toISOString().split('T')[0]);
+          if (!isNaN(d.getTime())) {
+            setPaymentDate(d.toISOString().split('T')[0]);
+            dateFound = true;
+          }
         }
       } catch {}
+    }
+
+    if (!dateFound) {
+      newWarnings.date = unreadFieldWarning;
     }
 
     // 4. Parse Time
@@ -215,7 +249,12 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     const matchTime = text.match(timeRegex);
     if (matchTime && matchTime[1]) {
       setPaymentTime(matchTime[1]);
+    } else {
+      setPaymentTime('');
+      newWarnings.time = unreadFieldWarning;
     }
+
+    setFieldWarnings(newWarnings);
   };
 
   const checkUtrDuplication = async (utrValue: string) => {
@@ -223,7 +262,7 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     try {
       const res = await api.get(`/payments/check-utr?utr=${encodeURIComponent(utrValue.trim())}`);
       if (res.data?.exists) {
-        setDuplicateUtrModal('This UTR number already exists for another transaction. Please enter a unique UTR number.');
+        setDuplicateUtrModal('This UTR number already exists for another payment. Please enter a unique UTR number.');
       }
     } catch (e) {
       // quiet error
@@ -289,7 +328,10 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       resetForm();
     } catch (err: any) {
       if (err.response?.status === 409) {
-        setDuplicateUtrModal('This UTR number already exists for another transaction. Please enter a unique UTR number.');
+        setDuplicateUtrModal(
+          err.response?.data?.message ||
+          'This UTR number already exists for another payment. Please enter a unique UTR number.'
+        );
       } else {
         setSaveError(err.response?.data?.message || 'Failed to record payment. Please try again.');
       }
@@ -433,11 +475,19 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
                   type="text"
                   required
                   value={utr}
-                  onChange={(e) => setUtr(e.target.value)}
+                  onChange={(e) => {
+                    setUtr(e.target.value);
+                    if (fieldWarnings.utr) setFieldWarnings((w) => ({ ...w, utr: null }));
+                  }}
                   onBlur={handleUtrBlur}
                   placeholder="e.g. 423984712093"
                   className="mt-1 w-full p-2.5 font-mono text-sm font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                 />
+                {fieldWarnings.utr && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block mt-1">
+                    ⚠️ {fieldWarnings.utr}
+                  </span>
+                )}
                 <span className="text-[10px] text-slate-500 block mt-0.5">
                   Verify each digit against screenshot before confirming. Duplicate UTRs are rejected.
                 </span>
@@ -455,10 +505,18 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
                     min="1"
                     required
                     value={amount}
-                    onChange={(e) => handleAmountChange(e.target.value)}
+                    onChange={(e) => {
+                      handleAmountChange(e.target.value);
+                      if (fieldWarnings.amount) setFieldWarnings((w) => ({ ...w, amount: null }));
+                    }}
                     placeholder="e.g. 15000"
                     className="mt-1 w-full p-2 text-sm font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-emerald-700 dark:text-emerald-400"
                   />
+                  {fieldWarnings.amount && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block mt-1">
+                      ⚠️ {fieldWarnings.amount}
+                    </span>
+                  )}
                 </div>
 
                 <div>
@@ -510,9 +568,17 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
                   <input
                     type="date"
                     value={paymentDate}
-                    onChange={(e) => setPaymentDate(e.target.value)}
+                    onChange={(e) => {
+                      setPaymentDate(e.target.value);
+                      if (fieldWarnings.date) setFieldWarnings((w) => ({ ...w, date: null }));
+                    }}
                     className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                   />
+                  {fieldWarnings.date && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block mt-1">
+                      ⚠️ {fieldWarnings.date}
+                    </span>
+                  )}
                 </div>
 
                 <div>
@@ -520,10 +586,18 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
                   <input
                     type="text"
                     value={paymentTime}
-                    onChange={(e) => setPaymentTime(e.target.value)}
+                    onChange={(e) => {
+                      setPaymentTime(e.target.value);
+                      if (fieldWarnings.time) setFieldWarnings((w) => ({ ...w, time: null }));
+                    }}
                     placeholder="e.g. 02:45 PM"
                     className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                   />
+                  {fieldWarnings.time && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block mt-1">
+                      ⚠️ {fieldWarnings.time}
+                    </span>
+                  )}
                 </div>
               </div>
 

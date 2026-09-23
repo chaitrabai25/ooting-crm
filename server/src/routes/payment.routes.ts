@@ -102,7 +102,7 @@ router.get('/check-utr', async (req: AuthRequest, res: Response, next) => {
 
     res.json({
       exists: !!existing,
-      message: existing ? 'This UTR number already exists for another transaction. Please enter a unique UTR number.' : null,
+      message: existing ? 'This UTR number already exists for another payment. Please enter a unique UTR number.' : null,
       bookingNumber: (existing as any)?.booking?.bookingNumber,
       customerName: (existing as any)?.booking?.customer?.fullName,
     });
@@ -132,7 +132,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 
       if (duplicate) {
         res.status(409).json({
-          message: 'This UTR number already exists for another transaction. Please enter a unique UTR number.',
+          message: 'This UTR number already exists for another payment. Please enter a unique UTR number.',
           duplicateBooking: (duplicate as any).booking?.bookingNumber,
           duplicateCustomer: (duplicate as any).booking?.customer?.fullName,
         });
