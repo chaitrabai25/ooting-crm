@@ -26,6 +26,7 @@ build/
 server/prisma/*.db
 server/prisma/*.db-journal
 server/prisma/*.db.backup
+database_backups_safety_*/
 
 # Uploaded Files & User Media
 uploads/*

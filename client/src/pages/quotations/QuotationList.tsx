@@ -42,9 +42,9 @@ export const QuotationList: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const fetchQuotations = async () => {
+  const fetchQuotations = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -60,12 +60,18 @@ export const QuotationList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch quotations:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchQuotations();
+
+    // Multi-user 5-second live sync
+    const pollInterval = setInterval(() => {
+      fetchQuotations(true);
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [page, selectedStatus, startDate, endDate]);
 
   const handleSearch = (e: React.FormEvent) => {

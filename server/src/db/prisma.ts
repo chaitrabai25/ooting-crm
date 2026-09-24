@@ -16,9 +16,9 @@ export const prisma =
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
   });
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+// Reuse Prisma instance across both local development and Vercel serverless invocations
+globalForPrisma.prisma = prisma;
+
 
 export async function connectDB() {
   try {

@@ -25,9 +25,9 @@ export const UserList: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', '15');
@@ -42,12 +42,18 @@ export const UserList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch users:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
+
+    // Multi-user 5-second live sync
+    const pollInterval = setInterval(() => {
+      fetchUsers(true);
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [page, roleFilter, statusFilter]);
 
   const handleSearch = (e: React.FormEvent) => {

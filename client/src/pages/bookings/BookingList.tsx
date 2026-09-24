@@ -115,10 +115,10 @@ export const BookingList: React.FC = () => {
   useEffect(() => {
     fetchBookings();
 
-    // Silent background auto-refresh every 60 seconds
+    // Silent background auto-refresh every 5 seconds for multi-user sync
     const pollTimer = setInterval(() => {
       fetchBookings(true);
-    }, 60000);
+    }, 5000);
     return () => clearInterval(pollTimer);
   }, [page, selectedStatus, selectedPackageId, sortBy, sortOrder]);
 

@@ -63,9 +63,9 @@ export const AgentList: React.FC = () => {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const fetchAgents = async () => {
+  const fetchAgents = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -80,12 +80,18 @@ export const AgentList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch agents:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchAgents();
+
+    // Multi-user 5-second live sync
+    const pollInterval = setInterval(() => {
+      fetchAgents(true);
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [page, sortBy, sortOrder]);
 
   const handleSearch = (e: React.FormEvent) => {

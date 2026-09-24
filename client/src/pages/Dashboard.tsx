@@ -50,9 +50,11 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
   const now = new Date();
-  const [selectedView, setSelectedView] = useState<'today' | 'month' | 'year' | 'all'>('all');
+  const [selectedView, setSelectedView] = useState<'today' | 'yesterday' | 'week' | 'month' | 'previous_month' | 'year' | 'custom' | 'all'>('all');
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -62,9 +64,9 @@ export const Dashboard: React.FC = () => {
   // Today's Tasks Active Tab
   const [activeTaskTab, setActiveTaskTab] = useState<'followUps' | 'overdue' | 'departures' | 'cabs' | 'quotations'>('followUps');
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('range', selectedView);
       if (selectedView === 'month') {
@@ -72,6 +74,9 @@ export const Dashboard: React.FC = () => {
         params.append('year', String(selectedYear));
       } else if (selectedView === 'year') {
         params.append('year', String(selectedYear));
+      } else if (selectedView === 'custom') {
+        if (customStartDate) params.append('startDate', customStartDate);
+        if (customEndDate) params.append('endDate', customEndDate);
       }
       if (searchTerm.trim()) {
         params.append('search', searchTerm.trim());
@@ -88,16 +93,19 @@ export const Dashboard: React.FC = () => {
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      fetchDashboard();
-    }, 250);
-    return () => clearTimeout(handler);
-  }, [selectedView, selectedMonth, selectedYear, searchTerm]);
+    fetchDashboard();
+
+    // 5-second automatic multi-user live synchronization
+    const syncTimer = setInterval(() => {
+      fetchDashboard(true);
+    }, 5000);
+    return () => clearInterval(syncTimer);
+  }, [selectedView, selectedMonth, selectedYear, customStartDate, customEndDate, searchTerm]);
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -171,11 +179,11 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 4 View Tabs & Real-Time Filter Bar */}
+      {/* Comprehensive Date Filters & Live Sync Filter Bar */}
       <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          {/* 4 View Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl overflow-x-auto">
+          {/* Date Filter Tabs */}
+          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl overflow-x-auto flex-wrap">
             <button
               onClick={() => setSelectedView('today')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
@@ -184,7 +192,27 @@ export const Dashboard: React.FC = () => {
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Today's Update
+              Today
+            </button>
+            <button
+              onClick={() => setSelectedView('yesterday')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                selectedView === 'yesterday'
+                  ? 'bg-brand-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Yesterday
+            </button>
+            <button
+              onClick={() => setSelectedView('week')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                selectedView === 'week'
+                  ? 'bg-brand-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              This Week
             </button>
             <button
               onClick={() => setSelectedView('month')}
@@ -194,17 +222,27 @@ export const Dashboard: React.FC = () => {
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Month-wise Update
+              This Month
             </button>
             <button
-              onClick={() => setSelectedView('year')}
+              onClick={() => setSelectedView('previous_month')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedView === 'year'
+                selectedView === 'previous_month'
                   ? 'bg-brand-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Year-wise Update
+              Previous Month
+            </button>
+            <button
+              onClick={() => setSelectedView('custom')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                selectedView === 'custom'
+                  ? 'bg-brand-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Custom Range
             </button>
             <button
               onClick={() => setSelectedView('all')}
@@ -214,7 +252,7 @@ export const Dashboard: React.FC = () => {
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              All-Time Record
+              All Time
             </button>
           </div>
 
@@ -231,23 +269,60 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Month / Year Sub-pickers when applicable */}
-        {(selectedView === 'month' || selectedView === 'year') && (
-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
-            {selectedView === 'month' && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Month:</span>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                  className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 font-medium"
-                >
-                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, idx) => (
-                    <option key={idx} value={idx + 1}>{m}</option>
-                  ))}
-                </select>
-              </div>
+        {/* Custom Date Range Picker */}
+        {selectedView === 'custom' && (
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">From:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">To:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+              />
+            </div>
+            {(customStartDate || customEndDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                }}
+                className="text-[11px] text-brand-600 dark:text-brand-400 hover:underline"
+              >
+                Clear Range
+              </button>
             )}
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              Querying database by stored IST timestamps.
+            </span>
+          </div>
+        )}
+
+        {/* Month Picker when applicable */}
+        {selectedView === 'month' && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Select Month:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 font-medium"
+              >
+                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, idx) => (
+                  <option key={idx} value={idx + 1}>{m}</option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Year:</span>
               <select
@@ -260,11 +335,9 @@ export const Dashboard: React.FC = () => {
                 ))}
               </select>
             </div>
-            <span className="text-[11px] text-brand-600 dark:text-brand-400 font-semibold ml-2">
-              Showing strictly {selectedView === 'month' ? `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedMonth - 1]} ${selectedYear}` : `Calendar Year ${selectedYear}`} (IST Timezone)
-            </span>
           </div>
         )}
+
       </div>
 
       {/* 16 KPI COUNTING CARDS */}

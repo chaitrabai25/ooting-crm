@@ -25,9 +25,9 @@ export const ExpenseList: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -41,12 +41,18 @@ export const ExpenseList: React.FC = () => {
     } catch (err) {
       console.error('Failed to load expenses:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchExpenses();
+
+    // Multi-user 5-second live sync
+    const pollInterval = setInterval(() => {
+      fetchExpenses(true);
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [page, selectedCategory]);
 
   const handleExportExcel = async () => {

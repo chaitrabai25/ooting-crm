@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, CreditCard, FileSpreadsheet, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Search, CreditCard, FileSpreadsheet, CheckCircle2, ArrowRight, Plus } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { Modal } from '../../components/ui/Modal.js';
+import { PaymentOcrModal } from '../../components/payments/PaymentOcrModal.js';
 import { Payment } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 
@@ -22,9 +24,16 @@ export const PaymentList: React.FC = () => {
   const [selectedMethod, setSelectedMethod] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
 
-  const fetchPayments = async () => {
+  // Record Payment on Booking State
+  const [isSelectBookingOpen, setIsSelectBookingOpen] = useState(false);
+  const [bookingsList, setBookingsList] = useState<any[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [isOcrOpen, setIsOcrOpen] = useState(false);
+
+  const fetchPayments = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -39,12 +48,18 @@ export const PaymentList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch payments:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchPayments();
+
+    // Multi-user 5-second live sync
+    const pollInterval = setInterval(() => {
+      fetchPayments(true);
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [page, selectedMethod, selectedStatus]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -59,6 +74,25 @@ export const PaymentList: React.FC = () => {
     if (selectedMethod) params.append('method', selectedMethod);
     if (selectedStatus) params.append('status', selectedStatus);
     await downloadExcel(`/payments/export/excel?${params.toString()}`, `ooting-payments-${Date.now()}.xlsx`);
+  };
+
+  const handleOpenRecordPayment = async () => {
+    setIsSelectBookingOpen(true);
+    setLoadingBookings(true);
+    try {
+      const res = await api.get('/bookings?limit=100');
+      setBookingsList(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to load bookings:', err);
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
+
+  const handleProceedToOcr = (b: any) => {
+    setSelectedBooking(b);
+    setIsSelectBookingOpen(false);
+    setIsOcrOpen(true);
   };
 
   const formatCurrency = (val: number) => {
@@ -141,15 +175,26 @@ export const PaymentList: React.FC = () => {
           </p>
         </div>
 
-        {/* Strictly Excel Export */}
-        <button
-          type="button"
-          onClick={handleExportExcel}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors self-start sm:self-auto"
-        >
-          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span>Export Excel</span>
-        </button>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenRecordPayment}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Record Payment</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -213,6 +258,70 @@ export const PaymentList: React.FC = () => {
           onPageChange: (newPage) => setPage(newPage),
         }}
       />
+
+      {/* Select Booking Modal for Recording Payment */}
+      <Modal
+        isOpen={isSelectBookingOpen}
+        onClose={() => setIsSelectBookingOpen(false)}
+        title="Select Booking to Record Payment"
+        subtitle="Choose a travel booking to record payment and verify bank UTR receipt"
+        maxWidth="md"
+      >
+        <div className="space-y-4 text-xs">
+          {loadingBookings ? (
+            <div className="p-8 text-center text-slate-500">Loading bookings...</div>
+          ) : bookingsList.length === 0 ? (
+            <div className="p-6 text-center text-slate-500">No active bookings found.</div>
+          ) : (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {bookingsList.map((b) => {
+                const totalAmt = Number(b.totalAmount || 0);
+                const paidAmt = Number(b.paidAmount || 0);
+                const dueAmt = Math.max(0, totalAmt - paidAmt);
+                return (
+                  <div
+                    key={b.id}
+                    onClick={() => handleProceedToOcr(b)}
+                    className="p-3 border border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 rounded-xl cursor-pointer transition-colors flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <span>{b.bookingNumber}</span>
+                        <span className="text-slate-400 font-normal">•</span>
+                        <span>{b.customer?.fullName || 'Guest'}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Total: ₹{totalAmt.toLocaleString('en-IN')} | Paid: ₹{paidAmt.toLocaleString('en-IN')} | Due: ₹{dueAmt.toLocaleString('en-IN')}
+                      </div>
+                    </div>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1">
+                      Select <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Payment OCR Modal */}
+      {selectedBooking && isOcrOpen && (
+        <PaymentOcrModal
+          isOpen={isOcrOpen}
+          onClose={() => {
+            setIsOcrOpen(false);
+            setSelectedBooking(null);
+          }}
+          onSuccess={() => {
+            fetchPayments();
+          }}
+          bookingId={selectedBooking.id}
+          bookingNumber={selectedBooking.bookingNumber || 'OOT'}
+          customerName={selectedBooking.customer?.fullName || 'Guest'}
+          expectedAmount={Math.max(0, Number(selectedBooking.totalAmount || 0) - Number(selectedBooking.paidAmount || 0))}
+        />
+      )}
     </div>
   );
 };

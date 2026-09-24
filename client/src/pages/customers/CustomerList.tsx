@@ -103,10 +103,10 @@ export const CustomerList: React.FC = () => {
   useEffect(() => {
     fetchCustomers();
 
-    // Auto-refresh every 60 seconds to pull team updates without manual reload
+    // Auto-refresh every 5 seconds for multi-user sync
     const pollTimer = setInterval(() => {
       fetchCustomers(true);
-    }, 60000);
+    }, 5000);
     return () => clearInterval(pollTimer);
   }, [page, selectedSource, selectedStatus]);
 

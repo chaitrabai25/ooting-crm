@@ -140,10 +140,10 @@ export const LeadList: React.FC = () => {
   useEffect(() => {
     fetchLeads();
 
-    // Silent background auto-refresh every 60 seconds
+    // Silent background auto-refresh every 5 seconds for multi-user sync
     const pollInterval = setInterval(() => {
       fetchLeads(true);
-    }, 60000);
+    }, 5000);
     return () => clearInterval(pollInterval);
   }, [page, activeTab, selectedStatus, selectedPriority]);
 
@@ -403,17 +403,17 @@ export const LeadList: React.FC = () => {
         items={[
           {
             name: 'Leads',
-            path: '/leads?tab=new',
-            icon: UserCheck,
-            count: leadCounts.new,
-            matchQuery: { param: 'tab', value: 'new' },
-          },
-          {
-            name: 'Enquiries',
             path: '/leads?tab=all',
-            icon: Sparkles,
+            icon: UserCheck,
             count: leadCounts.new + leadCounts.existing,
             matchQuery: { param: 'tab', value: 'all' },
+          },
+          {
+            name: 'New Enquiries',
+            path: '/leads?tab=new',
+            icon: Sparkles,
+            count: leadCounts.new,
+            matchQuery: { param: 'tab', value: 'new' },
           },
           {
             name: 'Follow-ups',

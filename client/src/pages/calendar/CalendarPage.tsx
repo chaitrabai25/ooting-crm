@@ -95,9 +95,9 @@ export const CalendarPage: React.FC = () => {
     }
   };
 
-  const fetchEvents = async () => {
+  const fetchEvents = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const { start, end } = getDateRange();
       const params = new URLSearchParams();
       params.append('startDate', start.toISOString());
@@ -110,7 +110,7 @@ export const CalendarPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch calendar events:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -125,6 +125,13 @@ export const CalendarPage: React.FC = () => {
 
   useEffect(() => {
     fetchEvents();
+
+    // Multi-user 5-second live sync
+    const pollInterval = setInterval(() => {
+      fetchEvents(true);
+      fetchStaffAvailability();
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [currentDate, viewMode, selectedEventType, selectedStaffId]);
 
   useEffect(() => {

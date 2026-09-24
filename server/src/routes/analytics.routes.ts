@@ -21,7 +21,9 @@ export function getISTDateRange(
   const currentMonthIST = nowIST.getUTCMonth(); // 0-11
   const currentDateIST = nowIST.getUTCDate();
 
-  if (range === 'today') {
+  const r = (range || '').toLowerCase().trim();
+
+  if (r === 'today') {
     const startIST = Date.UTC(currentYearIST, currentMonthIST, currentDateIST, 0, 0, 0, 0);
     const endIST = Date.UTC(currentYearIST, currentMonthIST, currentDateIST, 23, 59, 59, 999);
     return {
@@ -30,11 +32,36 @@ export function getISTDateRange(
     };
   }
 
-  if (range === 'this_month' || range === 'month') {
+  if (r === 'yesterday') {
+    const yestDate = new Date(nowIST.getTime() - 24 * 60 * 60 * 1000);
+    const yestYear = yestDate.getUTCFullYear();
+    const yestMonth = yestDate.getUTCMonth();
+    const yestDay = yestDate.getUTCDate();
+    const startIST = Date.UTC(yestYear, yestMonth, yestDay, 0, 0, 0, 0);
+    const endIST = Date.UTC(yestYear, yestMonth, yestDay, 23, 59, 59, 999);
+    return {
+      gte: new Date(startIST - IST_OFFSET_MS),
+      lte: new Date(endIST - IST_OFFSET_MS),
+    };
+  }
+
+  if (r === 'this_week' || r === 'week') {
+    const dayOfWeek = nowIST.getUTCDay(); // 0 is Sunday, 1 is Monday...
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const mondayDate = new Date(nowIST.getTime() - diffToMonday * 24 * 60 * 60 * 1000);
+    const startIST = Date.UTC(mondayDate.getUTCFullYear(), mondayDate.getUTCMonth(), mondayDate.getUTCDate(), 0, 0, 0, 0);
+    const sundayDate = new Date(startIST + 6 * 24 * 60 * 60 * 1000);
+    const endIST = Date.UTC(sundayDate.getUTCFullYear(), sundayDate.getUTCMonth(), sundayDate.getUTCDate(), 23, 59, 59, 999);
+    return {
+      gte: new Date(startIST - IST_OFFSET_MS),
+      lte: new Date(endIST - IST_OFFSET_MS),
+    };
+  }
+
+  if (r === 'this_month' || r === 'month') {
     const yr = targetYear || currentYearIST;
     const mo = targetMonth !== undefined ? targetMonth - 1 : currentMonthIST;
     const startIST = Date.UTC(yr, mo, 1, 0, 0, 0, 0);
-    // Find last millisecond of month: 1st of next month minus 1 ms
     const nextMonthIST = Date.UTC(yr, mo + 1, 1, 0, 0, 0, 0);
     const endIST = nextMonthIST - 1;
     return {
@@ -43,7 +70,20 @@ export function getISTDateRange(
     };
   }
 
-  if (range === 'this_year' || range === 'year') {
+  if (r === 'previous_month' || r === 'last_month') {
+    const prevMoDate = new Date(Date.UTC(currentYearIST, currentMonthIST - 1, 1, 0, 0, 0, 0));
+    const yr = prevMoDate.getUTCFullYear();
+    const mo = prevMoDate.getUTCMonth();
+    const startIST = Date.UTC(yr, mo, 1, 0, 0, 0, 0);
+    const nextMonthIST = Date.UTC(yr, mo + 1, 1, 0, 0, 0, 0);
+    const endIST = nextMonthIST - 1;
+    return {
+      gte: new Date(startIST - IST_OFFSET_MS),
+      lte: new Date(endIST - IST_OFFSET_MS),
+    };
+  }
+
+  if (r === 'this_year' || r === 'year') {
     const yr = targetYear || currentYearIST;
     const startIST = Date.UTC(yr, 0, 1, 0, 0, 0, 0);
     const endIST = Date.UTC(yr, 11, 31, 23, 59, 59, 999);
@@ -53,7 +93,7 @@ export function getISTDateRange(
     };
   }
 
-  if (customStart || customEnd) {
+  if (customStart || customEnd || r === 'custom') {
     const filter: { gte?: Date; lte?: Date } = {};
     if (customStart) {
       const parts = customStart.split('-').map(Number);
@@ -75,12 +115,15 @@ export function getISTDateRange(
         filter.lte = d;
       }
     }
-    return filter;
+    if (filter.gte || filter.lte) {
+      return filter;
+    }
   }
 
-  // 'all' or unspecified
+  // 'all' or 'all_time' or unspecified -> return empty (all time)
   return {};
 }
+
 
 // Main Dashboard KPIs & Today's Tasks
 router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {

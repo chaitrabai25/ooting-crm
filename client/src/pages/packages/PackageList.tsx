@@ -38,9 +38,9 @@ export const PackageList: React.FC = () => {
   const [selectedType, setSelectedType] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
 
-  const fetchPackages = async () => {
+  const fetchPackages = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       if (search) params.append('search', search);
       if (selectedType) params.append('packageType', selectedType);
@@ -51,12 +51,18 @@ export const PackageList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch packages:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchPackages();
+
+    // Multi-user 5-second live sync
+    const pollInterval = setInterval(() => {
+      fetchPackages(true);
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [selectedType, selectedStatus]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {

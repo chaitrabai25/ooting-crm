@@ -145,9 +145,9 @@ export const SupplierList: React.FC = () => {
     }
   };
 
-  const fetchSuppliers = async () => {
+  const fetchSuppliers = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -166,7 +166,7 @@ export const SupplierList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch suppliers:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -176,6 +176,13 @@ export const SupplierList: React.FC = () => {
 
   useEffect(() => {
     fetchSuppliers();
+
+    // Multi-user 5-second live sync
+    const pollInterval = setInterval(() => {
+      fetchSuppliers(true);
+      fetchStats();
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [page, typeFilter, tierFilter, stateFilter, statusFilter, sortBy, sortOrder]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {

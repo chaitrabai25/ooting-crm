@@ -62,9 +62,9 @@ export const FollowUpList: React.FC = () => {
   const [completeItem, setCompleteItem] = useState<any>(null);
   const [completeNotes, setCompleteNotes] = useState('');
 
-  const fetchFollowUps = async () => {
+  const fetchFollowUps = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -87,12 +87,18 @@ export const FollowUpList: React.FC = () => {
     } catch (err) {
       console.error('Failed to load follow-ups:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchFollowUps();
+
+    // Multi-user 5-second live sync
+    const pollInterval = setInterval(() => {
+      fetchFollowUps(true);
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [activeTab, selectedDate, page]);
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,15 +181,15 @@ export const FollowUpList: React.FC = () => {
         items={[
           {
             name: 'Leads',
-            path: '/leads?tab=new',
+            path: '/leads?tab=all',
             icon: UserCheck,
-            matchQuery: { param: 'tab', value: 'new' },
+            matchQuery: { param: 'tab', value: 'all' },
           },
           {
-            name: 'Enquiries',
-            path: '/leads?tab=all',
+            name: 'New Enquiries',
+            path: '/leads?tab=new',
             icon: Sparkles,
-            matchQuery: { param: 'tab', value: 'all' },
+            matchQuery: { param: 'tab', value: 'new' },
           },
           {
             name: 'Follow-ups',

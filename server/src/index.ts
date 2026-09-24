@@ -70,12 +70,17 @@ async function ensureColumns() {
       `ALTER TABLE "CabBooking" ADD COLUMN "driverAllowanceTotal" REAL`,
       `ALTER TABLE "CabBooking" ADD COLUMN "dutyRange" TEXT`,
       `ALTER TABLE "CabBooking" ADD COLUMN "customTableRows" TEXT`,
+      `ALTER TABLE "Payment" ADD COLUMN "customerId" TEXT`,
+      `ALTER TABLE "Payment" ADD COLUMN "paymentTime" TEXT`,
+      `ALTER TABLE "Payment" ADD COLUMN "screenshotUrl" TEXT`,
+      `ALTER TABLE "Payment" ADD COLUMN "recordedById" TEXT`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "Payment_transactionReference_key" ON "Payment"("transactionReference") WHERE "transactionReference" IS NOT NULL`,
     ];
     for (const sql of migrations) {
       try {
         await prisma.$executeRawUnsafe(sql);
       } catch {
-        // column already exists
+        // column/index already exists
       }
     }
   } else if (isPostgres) {
@@ -86,12 +91,32 @@ async function ensureColumns() {
       `ALTER TABLE "CabBooking" ADD COLUMN IF NOT EXISTS "driverAllowanceTotal" DOUBLE PRECISION`,
       `ALTER TABLE "CabBooking" ADD COLUMN IF NOT EXISTS "dutyRange" TEXT`,
       `ALTER TABLE "CabBooking" ADD COLUMN IF NOT EXISTS "customTableRows" TEXT`,
+      `ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "customerId" TEXT`,
+      `ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "paymentTime" TEXT`,
+      `ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "screenshotUrl" TEXT`,
+      `ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "recordedById" TEXT`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "Payment_transactionReference_key" ON "Payment"("transactionReference") WHERE "transactionReference" IS NOT NULL`,
     ];
     for (const sql of pgMigrations) {
       try {
         await prisma.$executeRawUnsafe(sql);
       } catch {
-        // column already exists
+        // column/index already exists
+      }
+    }
+  } else if (isMysql) {
+    const mysqlMigrations = [
+      `ALTER TABLE Payment ADD COLUMN customerId VARCHAR(36) NULL`,
+      `ALTER TABLE Payment ADD COLUMN paymentTime VARCHAR(50) NULL`,
+      `ALTER TABLE Payment ADD COLUMN screenshotUrl VARCHAR(500) NULL`,
+      `ALTER TABLE Payment ADD COLUMN recordedById VARCHAR(36) NULL`,
+      `ALTER TABLE Payment ADD UNIQUE INDEX Payment_transactionReference_key (transactionReference)`,
+    ];
+    for (const sql of mysqlMigrations) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+      } catch {
+        // column/index already exists
       }
     }
   }

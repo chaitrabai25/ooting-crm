@@ -78,7 +78,7 @@ const MODULE_CONFIGS: ModuleConfig[] = [
         'Notes': 'Looking for valley view resort and sightseeing cab',
       },
     ],
-    exportUrl: '/leads/export/excel?tab=new',
+    exportUrl: '/leads/export/excel?tab=all',
     importUrl: '/leads/import',
     requiredFields: ['Customer Name', 'Customer Phone'],
     duplicateFieldDescription: 'Matched by Phone Number and Destination',

@@ -109,7 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
     // Check specific query params if configured
     if (item.matchQuery) {
-      const currentVal = new URLSearchParams(location.search).get(item.matchQuery.param) || '';
+      const currentVal = new URLSearchParams(location.search).get(item.matchQuery.param) || (itemPath === '/leads' && item.matchQuery.param === 'tab' ? 'all' : '');
       return currentVal === item.matchQuery.value;
     }
 
@@ -163,18 +163,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
             {
               type: 'link',
               name: 'Leads',
-              path: '/leads?tab=new',
+              path: '/leads?tab=all',
               icon: UserCheck,
               module: 'leads',
-              matchQuery: { param: 'tab', value: 'new' },
+              matchQuery: { param: 'tab', value: 'all' },
             },
             {
               type: 'link',
-              name: 'Enquiries',
-              path: '/leads?tab=all',
+              name: 'New Enquiries',
+              path: '/leads?tab=new',
               icon: Sparkles,
               module: 'leads',
-              matchQuery: { param: 'tab', value: 'all' },
+              matchQuery: { param: 'tab', value: 'new' },
             },
             {
               type: 'link',

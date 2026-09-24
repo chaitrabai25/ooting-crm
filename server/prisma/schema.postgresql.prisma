@@ -322,10 +322,14 @@ model Traveller {
 model Payment {
   id                   String        @id @default(uuid())
   bookingId            String
+  customerId           String?
   amount               Decimal       @default(0) @db.Decimal(12, 2)
   paymentDate          DateTime      @default(now())
+  paymentTime          String?
   paymentMethod        PaymentMethod @default(UPI)
-  transactionReference String?
+  transactionReference String?       @unique
+  screenshotUrl        String?
+  recordedById         String?
   paymentStatus        PaymentStatus @default(SUCCESS)
   notes                String?
   createdAt            DateTime      @default(now())
@@ -334,6 +338,8 @@ model Payment {
   booking              Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
+  @@index([customerId])
+  @@index([transactionReference])
 }
 
 model Agent {

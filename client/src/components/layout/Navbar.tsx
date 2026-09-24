@@ -61,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMobileMenu }) => {
       }
     };
     fetchCounts();
-    const interval = setInterval(fetchCounts, 60000); // refresh every minute
+    const interval = setInterval(fetchCounts, 5000); // refresh every 5 seconds for live multi-user sync
     return () => clearInterval(interval);
   }, []);
 

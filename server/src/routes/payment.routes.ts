@@ -72,10 +72,13 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 
 const paymentCreateSchema = z.object({
   bookingId: z.string().min(1, 'Booking ID is required'),
+  customerId: z.string().optional().nullable(),
   amount: z.number().positive('Payment amount must be greater than zero'),
   paymentDate: z.string().optional(),
+  paymentTime: z.string().optional().nullable(),
   paymentMethod: z.enum(['CASH', 'UPI', 'BANK_TRANSFER', 'CARD', 'OTHER']).default('UPI'),
   transactionReference: z.string().optional().nullable(),
+  screenshotUrl: z.string().optional().nullable(),
   paymentStatus: z.enum(['SUCCESS', 'PENDING', 'FAILED', 'REFUNDED']).default('SUCCESS'),
   notes: z.string().optional().nullable(),
   allowOverpayment: z.boolean().optional().default(false),
@@ -168,10 +171,14 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const payment = await prisma.payment.create({
       data: {
         bookingId: data.bookingId,
+        customerId: data.customerId || booking.customerId || null,
         amount: data.amount,
         paymentDate: data.paymentDate ? new Date(data.paymentDate) : new Date(),
+        paymentTime: data.paymentTime?.trim() || null,
         paymentMethod: data.paymentMethod,
         transactionReference: data.transactionReference?.trim() || null,
+        screenshotUrl: data.screenshotUrl?.trim() || null,
+        recordedById: req.user!.id,
         paymentStatus: data.paymentStatus,
         notes: data.notes?.trim() || null,
       },

@@ -103,9 +103,9 @@ export const CabList: React.FC = () => {
     }
   };
 
-  const fetchCabs = async () => {
+  const fetchCabs = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
@@ -123,7 +123,7 @@ export const CabList: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch cab bookings:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -133,6 +133,13 @@ export const CabList: React.FC = () => {
 
   useEffect(() => {
     fetchCabs();
+
+    // Multi-user 5-second live sync
+    const pollTimer = setInterval(() => {
+      fetchCabs(true);
+      fetchStats();
+    }, 5000);
+    return () => clearInterval(pollTimer);
   }, [page, selectedStatus, selectedVehicleType, selectedTripType, startDate, endDate]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
