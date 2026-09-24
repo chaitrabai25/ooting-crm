@@ -13,11 +13,16 @@ import {
   Award,
   Trash2,
   Plus,
+  FileSpreadsheet,
+  Download,
+  UploadCloud,
+  CheckCircle2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { Booking, Traveller, Supplier } from '../../types/index.js';
 import { ServiceProviderSelectModal } from './ServiceProviderSelectModal.js';
+import { PassengerImportModal } from '../../components/passengers/PassengerImportModal.js';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -40,6 +45,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [travelEndDate, setTravelEndDate] = useState(
     initialData?.travelEndDate ? initialData.travelEndDate.split('T')[0] : ''
   );
+  const [durationDays, setDurationDays] = useState<number>(initialData?.durationDays || 1);
+  const [durationNights, setDurationNights] = useState<number>(
+    initialData?.durationNights !== undefined && initialData?.durationNights !== null ? initialData.durationNights : 0
+  );
+  const [isCustomDuration, setIsCustomDuration] = useState<boolean>(false);
+  const [tripType, setTripType] = useState<'SINGLE' | 'GROUP'>(
+    (initialData?.tripType as 'SINGLE' | 'GROUP') || (initialData?.travellers && initialData.travellers > 1 ? 'GROUP' : 'SINGLE')
+  );
+  const [isPassengerImportOpen, setIsPassengerImportOpen] = useState(false);
   const [travellers, setTravellers] = useState(initialData?.travellers || 1);
   const [totalAmount, setTotalAmount] = useState(initialData?.totalAmount || 0);
   const [discount, setDiscount] = useState(initialData?.discount || 0);
@@ -102,6 +116,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             setPackageId(b.packageId || '');
             setTravelStartDate(b.travelStartDate ? b.travelStartDate.split('T')[0] : '');
             setTravelEndDate(b.travelEndDate ? b.travelEndDate.split('T')[0] : '');
+            if (b.durationDays) setDurationDays(b.durationDays);
+            if (b.durationNights !== undefined && b.durationNights !== null) setDurationNights(b.durationNights);
+            if (b.tripType) setTripType(b.tripType as any);
             setTravellers(b.travellers || 1);
             setTotalAmount(b.totalAmount || 0);
             setDiscount(b.discount || 0);
@@ -153,6 +170,66 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       }
     }
   }, [isOpen, initialData]);
+
+  const handleQuickDuration = (days: number, nights: number) => {
+    setDurationDays(days);
+    setDurationNights(nights);
+    setIsCustomDuration(false);
+    if (travelStartDate) {
+      const start = new Date(travelStartDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + Math.max(0, days - 1));
+      setTravelEndDate(end.toISOString().split('T')[0]);
+    }
+  };
+
+  const handleStartDateChange = (startDateStr: string) => {
+    setTravelStartDate(startDateStr);
+    if (startDateStr && durationDays > 0) {
+      const start = new Date(startDateStr);
+      const end = new Date(start);
+      end.setDate(start.getDate() + Math.max(0, durationDays - 1));
+      setTravelEndDate(end.toISOString().split('T')[0]);
+    }
+  };
+
+  const handleImportedPassengers = (passengers: Traveller[]) => {
+    if (passengers.length === 0) return;
+    setTravellersList(passengers);
+    setTravellers(passengers.length);
+    if (passengers.length > 1) {
+      setTripType('GROUP');
+    }
+    const pkg = packages.find((p) => p.id === packageId);
+    if (pkg && !initialData) {
+      setTotalAmount(pkg.price * passengers.length);
+    }
+  };
+
+  const handleAddTravellerRow = () => {
+    const newCount = travellersList.length + 1;
+    setTravellers(newCount);
+    setTravellersList((prev) => [
+      ...prev,
+      {
+        name: '',
+        age: null,
+        gender: 'MALE',
+        phone: '',
+        email: '',
+        idNumber: '',
+        address: '',
+        isPrimary: false,
+      },
+    ]);
+  };
+
+  const handleRemoveTravellerRow = (idx: number) => {
+    if (travellersList.length <= 1) return;
+    const updated = travellersList.filter((_, i) => i !== idx);
+    setTravellers(updated.length);
+    setTravellersList(updated);
+  };
 
   // Adjust travellers list when traveller count changes
   const handleTravellerCountChange = (count: number) => {
@@ -344,6 +421,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         assignedUserId: assignedUserId || null,
         travelStartDate,
         travelEndDate,
+        durationDays: Number(durationDays),
+        durationNights: Number(durationNights),
+        tripType,
         travellers: Number(travellers),
         totalAmount: Number(totalAmount),
         discount: Number(discount),
@@ -359,6 +439,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           gender: t.gender || null,
           phone: t.phone ? t.phone.trim() : null,
           email: t.email ? t.email.trim() : null,
+          idNumber: t.idNumber ? t.idNumber.trim() : null,
+          address: t.address ? t.address.trim() : null,
           isPrimary: idx === 0 || !!t.isPrimary,
         })),
       };
@@ -381,7 +463,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save booking.');
+      setError(
+        err.response?.data?.message ||
+        'Unable to save booking. Your data was not saved. Please verify all fields and try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -521,6 +606,45 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           )}
         </div>
 
+        {/* Trip Type Selection */}
+        <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-[#C91F28]" />
+              Trip Type *
+            </label>
+            <span className="text-[11px] text-slate-500 font-normal">
+              {tripType === 'GROUP' ? 'Group tour with bulk passenger roster' : 'Individual / Family tour'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setTripType('SINGLE')}
+              className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                tripType === 'SINGLE'
+                  ? 'border-[#C91F28] bg-red-50/50 dark:bg-red-950/40 text-[#C91F28] dark:text-red-300 font-bold shadow-2xs'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>Single / Individual Trip</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTripType('GROUP')}
+              className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                tripType === 'GROUP'
+                  ? 'border-[#C91F28] bg-red-50/50 dark:bg-red-950/40 text-[#C91F28] dark:text-red-300 font-bold shadow-2xs'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Group Trip</span>
+            </button>
+          </div>
+        </div>
+
         {/* Travel Package */}
         <div>
           <label className="font-semibold text-slate-700 dark:text-slate-300">Travel Package (Optional)</label>
@@ -538,6 +662,156 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           </select>
         </div>
 
+        {/* Flexible Trip Duration Selector */}
+        <div className="p-3.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#C91F28]" />
+              Trip Duration *
+            </label>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-50 dark:bg-red-950/60 text-[#C91F28] dark:text-red-300 border border-red-200 dark:border-red-800">
+              {durationDays} {durationDays === 1 ? 'Day' : 'Days'} / {durationNights} {durationNights === 1 ? 'Night' : 'Nights'}
+            </span>
+          </div>
+
+          {/* Quick Combination Presets */}
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 block mb-1.5">Quick Combinations:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { d: 1, n: 0, label: '1D / 0N' },
+                { d: 1, n: 1, label: '1D / 1N' },
+                { d: 2, n: 1, label: '2D / 1N' },
+                { d: 2, n: 2, label: '2D / 2N' },
+                { d: 3, n: 2, label: '3D / 2N' },
+                { d: 3, n: 3, label: '3D / 3N' },
+                { d: 4, n: 3, label: '4D / 3N' },
+                { d: 4, n: 4, label: '4D / 4N' },
+              ].map((combo) => {
+                const isSelected = durationDays === combo.d && durationNights === combo.n && !isCustomDuration;
+                return (
+                  <button
+                    key={combo.label}
+                    type="button"
+                    onClick={() => handleQuickDuration(combo.d, combo.n)}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#C91F28] text-white border-[#C91F28] shadow-2xs font-bold'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-[#C91F28]'
+                    }`}
+                  >
+                    {combo.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setIsCustomDuration(true)}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+                  isCustomDuration
+                    ? 'bg-[#C91F28] text-white border-[#C91F28] shadow-2xs font-bold'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-[#C91F28]'
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+          </div>
+
+          {/* Individual Days and Nights Selectors */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <div>
+              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                Days:
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[1, 2, 3, 4, 5].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => {
+                      setDurationDays(d);
+                      setIsCustomDuration(false);
+                      if (travelStartDate) {
+                        const start = new Date(travelStartDate);
+                        const end = new Date(start);
+                        end.setDate(start.getDate() + Math.max(0, d - 1));
+                        setTravelEndDate(end.toISOString().split('T')[0]);
+                      }
+                    }}
+                    className={`w-7 h-7 rounded-lg font-bold text-xs border transition-colors cursor-pointer ${
+                      durationDays === d && !isCustomDuration
+                        ? 'bg-[#C91F28] text-white border-[#C91F28]'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={durationDays}
+                  onChange={(e) => {
+                    const val = Math.max(1, parseInt(e.target.value || '1', 10));
+                    setDurationDays(val);
+                    setIsCustomDuration(true);
+                    if (travelStartDate) {
+                      const start = new Date(travelStartDate);
+                      const end = new Date(start);
+                      end.setDate(start.getDate() + Math.max(0, val - 1));
+                      setTravelEndDate(end.toISOString().split('T')[0]);
+                    }
+                  }}
+                  placeholder="Custom"
+                  className="w-16 h-7 px-2 text-xs font-bold border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-[#C91F28]"
+                  title="Custom days"
+                />
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                Nights:
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[0, 1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => {
+                      setDurationNights(n);
+                      setIsCustomDuration(false);
+                    }}
+                    className={`w-7 h-7 rounded-lg font-bold text-xs border transition-colors cursor-pointer ${
+                      durationNights === n && !isCustomDuration
+                        ? 'bg-[#C91F28] text-white border-[#C91F28]'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  value={durationNights}
+                  onChange={(e) => {
+                    const val = Math.max(0, parseInt(e.target.value || '0', 10));
+                    setDurationNights(val);
+                    setIsCustomDuration(true);
+                  }}
+                  placeholder="Custom"
+                  className="w-16 h-7 px-2 text-xs font-bold border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-[#C91F28]"
+                  title="Custom nights"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Dates & Count */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
@@ -546,7 +820,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               type="date"
               required
               value={travelStartDate}
-              onChange={(e) => setTravelStartDate(e.target.value)}
+              onChange={(e) => handleStartDateChange(e.target.value)}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:border-transparent focus:outline-none"
             />
           </div>
@@ -565,7 +839,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             <input
               type="number"
               min="1"
-              max="50"
+              max="500"
               required
               value={travellers}
               onChange={(e) => handleTravellerCountChange(Number(e.target.value))}
@@ -574,21 +848,40 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           </div>
         </div>
 
-        {/* Multi-Traveller Details Card */}
+        {/* Multi-Traveller Details Card with Excel Import */}
         <div className="p-4 bg-slate-50/90 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3.5">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-[#C91F28]" />
               <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
-                Traveller Information ({travellersList.length} {travellersList.length === 1 ? 'Person' : 'People'})
+                Passenger Roster ({travellersList.length} {travellersList.length === 1 ? 'Person' : 'People'})
               </span>
             </div>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-              Fields adapt dynamically based on traveller count
-            </span>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setIsPassengerImportOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors cursor-pointer"
+                title="Bulk import passengers from Excel (.xlsx) or CSV"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Import Excel / CSV</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAddTravellerRow}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white shadow-2xs transition-colors cursor-pointer"
+                title="Add individual passenger"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Person</span>
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
             {travellersList.map((traveller, index) => (
               <div
                 key={index}
@@ -603,11 +896,23 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                       Traveller {index + 1} {index === 0 ? '(Primary Contact)' : ''}
                     </span>
                   </div>
-                  {index === 0 && (
-                    <span className="text-[10px] bg-red-50 dark:bg-red-950/40 text-[#C91F28] dark:text-red-300 px-2 py-0.5 rounded-full font-medium">
-                      Primary Booker
-                    </span>
-                  )}
+
+                  <div className="flex items-center gap-2">
+                    {index === 0 ? (
+                      <span className="text-[10px] bg-red-50 dark:bg-red-950/40 text-[#C91F28] dark:text-red-300 px-2 py-0.5 rounded-full font-medium">
+                        Primary Booker
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTravellerRow(index)}
+                        className="text-slate-400 hover:text-red-600 transition-colors p-1"
+                        title="Remove passenger"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
@@ -650,22 +955,45 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Phone (Optional)</label>
+                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Contact Number</label>
                     <input
                       type="tel"
-                      placeholder="Phone number"
+                      placeholder="Mobile number"
                       value={traveller.phone || ''}
                       onChange={(e) => updateTravellerField(index, 'phone', e.target.value)}
                       className="mt-0.5 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-850 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Email (Optional)</label>
+                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Email Address</label>
                     <input
                       type="email"
                       placeholder="Email address"
                       value={traveller.email || ''}
                       onChange={(e) => updateTravellerField(index, 'email', e.target.value)}
+                      className="mt-0.5 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-850 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">ID / Passport / Aadhaar Number</label>
+                    <input
+                      type="text"
+                      placeholder="Govt ID or Passport"
+                      value={traveller.idNumber || ''}
+                      onChange={(e) => updateTravellerField(index, 'idNumber', e.target.value)}
+                      className="mt-0.5 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-850 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Address / City</label>
+                    <input
+                      type="text"
+                      placeholder="City, State"
+                      value={traveller.address || ''}
+                      onChange={(e) => updateTravellerField(index, 'address', e.target.value)}
                       className="mt-0.5 w-full p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-850 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                     />
                   </div>
@@ -904,6 +1232,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           isOpen={isProviderModalOpen}
           onClose={() => setIsProviderModalOpen(false)}
           onSelect={handleAddProvider}
+        />
+      )}
+
+      {/* Passenger Excel / CSV Import Modal */}
+      {isPassengerImportOpen && (
+        <PassengerImportModal
+          isOpen={isPassengerImportOpen}
+          onClose={() => setIsPassengerImportOpen(false)}
+          onImport={handleImportedPassengers}
         />
       )}
     </Modal>

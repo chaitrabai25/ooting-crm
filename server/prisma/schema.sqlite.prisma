@@ -230,6 +230,9 @@ model Booking {
   assignedUserId  String?
   travelStartDate DateTime
   travelEndDate   DateTime
+  durationDays    Int?      @default(1)
+  durationNights  Int?      @default(0)
+  tripType        String?   @default("SINGLE") // SINGLE, GROUP
   travellers      Int       @default(1)
   totalAmount     Float     @default(0)
   discount        Float     @default(0)
@@ -266,6 +269,8 @@ model Traveller {
   gender    String? // MALE, FEMALE, OTHER
   phone     String?
   email     String?
+  idNumber  String? // Passport, Aadhaar, National ID
+  address   String?
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -283,7 +288,7 @@ model Payment {
   paymentDate          DateTime @default(now())
   paymentTime          String?
   paymentMethod        String   @default("UPI") // CASH, UPI, BANK_TRANSFER, CARD, OTHER
-  transactionReference String?  @unique
+  transactionReference String?
   screenshotUrl        String?
   recordedById         String?
   paymentStatus        String   @default("SUCCESS") // SUCCESS, PENDING, FAILED, REFUNDED

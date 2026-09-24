@@ -119,12 +119,24 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = paymentCreateSchema.parse(req.body);
 
-    // Enforce Unique UTR check
-    if (data.transactionReference && data.transactionReference.trim()) {
-      const cleanUtr = data.transactionReference.trim();
+    // Enforce Method-Specific UTR Requirements
+    if (data.paymentMethod === 'UPI') {
+      if (!data.transactionReference || !data.transactionReference.trim()) {
+        res.status(400).json({
+          message: 'UTR / Transaction Reference is required for UPI payments.',
+        });
+        return;
+      }
+    }
+
+    // For CASH, empty reference should be null
+    const cleanRef = data.transactionReference?.trim() || null;
+
+    // Enforce Unique UTR check whenever reference is provided
+    if (cleanRef) {
       const duplicate = await prisma.payment.findFirst({
         where: {
-          transactionReference: cleanUtr,
+          transactionReference: cleanRef,
         },
         include: {
           booking: {
@@ -135,7 +147,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 
       if (duplicate) {
         res.status(409).json({
-          message: 'This UTR number already exists for another payment. Please enter a unique UTR number.',
+          message: 'This UTR number already exists for another transaction. Please enter a unique UTR number.',
           duplicateBooking: (duplicate as any).booking?.bookingNumber,
           duplicateCustomer: (duplicate as any).booking?.customer?.fullName,
         });
@@ -176,7 +188,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         paymentDate: data.paymentDate ? new Date(data.paymentDate) : new Date(),
         paymentTime: data.paymentTime?.trim() || null,
         paymentMethod: data.paymentMethod,
-        transactionReference: data.transactionReference?.trim() || null,
+        transactionReference: cleanRef,
         screenshotUrl: data.screenshotUrl?.trim() || null,
         recordedById: req.user!.id,
         paymentStatus: data.paymentStatus,

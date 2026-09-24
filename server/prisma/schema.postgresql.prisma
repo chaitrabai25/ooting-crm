@@ -279,6 +279,9 @@ model Booking {
   assignedUserId  String?
   travelStartDate DateTime
   travelEndDate   DateTime
+  durationDays    Int?          @default(1)
+  durationNights  Int?          @default(0)
+  tripType        String?       @default("SINGLE")
   travellers      Int           @default(1)
   totalAmount     Decimal       @default(0) @db.Decimal(12, 2)
   discount        Decimal       @default(0) @db.Decimal(12, 2)
@@ -310,6 +313,8 @@ model Traveller {
   gender    String? // MALE, FEMALE, OTHER
   phone     String?
   email     String?
+  idNumber  String?
+  address   String?
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -327,7 +332,7 @@ model Payment {
   paymentDate          DateTime      @default(now())
   paymentTime          String?
   paymentMethod        PaymentMethod @default(UPI)
-  transactionReference String?       @unique
+  transactionReference String?
   screenshotUrl        String?
   recordedById         String?
   paymentStatus        PaymentStatus @default(SUCCESS)

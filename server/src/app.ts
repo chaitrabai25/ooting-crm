@@ -3,7 +3,23 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { prisma } from './db/prisma.js';
+import { prisma, connectDB } from './db/prisma.js';
+import { ensureColumns } from './db/migrations.js';
+
+let dbInitPromise: Promise<void> | null = null;
+export async function ensureDbReady() {
+  if (!dbInitPromise) {
+    dbInitPromise = (async () => {
+      try {
+        await connectDB();
+        await ensureColumns();
+      } catch (err: any) {
+        console.warn('[DB Init] Warning during database initialization:', err?.message);
+      }
+    })();
+  }
+  return dbInitPromise;
+}
 
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
@@ -51,6 +67,14 @@ if (!fs.existsSync(uploadsDir)) {
   }
 }
 app.use('/uploads', express.static(uploadsDir));
+
+// Ensure database connection and columns exist before serving any API route (crucial for Vercel Serverless)
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api') && req.path !== '/api/health') {
+    await ensureDbReady();
+  }
+  next();
+});
 
 // Health check
 app.get('/api/health', async (req, res) => {

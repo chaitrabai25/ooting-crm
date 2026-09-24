@@ -196,12 +196,25 @@ export const BookingList: React.FC = () => {
       sortKey: 'travelStartDate',
       render: (b) => (
         <div className="text-xs">
-          <span className="font-semibold text-slate-800 dark:text-slate-200 block">
-            {b.package?.packageName || 'Customized Tour'}
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">
-            {new Date(b.travelStartDate).toLocaleDateString()} – {new Date(b.travelEndDate).toLocaleDateString()} ({b.travellers} Pax)
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-semibold text-slate-800 dark:text-slate-200">
+              {b.package?.packageName || 'Customized Tour'}
+            </span>
+            {b.tripType === 'GROUP' && (
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                Group
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+            <span>
+              {new Date(b.travelStartDate).toLocaleDateString()} – {new Date(b.travelEndDate).toLocaleDateString()}
+            </span>
+            <span className="font-semibold text-[#C91F28]">
+              • {b.durationDays || 1}D / {b.durationNights || 0}N
+            </span>
+            <span>• {b.travellers} Pax</span>
+          </div>
         </div>
       ),
     },

@@ -165,6 +165,8 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
           gender: null,
           phone: b.customer?.phone || null,
           email: b.customer?.email || null,
+          idNumber: null,
+          address: null,
           isPrimary: true,
           createdAt: b.createdAt,
           updatedAt: b.updatedAt,
@@ -271,6 +273,8 @@ const travellerInputSchema = z.object({
   gender: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   email: z.string().optional().nullable(),
+  idNumber: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
   isPrimary: z.boolean().optional().default(false),
 });
 
@@ -285,6 +289,9 @@ const bookingCreateSchema = z.object({
   assignedUserId: z.string().optional().nullable(),
   travelStartDate: z.string().min(1, 'Start date is required'),
   travelEndDate: z.string().min(1, 'End date is required'),
+  durationDays: z.number().int().min(1).optional().nullable(),
+  durationNights: z.number().int().min(0).optional().nullable(),
+  tripType: z.string().optional().nullable(),
   travellers: z.number().int().min(1).default(1),
   travellersList: z.array(travellerInputSchema).optional(),
   totalAmount: z.number().min(0),
@@ -361,6 +368,9 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         assignedUserId: data.assignedUserId || req.user!.id,
         travelStartDate: new Date(data.travelStartDate),
         travelEndDate: new Date(data.travelEndDate),
+        durationDays: data.durationDays ?? null,
+        durationNights: data.durationNights ?? null,
+        tripType: data.tripType || (travellersToCreate.length > 1 ? 'GROUP' : 'SINGLE'),
         travellers: Math.max(data.travellers, travellersToCreate.length),
         totalAmount: data.totalAmount,
         discount: data.discount,
@@ -375,6 +385,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
             gender: t.gender || null,
             phone: t.phone?.trim() || null,
             email: t.email?.trim() || null,
+            idNumber: t.idNumber?.trim() || null,
+            address: t.address?.trim() || null,
             isPrimary: t.isPrimary !== undefined ? t.isPrimary : idx === 0,
           })),
         } : undefined,
@@ -445,6 +457,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     if (data.assignedUserId !== undefined) updatePayload.assignedUserId = data.assignedUserId || null;
     if (data.travelStartDate) updatePayload.travelStartDate = new Date(data.travelStartDate);
     if (data.travelEndDate) updatePayload.travelEndDate = new Date(data.travelEndDate);
+    if (data.durationDays !== undefined) updatePayload.durationDays = data.durationDays;
+    if (data.durationNights !== undefined) updatePayload.durationNights = data.durationNights;
+    if (data.tripType !== undefined) updatePayload.tripType = data.tripType;
     if (data.travellers !== undefined) updatePayload.travellers = data.travellers;
     if (data.bookingStatus) updatePayload.bookingStatus = data.bookingStatus;
     if (data.serviceProviders !== undefined) {
@@ -464,11 +479,16 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
             gender: t.gender || null,
             phone: t.phone?.trim() || null,
             email: t.email?.trim() || null,
+            idNumber: t.idNumber?.trim() || null,
+            address: t.address?.trim() || null,
             isPrimary: t.isPrimary !== undefined ? t.isPrimary : idx === 0,
           })),
         });
       }
       updatePayload.travellers = data.travellersList.length;
+      if (!data.tripType) {
+        updatePayload.tripType = data.travellersList.length > 1 ? 'GROUP' : 'SINGLE';
+      }
     }
 
     const updated = await prisma.booking.update({
@@ -492,6 +512,85 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     });
 
     res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Import/Append Passengers directly into an existing booking
+router.post('/:id/passengers/import', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { passengers, replaceExisting = false } = req.body;
+
+    if (!Array.isArray(passengers) || passengers.length === 0) {
+      res.status(400).json({ message: 'No passenger records provided for import.' });
+      return;
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      include: { travellersList: true },
+    });
+
+    if (!booking) {
+      res.status(404).json({ message: 'Booking not found.' });
+      return;
+    }
+
+    if (replaceExisting) {
+      await prisma.traveller.deleteMany({ where: { bookingId: id } });
+    }
+
+    const currentCount = replaceExisting ? 0 : booking.travellersList.length;
+
+    await prisma.traveller.createMany({
+      data: passengers.map((p: any, idx: number) => ({
+        bookingId: id,
+        name: String(p.name || '').trim(),
+        gender: p.gender ? String(p.gender).toUpperCase() : null,
+        phone: p.phone ? String(p.phone).trim() : null,
+        age: p.age !== undefined && p.age !== null && p.age !== '' ? Number(p.age) : null,
+        email: p.email ? String(p.email).trim().toLowerCase() : null,
+        idNumber: p.idNumber ? String(p.idNumber).trim() : null,
+        address: p.address ? String(p.address).trim() : null,
+        isPrimary: currentCount === 0 && idx === 0,
+      })),
+    });
+
+    const totalTravellers = await prisma.traveller.count({ where: { bookingId: id } });
+    await prisma.booking.update({
+      where: { id },
+      data: {
+        travellers: totalTravellers,
+        tripType: totalTravellers > 1 ? 'GROUP' : booking.tripType,
+      },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'IMPORT',
+      entity: 'BOOKING',
+      entityId: id,
+      details: `Imported ${passengers.length} passengers for booking ${booking.bookingNumber}`,
+      ipAddress: req.ip,
+    });
+
+    const refreshedBooking = await prisma.booking.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        package: true,
+        travellersList: { orderBy: { isPrimary: 'desc' } },
+        payments: true,
+      },
+    });
+
+    res.json({
+      message: `Successfully imported ${passengers.length} passengers.`,
+      booking: refreshedBooking,
+    });
   } catch (error) {
     next(error);
   }

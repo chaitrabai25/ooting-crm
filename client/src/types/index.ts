@@ -101,6 +101,8 @@ export interface Traveller {
   gender?: 'MALE' | 'FEMALE' | 'OTHER' | string | null;
   phone?: string | null;
   email?: string | null;
+  idNumber?: string | null;
+  address?: string | null;
   isPrimary?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -211,6 +213,9 @@ export interface Booking {
   assignedUser?: { id: string; name: string } | null;
   travelStartDate: string;
   travelEndDate: string;
+  durationDays?: number | null;
+  durationNights?: number | null;
+  tripType?: 'SINGLE' | 'GROUP' | string | null;
   travellers: number;
   totalAmount: number;
   discount: number;

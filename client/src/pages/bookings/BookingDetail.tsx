@@ -19,6 +19,7 @@ import {
   Building2,
   Sparkles,
   Award,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -28,6 +29,7 @@ import { EmptyState } from '../../components/ui/EmptyState.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { BookingInvoiceModal } from './BookingInvoiceModal.js';
 import { PaymentOcrModal } from '../../components/payments/PaymentOcrModal.js';
+import { PassengerImportModal } from '../../components/passengers/PassengerImportModal.js';
 
 export const BookingDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +41,7 @@ export const BookingDetail: React.FC = () => {
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPassengerImportOpen, setIsPassengerImportOpen] = useState(false);
 
   // Add Payment Modal
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -335,6 +338,18 @@ export const BookingDetail: React.FC = () => {
               </span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-100">
+              <span className="text-slate-500">Trip Type:</span>
+              <span className="font-semibold text-slate-800">
+                {booking.tripType === 'GROUP' ? 'Group Trip' : 'Single / Individual'}
+              </span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-100">
+              <span className="text-slate-500">Duration:</span>
+              <span className="font-bold text-[#C91F28]">
+                {booking.durationDays || 1} {booking.durationDays === 1 ? 'Day' : 'Days'} / {booking.durationNights || 0} {booking.durationNights === 1 ? 'Night' : 'Nights'}
+              </span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-100">
               <span className="text-slate-500">Travellers:</span>
               <span className="font-semibold text-slate-800">{booking.travellers} Pax</span>
             </div>
@@ -427,7 +442,7 @@ export const BookingDetail: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Passengers & Travellers Roster */}
           <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3.5">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-red-50 text-[#C91F28] rounded-lg">
                   <Users className="w-4 h-4" />
@@ -439,6 +454,15 @@ export const BookingDetail: React.FC = () => {
                   <p className="text-[11px] text-slate-500">Verified travellers and contact information for this trip</p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsPassengerImportOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
+                title="Bulk import group passengers from Excel (.xlsx) or CSV"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Import Excel / CSV</span>
+              </button>
             </div>
 
             {(!booking.travellersList || booking.travellersList.length === 0) ? (
@@ -471,6 +495,12 @@ export const BookingDetail: React.FC = () => {
                       <div className="pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-600 space-y-0.5">
                         {t.phone && <div className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-slate-400" /> {t.phone}</div>}
                         {t.email && <div className="flex items-center gap-1.5">✉️ {t.email}</div>}
+                      </div>
+                    )}
+                    {(t.idNumber || t.address) && (
+                      <div className="pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-600 space-y-0.5">
+                        {t.idNumber && <div>🪪 ID/Passport: <strong>{t.idNumber}</strong></div>}
+                        {t.address && <div>📍 {t.address}</div>}
                       </div>
                     )}
                   </div>
@@ -695,6 +725,17 @@ export const BookingDetail: React.FC = () => {
         confirmLabel={isDeleting ? 'Deleting...' : 'Delete Booking'}
         isDanger={true}
       />
+
+      {/* Passenger Excel / CSV Import Modal */}
+      {isPassengerImportOpen && (
+        <PassengerImportModal
+          isOpen={isPassengerImportOpen}
+          onClose={() => setIsPassengerImportOpen(false)}
+          bookingId={booking?.id}
+          bookingNumber={booking?.bookingNumber}
+          onSuccess={fetchBooking}
+        />
+      )}
     </div>
   );
 };

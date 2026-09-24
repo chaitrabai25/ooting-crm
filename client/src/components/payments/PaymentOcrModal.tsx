@@ -580,8 +580,8 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       return;
     }
 
-    if (!utr.trim()) {
-      setSaveError('UTR / Transaction reference is required.');
+    if (paymentMethod === 'UPI' && !utr.trim()) {
+      setSaveError('UTR / Transaction reference is required for UPI payments.');
       return;
     }
 
@@ -599,7 +599,7 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
         amount: numAmount,
         paymentDate: paymentDate || new Date().toISOString(),
         paymentMethod,
-        transactionReference: utr.trim(),
+        transactionReference: utr.trim() || null,
         notes: notesParts.join(' | ') || null,
         paymentStatus: 'SUCCESS',
         allowOverpayment: numAmount > expectedAmount,
@@ -797,42 +797,30 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
                 </div>
               )}
 
-              {/* UTR / Transaction Reference (Critical & Unique) */}
-              <div>
-                <label className="font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span>
-                    UTR / Transaction ID / UPI Ref <span className="text-red-500">* (Must be unique)</span>
-                  </span>
-                  {utr && utr.length === 12 && (
-                    <span className="text-emerald-600 font-bold text-[10px] flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Valid 12-digit format
-                    </span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={utr}
-                  onChange={(e) => {
-                    setUtr(e.target.value);
-                    if (fieldWarnings.utr) setFieldWarnings((w) => ({ ...w, utr: null }));
-                  }}
-                  onBlur={handleUtrBlur}
-                  placeholder="e.g. 423984712093"
-                  className="mt-1 w-full p-2.5 font-mono text-sm font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                />
-                {fieldWarnings.utr && (
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block mt-1">
-                    ⚠️ {fieldWarnings.utr}
-                  </span>
-                )}
-                <span className="text-[10px] text-slate-500 block mt-0.5">
-                  Verify each digit against screenshot before confirming. Duplicate UTRs are rejected.
-                </span>
-              </div>
-
-              {/* Amount Check */}
+              {/* Payment Method & Amount Received */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300">
+                    Payment Method <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => {
+                      setPaymentMethod(e.target.value);
+                      if (e.target.value === 'CASH') {
+                        setFieldWarnings((w) => ({ ...w, utr: null }));
+                      }
+                    }}
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none font-semibold text-xs"
+                  >
+                    <option value="UPI">UPI (Google Pay / PhonePe / Paytm)</option>
+                    <option value="CASH">Cash Payment</option>
+                    <option value="BANK_TRANSFER">Bank Transfer (NEFT / RTGS / IMPS)</option>
+                    <option value="CARD">Credit / Debit Card</option>
+                    <option value="OTHER">Other Channel</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="font-bold text-slate-700 dark:text-slate-300">
                     Amount Received (₹) <span className="text-red-500">*</span>
@@ -856,24 +844,64 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
                     </span>
                   )}
                 </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 dark:text-slate-300">
-                    Payment Method
-                  </label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none font-semibold"
-                  >
-                    <option value="UPI">UPI (Google Pay / PhonePe / Paytm)</option>
-                    <option value="BANK_TRANSFER">Bank Transfer (NEFT / RTGS / IMPS)</option>
-                    <option value="CARD">Credit / Debit Card</option>
-                    <option value="CASH">Cash</option>
-                    <option value="OTHER">Other Channel</option>
-                  </select>
-                </div>
               </div>
+
+              {/* UTR / Transaction Reference (Conditional on Payment Method) */}
+              {paymentMethod === 'CASH' ? (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <div>
+                    <span className="font-bold block">Cash Payment Selected</span>
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                      UTR / Transaction reference is not required for cash payments.
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                    <span>
+                      {paymentMethod === 'UPI' ? 'UTR / UPI Reference Number' : 'Transaction / Bank Reference'}
+                      {paymentMethod === 'UPI' ? (
+                        <span className="text-red-500"> * (Required & Unique)</span>
+                      ) : (
+                        <span className="text-slate-400 font-normal"> (Optional)</span>
+                      )}
+                    </span>
+                    {paymentMethod === 'UPI' && utr && utr.length === 12 && (
+                      <span className="text-emerald-600 font-bold text-[10px] flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Valid 12-digit format
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    required={paymentMethod === 'UPI'}
+                    value={utr}
+                    onChange={(e) => {
+                      setUtr(e.target.value);
+                      if (fieldWarnings.utr) setFieldWarnings((w) => ({ ...w, utr: null }));
+                    }}
+                    onBlur={handleUtrBlur}
+                    placeholder={
+                      paymentMethod === 'UPI'
+                        ? 'e.g. 423984712093 (12-digit UTR)'
+                        : 'e.g. NEFT12345678 or Cheque number'
+                    }
+                    className="mt-1 w-full p-2.5 font-mono text-sm font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                  />
+                  {fieldWarnings.utr && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block mt-1">
+                      ⚠️ {fieldWarnings.utr}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    {paymentMethod === 'UPI'
+                      ? 'Verify each digit against screenshot before confirming. Duplicate UTR numbers are blocked.'
+                      : 'Reference number for audit purposes.'}
+                  </span>
+                </div>
+              )}
 
               {/* Comparison against Expected Balance */}
               {parsedEnteredAmount > 0 && expectedAmount > 0 && (
