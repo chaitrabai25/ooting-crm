@@ -458,15 +458,16 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             </div>
 
             {/* Letterhead Header Section */}
-            <div className="px-7 pt-4 pb-3 border-b border-slate-200">
-              <div className="grid grid-cols-2 gap-6 items-start">
-                {/* LEFT SIDE: Logo & Company Name/Tagline */}
-                <div className="flex items-start gap-3.5">
-                  <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs shrink-0">
+            <div className="px-7 pt-3.5 pb-2.5 border-b border-slate-200">
+              <div className="flex justify-between items-start gap-4">
+                {/* LEFT SIDE: Smaller, Proportional Logo & Company Identity */}
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0">
                     <img
                       src={company.logoUrl || '/assets/ooting-logo.jpg'}
                       alt={company.name || 'Ooting'}
-                      className="w-full h-full object-contain"
+                      className="max-w-full max-h-full object-contain"
+                      style={{ objectFit: 'contain' }}
                       crossOrigin="anonymous"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
@@ -474,7 +475,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                     />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-lg font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                    <span className="text-base font-black tracking-tight text-slate-900 block leading-tight uppercase">
                       {(company.name || 'OOTING').toUpperCase()}
                     </span>
                     {company.tagline && (
@@ -482,98 +483,84 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                         {company.tagline}
                       </span>
                     )}
-                    <span className="text-[9.5px] text-slate-500 block mt-0.5">
+                    <span className="text-[9px] text-slate-500 block mt-0.5">
                       Licensed Tour Operator & Destination Specialist
                     </span>
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Contact Details (Left-Aligned within right container, cleanly wrapped) */}
-                <div className="flex justify-end">
-                  <div className="text-left text-xs space-y-1 text-slate-700 min-w-[230px] max-w-[270px]">
-                    {company.website && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
-                          <Globe className="w-3 h-3" />
-                        </span>
-                        <span className="font-medium text-[11px] text-slate-800 break-all">{company.website}</span>
-                      </div>
-                    )}
-                    {company.phone && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
-                          <Phone className="w-3 h-3" />
-                        </span>
-                        <span className="font-medium text-[11px] text-slate-800">{company.phone}</span>
-                      </div>
-                    )}
-                    {company.email && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
-                          <Mail className="w-3 h-3" />
-                        </span>
-                        <span className="font-medium text-[11px] text-slate-800 break-all">{company.email}</span>
-                      </div>
-                    )}
-                    {company.address && (
-                      <div className="flex items-start gap-2 pt-0.5">
-                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
-                          <MapPin className="w-3 h-3" />
-                        </span>
-                        <span className="text-[10.5px] text-slate-600 leading-tight break-words">{company.address}</span>
-                      </div>
-                    )}
-                    {company.gstin && (
-                      <div className="flex items-center gap-2 pt-0.5">
-                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
-                          <FileText className="w-3 h-3" />
-                        </span>
-                        <span className="font-mono font-bold text-[11px] text-slate-900">GSTIN: {company.gstin}</span>
-                      </div>
-                    )}
-                  </div>
+                {/* RIGHT SIDE: Company Contact Details (Moved ~1-2cm further right, flush with right margin, left-aligned internally) */}
+                <div className="text-left text-xs space-y-1 text-slate-700 max-w-[290px] shrink-0">
+                  {company.website && (
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                      <span className="font-medium text-[11px] text-slate-800 break-all leading-normal">{company.website}</span>
+                    </div>
+                  )}
+                  {company.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                      <span className="font-medium text-[11px] text-slate-800 leading-normal">{company.phone}</span>
+                    </div>
+                  )}
+                  {company.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                      <span className="font-medium text-[11px] text-slate-800 break-all leading-normal">{company.email}</span>
+                    </div>
+                  )}
+                  {company.gstin && company.gstin.trim() !== '' && company.gstin.toLowerCase() !== 'nill' && (
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                      <span className="font-mono font-bold text-[11px] text-slate-900 leading-normal">
+                        {company.gstin.toUpperCase().startsWith('GSTIN') ? company.gstin : `GSTIN: ${company.gstin}`}
+                      </span>
+                    </div>
+                  )}
+                  {company.address && (
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0 mt-[1.5px]" />
+                      <span className="text-[10.5px] text-slate-600 leading-snug break-words flex-1">{company.address}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Document Title & Meta Banner */}
-            <div className="bg-slate-900 text-white px-7 py-2.5 flex items-center justify-between">
+            <div className="bg-slate-900 text-white px-7 py-2 flex items-center justify-between">
               <div>
-                <span className="text-[9px] uppercase font-bold text-amber-400 block tracking-widest">
+                <span className="text-[9px] uppercase font-bold text-amber-400 block tracking-widest leading-tight">
                   OFFICIAL COMMERCIAL DOCUMENT
                 </span>
-                <h2 className="text-xs font-black tracking-wide">
+                <h2 className="text-xs font-black tracking-wide leading-tight">
                   TAX INVOICE & BOOKING STATEMENT
                 </h2>
               </div>
-              <div className="flex items-center gap-5 text-right">
-                <div>
-                  <span className="text-[9.5px] text-slate-400 block uppercase font-medium">Invoice #</span>
-                  <span className="font-mono text-[11px] font-bold text-amber-300">{invoiceNumber}</span>
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <span className="text-[9px] text-slate-400 block uppercase font-semibold tracking-wider">Invoice #</span>
+                  <span className="font-mono text-[11px] font-bold text-amber-300 leading-tight block">{invoiceNumber}</span>
                 </div>
-                <div>
-                  <span className="text-[9.5px] text-slate-400 block uppercase font-medium">Invoice Date</span>
-                  <span className="text-[11px] font-bold text-white">{invoiceDateStr}</span>
+                <div className="text-right">
+                  <span className="text-[9px] text-slate-400 block uppercase font-semibold tracking-wider">Invoice Date</span>
+                  <span className="text-[11px] font-bold text-white leading-tight block">{invoiceDateStr}</span>
                 </div>
-                <div>
-                  <span className="text-[9.5px] text-slate-400 block uppercase font-medium">Due Date</span>
-                  <span className="text-[11px] font-bold text-amber-300">
-                    {isFullyPaid ? 'Paid' : formattedDueDate}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[9.5px] text-slate-400 block uppercase font-medium">Status</span>
-                  <span
-                    className={`inline-block px-2 py-0.5 text-[9px] font-bold rounded-full ${
-                      isFullyPaid
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : paymentStatus === 'PARTIALLY PAID'
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                    }`}
-                  >
-                    {isFullyPaid ? 'FULLY PAID' : paymentStatus}
-                  </span>
+                <div className="text-center min-w-[105px]">
+                  <span className="text-[9px] text-slate-400 block uppercase font-semibold tracking-wider mb-0.5">Payment Status</span>
+                  <div className="flex items-center justify-center">
+                    <span
+                      className={`inline-flex items-center justify-center px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-wider rounded-md border leading-none ${
+                        isFullyPaid
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : paymentStatus === 'PARTIALLY PAID'
+                          ? 'bg-amber-400/20 text-amber-300 border-amber-400/50'
+                          : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                      }`}
+                    >
+                      {isFullyPaid ? 'FULLY PAID' : paymentStatus}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -710,72 +697,79 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 </div>
 
                 {/* Right: Financial Breakdown */}
-                <div className="space-y-1 text-xs bg-slate-50/60 p-2.5 rounded-lg border border-slate-200">
-                  <div className="flex justify-between text-[11px] text-slate-600">
-                    <span>Subtotal:</span>
-                    <span className="font-semibold text-slate-900">₹{rawTotal.toLocaleString('en-IN')}</span>
-                  </div>
-
-                  {discount > 0 && (
-                    <div className="flex justify-between text-[11px] text-emerald-600 font-semibold">
-                      <span>Promotional Discount:</span>
-                      <span>- ₹{discount.toLocaleString('en-IN')}</span>
+                <div className="bg-slate-50/70 p-3 rounded-lg border border-slate-200 flex flex-col justify-between space-y-1.5 text-xs">
+                  <div className="space-y-1">
+                    {/* Subtotal */}
+                    <div className="flex items-center justify-between text-[11px] text-slate-600">
+                      <span>Subtotal:</span>
+                      <span className="font-semibold text-slate-900 tabular-nums text-right">
+                        ₹{rawTotal.toLocaleString('en-IN')}
+                      </span>
                     </div>
-                  )}
 
-                  <div className="flex justify-between text-[11px] text-slate-600">
-                    <span>Amount:</span>
-                    <span className="font-semibold text-slate-900">₹{subtotal.toLocaleString('en-IN')}</span>
+                    {discount > 0 && (
+                      <div className="flex items-center justify-between text-[11px] text-emerald-600 font-semibold">
+                        <span>Promotional Discount:</span>
+                        <span className="tabular-nums text-right">- ₹{discount.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-600">
+                      <span>Amount:</span>
+                      <span className="font-semibold text-slate-900 tabular-nums text-right">
+                        ₹{subtotal.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    {/* CGST */}
+                    <div className="flex items-center justify-between text-[11px] text-slate-600">
+                      <span>CGST ({cgstPercent}%):</span>
+                      <span className="font-medium text-slate-800 tabular-nums text-right">
+                        ₹{cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {/* SGST */}
+                    <div className="flex items-center justify-between text-[11px] text-slate-600">
+                      <span>SGST ({sgstPercent}%):</span>
+                      <span className="font-medium text-slate-800 tabular-nums text-right">
+                        ₹{sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {/* Grand Total */}
+                    <div className="flex items-center justify-between pt-1 border-t-2 border-slate-300 text-xs font-black text-slate-900">
+                      <span>Grand Total:</span>
+                      <span className="text-[#C91F28] text-sm tabular-nums text-right">
+                        ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {/* Amount Paid */}
+                    <div className="flex items-center justify-between text-[11px] text-emerald-700 font-bold pt-0.5 border-t border-slate-200">
+                      <span>Amount Paid:</span>
+                      <span className="tabular-nums text-right">₹{amountPaid.toLocaleString('en-IN')}</span>
+                    </div>
+
+                    {/* Balance Due */}
+                    <div className="flex items-center justify-between text-[11px] text-slate-900 font-black pt-0.5 border-t border-slate-200">
+                      <span>Balance Due:</span>
+                      <span className={`tabular-nums text-right ${balanceDue > 0 ? 'text-rose-600 font-bold' : 'text-emerald-700'}`}>
+                        ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* CGST */}
-                  <div className="flex justify-between text-[11px] text-slate-600">
-                    <span>CGST ({cgstPercent}%):</span>
-                    <span className="font-medium text-slate-800">
-                      ₹{cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  {/* SGST */}
-                  <div className="flex justify-between text-[11px] text-slate-600">
-                    <span>SGST ({sgstPercent}%):</span>
-                    <span className="font-medium text-slate-800">
-                      ₹{sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  {/* Grand Total */}
-                  <div className="flex justify-between pt-1 border-t-2 border-slate-300 text-xs font-black text-slate-900">
-                    <span>Grand Total:</span>
-                    <span className="text-[#C91F28] text-sm">
-                      ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  {/* Amount Paid */}
-                  <div className="flex justify-between text-[11px] text-emerald-700 font-bold pt-0.5 border-t border-slate-200">
-                    <span>Amount Paid:</span>
-                    <span>₹{amountPaid.toLocaleString('en-IN')}</span>
-                  </div>
-
-                  {/* Balance Due */}
-                  <div className="flex justify-between text-[11px] text-slate-900 font-black pt-0.5 border-t border-slate-200">
-                    <span>Balance Due:</span>
-                    <span className={balanceDue > 0 ? 'text-rose-600 font-bold' : 'text-emerald-700'}>
-                      ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  {/* Due Date Note or Paid Badge */}
+                  {/* Due Date Note or Paid Badge (Crisp Full-Width Aligned Box) */}
                   {isFullyPaid ? (
-                    <div className="p-1.5 bg-emerald-50 border border-emerald-200 rounded text-[10px] text-emerald-800 font-bold flex items-center justify-center gap-1 mt-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <div className="w-full mt-2 px-3 py-1.5 bg-emerald-50 border border-emerald-300 rounded-md text-[10.5px] text-emerald-800 font-bold flex items-center justify-center gap-1.5 box-border">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>Payment Completed in Full. Thank you!</span>
                     </div>
                   ) : (
-                    <div className="p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-900 mt-1 flex justify-between items-center">
-                      <span className="font-bold">Payment Due Date:</span>
-                      <span className="font-black font-mono text-slate-900">{formattedDueDate}</span>
+                    <div className="w-full mt-2 px-3 py-1.5 bg-amber-50/90 border border-amber-300 rounded-md text-[10.5px] flex items-center justify-between box-border">
+                      <span className="font-bold text-amber-950">Payment Due Date:</span>
+                      <span className="font-black font-mono text-slate-900 tabular-nums">{formattedDueDate}</span>
                     </div>
                   )}
                 </div>
@@ -784,8 +778,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               {/* Official Verification Notice (NO SIGNATURES) */}
               <div className="border border-slate-200 rounded-lg p-2 bg-slate-50/80 text-center space-y-0.5">
                 <div className="flex items-center justify-center gap-1.5 text-slate-900 font-bold text-[10.5px] uppercase tracking-wider">
-                  <ShieldCheck className="w-3 h-3 text-[#C91F28]" />
-                  <span>Official Tax Invoice • {company.name || 'Ooting'}</span>
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28] shrink-0 inline-block align-middle" />
+                  <span className="inline-block align-middle leading-none">Official Tax Invoice • {company.name || 'Ooting'}</span>
                 </div>
                 <p className="text-[9.5px] text-slate-500">
                   This is a computer-generated commercial tax invoice verified by {company.name || 'Ooting'} CRM. Valid without physical signature.

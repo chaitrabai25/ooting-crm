@@ -45,6 +45,8 @@ export async function generateA4Pdf({
     logging: false,
     backgroundColor: '#ffffff',
     windowWidth: 1200,
+    scrollY: 0,
+    scrollX: 0,
     onclone: (clonedDoc) => {
       const el = clonedDoc.getElementById(elementId);
       if (el) {
@@ -56,6 +58,16 @@ export async function generateA4Pdf({
         el.style.boxShadow = 'none';
         el.style.borderRadius = '0';
         el.style.border = 'none';
+        el.style.overflow = 'visible';
+
+        // Un-clip all ancestor containers so html2canvas captures the full natural height
+        let current: HTMLElement | null = el.parentElement;
+        while (current && current !== clonedDoc.body) {
+          current.style.overflow = 'visible';
+          current.style.maxHeight = 'none';
+          current.style.height = 'auto';
+          current = current.parentElement;
+        }
       }
     },
   });
