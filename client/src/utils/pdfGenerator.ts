@@ -34,43 +34,66 @@ export async function generateA4Pdf({
     })
   );
 
-  // Standard A4 width at 96 DPI is ~794px. We render at fixed 794px width on clone
-  // so responsive screen widths do not compress or distort the document layout.
+  // Standard A4 width at 96 DPI is ~794px.
   const a4StandardPxWidth = 794;
 
-  const canvas = await html2canvas(element, {
-    scale: 2, // 2x crisp retina resolution
-    useCORS: true,
-    allowTaint: true,
-    logging: false,
-    backgroundColor: '#ffffff',
-    windowWidth: 1200,
-    scrollY: 0,
-    scrollX: 0,
-    onclone: (clonedDoc) => {
-      const el = clonedDoc.getElementById(elementId);
-      if (el) {
-        el.style.width = `${a4StandardPxWidth}px`;
-        el.style.maxWidth = `${a4StandardPxWidth}px`;
-        el.style.minWidth = `${a4StandardPxWidth}px`;
-        el.style.boxSizing = 'border-box';
-        el.style.margin = '0 auto';
-        el.style.boxShadow = 'none';
-        el.style.borderRadius = '0';
-        el.style.border = 'none';
-        el.style.overflow = 'visible';
+  // Create an offscreen staging container attached directly to body.
+  // This completely isolates the document from modal scrollbars, flexbox clipping,
+  // and small laptop viewport boundaries, guaranteeing full natural-height capture.
+  const stagingWrapper = document.createElement('div');
+  stagingWrapper.setAttribute('id', 'pdf-render-staging-wrapper');
+  stagingWrapper.style.position = 'absolute';
+  stagingWrapper.style.left = '-99999px';
+  stagingWrapper.style.top = '0';
+  stagingWrapper.style.width = `${a4StandardPxWidth}px`;
+  stagingWrapper.style.minWidth = `${a4StandardPxWidth}px`;
+  stagingWrapper.style.maxWidth = `${a4StandardPxWidth}px`;
+  stagingWrapper.style.height = 'auto';
+  stagingWrapper.style.minHeight = 'auto';
+  stagingWrapper.style.maxHeight = 'none';
+  stagingWrapper.style.overflow = 'visible';
+  stagingWrapper.style.zIndex = '-99999';
+  stagingWrapper.style.backgroundColor = '#ffffff';
 
-        // Un-clip all ancestor containers so html2canvas captures the full natural height
-        let current: HTMLElement | null = el.parentElement;
-        while (current && current !== clonedDoc.body) {
-          current.style.overflow = 'visible';
-          current.style.maxHeight = 'none';
-          current.style.height = 'auto';
-          current = current.parentElement;
-        }
-      }
-    },
-  });
+  const clonedElement = element.cloneNode(true) as HTMLElement;
+  clonedElement.style.width = `${a4StandardPxWidth}px`;
+  clonedElement.style.maxWidth = `${a4StandardPxWidth}px`;
+  clonedElement.style.minWidth = `${a4StandardPxWidth}px`;
+  clonedElement.style.height = 'auto';
+  clonedElement.style.minHeight = 'auto';
+  clonedElement.style.maxHeight = 'none';
+  clonedElement.style.overflow = 'visible';
+  clonedElement.style.margin = '0';
+  clonedElement.style.boxShadow = 'none';
+  clonedElement.style.border = 'none';
+  clonedElement.style.borderRadius = '0';
+
+  stagingWrapper.appendChild(clonedElement);
+  document.body.appendChild(stagingWrapper);
+
+  // Short delay for DOM layout calculation in the staging container
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const totalHeight = Math.max(clonedElement.scrollHeight, clonedElement.offsetHeight, 1000);
+
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(clonedElement, {
+      scale: 2, // 2x crisp retina resolution
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      width: a4StandardPxWidth,
+      height: totalHeight,
+      windowWidth: 1200,
+      windowHeight: totalHeight + 300,
+      scrollY: 0,
+      scrollX: 0,
+    });
+  } finally {
+    stagingWrapper.remove();
+  }
 
   const imgData = canvas.toDataURL('image/png', 1.0);
 

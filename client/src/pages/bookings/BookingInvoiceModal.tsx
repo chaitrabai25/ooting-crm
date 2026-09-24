@@ -123,90 +123,13 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
     ? 'PARTIALLY PAID'
     : 'UNPAID';
 
-  // Dedicated Print: Isolates #invoice-document only in a clean A4 print frame
+  // Dedicated Print: Targets #invoice-document only
   const handlePrint = () => {
-    const invoiceEl = document.getElementById('invoice-document');
-    if (!invoiceEl) return;
-
-    // Create an isolated print iframe to print ONLY the invoice document
-    const iframe = document.createElement('iframe');
-    iframe.id = 'print-invoice-iframe';
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document;
-    if (!doc) return;
-
-    // Copy all style tags and stylesheet links from parent document
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-      .map((el) => el.outerHTML)
-      .join('\n');
-
-    doc.open();
-    doc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${invoiceNumber}</title>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          ${styles}
-          <style>
-            @page {
-              size: A4 portrait;
-              margin: 0;
-            }
-            html, body {
-              margin: 0 !important;
-              padding: 0 !important;
-              width: 210mm !important;
-              background: #ffffff !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            #invoice-document {
-              width: 210mm !important;
-              max-width: 210mm !important;
-              box-sizing: border-box !important;
-              margin: 0 !important;
-              border: none !important;
-              border-radius: 0 !important;
-              box-shadow: none !important;
-              page-break-after: avoid !important;
-              page-break-inside: avoid !important;
-            }
-          </style>
-        </head>
-        <body class="bg-white">
-          ${invoiceEl.outerHTML}
-        </body>
-      </html>
-    `);
-    doc.close();
-
-    // Give iframe time to parse styles and images
+    document.body.classList.add('printing-dedicated');
+    window.print();
     setTimeout(() => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch (e) {
-        console.error('Print iframe error, fallback to window.print():', e);
-        document.body.classList.add('printing-dedicated');
-        window.print();
-        setTimeout(() => {
-          document.body.classList.remove('printing-dedicated');
-        }, 1000);
-      } finally {
-        setTimeout(() => {
-          iframe.remove();
-        }, 3000);
-      }
-    }, 400);
+      document.body.classList.remove('printing-dedicated');
+    }, 1500);
   };
 
   // Dedicated PDF Download: Targets #invoice-document only with guaranteed 1-page fit
@@ -280,9 +203,9 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/70 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/70 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible print:block">
       {/* Container */}
-      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[96vh] print:max-h-none print:shadow-none print:border-none print:rounded-none">
+      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[96vh] print:max-h-none print:shadow-none print:border-none print:rounded-none print:overflow-visible print:static print:block print:w-full print:max-w-none">
         
         {/* Floating Top Controls (Hidden when printing) */}
         <div className="flex flex-col gap-3 px-6 py-4 bg-slate-50 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 print:hidden flex-shrink-0">
@@ -437,10 +360,10 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
 
         {/* Dedicated Printable Invoice Container */}
         {/* Strictly targeted by PDF generator and print stylesheet */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center print:p-0 print:bg-white print:overflow-visible">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center print:p-0 print:bg-white print:overflow-visible print:static print:block">
           <div
             id="invoice-document"
-            className="w-[794px] max-w-[794px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0"
+            className="w-[794px] max-w-[794px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-[210mm] print:max-w-[210mm] print:overflow-visible"
             style={{
               width: '794px',
               maxWidth: '794px',
