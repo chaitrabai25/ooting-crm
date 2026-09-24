@@ -123,13 +123,16 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
     ? 'PARTIALLY PAID'
     : 'UNPAID';
 
-  // Dedicated Print: Targets #invoice-document only
+  // Dedicated Print: Targets #invoice-document only with full A4 coverage
   const handlePrint = () => {
     document.body.classList.add('printing-dedicated');
-    window.print();
-    setTimeout(() => {
+    const cleanup = () => {
       document.body.classList.remove('printing-dedicated');
-    }, 1500);
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(cleanup, 10000);
   };
 
   // Dedicated PDF Download: Targets #invoice-document only with guaranteed 1-page fit
@@ -363,20 +366,26 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center print:p-0 print:bg-white print:overflow-visible print:static print:block">
           <div
             id="invoice-document"
-            className="w-[794px] max-w-[794px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-[210mm] print:max-w-[210mm] print:overflow-visible"
+            className="w-[794px] max-w-[794px] min-h-[1123px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-[210mm] print:max-w-[210mm] print:overflow-visible"
             style={{
               width: '794px',
               maxWidth: '794px',
+              minWidth: '794px',
+              minHeight: '1123px',
               boxSizing: 'border-box',
               backgroundColor: '#ffffff',
             }}
           >
             {/* Top Brand Accent */}
-            <div className="w-full h-2.5 bg-[#C91F28] overflow-hidden relative shrink-0">
+            <div
+              className="w-full h-2.5 bg-[#C91F28] overflow-hidden relative shrink-0"
+              style={{ width: '100%', height: '10px', minHeight: '10px', maxHeight: '10px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+            >
               <img
                 src="/assets/ooting-header-wave.png"
                 alt=""
                 className="w-full h-full object-cover opacity-90"
+                style={{ width: '100%', height: '10px', objectFit: 'cover' }}
               />
             </div>
 
@@ -385,12 +394,15 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               <div className="flex justify-between items-start gap-4">
                 {/* LEFT SIDE: Smaller, Proportional Logo & Company Identity */}
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0">
+                  <div
+                    className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
+                    style={{ width: '48px', height: '48px', minWidth: '48px', maxWidth: '48px', minHeight: '48px', maxHeight: '48px', overflow: 'hidden' }}
+                  >
                     <img
                       src={company.logoUrl || '/assets/ooting-logo.jpg'}
                       alt={company.name || 'Ooting'}
                       className="max-w-full max-h-full object-contain"
-                      style={{ objectFit: 'contain' }}
+                      style={{ width: '100%', height: '100%', maxWidth: '48px', maxHeight: '48px', objectFit: 'contain' }}
                       crossOrigin="anonymous"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
@@ -416,25 +428,25 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 <div className="text-left text-xs space-y-1 text-slate-700 max-w-[290px] shrink-0">
                   {company.website && (
                     <div className="flex items-center gap-2">
-                      <Globe className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                      <Globe size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
                       <span className="font-medium text-[11px] text-slate-800 break-all leading-normal">{company.website}</span>
                     </div>
                   )}
                   {company.phone && (
                     <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                      <Phone size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
                       <span className="font-medium text-[11px] text-slate-800 leading-normal">{company.phone}</span>
                     </div>
                   )}
                   {company.email && (
                     <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                      <Mail size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
                       <span className="font-medium text-[11px] text-slate-800 break-all leading-normal">{company.email}</span>
                     </div>
                   )}
                   {company.gstin && company.gstin.trim() !== '' && company.gstin.toLowerCase() !== 'nill' && (
                     <div className="flex items-center gap-2">
-                      <FileText className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                      <FileText size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
                       <span className="font-mono font-bold text-[11px] text-slate-900 leading-normal">
                         {company.gstin.toUpperCase().startsWith('GSTIN') ? company.gstin : `GSTIN: ${company.gstin}`}
                       </span>
@@ -442,7 +454,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   )}
                   {company.address && (
                     <div className="flex items-start gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0 mt-[1.5px]" />
+                      <MapPin size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0 mt-[1.5px]" />
                       <span className="text-[10.5px] text-slate-600 leading-snug break-words flex-1">{company.address}</span>
                     </div>
                   )}
@@ -711,11 +723,15 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             </div>
 
             {/* Bottom Wave Footer - INSIDE #invoice-document */}
-            <div className="w-full h-2.5 bg-[#C91F28] overflow-hidden relative shrink-0">
+            <div
+              className="w-full h-2.5 bg-[#C91F28] overflow-hidden relative shrink-0"
+              style={{ width: '100%', height: '10px', minHeight: '10px', maxHeight: '10px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+            >
               <img
                 src="/assets/ooting-header-wave.png"
                 alt=""
                 className="w-full h-full object-cover opacity-90 rotate-180"
+                style={{ width: '100%', height: '10px', objectFit: 'cover', transform: 'rotate(180deg)' }}
               />
             </div>
           </div>

@@ -6,6 +6,7 @@ interface GeneratePdfOptions {
   filename: string;
   title?: string;
   onePageOnly?: boolean;
+  margin?: number;
 }
 
 /**
@@ -16,6 +17,7 @@ export async function generateA4Pdf({
   elementId,
   filename,
   onePageOnly = true,
+  margin,
 }: GeneratePdfOptions): Promise<{ pdfBlob: Blob; download: () => void }> {
   const element = document.getElementById(elementId);
   if (!element) {
@@ -34,66 +36,44 @@ export async function generateA4Pdf({
     })
   );
 
-  // Standard A4 width at 96 DPI is ~794px.
+  // Standard A4 width at 96 DPI is ~794px. We render at fixed 794px width on clone
+  // so responsive screen widths do not compress or distort the document layout.
   const a4StandardPxWidth = 794;
 
-  // Create an offscreen staging container attached directly to body.
-  // This completely isolates the document from modal scrollbars, flexbox clipping,
-  // and small laptop viewport boundaries, guaranteeing full natural-height capture.
-  const stagingWrapper = document.createElement('div');
-  stagingWrapper.setAttribute('id', 'pdf-render-staging-wrapper');
-  stagingWrapper.style.position = 'absolute';
-  stagingWrapper.style.left = '-99999px';
-  stagingWrapper.style.top = '0';
-  stagingWrapper.style.width = `${a4StandardPxWidth}px`;
-  stagingWrapper.style.minWidth = `${a4StandardPxWidth}px`;
-  stagingWrapper.style.maxWidth = `${a4StandardPxWidth}px`;
-  stagingWrapper.style.height = 'auto';
-  stagingWrapper.style.minHeight = 'auto';
-  stagingWrapper.style.maxHeight = 'none';
-  stagingWrapper.style.overflow = 'visible';
-  stagingWrapper.style.zIndex = '-99999';
-  stagingWrapper.style.backgroundColor = '#ffffff';
+  const canvas = await html2canvas(element, {
+    scale: 2, // 2x crisp retina resolution
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    backgroundColor: '#ffffff',
+    windowWidth: 1200,
+    scrollY: 0,
+    scrollX: 0,
+    onclone: (clonedDoc) => {
+      const el = clonedDoc.getElementById(elementId);
+      if (el) {
+        el.style.width = `${a4StandardPxWidth}px`;
+        el.style.maxWidth = `${a4StandardPxWidth}px`;
+        el.style.minWidth = `${a4StandardPxWidth}px`;
+        el.style.minHeight = '1123px';
+        el.style.boxSizing = 'border-box';
+        el.style.margin = '0 auto';
+        el.style.boxShadow = 'none';
+        el.style.borderRadius = '0';
+        el.style.border = 'none';
+        el.style.overflow = 'visible';
 
-  const clonedElement = element.cloneNode(true) as HTMLElement;
-  clonedElement.style.width = `${a4StandardPxWidth}px`;
-  clonedElement.style.maxWidth = `${a4StandardPxWidth}px`;
-  clonedElement.style.minWidth = `${a4StandardPxWidth}px`;
-  clonedElement.style.height = 'auto';
-  clonedElement.style.minHeight = 'auto';
-  clonedElement.style.maxHeight = 'none';
-  clonedElement.style.overflow = 'visible';
-  clonedElement.style.margin = '0';
-  clonedElement.style.boxShadow = 'none';
-  clonedElement.style.border = 'none';
-  clonedElement.style.borderRadius = '0';
-
-  stagingWrapper.appendChild(clonedElement);
-  document.body.appendChild(stagingWrapper);
-
-  // Short delay for DOM layout calculation in the staging container
-  await new Promise((resolve) => setTimeout(resolve, 50));
-
-  const totalHeight = Math.max(clonedElement.scrollHeight, clonedElement.offsetHeight, 1000);
-
-  let canvas: HTMLCanvasElement;
-  try {
-    canvas = await html2canvas(clonedElement, {
-      scale: 2, // 2x crisp retina resolution
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      width: a4StandardPxWidth,
-      height: totalHeight,
-      windowWidth: 1200,
-      windowHeight: totalHeight + 300,
-      scrollY: 0,
-      scrollX: 0,
-    });
-  } finally {
-    stagingWrapper.remove();
-  }
+        // Un-clip all ancestor containers so html2canvas captures the full natural height
+        let current: HTMLElement | null = el.parentElement;
+        while (current && current !== clonedDoc.body) {
+          current.style.overflow = 'visible';
+          current.style.maxHeight = 'none';
+          current.style.height = 'auto';
+          current = current.parentElement;
+        }
+      }
+    },
+  });
 
   const imgData = canvas.toDataURL('image/png', 1.0);
 
@@ -107,10 +87,20 @@ export async function generateA4Pdf({
 
   const pageWidth = 210;
   const pageHeight = 297;
-  const marginX = 6; // 6mm margins for clean breathing room
-  const marginY = 6;
-  const printableWidth = pageWidth - marginX * 2; // 198mm
-  const printableHeight = pageHeight - marginY * 2; // 285mm
+
+  // Documents designed with full-bleed brand banners (like invoice-document and duty-slip-document)
+  // use 0 margin so header/footer bleed reaches the edge of the A4 page without awkward white gaps.
+  const effectiveMargin =
+    margin !== undefined
+      ? margin
+      : elementId === 'invoice-document' || elementId === 'duty-slip-document'
+      ? 0
+      : 6;
+
+  const marginX = effectiveMargin;
+  const marginY = effectiveMargin;
+  const printableWidth = pageWidth - marginX * 2;
+  const printableHeight = pageHeight - marginY * 2;
 
   const contentHeightMm = (canvas.height * printableWidth) / canvas.width;
 
@@ -122,7 +112,7 @@ export async function generateA4Pdf({
     const finalWidth = printableWidth * scale;
     const finalHeight = contentHeightMm * scale;
     const offsetX = marginX + (printableWidth - finalWidth) / 2;
-    const offsetY = marginY;
+    const offsetY = marginY + (printableHeight - finalHeight) / 2;
 
     pdf.addImage(imgData, 'PNG', offsetX, offsetY, finalWidth, finalHeight, undefined, 'FAST');
   } else {
