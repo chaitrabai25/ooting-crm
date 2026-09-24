@@ -159,14 +159,14 @@ html.dark select:-webkit-autofill,
 /* Print layout optimizations for quotations & documents */
 @media print {
   @page {
-    margin: 8mm;
     size: A4 portrait;
+    margin: 0;
   }
   html,
   body {
     background: #ffffff !important;
     color: #0f172a !important;
-    width: 100% !important;
+    width: 210mm !important;
     margin: 0 !important;
     padding: 0 !important;
     font-size: 11pt;
@@ -199,14 +199,20 @@ html.dark select:-webkit-autofill,
   body.printing-dedicated #invoice-document,
   body.printing-dedicated #duty-slip-document,
   body.printing-dedicated #itinerary-document {
-    position: absolute !important;
+    position: fixed !important;
     left: 0 !important;
     top: 0 !important;
-    width: 100% !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    box-sizing: border-box !important;
     margin: 0 !important;
-    padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    z-index: 999999 !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .print-only {

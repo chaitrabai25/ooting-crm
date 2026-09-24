@@ -123,16 +123,93 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
     ? 'PARTIALLY PAID'
     : 'UNPAID';
 
-  // Dedicated Print: Isolates #invoice-document only
+  // Dedicated Print: Isolates #invoice-document only in a clean A4 print frame
   const handlePrint = () => {
-    document.body.classList.add('printing-dedicated');
-    window.print();
+    const invoiceEl = document.getElementById('invoice-document');
+    if (!invoiceEl) return;
+
+    // Create an isolated print iframe to print ONLY the invoice document
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-invoice-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    // Copy all style tags and stylesheet links from parent document
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((el) => el.outerHTML)
+      .join('\n');
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${invoiceNumber}</title>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          ${styles}
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 0;
+            }
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 210mm !important;
+              background: #ffffff !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            #invoice-document {
+              width: 210mm !important;
+              max-width: 210mm !important;
+              box-sizing: border-box !important;
+              margin: 0 !important;
+              border: none !important;
+              border-radius: 0 !important;
+              box-shadow: none !important;
+              page-break-after: avoid !important;
+              page-break-inside: avoid !important;
+            }
+          </style>
+        </head>
+        <body class="bg-white">
+          ${invoiceEl.outerHTML}
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    // Give iframe time to parse styles and images
     setTimeout(() => {
-      document.body.classList.remove('printing-dedicated');
-    }, 1000);
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (e) {
+        console.error('Print iframe error, fallback to window.print():', e);
+        document.body.classList.add('printing-dedicated');
+        window.print();
+        setTimeout(() => {
+          document.body.classList.remove('printing-dedicated');
+        }, 1000);
+      } finally {
+        setTimeout(() => {
+          iframe.remove();
+        }, 3000);
+      }
+    }, 400);
   };
 
-  // Dedicated PDF Download: Targets #invoice-document only
+  // Dedicated PDF Download: Targets #invoice-document only with guaranteed 1-page fit
   const handleDownloadPdf = async () => {
     try {
       setIsGeneratingPdf(true);
@@ -143,6 +220,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
       const { download } = await generateA4Pdf({
         elementId: 'invoice-document',
         filename,
+        onePageOnly: true,
       });
       download();
     } catch (err) {
@@ -165,6 +243,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
       const { download } = await generateA4Pdf({
         elementId: 'invoice-document',
         filename,
+        onePageOnly: true,
       });
       download();
 
@@ -358,14 +437,19 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
 
         {/* Dedicated Printable Invoice Container */}
         {/* Strictly targeted by PDF generator and print stylesheet */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center print:p-0 print:bg-white">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center print:p-0 print:bg-white print:overflow-visible">
           <div
             id="invoice-document"
-            className="flex min-h-[1123px] w-[794px] max-w-full mx-auto flex-col bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none text-slate-800 font-sans print:m-0 border border-slate-200"
-            style={{ boxSizing: 'border-box' }}
+            className="w-[794px] max-w-[794px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0"
+            style={{
+              width: '794px',
+              maxWidth: '794px',
+              boxSizing: 'border-box',
+              backgroundColor: '#ffffff',
+            }}
           >
             {/* Top Brand Accent */}
-            <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative flex-shrink-0">
+            <div className="w-full h-2.5 bg-[#C91F28] overflow-hidden relative shrink-0">
               <img
                 src="/assets/ooting-header-wave.png"
                 alt=""
@@ -374,96 +458,113 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             </div>
 
             {/* Letterhead Header Section */}
-            <div className="px-8 pt-6 pb-5 border-b border-slate-200">
-              <div className="grid grid-cols-2 gap-8 items-start">
+            <div className="px-7 pt-4 pb-3 border-b border-slate-200">
+              <div className="grid grid-cols-2 gap-6 items-start">
                 {/* LEFT SIDE: Logo & Company Name/Tagline */}
-                <div className="flex items-start gap-4">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs shrink-0">
                     <img
                       src={company.logoUrl || '/assets/ooting-logo.jpg'}
                       alt={company.name || 'Ooting'}
                       className="w-full h-full object-contain"
+                      crossOrigin="anonymous"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
                       }}
                     />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                    <span className="text-lg font-black tracking-tight text-slate-900 block leading-tight uppercase">
                       {(company.name || 'OOTING').toUpperCase()}
                     </span>
-                    <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
-                      {company.tagline || 'Journeys Beyond Ordinary'}
-                    </span>
-                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                    {company.tagline && (
+                      <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                        {company.tagline}
+                      </span>
+                    )}
+                    <span className="text-[9.5px] text-slate-500 block mt-0.5">
                       Licensed Tour Operator & Destination Specialist
                     </span>
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Contact Details (Neat Left-Aligned Vertical List with Fixed-Width Icons) */}
+                {/* RIGHT SIDE: Company Contact Details (Left-Aligned within right container, cleanly wrapped) */}
                 <div className="flex justify-end">
-                  <div className="flex flex-col space-y-1.5 text-xs text-slate-700 min-w-[250px]">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                        <Globe className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="font-medium text-slate-800 tracking-tight">{company.website || 'https://ooting.in'}</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                        <Phone className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="font-medium text-slate-800 tracking-tight">{company.phone || '+91 98765 43210'}</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                        <Mail className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="font-medium text-slate-800 tracking-tight">{company.email || 'contact@ooting.com'}</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                        <FileText className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="font-mono font-bold text-slate-900 tracking-tight">{company.gstin || '29AABCO1234F1Z5'}</span>
-                    </div>
-                    <div className="flex items-start gap-2.5 pt-0.5">
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
-                        <MapPin className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="text-slate-600 leading-snug max-w-[280px]">
-                        {company.address || 'Ooting Holidays Private Limited, Bangalore, Karnataka, India'}
-                      </span>
-                    </div>
+                  <div className="text-left text-xs space-y-1 text-slate-700 min-w-[230px] max-w-[270px]">
+                    {company.website && (
+                      <div className="flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                          <Globe className="w-3 h-3" />
+                        </span>
+                        <span className="font-medium text-[11px] text-slate-800 break-all">{company.website}</span>
+                      </div>
+                    )}
+                    {company.phone && (
+                      <div className="flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                          <Phone className="w-3 h-3" />
+                        </span>
+                        <span className="font-medium text-[11px] text-slate-800">{company.phone}</span>
+                      </div>
+                    )}
+                    {company.email && (
+                      <div className="flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                          <Mail className="w-3 h-3" />
+                        </span>
+                        <span className="font-medium text-[11px] text-slate-800 break-all">{company.email}</span>
+                      </div>
+                    )}
+                    {company.address && (
+                      <div className="flex items-start gap-2 pt-0.5">
+                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                          <MapPin className="w-3 h-3" />
+                        </span>
+                        <span className="text-[10.5px] text-slate-600 leading-tight break-words">{company.address}</span>
+                      </div>
+                    )}
+                    {company.gstin && (
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                          <FileText className="w-3 h-3" />
+                        </span>
+                        <span className="font-mono font-bold text-[11px] text-slate-900">GSTIN: {company.gstin}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Document Title & Meta Banner */}
-            <div className="bg-slate-900 text-white px-8 py-3.5 flex items-center justify-between">
+            <div className="bg-slate-900 text-white px-7 py-2.5 flex items-center justify-between">
               <div>
-                <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-widest">
+                <span className="text-[9px] uppercase font-bold text-amber-400 block tracking-widest">
                   OFFICIAL COMMERCIAL DOCUMENT
                 </span>
-                <h2 className="text-base font-black tracking-wide">
+                <h2 className="text-xs font-black tracking-wide">
                   TAX INVOICE & BOOKING STATEMENT
                 </h2>
               </div>
-              <div className="flex items-center gap-6 text-right">
+              <div className="flex items-center gap-5 text-right">
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Invoice #</span>
-                  <span className="font-mono text-xs font-bold text-amber-300">{invoiceNumber}</span>
+                  <span className="text-[9.5px] text-slate-400 block uppercase font-medium">Invoice #</span>
+                  <span className="font-mono text-[11px] font-bold text-amber-300">{invoiceNumber}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Invoice Date</span>
-                  <span className="text-xs font-bold text-white">{invoiceDateStr}</span>
+                  <span className="text-[9.5px] text-slate-400 block uppercase font-medium">Invoice Date</span>
+                  <span className="text-[11px] font-bold text-white">{invoiceDateStr}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Payment Status</span>
+                  <span className="text-[9.5px] text-slate-400 block uppercase font-medium">Due Date</span>
+                  <span className="text-[11px] font-bold text-amber-300">
+                    {isFullyPaid ? 'Paid' : formattedDueDate}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[9.5px] text-slate-400 block uppercase font-medium">Status</span>
                   <span
-                    className={`inline-block px-2.5 py-0.5 text-[10px] font-bold rounded-full ${
+                    className={`inline-block px-2 py-0.5 text-[9px] font-bold rounded-full ${
                       isFullyPaid
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                         : paymentStatus === 'PARTIALLY PAID'
@@ -478,228 +579,228 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
             </div>
 
             {/* Main Invoice Body Content */}
-            <div className="flex-1 p-8 space-y-5">
+            <div className="flex-1 px-7 py-3 space-y-2.5">
               {/* Customer & Booking Details Section */}
-              <div className="grid grid-cols-2 gap-4 py-2 border-b border-slate-200 text-xs">
-              {/* Billed To Customer */}
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
-                <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block mb-0.5">
-                  Billed To (Guest Customer)
-                </span>
-                <p className="font-bold text-slate-900 text-sm">{booking.customer?.fullName || 'Guest Customer'}</p>
-                {booking.customer?.phone && (
-                  <p className="text-slate-600 flex items-center gap-1.5">
-                    <Phone className="w-3 h-3 text-slate-400" />
-                    <span>{booking.customer.phone}</span>
+              <div className="grid grid-cols-2 gap-3 py-1 border-b border-slate-200 text-xs">
+                {/* Billed To Customer */}
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
+                  <span className="text-[9px] font-bold text-[#C91F28] uppercase tracking-wider block mb-0.5">
+                    Billed To (Customer Details)
+                  </span>
+                  <p className="font-bold text-slate-900 text-xs">{booking.customer?.fullName || 'Guest Customer'}</p>
+                  {booking.customer?.phone && (
+                    <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
+                      <Phone className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <span>{booking.customer.phone}</span>
+                    </p>
+                  )}
+                  {booking.customer?.email && (
+                    <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
+                      <Mail className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <span>{booking.customer.email}</span>
+                    </p>
+                  )}
+                  {booking.customer?.city && (
+                    <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
+                      <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <span>{booking.customer.city}{booking.customer.state ? `, ${booking.customer.state}` : ''}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Booking & Journey Information */}
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
+                  <span className="text-[9px] font-bold text-[#C91F28] uppercase tracking-wider block mb-0.5">
+                    Booking & Journey Overview
+                  </span>
+                  <p className="font-bold text-slate-900 text-xs">
+                    {booking.package?.packageName || 'Custom Holiday Tour'}
                   </p>
-                )}
-                {booking.customer?.email && (
-                  <p className="text-slate-600 flex items-center gap-1.5">
-                    <Mail className="w-3 h-3 text-slate-400" />
-                    <span>{booking.customer.email}</span>
-                  </p>
-                )}
-                {booking.customer?.city && (
-                  <p className="text-slate-600 flex items-center gap-1.5">
-                    <MapPin className="w-3 h-3 text-slate-400" />
-                    <span>{booking.customer.city}{booking.customer.state ? `, ${booking.customer.state}` : ''}</span>
-                  </p>
-                )}
+                  <div className="flex justify-between text-[11px] text-slate-600">
+                    <span>Booking Reference:</span>
+                    <span className="font-mono font-semibold text-slate-900">{booking.bookingNumber}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-slate-600">
+                    <span>Travel Dates:</span>
+                    <span className="font-semibold text-slate-900">{travelStartDate} to {travelEndDate}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-slate-600">
+                    <span>Total Guests:</span>
+                    <span className="font-bold text-slate-900">{booking.travellers || 1} Traveller(s)</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Booking & Journey Information */}
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
-                <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block mb-0.5">
-                  Booking & Journey Overview
-                </span>
-                <p className="font-bold text-slate-900 text-sm">
-                  {booking.package?.packageName || 'Custom Holiday Tour'}
+              {/* Line Items Table */}
+              <div className="py-1.5 border-b border-slate-200">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-700 bg-slate-50 font-bold">
+                      <th className="py-1.5 px-2.5 w-10 text-center text-[10px]">#</th>
+                      <th className="py-1.5 px-2.5 text-[10px]">Service Description</th>
+                      <th className="py-1.5 px-2.5 w-28 text-center text-[10px]">Travellers / Qty</th>
+                      <th className="py-1.5 px-2.5 w-32 text-right text-[10px]">Rate (₹)</th>
+                      <th className="py-1.5 px-2.5 w-32 text-right text-[10px]">Amount (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr>
+                      <td className="py-2 px-2.5 text-center text-slate-400 font-semibold text-[11px]">1</td>
+                      <td className="py-2 px-2.5">
+                        <span className="font-bold text-slate-900 text-xs block">
+                          {booking.package?.packageName || 'Holiday Travel Package & Tour Services'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block">
+                          Comprehensive holiday arrangements, sightseeing planning, logistics & co-ordination
+                        </span>
+                      </td>
+                      <td className="py-2 px-2.5 text-center font-semibold text-slate-700 text-xs">
+                        {booking.travellers || 1}
+                      </td>
+                      <td className="py-2 px-2.5 text-right font-medium text-slate-700 text-xs">
+                        ₹{(rawTotal / (booking.travellers || 1)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-2 px-2.5 text-right font-bold text-slate-900 text-xs">
+                        ₹{rawTotal.toLocaleString('en-IN')}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Balanced 2-Column Section: Banking on Left, Financial Calculations on Right */}
+              <div className="grid grid-cols-2 gap-4 py-1.5 border-b border-slate-200">
+                {/* Left: Banking / Remittance Details & Policy Notes */}
+                <div className="space-y-2 text-xs">
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+                    <span className="text-[9px] font-bold text-[#C91F28] uppercase tracking-wider block">
+                      Bank & Remittance Details
+                    </span>
+                    <div className="space-y-0.5 text-[10.5px] text-slate-600">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Beneficiary:</span>
+                        <span className="font-bold text-slate-900">{company.name || 'Ooting'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Bank Name:</span>
+                        <span className="font-medium text-slate-800">Authorized Commercial Bank</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">UPI ID / VPA:</span>
+                        <span className="font-mono font-semibold text-slate-800">ooting@upi</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Account Type:</span>
+                        <span className="font-medium text-slate-800">Current Account</span>
+                      </div>
+                    </div>
+                    <p className="text-[9.5px] text-slate-500 pt-1 border-t border-slate-200/80">
+                      Please quote Booking Ref <strong>{booking.bookingNumber}</strong> during bank fund transfer.
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-amber-50/50 border border-amber-200/60 text-[9.5px] text-amber-950 space-y-0.5">
+                    <span className="font-bold text-amber-900 block text-[9px] uppercase tracking-wider">
+                      Payment Terms & Cancellation Policy
+                    </span>
+                    <p className="text-slate-600 leading-tight">
+                      Standard cancellation charges apply as per booking itinerary policy. Peak season & holiday bookings are non-refundable within 7 days of departure.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right: Financial Breakdown */}
+                <div className="space-y-1 text-xs bg-slate-50/60 p-2.5 rounded-lg border border-slate-200">
+                  <div className="flex justify-between text-[11px] text-slate-600">
+                    <span>Subtotal:</span>
+                    <span className="font-semibold text-slate-900">₹{rawTotal.toLocaleString('en-IN')}</span>
+                  </div>
+
+                  {discount > 0 && (
+                    <div className="flex justify-between text-[11px] text-emerald-600 font-semibold">
+                      <span>Promotional Discount:</span>
+                      <span>- ₹{discount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-[11px] text-slate-600">
+                    <span>Amount:</span>
+                    <span className="font-semibold text-slate-900">₹{subtotal.toLocaleString('en-IN')}</span>
+                  </div>
+
+                  {/* CGST */}
+                  <div className="flex justify-between text-[11px] text-slate-600">
+                    <span>CGST ({cgstPercent}%):</span>
+                    <span className="font-medium text-slate-800">
+                      ₹{cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* SGST */}
+                  <div className="flex justify-between text-[11px] text-slate-600">
+                    <span>SGST ({sgstPercent}%):</span>
+                    <span className="font-medium text-slate-800">
+                      ₹{sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* Grand Total */}
+                  <div className="flex justify-between pt-1 border-t-2 border-slate-300 text-xs font-black text-slate-900">
+                    <span>Grand Total:</span>
+                    <span className="text-[#C91F28] text-sm">
+                      ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* Amount Paid */}
+                  <div className="flex justify-between text-[11px] text-emerald-700 font-bold pt-0.5 border-t border-slate-200">
+                    <span>Amount Paid:</span>
+                    <span>₹{amountPaid.toLocaleString('en-IN')}</span>
+                  </div>
+
+                  {/* Balance Due */}
+                  <div className="flex justify-between text-[11px] text-slate-900 font-black pt-0.5 border-t border-slate-200">
+                    <span>Balance Due:</span>
+                    <span className={balanceDue > 0 ? 'text-rose-600 font-bold' : 'text-emerald-700'}>
+                      ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* Due Date Note or Paid Badge */}
+                  {isFullyPaid ? (
+                    <div className="p-1.5 bg-emerald-50 border border-emerald-200 rounded text-[10px] text-emerald-800 font-bold flex items-center justify-center gap-1 mt-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Payment Completed in Full. Thank you!</span>
+                    </div>
+                  ) : (
+                    <div className="p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-900 mt-1 flex justify-between items-center">
+                      <span className="font-bold">Payment Due Date:</span>
+                      <span className="font-black font-mono text-slate-900">{formattedDueDate}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Official Verification Notice (NO SIGNATURES) */}
+              <div className="border border-slate-200 rounded-lg p-2 bg-slate-50/80 text-center space-y-0.5">
+                <div className="flex items-center justify-center gap-1.5 text-slate-900 font-bold text-[10.5px] uppercase tracking-wider">
+                  <ShieldCheck className="w-3 h-3 text-[#C91F28]" />
+                  <span>Official Tax Invoice • {company.name || 'Ooting'}</span>
+                </div>
+                <p className="text-[9.5px] text-slate-500">
+                  This is a computer-generated commercial tax invoice verified by {company.name || 'Ooting'} CRM. Valid without physical signature.
                 </p>
-                <div className="flex justify-between text-slate-600">
-                  <span>Booking Reference:</span>
-                  <span className="font-mono font-semibold text-slate-900">{booking.bookingNumber}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Travel Dates:</span>
-                  <span className="font-semibold text-slate-900">{travelStartDate} to {travelEndDate}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Total Guests:</span>
-                  <span className="font-bold text-slate-900">{booking.travellers || 1} Traveller(s)</span>
-                </div>
               </div>
             </div>
 
-            {/* Line Items Table */}
-            <div className="py-4 border-b border-slate-200">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-slate-200 text-slate-700 bg-slate-50 font-bold">
-                    <th className="py-2.5 px-3 w-10 text-center">#</th>
-                    <th className="py-2.5 px-3">Service Description</th>
-                    <th className="py-2.5 px-3 w-28 text-center">Travellers / Qty</th>
-                    <th className="py-2.5 px-3 w-32 text-right">Rate (₹)</th>
-                    <th className="py-2.5 px-3 w-32 text-right">Amount (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  <tr>
-                    <td className="py-3 px-3 text-center text-slate-400 font-semibold">1</td>
-                    <td className="py-3 px-3">
-                      <span className="font-bold text-slate-900 block">
-                        {booking.package?.packageName || 'Holiday Travel Package & Tour Services'}
-                      </span>
-                      <span className="text-[11px] text-slate-500 block mt-0.5">
-                        Comprehensive holiday arrangements, sightseeing planning, logistics & coordination
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-center font-semibold text-slate-700">
-                      {booking.travellers || 1}
-                    </td>
-                    <td className="py-3 px-3 text-right font-medium text-slate-700">
-                      ₹{(rawTotal / (booking.travellers || 1)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-3 text-right font-bold text-slate-900">
-                      ₹{rawTotal.toLocaleString('en-IN')}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            {/* Bottom Wave Footer - INSIDE #invoice-document */}
+            <div className="w-full h-2.5 bg-[#C91F28] overflow-hidden relative shrink-0">
+              <img
+                src="/assets/ooting-header-wave.png"
+                alt=""
+                className="w-full h-full object-cover opacity-90 rotate-180"
+              />
             </div>
-
-            {/* Balanced 2-Column Section: Banking on Left, Financial Calculations on Right */}
-            <div className="grid grid-cols-2 gap-6 py-4 border-b border-slate-200">
-              {/* Left: Banking / Remittance Details & Policy Notes */}
-              <div className="space-y-3 text-xs">
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                  <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block">
-                    Bank & Remittance Details
-                  </span>
-                  <div className="space-y-1 text-[11px] text-slate-600">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Beneficiary:</span>
-                      <span className="font-bold text-slate-900">{company.name || 'Ooting'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Bank Name:</span>
-                      <span className="font-medium text-slate-800">Authorized Commercial Bank</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">UPI ID / VPA:</span>
-                      <span className="font-mono font-semibold text-slate-800">ooting@upi</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Account Type:</span>
-                      <span className="font-medium text-slate-800">Current Account</span>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-slate-500 pt-1.5 border-t border-slate-200/80">
-                    Please quote Booking Ref <strong>{booking.bookingNumber}</strong> during bank fund transfer.
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-200/60 text-[11px] text-amber-950 space-y-1">
-                  <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wider">
-                    Payment Terms & Cancellation Policy
-                  </span>
-                  <p className="text-[10px] text-slate-600 leading-relaxed">
-                    Standard cancellation charges apply as per booking itinerary policy. Peak season & holiday bookings are non-refundable within 7 days of departure.
-                  </p>
-                </div>
-              </div>
-
-              {/* Right: Financial Breakdown */}
-              <div className="space-y-1.5 text-xs bg-slate-50/60 p-4 rounded-xl border border-slate-200">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal:</span>
-                  <span className="font-semibold text-slate-900">₹{rawTotal.toLocaleString('en-IN')}</span>
-                </div>
-
-                {discount > 0 && (
-                  <div className="flex justify-between text-emerald-600 font-semibold">
-                    <span>Promotional Discount:</span>
-                    <span>- ₹{discount.toLocaleString('en-IN')}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between text-slate-600">
-                  <span>Amount:</span>
-                  <span className="font-semibold text-slate-900">₹{subtotal.toLocaleString('en-IN')}</span>
-                </div>
-
-                {/* CGST */}
-                <div className="flex justify-between text-slate-600">
-                  <span>CGST ({cgstPercent}%):</span>
-                  <span className="font-medium text-slate-800">
-                    ₹{cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                {/* SGST */}
-                <div className="flex justify-between text-slate-600">
-                  <span>SGST ({sgstPercent}%):</span>
-                  <span className="font-medium text-slate-800">
-                    ₹{sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                {/* Grand Total */}
-                <div className="flex justify-between pt-2 border-t-2 border-slate-300 text-sm font-black text-slate-900">
-                  <span>Grand Total:</span>
-                  <span className="text-[#C91F28] text-base">
-                    ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                {/* Amount Paid */}
-                <div className="flex justify-between text-emerald-700 font-bold pt-1 border-t border-slate-200">
-                  <span>Amount Paid:</span>
-                  <span>₹{amountPaid.toLocaleString('en-IN')}</span>
-                </div>
-
-                {/* Balance Due */}
-                <div className="flex justify-between text-slate-900 font-black pt-1 border-t border-slate-200">
-                  <span>Balance Due:</span>
-                  <span className={balanceDue > 0 ? 'text-rose-600 text-sm' : 'text-emerald-700'}>
-                    ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                {/* Due Date Note or Paid Badge */}
-                {isFullyPaid ? (
-                  <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-bold flex items-center justify-center gap-1.5 mt-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Payment Completed in Full. Thank you!</span>
-                  </div>
-                ) : (
-                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 mt-2 flex justify-between items-center">
-                    <span className="font-bold">Payment Due Date:</span>
-                    <span className="font-black font-mono text-slate-900">{formattedDueDate}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Official Verification Notice (NO SIGNATURES) */}
-            <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/80 text-center space-y-0.5 mt-2">
-              <div className="flex items-center justify-center gap-1.5 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28]" />
-                <span>Official Tax Invoice • {company.name || 'Ooting'}</span>
-              </div>
-              <p className="text-[10px] text-slate-500">
-                This is a computer-generated commercial tax invoice verified by {company.name || 'Ooting'} CRM. Valid without physical signature.
-              </p>
-            </div>
-          </div>
-
-          {/* Bottom Wave Footer */}
-          <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative mt-auto flex-shrink-0">
-            <img
-              src="/assets/ooting-header-wave.png"
-              alt=""
-              className="w-full h-full object-cover opacity-90 rotate-180"
-            />
-          </div>
           </div>
         </div>
       </div>
