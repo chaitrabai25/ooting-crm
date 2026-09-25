@@ -14,7 +14,12 @@ const serverDir = path.resolve(__dirname, '..');
 dotenv.config({ path: path.resolve(serverDir, '../.env') });
 dotenv.config({ path: path.resolve(serverDir, '.env') });
 
-const dbUrl = process.env.DATABASE_URL || '';
+const CLOUD_TIDB_URL = 'mysql://2AJqT6QgbdvDayf.root:7xCl3FL0jIFUVu5D@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/ooting_crm?sslaccept=strict';
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = CLOUD_TIDB_URL;
+}
+
+const dbUrl = process.env.DATABASE_URL || CLOUD_TIDB_URL;
 const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
 const isMysql = dbUrl.startsWith('mysql://');
 const isSqlite = dbUrl.startsWith('file:') || (!isPostgres && !isMysql);
