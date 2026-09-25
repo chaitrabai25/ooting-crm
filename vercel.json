@@ -19,16 +19,11 @@
       "dest": "/api/index.ts"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/client/dist/assets/$1"
-    },
-    {
-      "src": "/favicon.ico",
-      "dest": "/client/dist/favicon.ico"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/client/dist/index.html"
+      "dest": "/index.html"
     }
   ]
 }

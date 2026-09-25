@@ -12,7 +12,11 @@ export async function ensureDbReady() {
     dbInitPromise = (async () => {
       try {
         await connectDB();
-        await ensureColumns();
+        // In cloud production (TiDB MySQL), the schema is already pushed and verified.
+        // Avoid executing 40+ sequential ALTER TABLE network calls on lambda startup.
+        if (process.env.RUN_AUTO_MIGRATIONS === 'true') {
+          await ensureColumns();
+        }
       } catch (err: any) {
         console.warn('[DB Init] Warning during database initialization:', err?.message);
       }
