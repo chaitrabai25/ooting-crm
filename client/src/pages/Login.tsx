@@ -185,28 +185,28 @@ export const Login: React.FC = () => {
               {/* Verified Account Helpers */}
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl text-xs space-y-2">
                 <span className="font-semibold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider block">
-                  Quick Select Account:
+                  Quick Select Super Admin:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"
                     onClick={() => {
-                      setIdentifier('chaitrabai25@gmail.com');
-                      setPassword('Admin@12345');
+                      setIdentifier('chaitrabaijr@gmail.com');
+                      setPassword('Chaitra@25');
                     }}
                     className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-lg font-medium text-slate-800 dark:text-slate-200 transition-colors cursor-pointer text-[11px]"
                   >
-                    👤 chaitrabai25@gmail.com
+                    👑 chaitrabaijr@gmail.com
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setIdentifier('admin@ooting.com');
-                      setPassword('Admin@12345');
+                      setIdentifier('8951233134');
+                      setPassword('Chaitra@25');
                     }}
                     className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-lg font-medium text-slate-800 dark:text-slate-200 transition-colors cursor-pointer text-[11px]"
                   >
-                    👑 admin@ooting.com
+                    📱 8951233134 (Phone)
                   </button>
                 </div>
               </div>
