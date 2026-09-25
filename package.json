@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Ooting CRM & Travel Business Management System",
+  "type": "module",
   "workspaces": [
     "server",
     "client"

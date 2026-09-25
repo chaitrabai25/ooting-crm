@@ -6,8 +6,12 @@ if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = 'production';
 }
 
-import app from '../server/src/app.js';
+let cachedApp: any = null;
 
-export default function handler(req: any, res: any) {
-  return app(req, res);
+export default async function handler(req: any, res: any) {
+  if (!cachedApp) {
+    const mod = await import('../server/src/app.js');
+    cachedApp = mod.default || mod;
+  }
+  return cachedApp(req, res);
 }
