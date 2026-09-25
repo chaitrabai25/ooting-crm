@@ -52,24 +52,6 @@ export const QuotationBuilder: React.FC = () => {
 
   const [quotationNumber, setQuotationNumber] = useState('');
 
-  const updateBasePrice = (
-    basePkg: number,
-    adultRate: number,
-    childRate: number,
-    infantRate: number,
-    customAdults = adults,
-    customChildren = children,
-    customInfants = infants
-  ) => {
-    const tieredTotal =
-      Number(basePkg || 0) +
-      Number(customAdults) * Number(adultRate || 0) +
-      Number(customChildren) * Number(childRate || 0) +
-      Number(customInfants) * Number(infantRate || 0);
-    if (tieredTotal > 0 || basePkg > 0 || adultRate > 0) {
-      setBasePrice(tieredTotal);
-    }
-  };
   const [customers, setCustomers] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,7 +75,8 @@ export const QuotationBuilder: React.FC = () => {
             setDestination(q.destination || '');
             if (q.travelStartDate) setTravelStartDate(q.travelStartDate.split('T')[0]);
             if (q.travelEndDate) setTravelEndDate(q.travelEndDate.split('T')[0]);
-            setAdults(q.adults || 2);
+            const loadedAdults = q.adults || 2;
+            setAdults(loadedAdults);
             setChildren(q.children || 0);
             setInfants(q.infants || 0);
             setAccommodation(q.accommodation || '');
@@ -103,7 +86,13 @@ export const QuotationBuilder: React.FC = () => {
             setExclusions(q.exclusions || '');
             setCabDetails(q.cabDetails || '');
             setBasePackagePrice(Number(q.basePackagePrice || 0));
-            setAdultUnitPrice(Number(q.adultUnitPrice || 0));
+
+            const loadedAdultUnit = Number(q.adultUnitPrice || 0);
+            if (loadedAdultUnit > 0) {
+              setAdultUnitPrice(loadedAdultUnit);
+            } else if (q.basePrice && loadedAdults > 0) {
+              setAdultUnitPrice(Math.round(Number(q.basePrice) / loadedAdults));
+            }
             setChildUnitPrice(Number(q.childUnitPrice || 0));
             setInfantUnitPrice(Number(q.infantUnitPrice || 0));
             setAdditionalCharges(Number(q.additionalCharges || 0));
@@ -130,13 +119,16 @@ export const QuotationBuilder: React.FC = () => {
           setDestination(l.destination);
           if (l.travelStartDate) setTravelStartDate(l.travelStartDate.split('T')[0]);
           if (l.travelEndDate) setTravelEndDate(l.travelEndDate.split('T')[0]);
-          setAdults(l.adults || 2);
+          const adCount = l.adults || 2;
+          setAdults(adCount);
           setChildren(l.children || 0);
           if (l.packageId) {
             setPackageId(l.packageId);
-            if (l.package?.price) setBasePrice(l.package.price * (l.adults || 2));
+            if (l.package?.price) {
+              setAdultUnitPrice(l.package.price);
+            }
           } else if (l.budget) {
-            setBasePrice(Number(l.budget));
+            setAdultUnitPrice(Math.round(Number(l.budget) / (adCount || 1)));
           }
         }
       });
@@ -148,15 +140,22 @@ export const QuotationBuilder: React.FC = () => {
     const selected = packages.find((p) => p.id === selectedPkgId);
     if (selected) {
       if (!destination) setDestination(selected.destination);
-      setBasePrice(selected.price * adults);
+      if (selected.price) {
+        setAdultUnitPrice(selected.price);
+      }
       if (selected.inclusions) setInclusions(selected.inclusions);
       if (selected.exclusions) setExclusions(selected.exclusions);
     }
   };
 
+  const adultTotal = adults * (adultUnitPrice || 0);
+  const childTotal = children * (childUnitPrice || 0);
+  const infantTotal = infants * (infantUnitPrice || 0);
+  const calculatedSubtotal = adultTotal + childTotal + infantTotal;
+  const subtotal = calculatedSubtotal > 0 ? calculatedSubtotal : Number(basePrice || 0);
   const finalAmount = Math.max(
     0,
-    Number(basePrice) - Number(discount) + Number(tax) + Number(additionalCharges)
+    subtotal - Number(discount || 0) + Number(tax || 0) + Number(additionalCharges || 0)
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -188,14 +187,14 @@ export const QuotationBuilder: React.FC = () => {
       inclusions,
       exclusions,
       cabDetails,
-      basePackagePrice: Number(basePackagePrice || 0),
+      basePackagePrice: 0,
       adultUnitPrice: Number(adultUnitPrice || 0),
       childUnitPrice: Number(childUnitPrice || 0),
       infantUnitPrice: Number(infantUnitPrice || 0),
-      additionalCharges: Number(additionalCharges),
-      basePrice: Number(basePrice),
-      discount: Number(discount),
-      tax: Number(tax),
+      additionalCharges: Number(additionalCharges || 0),
+      basePrice: Number(subtotal),
+      discount: Number(discount || 0),
+      tax: Number(tax || 0),
       status,
       paymentTerms,
       cancellationTerms,
@@ -376,11 +375,7 @@ export const QuotationBuilder: React.FC = () => {
               min="1"
               required
               value={adults}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setAdults(val);
-                updateBasePrice(basePackagePrice, adultUnitPrice, childUnitPrice, infantUnitPrice, val, children, infants);
-              }}
+              onChange={(e) => setAdults(Math.max(1, Number(e.target.value)))}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-semibold bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
@@ -390,11 +385,7 @@ export const QuotationBuilder: React.FC = () => {
               type="number"
               min="0"
               value={children}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setChildren(val);
-                updateBasePrice(basePackagePrice, adultUnitPrice, childUnitPrice, infantUnitPrice, adults, val, infants);
-              }}
+              onChange={(e) => setChildren(Math.max(0, Number(e.target.value)))}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
@@ -404,11 +395,7 @@ export const QuotationBuilder: React.FC = () => {
               type="number"
               min="0"
               value={infants}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setInfants(val);
-                updateBasePrice(basePackagePrice, adultUnitPrice, childUnitPrice, infantUnitPrice, adults, children, val);
-              }}
+              onChange={(e) => setInfants(Math.max(0, Number(e.target.value)))}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
@@ -496,168 +483,181 @@ export const QuotationBuilder: React.FC = () => {
           </div>
         </div>
 
-        {/* Tiered Passenger & Base Package Pricing Breakdown */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-200 dark:border-slate-800 pb-2">
+        {/* Simplified 4-Column Passenger & Package Pricing Breakdown */}
+        <div className="p-4 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
-              <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
-                Tiered Passenger & Package Pricing
+              <span className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider block">
+                Passenger & Package Pricing
               </span>
-              <span className="text-[11px] text-slate-500">
-                Unit pricing automatically calculates the Base Package Cost based on guests
+              <span className="text-xs text-slate-500">
+                Transparent per-person pricing calculation based on guest count
               </span>
             </div>
-            <div className="text-right text-[11px]">
-              <span className="font-semibold text-brand-600 dark:text-brand-400">
-                Calculated Base: ₹{(
-                  Number(basePackagePrice || 0) +
-                  adults * (adultUnitPrice || 0) +
-                  children * (childUnitPrice || 0) +
-                  infants * (infantUnitPrice || 0)
-                ).toLocaleString('en-IN')}
+            <div className="text-right text-xs">
+              <span className="text-slate-500">Subtotal (Base Total): </span>
+              <span className="font-bold text-brand-600 dark:text-brand-400 text-sm">
+                ₹{subtotal.toLocaleString('en-IN')}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">
-                Base Package Amount (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={basePackagePrice || ''}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setBasePackagePrice(val);
-                  updateBasePrice(val, adultUnitPrice, childUnitPrice, infantUnitPrice);
-                }}
-                placeholder="Fixed hotel/cab base"
-                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              />
-              <span className="text-[10px] text-slate-400 mt-0.5 block">Fixed trip component</span>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                  <th className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">Category</th>
+                  <th className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">Price / Person (₹)</th>
+                  <th className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300 text-center">Quantity</th>
+                  <th className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300 text-right">Total (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {/* Adults Row */}
+                <tr>
+                  <td className="py-3 px-3 font-medium text-slate-800 dark:text-slate-200">
+                    <div className="font-semibold">Adults</div>
+                    <span className="text-[10px] text-slate-400">Base package rate per adult</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <input
+                      type="number"
+                      min="0"
+                      value={adultUnitPrice || ''}
+                      onChange={(e) => setAdultUnitPrice(Number(e.target.value))}
+                      placeholder="0"
+                      className="w-32 p-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 font-semibold bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <span className="inline-block px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-md font-semibold text-slate-700 dark:text-slate-300">
+                      {adults}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white">
+                    ₹{adultTotal.toLocaleString('en-IN')}
+                  </td>
+                </tr>
 
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">
-                Adult Unit Price (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={adultUnitPrice || ''}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setAdultUnitPrice(val);
-                  updateBasePrice(basePackagePrice, val, childUnitPrice, infantUnitPrice);
-                }}
-                placeholder="Per adult rate"
-                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              />
-              <span className="text-[10px] text-slate-500 mt-0.5 block">
-                {adults} × ₹{(adultUnitPrice || 0).toLocaleString('en-IN')} = ₹{(adults * (adultUnitPrice || 0)).toLocaleString('en-IN')}
-              </span>
-            </div>
+                {/* Children Row */}
+                <tr>
+                  <td className="py-3 px-3 font-medium text-slate-800 dark:text-slate-200">
+                    <div className="font-semibold">Children</div>
+                    <span className="text-[10px] text-slate-400">Child rate per person</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <input
+                      type="number"
+                      min="0"
+                      value={childUnitPrice || ''}
+                      onChange={(e) => setChildUnitPrice(Number(e.target.value))}
+                      placeholder="0"
+                      className="w-32 p-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <span className="inline-block px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-md font-semibold text-slate-700 dark:text-slate-300">
+                      {children}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white">
+                    ₹{childTotal.toLocaleString('en-IN')}
+                  </td>
+                </tr>
 
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">
-                Child Unit Price (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={childUnitPrice || ''}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setChildUnitPrice(val);
-                  updateBasePrice(basePackagePrice, adultUnitPrice, val, infantUnitPrice);
-                }}
-                placeholder="Per child rate"
-                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              />
-              <span className="text-[10px] text-slate-500 mt-0.5 block">
-                {children} × ₹{(childUnitPrice || 0).toLocaleString('en-IN')} = ₹{(children * (childUnitPrice || 0)).toLocaleString('en-IN')}
-              </span>
-            </div>
-
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">
-                Infant Unit Price (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={infantUnitPrice || ''}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setInfantUnitPrice(val);
-                  updateBasePrice(basePackagePrice, adultUnitPrice, childUnitPrice, val);
-                }}
-                placeholder="Per infant rate"
-                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              />
-              <span className="text-[10px] text-slate-500 mt-0.5 block">
-                {infants} × ₹{(infantUnitPrice || 0).toLocaleString('en-IN')} = ₹{(infants * (infantUnitPrice || 0)).toLocaleString('en-IN')}
-              </span>
-            </div>
+                {/* Infants Row */}
+                <tr>
+                  <td className="py-3 px-3 font-medium text-slate-800 dark:text-slate-200">
+                    <div className="font-semibold">Infants</div>
+                    <span className="text-[10px] text-slate-400">Infant rate per person</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <input
+                      type="number"
+                      min="0"
+                      value={infantUnitPrice || ''}
+                      onChange={(e) => setInfantUnitPrice(Number(e.target.value))}
+                      placeholder="0"
+                      className="w-32 p-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <span className="inline-block px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-md font-semibold text-slate-700 dark:text-slate-300">
+                      {infants}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white">
+                    ₹{infantTotal.toLocaleString('en-IN')}
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+                  <td colSpan={3} className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200 text-right">
+                    Subtotal (Base Total):
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-extrabold text-brand-600 dark:text-brand-400 text-sm">
+                    ₹{subtotal.toLocaleString('en-IN')}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
-        </div>
 
-        {/* Financial Calculation Section */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
-          <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
-            Quotation Financial Breakdown
-          </span>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {/* Financial Adjustments Grid */}
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-700 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Base Cost (₹) *</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Discount (₹)
+              </label>
               <input
                 type="number"
                 min="0"
-                required
-                value={basePrice}
-                onChange={(e) => setBasePrice(Number(e.target.value))}
-                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-800"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Discount (₹)</label>
-              <input
-                type="number"
-                min="0"
-                value={discount}
+                value={discount || ''}
                 onChange={(e) => setDiscount(Number(e.target.value))}
-                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                placeholder="0"
+                className="w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">GST / Tax (₹)</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                GST / Tax (₹)
+              </label>
               <input
                 type="number"
                 min="0"
-                value={tax}
+                value={tax || ''}
                 onChange={(e) => setTax(Number(e.target.value))}
-                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                placeholder="0"
+                className="w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Addl. Charges (₹)</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Addl. Charges (₹)
+              </label>
               <input
                 type="number"
                 min="0"
-                value={additionalCharges}
+                value={additionalCharges || ''}
                 onChange={(e) => setAdditionalCharges(Number(e.target.value))}
-                placeholder="Permits, entry fees, etc."
-                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                placeholder="Permits, entry, etc."
+                className="w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700">
-            <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">Final Quotation Amount:</span>
-            <span className="font-bold text-brand-600 dark:text-brand-400 text-lg">
+          {/* Net Total Card */}
+          <div className="flex items-center justify-between p-3.5 bg-brand-50 dark:bg-brand-950/40 rounded-xl border border-brand-200 dark:border-brand-900/60 mt-2">
+            <div>
+              <span className="font-bold text-slate-900 dark:text-white text-sm block">
+                Net Total Amount:
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                (Subtotal − Discount + GST + Addl. Charges)
+              </span>
+            </div>
+            <span className="font-extrabold text-brand-600 dark:text-brand-400 text-xl">
               ₹{finalAmount.toLocaleString('en-IN')}
             </span>
           </div>

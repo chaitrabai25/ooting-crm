@@ -14,6 +14,7 @@ import {
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
+import { parseSpreadsheetSafely, safeIncludes, safeStr, cleanPhoneNumber } from '../../utils/excel.js';
 
 interface CabImportModalProps {
   isOpen: boolean;
@@ -160,7 +161,7 @@ export const CabImportModal: React.FC<CabImportModalProps> = ({
     XLSX.writeFile(wb, 'Ooting_Cab_Bookings_Import_Template.xlsx');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -168,20 +169,18 @@ export const CabImportModal: React.FC<CabImportModalProps> = ({
     setResultSummary(null);
     setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const rawJson: any[] = XLSX.utils.sheet_to_json(worksheet);
+    try {
+      const parsed = await parseSpreadsheetSafely(file, [
+        ['customer', 'guest', 'name', 'passenger'],
+        ['phone', 'mobile', 'contact'],
+      ]);
+      const rawJson: any[] = parsed.jsonRows;
 
-        if (!rawJson || rawJson.length === 0) {
-          setError('The uploaded spreadsheet contains no data rows.');
-          setParsedRows([]);
-          return;
-        }
+      if (!rawJson || rawJson.length === 0) {
+        setError('The uploaded spreadsheet contains no data rows.');
+        setParsedRows([]);
+        return;
+      }
 
         const rows: ParsedCabRow[] = rawJson.map((r, idx) => {
           // Normalize Customer Name
@@ -334,16 +333,14 @@ export const CabImportModal: React.FC<CabImportModalProps> = ({
             isValid,
             validationError,
           };
-        });
+      });
 
-        setParsedRows(rows);
-      } catch (err: any) {
-        console.error('File parsing error:', err);
-        setError('Failed to parse the file. Please ensure it is a valid Excel spreadsheet.');
-        setParsedRows([]);
-      }
-    };
-    reader.readAsBinaryString(file);
+      setParsedRows(rows);
+    } catch (err: any) {
+      console.error('File parsing error:', err);
+      setError(err?.message || 'Failed to parse the file. Please ensure it is a valid Excel spreadsheet.');
+      setParsedRows([]);
+    }
   };
 
   const handleImport = async () => {

@@ -3,6 +3,7 @@ import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, Download, Re
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
+import { parseSpreadsheetSafely, safeIncludes, cleanPhoneNumber, safeStr } from '../../utils/excel.js';
 
 interface AgentImportModalProps {
   isOpen: boolean;
@@ -86,7 +87,7 @@ export const AgentImportModal: React.FC<AgentImportModalProps> = ({
     XLSX.writeFile(wb, 'Ooting_B2B_Agents_Import_Template.xlsx');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -94,97 +95,96 @@ export const AgentImportModal: React.FC<AgentImportModalProps> = ({
     setResultSummary(null);
     setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    try {
+      const parsed = await parseSpreadsheetSafely(file, [
+        ['company', 'agency'],
+        ['contact', 'person', 'name'],
+        ['phone', 'mobile'],
+      ]);
 
-        if (!json || json.length < 2) {
-          setError('The uploaded spreadsheet contains no data rows.');
-          setParsedRows([]);
-          return;
-        }
+      const { headers, rawRows } = parsed;
 
-        const headers: string[] = (json[0] || []).map((h: any) => String(h || '').trim().toLowerCase());
-        const companyIdx = headers.findIndex((h) => h.includes('company') || h.includes('agency'));
-        const personIdx = headers.findIndex((h) => h.includes('contact') || h.includes('person') || h.includes('name'));
-        const phoneIdx = headers.findIndex((h) => h.includes('phone') || h.includes('mobile'));
-        const emailIdx = headers.findIndex((h) => h.includes('email') || h.includes('mail'));
-        const cityIdx = headers.findIndex((h) => h.includes('city'));
-        const stateIdx = headers.findIndex((h) => h.includes('state'));
-        const gstIdx = headers.findIndex((h) => h.includes('gst'));
-        const reviewIdx = headers.findIndex((h) => h.includes('review') || h.includes('google'));
-
-        if (companyIdx === -1 || personIdx === -1 || phoneIdx === -1) {
-          setError('Spreadsheet must have columns for "Agency Name", "Contact Person", and "Phone".');
-          setParsedRows([]);
-          return;
-        }
-
-        const rows: ParsedAgentRow[] = [];
-        const seenPhones = new Set<string>();
-
-        for (let i = 1; i < json.length; i++) {
-          const row = json[i];
-          if (!row || row.length === 0) continue;
-
-          const companyName = String(row[companyIdx] || '').trim();
-          const contactPerson = String(row[personIdx] || '').trim();
-          const rawPhone = String(row[phoneIdx] || '').trim();
-          const cleanPhone = rawPhone.replace(/[^\d+]/g, '');
-          const email = emailIdx !== -1 && row[emailIdx] ? String(row[emailIdx]).trim() : undefined;
-          const city = cityIdx !== -1 && row[cityIdx] ? String(row[cityIdx]).trim() : undefined;
-          const state = stateIdx !== -1 && row[stateIdx] ? String(row[stateIdx]).trim() : undefined;
-          const gstNumber = gstIdx !== -1 && row[gstIdx] ? String(row[gstIdx]).trim() : undefined;
-          const googleReviewUrl = reviewIdx !== -1 && row[reviewIdx] ? String(row[reviewIdx]).trim() : undefined;
-
-          let isValid = true;
-          let validationError = '';
-          let isDuplicate = false;
-
-          if (!companyName) {
-            isValid = false;
-            validationError = 'Missing Agency Name';
-          } else if (!contactPerson) {
-            isValid = false;
-            validationError = 'Missing Contact Person';
-          } else if (!cleanPhone || cleanPhone.length < 8) {
-            isValid = false;
-            validationError = 'Invalid Phone Number';
-          } else if (seenPhones.has(cleanPhone)) {
-            isDuplicate = true;
-            validationError = 'Duplicate Phone in File';
-          } else {
-            seenPhones.add(cleanPhone);
-          }
-
-          rows.push({
-            rowNumber: i + 1,
-            companyName,
-            contactPerson,
-            phone: rawPhone,
-            email,
-            city,
-            state,
-            gstNumber,
-            googleReviewUrl,
-            isValid,
-            validationError,
-            isDuplicate,
-          });
-        }
-
-        setParsedRows(rows);
-      } catch (err: any) {
-        setError(`Failed to read spreadsheet: ${err?.message || 'Invalid file format'}`);
+      if (!rawRows || rawRows.length === 0) {
+        setError('The uploaded spreadsheet contains no data rows.');
+        setParsedRows([]);
+        return;
       }
-    };
 
-    reader.readAsBinaryString(file);
+      const companyIdx = headers.findIndex((h) => safeIncludes(h, 'company') || safeIncludes(h, 'agency'));
+      const personIdx = headers.findIndex((h) => safeIncludes(h, 'contact') || safeIncludes(h, 'person') || safeIncludes(h, 'name'));
+      const phoneIdx = headers.findIndex((h) => safeIncludes(h, 'phone') || safeIncludes(h, 'mobile'));
+      const emailIdx = headers.findIndex((h) => safeIncludes(h, 'email') || safeIncludes(h, 'mail'));
+      const cityIdx = headers.findIndex((h) => safeIncludes(h, 'city'));
+      const stateIdx = headers.findIndex((h) => safeIncludes(h, 'state'));
+      const gstIdx = headers.findIndex((h) => safeIncludes(h, 'gst'));
+      const reviewIdx = headers.findIndex((h) => safeIncludes(h, 'review') || safeIncludes(h, 'google'));
+
+      if (companyIdx === -1 || personIdx === -1 || phoneIdx === -1) {
+        const found = headers.filter((h) => safeStr(h).length > 0).join(', ');
+        setError(`Spreadsheet must have columns for "Agency Name", "Contact Person", and "Phone". Detected columns: ${found || 'None'}`);
+        setParsedRows([]);
+        return;
+      }
+
+      const rows: ParsedAgentRow[] = [];
+      const seenPhones = new Set<string>();
+
+      for (let i = 0; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        if (!row || row.length === 0 || row.every((c) => safeStr(c).length === 0)) continue;
+
+        const companyName = safeStr(row[companyIdx]);
+        const contactPerson = safeStr(row[personIdx]);
+        const rawPhone = safeStr(row[phoneIdx]);
+        const cleanPhone = cleanPhoneNumber(rawPhone);
+        const email = emailIdx !== -1 && row[emailIdx] ? safeStr(row[emailIdx]) : undefined;
+        const city = cityIdx !== -1 && row[cityIdx] ? safeStr(row[cityIdx]) : undefined;
+        const state = stateIdx !== -1 && row[stateIdx] ? safeStr(row[stateIdx]) : undefined;
+        const gstNumber = gstIdx !== -1 && row[gstIdx] ? safeStr(row[gstIdx]) : undefined;
+        const googleReviewUrl = reviewIdx !== -1 && row[reviewIdx] ? safeStr(row[reviewIdx]) : undefined;
+
+        let isValid = true;
+        let validationError = '';
+        let isDuplicate = false;
+
+        if (!companyName) {
+          isValid = false;
+          validationError = 'Missing Agency Name';
+        } else if (!contactPerson) {
+          isValid = false;
+          validationError = 'Missing Contact Person';
+        } else if (!cleanPhone || cleanPhone.length < 8) {
+          isValid = false;
+          validationError = 'Invalid Phone Number';
+        } else if (seenPhones.has(cleanPhone)) {
+          isDuplicate = true;
+          validationError = 'Duplicate Phone in File';
+        } else {
+          seenPhones.add(cleanPhone);
+        }
+
+        rows.push({
+          rowNumber: i + 1,
+          companyName,
+          contactPerson,
+          phone: cleanPhone || rawPhone,
+          email,
+          city,
+          state,
+          gstNumber,
+          googleReviewUrl,
+          isValid,
+          validationError,
+          isDuplicate,
+        });
+      }
+
+      setParsedRows(rows);
+    } catch (err: any) {
+      console.error('Agent upload parse error:', err);
+      setError(`Failed to read spreadsheet: ${err?.message || 'Invalid file format'}`);
+      setParsedRows([]);
+    }
   };
 
   const handleImport = async () => {

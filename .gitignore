@@ -62,3 +62,5 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 .vercel
+
+scratch/

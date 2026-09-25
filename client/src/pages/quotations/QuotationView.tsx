@@ -10,9 +10,12 @@ import {
   Clock,
   Phone,
   Mail,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 
 export const QuotationView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +24,7 @@ export const QuotationView: React.FC = () => {
   const [quotation, setQuotation] = useState<any>(null);
   const [company, setCompany] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const fetchQuotation = async () => {
     try {
@@ -40,7 +44,29 @@ export const QuotationView: React.FC = () => {
   }, [id]);
 
   const handlePrint = () => {
+    document.body.classList.add('printing-dedicated');
     window.print();
+    setTimeout(() => {
+      document.body.classList.remove('printing-dedicated');
+    }, 1000);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!quotation) return;
+    try {
+      setIsGeneratingPdf(true);
+      const { download } = await generateA4Pdf({
+        elementId: 'quotation-document',
+        filename: `Quotation-${quotation.quotationNumber}.pdf`,
+        onePageOnly: false,
+      });
+      download();
+    } catch (err) {
+      console.error('Failed to generate Quotation PDF:', err);
+      alert('Could not generate PDF. Please try the Print button.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleStatusUpdate = async (status: string) => {
@@ -139,17 +165,39 @@ export const QuotationView: React.FC = () => {
 
           <button
             type="button"
+            onClick={handleDownloadPdf}
+            disabled={isGeneratingPdf}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {isGeneratingPdf ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Exporting...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span>Download PDF</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print / Save PDF</span>
+            <span>Print</span>
           </button>
         </div>
       </div>
 
       {/* Branded Official Quotation Document Canvas */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xl overflow-hidden print:border-none print:shadow-none print:rounded-none">
+      <div
+        id="quotation-document"
+        className="bg-white rounded-2xl border border-slate-200/90 shadow-xl overflow-hidden print:border-none print:shadow-none print:rounded-none"
+      >
         {/* Authentic Header Wave Accent */}
         <div className="w-full h-8 overflow-hidden bg-brand-600 relative">
           <img
@@ -162,23 +210,38 @@ export const QuotationView: React.FC = () => {
         <div className="p-8 sm:p-10 space-y-8">
           {/* Header Row with Official Ooting Logo & Quotation Title */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 pb-6 border-b border-slate-200">
-            <div>
-              <div className="w-36 h-14 mb-2 flex items-center">
+            <div className="flex flex-col sm:flex-row items-start gap-4">
+              <div className="w-36 h-14 flex items-center justify-start flex-shrink-0">
                 <img
                   src="/assets/ooting-logo.jpg"
                   alt="Ooting Logo"
                   className="h-full w-auto object-contain"
                 />
               </div>
-              <p className="text-[11px] text-slate-500 font-medium">
-                {company?.address || 'Bangalore, Karnataka, India'}
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Email: {company?.email || 'contact@ooting.com'} • Phone: {company?.phone || '+91 98765 43210'}
-              </p>
-              {company?.gstin && (
-                <p className="text-[11px] text-slate-500">GSTIN: {company.gstin}</p>
-              )}
+              <div className="border-l-0 sm:border-l sm:border-slate-200 sm:pl-4 space-y-1">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                  {company?.name || 'OOTING JOURNEYS'}
+                </h3>
+                <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                  <span>{company?.address || 'Bangalore, Karnataka, India'}</span>
+                </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                  <span className="flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                    <span>{company?.email || 'contact@ooting.com'}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                    <span>{company?.phone || '+91 98765 43210'}</span>
+                  </span>
+                </div>
+                {company?.gstin && (
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    GSTIN: <span className="font-semibold text-slate-800">{company.gstin}</span>
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="text-left sm:text-right">
@@ -306,76 +369,90 @@ export const QuotationView: React.FC = () => {
             </div>
           </div>
 
-          {/* Pricing Summary Box with Transparent Tiered Breakdown */}
+          {/* Transparent 4-Column Pricing Table */}
           <div className="pt-4 border-t border-slate-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Column: Transparent Itemized Cost Breakdown */}
-              <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/80 text-xs space-y-2">
-                <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block border-b border-slate-200 pb-1.5">
-                  Transparent Cost Calculation
-                </span>
-                
-                <div className="space-y-1.5 text-slate-600">
-                  {Number(quotation.basePackagePrice || 0) > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span>Base Package / Vehicle Fixed Rate:</span>
-                      <span className="font-semibold text-slate-800">
-                        ₹{Number(quotation.basePackagePrice).toLocaleString('en-IN')}
-                      </span>
-                    </div>
+            <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block mb-3">
+              Cost Calculation & Passenger Breakdown
+            </span>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="py-2.5 px-3.5 font-semibold text-slate-700">Category</th>
+                    <th className="py-2.5 px-3.5 font-semibold text-slate-700">Price / Person</th>
+                    <th className="py-2.5 px-3.5 font-semibold text-slate-700 text-center">Quantity</th>
+                    <th className="py-2.5 px-3.5 font-semibold text-slate-700 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {/* Adults */}
+                  <tr>
+                    <td className="py-2.5 px-3.5 font-medium text-slate-800">
+                      <div className="font-semibold">Adults</div>
+                      <span className="text-[10px] text-slate-400">Base package rate per adult</span>
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-600">
+                      ₹{Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice)).toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-2.5 px-3.5 text-center text-slate-700 font-semibold">{quotation.adults || 1}</td>
+                    <td className="py-2.5 px-3.5 text-right font-bold text-slate-900">
+                      ₹{((quotation.adults || 1) * Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice))).toLocaleString('en-IN')}
+                    </td>
+                  </tr>
+
+                  {/* Children */}
+                  {(Number(quotation.children || 0) > 0 || Number(quotation.childUnitPrice || 0) > 0) && (
+                    <tr>
+                      <td className="py-2.5 px-3.5 font-medium text-slate-800">
+                        <div className="font-semibold">Children</div>
+                        <span className="text-[10px] text-slate-400">Child rate per person</span>
+                      </td>
+                      <td className="py-2.5 px-3.5 text-slate-600">
+                        ₹{Number(quotation.childUnitPrice || 0).toLocaleString('en-IN')}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-center text-slate-700 font-semibold">{quotation.children || 0}</td>
+                      <td className="py-2.5 px-3.5 text-right font-bold text-slate-900">
+                        ₹{(Number(quotation.children || 0) * Number(quotation.childUnitPrice || 0)).toLocaleString('en-IN')}
+                      </td>
+                    </tr>
                   )}
 
-                  {Number(quotation.adultUnitPrice || 0) > 0 ? (
-                    <div className="flex justify-between items-center">
-                      <span>Adults ({quotation.adults || 1} × ₹{Number(quotation.adultUnitPrice).toLocaleString('en-IN')}):</span>
-                      <span className="font-semibold text-slate-800">
-                        ₹{((quotation.adults || 1) * Number(quotation.adultUnitPrice)).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  ) : null}
-
-                  {Number(quotation.children || 0) > 0 && Number(quotation.childUnitPrice || 0) > 0 ? (
-                    <div className="flex justify-between items-center">
-                      <span>Children ({quotation.children} × ₹{Number(quotation.childUnitPrice).toLocaleString('en-IN')}):</span>
-                      <span className="font-semibold text-slate-800">
-                        ₹{(quotation.children * Number(quotation.childUnitPrice)).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  ) : null}
-
-                  {Number(quotation.infants || 0) > 0 && Number(quotation.infantUnitPrice || 0) > 0 ? (
-                    <div className="flex justify-between items-center">
-                      <span>Infants ({quotation.infants} × ₹{Number(quotation.infantUnitPrice).toLocaleString('en-IN')}):</span>
-                      <span className="font-semibold text-slate-800">
-                        ₹{(quotation.infants * Number(quotation.infantUnitPrice)).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  ) : null}
-
-                  {!(Number(quotation.adultUnitPrice || 0) > 0 || Number(quotation.basePackagePrice || 0) > 0) && (
-                    <div className="flex justify-between items-center text-slate-500 italic">
-                      <span>Standard package flat rate applied for all guests</span>
-                      <span>₹{Number(quotation.basePrice).toLocaleString('en-IN')}</span>
-                    </div>
+                  {/* Infants */}
+                  {(Number(quotation.infants || 0) > 0 || Number(quotation.infantUnitPrice || 0) > 0) && (
+                    <tr>
+                      <td className="py-2.5 px-3.5 font-medium text-slate-800">
+                        <div className="font-semibold">Infants</div>
+                        <span className="text-[10px] text-slate-400">Infant rate per person</span>
+                      </td>
+                      <td className="py-2.5 px-3.5 text-slate-600">
+                        ₹{Number(quotation.infantUnitPrice || 0).toLocaleString('en-IN')}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-center text-slate-700 font-semibold">{quotation.infants || 0}</td>
+                      <td className="py-2.5 px-3.5 text-right font-bold text-slate-900">
+                        ₹{(Number(quotation.infants || 0) * Number(quotation.infantUnitPrice || 0)).toLocaleString('en-IN')}
+                      </td>
+                    </tr>
                   )}
-                </div>
-              </div>
+                </tbody>
+              </table>
 
-              {/* Right Column: Financial Summary Net Totals */}
-              <div className="space-y-2 text-xs">
+              {/* Subtotal, Discount, Tax, Addl, Grand Total Summary */}
+              <div className="bg-slate-50/80 p-4 border-t border-slate-200 text-xs space-y-2">
                 <div className="flex justify-between text-slate-600">
-                  <span>Base Package Cost:</span>
-                  <span className="font-medium">₹{Number(quotation.basePrice).toLocaleString('en-IN')}</span>
+                  <span className="font-medium">Subtotal (Base Total):</span>
+                  <span className="font-semibold text-slate-800">
+                    ₹{Number(quotation.basePrice).toLocaleString('en-IN')}
+                  </span>
                 </div>
-                {quotation.discount > 0 && (
+                {Number(quotation.discount || 0) > 0 && (
                   <div className="flex justify-between text-emerald-700">
                     <span>Special Discount:</span>
-                    <span className="font-medium">- ₹{Number(quotation.discount).toLocaleString('en-IN')}</span>
+                    <span className="font-semibold">- ₹{Number(quotation.discount).toLocaleString('en-IN')}</span>
                   </div>
                 )}
-                {quotation.tax > 0 && (
+                {Number(quotation.tax || 0) > 0 && (
                   <div className="flex justify-between text-slate-600">
-                    <span>Taxes / GST:</span>
+                    <span>GST / Taxes:</span>
                     <span className="font-medium">+ ₹{Number(quotation.tax).toLocaleString('en-IN')}</span>
                   </div>
                 )}
@@ -386,7 +463,7 @@ export const QuotationView: React.FC = () => {
                   </div>
                 )}
                 <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 text-sm">
-                  <span className="font-bold text-slate-900">Total Net Amount:</span>
+                  <span className="font-bold text-slate-900">Net Total Amount:</span>
                   <span className="font-extrabold text-brand-600 text-lg">
                     ₹{Number(quotation.finalAmount).toLocaleString('en-IN')}
                   </span>

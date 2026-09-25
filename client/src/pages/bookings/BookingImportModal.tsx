@@ -3,7 +3,7 @@ import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, Download, Re
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
-import { detectHeaderRow, parseExcelDate, parseExcelNumber, cleanPhoneNumber } from '../../utils/excel.js';
+import { parseSpreadsheetSafely, safeIncludes, safeStr, parseExcelDate, parseExcelNumber, cleanPhoneNumber } from '../../utils/excel.js';
 
 interface BookingImportModalProps {
   isOpen: boolean;
@@ -106,7 +106,7 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
     XLSX.writeFile(wb, 'Ooting_Bookings_Import_Template.xlsx');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -114,92 +114,85 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
     setResultSummary(null);
     setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    try {
+      const parsed = await parseSpreadsheetSafely(file, [
+        ['name', 'customer'],
+        ['phone', 'mobile', 'contact'],
+      ]);
 
-        if (!json || json.length < 2) {
-          setError('The uploaded spreadsheet contains no data rows.');
-          setParsedRows([]);
-          return;
-        }
+      const { headers, rawRows } = parsed;
 
-        const detected = detectHeaderRow(json, [
-          ['name', 'customer'],
-          ['phone', 'mobile', 'contact'],
-        ]);
-
-        if (!detected) {
-          setError('Spreadsheet must include identifiable columns for "Customer Name" and "Phone Number".');
-          setParsedRows([]);
-          return;
-        }
-
-        const { headerIndex, headers } = detected;
-        const nameIdx = headers.findIndex((h) => h.includes('name') || h.includes('customer'));
-        const phoneIdx = headers.findIndex((h) => h.includes('phone') || h.includes('mobile') || h.includes('contact'));
-        const emailIdx = headers.findIndex((h) => h.includes('email') || h.includes('mail'));
-        const cityIdx = headers.findIndex((h) => h.includes('city'));
-        const destIdx = headers.findIndex((h) => h.includes('dest') || h.includes('package'));
-        const startIdx = headers.findIndex((h) => h.includes('start'));
-        const endIdx = headers.findIndex((h) => h.includes('end'));
-        const travellersIdx = headers.findIndex((h) => h.includes('traveller') || h.includes('person') || h.includes('count') || h.includes('pax'));
-        const amountIdx = headers.findIndex((h) => h.includes('amount') || h.includes('total') || h.includes('price'));
-        const discountIdx = headers.findIndex((h) => h.includes('discount'));
-        const statusIdx = headers.findIndex((h) => h.includes('status'));
-        const notesIdx = headers.findIndex((h) => h.includes('note') || h.includes('remark'));
-
-        const rows: ParsedBookingRow[] = [];
-
-        for (let i = headerIndex + 1; i < json.length; i++) {
-          const row = json[i];
-          if (!row || row.length === 0 || row.every((c: any) => c === null || c === undefined || c === '')) continue;
-
-          const customerName = String(row[nameIdx] || '').trim();
-          const cleanPhone = cleanPhoneNumber(row[phoneIdx]);
-
-          let isValid = true;
-          let validationError: string | undefined;
-
-          if (!customerName) {
-            isValid = false;
-            validationError = 'Customer Name is required';
-          } else if (cleanPhone.length < 8) {
-            isValid = false;
-            validationError = 'Valid Phone Number is required';
-          }
-
-          rows.push({
-            rowNumber: i + 1,
-            customerName,
-            customerPhone: cleanPhone,
-            customerEmail: emailIdx !== -1 && row[emailIdx] ? String(row[emailIdx]).trim() : undefined,
-            customerCity: cityIdx !== -1 && row[cityIdx] ? String(row[cityIdx]).trim() : undefined,
-            destination: destIdx !== -1 && row[destIdx] ? String(row[destIdx]).trim() : undefined,
-            travelStartDate: startIdx !== -1 ? parseExcelDate(row[startIdx]) : undefined,
-            travelEndDate: endIdx !== -1 ? parseExcelDate(row[endIdx]) : undefined,
-            travellers: travellersIdx !== -1 ? parseExcelNumber(row[travellersIdx], 2) : 2,
-            totalAmount: amountIdx !== -1 ? parseExcelNumber(row[amountIdx], 0) : 0,
-            discount: discountIdx !== -1 ? parseExcelNumber(row[discountIdx], 0) : 0,
-            bookingStatus: statusIdx !== -1 && row[statusIdx] ? String(row[statusIdx]).trim().toUpperCase() : 'CONFIRMED',
-            notes: notesIdx !== -1 && row[notesIdx] ? String(row[notesIdx]).trim() : undefined,
-            isValid,
-            validationError,
-          });
-        }
-
-        setParsedRows(rows);
-      } catch (err) {
-        console.error('Failed to parse Excel spreadsheet:', err);
-        setError('Failed to parse Excel file. Please ensure it is a valid .xlsx or .xls file.');
+      if (!rawRows || rawRows.length === 0) {
+        setError('The uploaded spreadsheet contains no data rows.');
+        setParsedRows([]);
+        return;
       }
-    };
-    reader.readAsBinaryString(file);
+
+      const nameIdx = headers.findIndex((h) => safeIncludes(h, 'name') || safeIncludes(h, 'customer'));
+      const phoneIdx = headers.findIndex((h) => safeIncludes(h, 'phone') || safeIncludes(h, 'mobile') || safeIncludes(h, 'contact'));
+      const emailIdx = headers.findIndex((h) => safeIncludes(h, 'email') || safeIncludes(h, 'mail'));
+      const cityIdx = headers.findIndex((h) => safeIncludes(h, 'city'));
+      const destIdx = headers.findIndex((h) => safeIncludes(h, 'dest') || safeIncludes(h, 'package'));
+      const startIdx = headers.findIndex((h) => safeIncludes(h, 'start'));
+      const endIdx = headers.findIndex((h) => safeIncludes(h, 'end'));
+      const travellersIdx = headers.findIndex((h) => safeIncludes(h, 'traveller') || safeIncludes(h, 'person') || safeIncludes(h, 'count') || safeIncludes(h, 'pax'));
+      const amountIdx = headers.findIndex((h) => safeIncludes(h, 'amount') || safeIncludes(h, 'total') || safeIncludes(h, 'price'));
+      const discountIdx = headers.findIndex((h) => safeIncludes(h, 'discount'));
+      const statusIdx = headers.findIndex((h) => safeIncludes(h, 'status'));
+      const notesIdx = headers.findIndex((h) => safeIncludes(h, 'note') || safeIncludes(h, 'remark'));
+
+      if (nameIdx === -1 || phoneIdx === -1) {
+        const found = headers.filter((h) => safeStr(h).length > 0).join(', ');
+        setError(`Spreadsheet must include columns for "Customer Name" and "Phone Number". Detected columns: ${found || 'None'}`);
+        setParsedRows([]);
+        return;
+      }
+
+      const rows: ParsedBookingRow[] = [];
+
+      for (let i = 0; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        if (!row || row.length === 0 || row.every((c: any) => safeStr(c).length === 0)) continue;
+
+        const customerName = safeStr(row[nameIdx]);
+        const cleanPhone = cleanPhoneNumber(row[phoneIdx]);
+
+        let isValid = true;
+        let validationError: string | undefined;
+
+        if (!customerName) {
+          isValid = false;
+          validationError = 'Customer Name is required';
+        } else if (cleanPhone.length < 8) {
+          isValid = false;
+          validationError = 'Valid Phone Number is required';
+        }
+
+        rows.push({
+          rowNumber: i + 1,
+          customerName,
+          customerPhone: cleanPhone || safeStr(row[phoneIdx]),
+          customerEmail: emailIdx !== -1 && row[emailIdx] ? safeStr(row[emailIdx]) : undefined,
+          customerCity: cityIdx !== -1 && row[cityIdx] ? safeStr(row[cityIdx]) : undefined,
+          destination: destIdx !== -1 && row[destIdx] ? safeStr(row[destIdx]) : undefined,
+          travelStartDate: startIdx !== -1 ? parseExcelDate(row[startIdx]) : undefined,
+          travelEndDate: endIdx !== -1 ? parseExcelDate(row[endIdx]) : undefined,
+          travellers: travellersIdx !== -1 ? parseExcelNumber(row[travellersIdx], 2) : 2,
+          totalAmount: amountIdx !== -1 ? parseExcelNumber(row[amountIdx], 0) : 0,
+          discount: discountIdx !== -1 ? parseExcelNumber(row[discountIdx], 0) : 0,
+          bookingStatus: statusIdx !== -1 && row[statusIdx] ? safeStr(row[statusIdx]).toUpperCase() : 'CONFIRMED',
+          notes: notesIdx !== -1 && row[notesIdx] ? safeStr(row[notesIdx]) : undefined,
+          isValid,
+          validationError,
+        });
+      }
+
+      setParsedRows(rows);
+    } catch (err: any) {
+      console.error('Failed to parse Excel spreadsheet:', err);
+      setError(err?.message || 'Failed to parse Excel file. Please ensure it is a valid .xlsx or .xls file.');
+      setParsedRows([]);
+    }
   };
 
   const handleImportSubmit = async () => {

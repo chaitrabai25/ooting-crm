@@ -3,7 +3,7 @@ import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, Download, Re
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
-import { detectHeaderRow, cleanPhoneNumber } from '../../utils/excel.js';
+import { parseSpreadsheetSafely, safeIncludes, safeStr, cleanPhoneNumber } from '../../utils/excel.js';
 
 interface CustomerImportModalProps {
   isOpen: boolean;
@@ -51,7 +51,7 @@ export const CustomerImportModal: React.FC<CustomerImportModalProps> = ({
     XLSX.writeFile(wb, 'Ooting_Customers_Import_Template.xlsx');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -59,92 +59,85 @@ export const CustomerImportModal: React.FC<CustomerImportModalProps> = ({
     setResultSummary(null);
     setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    try {
+      const parsed = await parseSpreadsheetSafely(file, [
+        ['name', 'customer'],
+        ['phone', 'mobile', 'contact'],
+      ]);
 
-        if (!json || json.length < 2) {
-          setError('The uploaded spreadsheet contains no data rows.');
-          setParsedRows([]);
-          return;
-        }
+      const { headers, rawRows } = parsed;
 
-        const detected = detectHeaderRow(json, [
-          ['name', 'customer'],
-          ['phone', 'mobile', 'contact'],
-        ]);
-
-        if (!detected) {
-          setError('Spreadsheet must have columns for "Full Name" and "Phone Number".');
-          setParsedRows([]);
-          return;
-        }
-
-        const { headerIndex, headers } = detected;
-        const nameIdx = headers.findIndex((h) => h.includes('name'));
-        const phoneIdx = headers.findIndex((h) => h.includes('phone') || h.includes('mobile') || h.includes('contact'));
-        const emailIdx = headers.findIndex((h) => h.includes('email') || h.includes('mail'));
-        const cityIdx = headers.findIndex((h) => h.includes('city') || h.includes('location'));
-        const sourceIdx = headers.findIndex((h) => h.includes('source'));
-        const notesIdx = headers.findIndex((h) => h.includes('notes') || h.includes('remark'));
-
-        const rows: ParsedCustomerRow[] = [];
-        const seenPhones = new Set<string>();
-
-        for (let i = headerIndex + 1; i < json.length; i++) {
-          const row = json[i];
-          if (!row || row.length === 0 || row.every((c: any) => c === null || c === undefined || c === '')) continue;
-
-          const fullName = String(row[nameIdx] || '').trim();
-          const cleanPhone = cleanPhoneNumber(row[phoneIdx]);
-          const email = emailIdx !== -1 && row[emailIdx] ? String(row[emailIdx]).trim() : undefined;
-          const city = cityIdx !== -1 && row[cityIdx] ? String(row[cityIdx]).trim() : undefined;
-          const source = sourceIdx !== -1 && row[sourceIdx] ? String(row[sourceIdx]).trim().toUpperCase() : 'EXCEL_IMPORT';
-          const notes = notesIdx !== -1 && row[notesIdx] ? String(row[notesIdx]).trim() : undefined;
-
-          let isValid = true;
-          let validationError = '';
-          let isDuplicate = false;
-
-          if (!fullName) {
-            isValid = false;
-            validationError = 'Missing Full Name';
-          } else if (!cleanPhone || cleanPhone.length < 8) {
-            isValid = false;
-            validationError = 'Invalid Phone Number';
-          } else if (seenPhones.has(cleanPhone)) {
-            isDuplicate = true;
-            validationError = 'Duplicate Phone in File';
-          } else {
-            seenPhones.add(cleanPhone);
-          }
-
-          rows.push({
-            rowNumber: i + 1,
-            fullName,
-            phone: cleanPhone || String(row[phoneIdx] || '').trim(),
-            email,
-            city,
-            source,
-            notes,
-            isValid,
-            validationError,
-            isDuplicate,
-          });
-        }
-
-        setParsedRows(rows);
-      } catch (err: any) {
-        setError(`Failed to read spreadsheet: ${err?.message || 'Invalid file format'}`);
+      if (!rawRows || rawRows.length === 0) {
+        setError('The uploaded spreadsheet contains no data rows.');
+        setParsedRows([]);
+        return;
       }
-    };
 
-    reader.readAsBinaryString(file);
+      const nameIdx = headers.findIndex((h) => safeIncludes(h, 'name'));
+      const phoneIdx = headers.findIndex((h) => safeIncludes(h, 'phone') || safeIncludes(h, 'mobile') || safeIncludes(h, 'contact'));
+      const emailIdx = headers.findIndex((h) => safeIncludes(h, 'email') || safeIncludes(h, 'mail'));
+      const cityIdx = headers.findIndex((h) => safeIncludes(h, 'city') || safeIncludes(h, 'location'));
+      const sourceIdx = headers.findIndex((h) => safeIncludes(h, 'source'));
+      const notesIdx = headers.findIndex((h) => safeIncludes(h, 'notes') || safeIncludes(h, 'remark'));
+
+      if (nameIdx === -1 || phoneIdx === -1) {
+        const found = headers.filter((h) => safeStr(h).length > 0).join(', ');
+        setError(`Spreadsheet must have columns for "Full Name" and "Phone Number". Detected columns: ${found || 'None'}`);
+        setParsedRows([]);
+        return;
+      }
+
+      const rows: ParsedCustomerRow[] = [];
+      const seenPhones = new Set<string>();
+
+      for (let i = 0; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        if (!row || row.length === 0 || row.every((c: any) => safeStr(c).length === 0)) continue;
+
+        const fullName = safeStr(row[nameIdx]);
+        const cleanPhone = cleanPhoneNumber(row[phoneIdx]);
+        const email = emailIdx !== -1 && row[emailIdx] ? safeStr(row[emailIdx]) : undefined;
+        const city = cityIdx !== -1 && row[cityIdx] ? safeStr(row[cityIdx]) : undefined;
+        const source = sourceIdx !== -1 && row[sourceIdx] ? safeStr(row[sourceIdx]).toUpperCase() : 'EXCEL_IMPORT';
+        const notes = notesIdx !== -1 && row[notesIdx] ? safeStr(row[notesIdx]) : undefined;
+
+        let isValid = true;
+        let validationError = '';
+        let isDuplicate = false;
+
+        if (!fullName) {
+          isValid = false;
+          validationError = 'Missing Full Name';
+        } else if (!cleanPhone || cleanPhone.length < 8) {
+          isValid = false;
+          validationError = 'Invalid Phone Number';
+        } else if (seenPhones.has(cleanPhone)) {
+          isDuplicate = true;
+          validationError = 'Duplicate Phone in File';
+        } else {
+          seenPhones.add(cleanPhone);
+        }
+
+        rows.push({
+          rowNumber: i + 1,
+          fullName,
+          phone: cleanPhone || safeStr(row[phoneIdx]),
+          email,
+          city,
+          source,
+          notes,
+          isValid,
+          validationError,
+          isDuplicate,
+        });
+      }
+
+      setParsedRows(rows);
+    } catch (err: any) {
+      console.error('Customer spreadsheet read error:', err);
+      setError(`Failed to read spreadsheet: ${err?.message || 'Invalid file format'}`);
+      setParsedRows([]);
+    }
   };
 
   const handleImport = async () => {

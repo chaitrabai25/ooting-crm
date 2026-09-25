@@ -117,7 +117,10 @@ html.dark select:-webkit-autofill,
 #duty-slip-document select,
 #itinerary-document input,
 #itinerary-document textarea,
-#itinerary-document select {
+#itinerary-document select,
+#quotation-document input,
+#quotation-document textarea,
+#quotation-document select {
   background-color: transparent !important;
   color: #0f172a !important;
   -webkit-text-fill-color: #0f172a !important;
@@ -126,7 +129,8 @@ html.dark select:-webkit-autofill,
 
 #invoice-document input::placeholder,
 #duty-slip-document input::placeholder,
-#itinerary-document input::placeholder {
+#itinerary-document input::placeholder,
+#quotation-document input::placeholder {
   color: #94a3b8 !important;
   -webkit-text-fill-color: #94a3b8 !important;
 }
@@ -193,7 +197,9 @@ html.dark select:-webkit-autofill,
   body.printing-dedicated #duty-slip-document,
   body.printing-dedicated #duty-slip-document *,
   body.printing-dedicated #itinerary-document,
-  body.printing-dedicated #itinerary-document * {
+  body.printing-dedicated #itinerary-document *,
+  body.printing-dedicated #quotation-document,
+  body.printing-dedicated #quotation-document * {
     visibility: visible !important;
   }
   body.printing-dedicated #invoice-document,
@@ -222,7 +228,8 @@ html.dark select:-webkit-autofill,
     page-break-inside: avoid !important;
   }
 
-  body.printing-dedicated #itinerary-document {
+  body.printing-dedicated #itinerary-document,
+  body.printing-dedicated #quotation-document {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -239,6 +246,16 @@ html.dark select:-webkit-autofill,
     background: #ffffff !important;
     overflow: visible !important;
     z-index: 999999 !important;
+  }
+
+  .pdf-page {
+    width: 210mm;
+    min-height: 297mm;
+    box-sizing: border-box;
+    background: #ffffff;
+    position: relative;
+    page-break-after: always;
+    page-break-inside: avoid;
   }
 
   .print-only {

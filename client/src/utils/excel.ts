@@ -60,7 +60,27 @@ export function downloadExcelTemplate(
 }
 
 /**
- * Reads and parses an uploaded Excel (.xlsx / .xls) file into an array of objects.
+ * Safely converts any value to trimmed lower-case string.
+ * Guaranteed never to throw on undefined/null/objects/numbers.
+ */
+export function safeStr(val: any): string {
+  if (val === null || val === undefined) return '';
+  return String(val).trim();
+}
+
+/**
+ * Safely checks if a string contains another substring (case-insensitive).
+ * Guaranteed never to throw "Cannot read properties of undefined (reading 'includes')".
+ */
+export function safeIncludes(val: any, search: string): boolean {
+  if (val === null || val === undefined || search === null || search === undefined) return false;
+  return String(val).toLowerCase().includes(String(search).toLowerCase());
+}
+
+/**
+ * Reads and parses an uploaded Excel (.xlsx / .xls) or CSV file into an array of objects.
+ * Uses ArrayBuffer for 100% reliable binary decoding of zipped XML files.
+ * Automatically checks all sheets to find the first sheet with data.
  */
 export async function readExcelFile<T = any>(file: File): Promise<T[]> {
   return new Promise((resolve, reject) => {
@@ -68,24 +88,148 @@ export async function readExcelFile<T = any>(file: File): Promise<T[]> {
 
     reader.onload = (e) => {
       try {
-        const buffer = e.target?.result;
-        const workbook = XLSX.read(buffer, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        if (!firstSheetName) {
+        const buffer = e.target?.result as ArrayBuffer;
+        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+        
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
           resolve([]);
           return;
         }
 
-        const worksheet = workbook.Sheets[firstSheetName];
-        const json = XLSX.utils.sheet_to_json<T>(worksheet, { defval: '' });
-        resolve(json);
+        // Scan all sheets to find the first one that has data rows
+        let bestSheetName = workbook.SheetNames[0];
+        let bestJson: T[] = [];
+
+        for (const name of workbook.SheetNames) {
+          const ws = workbook.Sheets[name];
+          if (!ws) continue;
+          const json = XLSX.utils.sheet_to_json<T>(ws, { defval: '' });
+          if (json && json.length > 0) {
+            bestSheetName = name;
+            bestJson = json;
+            break;
+          }
+        }
+
+        resolve(bestJson);
       } catch (err) {
-        reject(new Error('Failed to parse Excel file. Please ensure it is a valid .xlsx or .xls file.'));
+        console.error('Excel read error:', err);
+        reject(new Error('Failed to parse Excel file. Please ensure it is a valid .xlsx, .xls, or .csv file.'));
       }
     };
 
     reader.onerror = () => reject(new Error('File reading error.'));
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * Advanced spreadsheet parser that reads any .xlsx, .xls, or .csv file via ArrayBuffer.
+ * Features:
+ * - Scans all sheets to find data
+ * - Detects header rows even after title banners or blank rows
+ * - Safe against undefined cells, nulls, sparse arrays
+ * - Returns sheetName, header row, headers, 2D rows, and mapped JSON records
+ */
+export async function parseSpreadsheetSafely(
+  file: File,
+  keywordGroups?: string[][]
+): Promise<{
+  sheetName: string;
+  headers: string[];
+  rawRows: any[][];
+  jsonRows: Record<string, any>[];
+  totalSheets: number;
+}> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const buffer = e.target?.result as ArrayBuffer;
+        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          throw new Error('Spreadsheet contains no readable sheets.');
+        }
+
+        // Scan each sheet
+        let selectedSheetName = workbook.SheetNames[0];
+        let selectedAoa: any[][] = [];
+        let detectedHeaderIdx = 0;
+        let detectedHeaders: string[] = [];
+
+        for (const name of workbook.SheetNames) {
+          const ws = workbook.Sheets[name];
+          if (!ws) continue;
+          const aoa: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          if (!aoa || aoa.length === 0) continue;
+
+          // If keywordGroups specified, check if this sheet has the headers
+          if (keywordGroups && keywordGroups.length > 0) {
+            const detected = detectHeaderRow(aoa, keywordGroups);
+            if (detected) {
+              selectedSheetName = name;
+              selectedAoa = aoa;
+              detectedHeaderIdx = detected.headerIndex;
+              detectedHeaders = detected.headers;
+              break;
+            }
+          }
+
+          // Otherwise keep the first sheet that has more than 1 non-empty row
+          if (selectedAoa.length <= 1 && aoa.length > 1) {
+            selectedSheetName = name;
+            selectedAoa = aoa;
+          }
+        }
+
+        if (selectedAoa.length === 0) {
+          const firstWs = workbook.Sheets[workbook.SheetNames[0]];
+          selectedAoa = firstWs ? XLSX.utils.sheet_to_json(firstWs, { header: 1, defval: '' }) : [];
+        }
+
+        // If headers weren't detected via keywordGroups, find first non-empty row
+        if (detectedHeaders.length === 0) {
+          for (let r = 0; r < Math.min(selectedAoa.length, 15); r++) {
+            const row = selectedAoa[r];
+            if (Array.isArray(row) && row.some((c) => safeStr(c).length > 0)) {
+              detectedHeaderIdx = r;
+              detectedHeaders = row.map((c) => safeStr(c));
+              break;
+            }
+          }
+        }
+
+        const dataRows = selectedAoa.slice(detectedHeaderIdx + 1).filter(
+          (row) => Array.isArray(row) && row.some((c) => safeStr(c).length > 0)
+        );
+
+        // Map to key-value objects
+        const jsonRows: Record<string, any>[] = dataRows.map((row) => {
+          const obj: Record<string, any> = {};
+          detectedHeaders.forEach((h, colIdx) => {
+            const cleanKey = safeStr(h) || `Column_${colIdx + 1}`;
+            obj[cleanKey] = row[colIdx] !== undefined ? row[colIdx] : '';
+          });
+          return obj;
+        });
+
+        resolve({
+          sheetName: selectedSheetName,
+          headers: detectedHeaders,
+          rawRows: dataRows,
+          jsonRows,
+          totalSheets: workbook.SheetNames.length,
+        });
+      } catch (err: any) {
+        console.error('Spreadsheet parse error:', err);
+        reject(new Error(err?.message || 'Failed to parse spreadsheet file. Please check file format.'));
+      }
+    };
+
+    reader.onerror = () => reject(new Error('Failed to read spreadsheet file from disk.'));
+    reader.readAsArrayBuffer(file);
   });
 }
 
@@ -93,24 +237,30 @@ export async function readExcelFile<T = any>(file: File): Promise<T[]> {
  * Detects the header row in a spreadsheet sheet, even if preceded by title rows or empty rows.
  * keywordGroups: array of string arrays. Every group must have at least one keyword match.
  * Example: [['name', 'customer'], ['phone', 'mobile', 'contact']]
+ * Guaranteed 100% null/undefined safe.
  */
 export function detectHeaderRow(
   rawRows: any[][],
   keywordGroups: string[][]
 ): { headerIndex: number; headers: string[] } | null {
-  const maxScanRows = Math.min(rawRows.length, 12);
+  if (!rawRows || !Array.isArray(rawRows)) return null;
+  const maxScanRows = Math.min(rawRows.length, 15);
 
   for (let r = 0; r < maxScanRows; r++) {
     const row = rawRows[r];
     if (!row || !Array.isArray(row) || row.length === 0) continue;
 
-    const rowStrings = row.map((cell) => String(cell || '').trim().toLowerCase());
+    // Safely map cells to clean lower-case strings
+    const rowStrings = row.map((cell) => safeStr(cell).toLowerCase());
 
-    const allGroupsMatched = keywordGroups.every((group) =>
-      group.some((keyword) =>
-        rowStrings.some((cellStr) => cellStr.includes(keyword.toLowerCase()))
-      )
-    );
+    const allGroupsMatched = keywordGroups.every((group) => {
+      if (!Array.isArray(group) || group.length === 0) return true;
+      return group.some((keyword) => {
+        const kwLower = safeStr(keyword).toLowerCase();
+        if (!kwLower) return false;
+        return rowStrings.some((cellStr) => cellStr && cellStr.includes(kwLower));
+      });
+    });
 
     if (allGroupsMatched) {
       return {

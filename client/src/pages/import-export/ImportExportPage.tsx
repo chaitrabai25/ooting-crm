@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
-import { downloadExcelTemplate, parseExcelDate, parseExcelNumber, cleanPhoneNumber } from '../../utils/excel.js';
+import { downloadExcelTemplate, parseExcelDate, parseExcelNumber, cleanPhoneNumber, parseSpreadsheetSafely, safeIncludes, safeStr } from '../../utils/excel.js';
 
 type ModuleKey = 'leads' | 'enquiries' | 'followups' | 'customers' | 'bookings' | 'cabs' | 'agents' | 'suppliers' | 'places';
 
@@ -437,7 +437,7 @@ export const ImportExportPage: React.FC = () => {
   };
 
   // Parse & Validate uploaded Excel / CSV file
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -449,92 +449,88 @@ export const ImportExportPage: React.FC = () => {
     setUploadedFile(file);
     setImportSummary(null);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const buffer = evt.target?.result;
-        const workbook = XLSX.read(buffer, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        if (!firstSheetName) {
-          alert('Spreadsheet file has no readable sheets.');
-          return;
-        }
+    try {
+      // Build keyword groups from requiredFields
+      const keywordGroups = selectedModule.requiredFields.map((f) => [f.toLowerCase()]);
+      const parsed = await parseSpreadsheetSafely(file, keywordGroups);
+      const rawJson = parsed.jsonRows;
 
-        const worksheet = workbook.Sheets[firstSheetName];
-        const rawJson: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-
-        if (rawJson.length === 0) {
-          alert('Spreadsheet file contains no data rows.');
-          return;
-        }
-
-        // Validate each row
-        let validCount = 0;
-        let warningCount = 0;
-        let errorCount = 0;
-
-        const rowStatuses = rawJson.map((row, idx) => {
-          let error: string | undefined;
-          let warning: string | undefined;
-
-          // Check required fields
-          for (const reqField of selectedModule.requiredFields) {
-            // Flexible match for column variations
-            const hasVal = Object.keys(row).some(
-              (key) => key.toLowerCase().replace(/[^a-z]/g, '').includes(reqField.toLowerCase().replace(/[^a-z]/g, '')) && String(row[key]).trim().length > 0
-            );
-
-            if (!hasVal) {
-              error = `Row ${idx + 2} could not be imported because "${reqField}" is missing or empty.`;
-              break;
-            }
-          }
-
-          // Check Phone and Email formatting only for contact-oriented modules
-          if (selectedModule.key !== 'places') {
-            const phoneKey = Object.keys(row).find((k) => k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile'));
-            if (phoneKey && row[phoneKey]) {
-              const cleaned = cleanPhoneNumber(row[phoneKey]);
-              if (cleaned.length < 7) {
-                error = error || `Row ${idx + 2}: Invalid phone number format`;
-              }
-            }
-
-            const emailKey = Object.keys(row).find((k) => k.toLowerCase().includes('email'));
-            if (emailKey && row[emailKey]) {
-              const emailStr = String(row[emailKey]).trim();
-              if (emailStr && !emailStr.includes('@')) {
-                warning = `Row ${idx + 2}: Email address looks incomplete`;
-              }
-            }
-          }
-
-          if (error) {
-            errorCount++;
-            return { isValid: false, error };
-          } else if (warning) {
-            warningCount++;
-            validCount++;
-            return { isValid: true, warning };
-          } else {
-            validCount++;
-            return { isValid: true };
-          }
-        });
-
-        setParsedRows(rawJson);
-        setRowValidationResults({
-          validCount,
-          warningCount,
-          errorCount,
-          rowStatuses,
-        });
-      } catch (err: any) {
-        console.error('Error parsing spreadsheet:', err);
-        alert('Failed to parse spreadsheet file. Please ensure it is a valid, uncorrupted .xlsx, .xls, or .csv file.');
+      if (!rawJson || rawJson.length === 0) {
+        alert('Spreadsheet file contains no data rows.');
+        return;
       }
-    };
-    reader.readAsBinaryString(file);
+
+      // Validate each row
+      let validCount = 0;
+      let warningCount = 0;
+      let errorCount = 0;
+
+      const rowStatuses = rawJson.map((row, idx) => {
+        let error: string | undefined;
+        let warning: string | undefined;
+
+        // Check required fields
+        for (const reqField of selectedModule.requiredFields) {
+          const cleanReq = safeStr(reqField).toLowerCase().replace(/[^a-z0-9]/g, '');
+          const hasVal = Object.keys(row).some((key) => {
+            const cleanKey = safeStr(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+            return (
+              cleanKey.length > 0 &&
+              cleanReq.length > 0 &&
+              (cleanKey.includes(cleanReq) || cleanReq.includes(cleanKey)) &&
+              safeStr(row[key]).length > 0
+            );
+          });
+
+          if (!hasVal) {
+            error = `Row ${idx + 2} could not be imported because "${reqField}" is missing or empty.`;
+            break;
+          }
+        }
+
+        // Check Phone and Email formatting only for contact-oriented modules
+        if (selectedModule.key !== 'places') {
+          const phoneKey = Object.keys(row).find((k) => safeIncludes(k, 'phone') || safeIncludes(k, 'mobile') || safeIncludes(k, 'contact'));
+          if (phoneKey && row[phoneKey]) {
+            const cleaned = cleanPhoneNumber(row[phoneKey]);
+            if (cleaned.length < 7) {
+              error = error || `Row ${idx + 2}: Invalid phone number format`;
+            }
+          }
+
+          const emailKey = Object.keys(row).find((k) => safeIncludes(k, 'email') || safeIncludes(k, 'mail'));
+          if (emailKey && row[emailKey]) {
+            const emailStr = safeStr(row[emailKey]);
+            if (emailStr && !emailStr.includes('@')) {
+              warning = `Row ${idx + 2}: Email address looks incomplete`;
+            }
+          }
+        }
+
+        if (error) {
+          errorCount++;
+          return { isValid: false, error };
+        } else if (warning) {
+          warningCount++;
+          validCount++;
+          return { isValid: true, warning };
+        } else {
+          validCount++;
+          return { isValid: true };
+        }
+      });
+
+      setParsedRows(rawJson);
+      setRowValidationResults({
+        validCount,
+        warningCount,
+        errorCount,
+        rowStatuses,
+      });
+    } catch (err: any) {
+      console.error('Error parsing spreadsheet:', err);
+      alert(err?.message || 'Failed to parse spreadsheet file. Please ensure it is a valid, uncorrupted .xlsx, .xls, or .csv file.');
+    }
   };
 
   // Submit Bulk Import to Server

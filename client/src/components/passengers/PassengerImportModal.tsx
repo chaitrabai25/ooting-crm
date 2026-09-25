@@ -20,6 +20,7 @@ import * as XLSX from 'xlsx';
 import { Modal } from '../ui/Modal.js';
 import { Traveller } from '../../types/index.js';
 import { api } from '../../api/client.js';
+import { parseSpreadsheetSafely, safeIncludes, safeStr, cleanPhoneNumber } from '../../utils/excel.js';
 
 interface PassengerImportModalProps {
   isOpen: boolean;
@@ -43,6 +44,7 @@ export interface ParsedPassengerRow {
   address?: string | null;
   isValid: boolean;
   errors: string[];
+  isDuplicate?: boolean;
 }
 
 export const PassengerImportModal: React.FC<PassengerImportModalProps> = ({
@@ -180,7 +182,7 @@ export const PassengerImportModal: React.FC<PassengerImportModalProps> = ({
   };
 
   // 2. Handle File Upload and Parsing
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -188,156 +190,132 @@ export const PassengerImportModal: React.FC<PassengerImportModalProps> = ({
     setFileName(file.name);
     setIsProcessing(true);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rawJson: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    try {
+      const parsed = await parseSpreadsheetSafely(file, [
+        ['name', 'passenger'],
+        ['phone', 'contact', 'mobile'],
+      ]);
 
-        if (!rawJson || rawJson.length < 2) {
-          setGlobalError('The uploaded spreadsheet contains no passenger data.');
-          setParsedRows([]);
-          setIsProcessing(false);
-          return;
-        }
+      const { headers, rawRows } = parsed;
 
-        // Find header row (check first 5 rows)
-        let headerRowIdx = -1;
-        let nameColIdx = -1;
-        let genderColIdx = -1;
-        let phoneColIdx = -1;
-        let ageColIdx = -1;
-        let emailColIdx = -1;
-        let idColIdx = -1;
-        let addressColIdx = -1;
-
-        for (let r = 0; r < Math.min(rawJson.length, 5); r++) {
-          const row = (rawJson[r] || []).map((c: any) => String(c || '').toLowerCase().trim());
-          const nIdx = row.findIndex((c: string) => c.includes('name') || c.includes('passenger'));
-          const pIdx = row.findIndex((c: string) => c.includes('phone') || c.includes('contact') || c.includes('mobile'));
-
-          if (nIdx !== -1 && pIdx !== -1) {
-            headerRowIdx = r;
-            nameColIdx = nIdx;
-            phoneColIdx = pIdx;
-            genderColIdx = row.findIndex((c: string) => c.includes('gender') || c.includes('sex'));
-            ageColIdx = row.findIndex((c: string) => c === 'age' || c.includes('years'));
-            emailColIdx = row.findIndex((c: string) => c.includes('email') || c.includes('mail'));
-            idColIdx = row.findIndex((c: string) => c.includes('passport') || c.includes('id') || c.includes('aadhaar') || c.includes('govt'));
-            addressColIdx = row.findIndex((c: string) => c.includes('address') || c.includes('city') || c.includes('location'));
-            break;
-          }
-        }
-
-        if (headerRowIdx === -1 || nameColIdx === -1 || phoneColIdx === -1) {
-          setGlobalError(
-            'Could not find columns for "Name" and "Contact Number". Please ensure header titles include Name and Phone/Contact.'
-          );
-          setParsedRows([]);
-          setIsProcessing(false);
-          return;
-        }
-
-        const rows: ParsedPassengerRow[] = [];
-        const seenNames = new Map<string, number>();
-
-        for (let i = headerRowIdx + 1; i < rawJson.length; i++) {
-          const rawRow = rawJson[i];
-          if (!rawRow || rawRow.length === 0) continue;
-
-          // Check if row is completely blank
-          const isBlank = rawRow.every((val: any) => val === undefined || val === null || String(val).trim() === '');
-          if (isBlank) continue;
-
-          const rawName = String(rawRow[nameColIdx] || '').trim();
-          const rawGender = genderColIdx !== -1 ? rawRow[genderColIdx] : '';
-          const rawPhone = String(rawRow[phoneColIdx] || '').trim();
-          const rawAge = ageColIdx !== -1 ? rawRow[ageColIdx] : null;
-          const rawEmail = emailColIdx !== -1 ? String(rawRow[emailColIdx] || '').trim() : '';
-          const rawIdNumber = idColIdx !== -1 ? String(rawRow[idColIdx] || '').trim() : '';
-          const rawAddress = addressColIdx !== -1 ? String(rawRow[addressColIdx] || '').trim() : '';
-
-          const rowErrors: string[] = [];
-
-          // 1. Name validation
-          if (!rawName) {
-            rowErrors.push('Passenger name is missing');
-          } else if (rawName.length < 2) {
-            rowErrors.push('Name is too short (min 2 characters)');
-          }
-
-          // 2. Gender validation
-          const { gender, isValid: isGenderValid } = normalizeGender(rawGender);
-          if (!isGenderValid) {
-            rowErrors.push('Gender must be Male, Female, or Other');
-          }
-
-          // 3. Contact Number validation
-          const { phone, isValid: isPhoneValid } = cleanPhone(rawPhone);
-          if (!isPhoneValid) {
-            rowErrors.push('Invalid contact number (minimum 10 digits required)');
-          }
-
-          // 4. Age validation (optional)
-          let parsedAge: number | null = null;
-          if (rawAge !== undefined && rawAge !== null && String(rawAge).trim() !== '') {
-            const num = parseInt(String(rawAge), 10);
-            if (isNaN(num) || num < 0 || num > 120) {
-              rowErrors.push('Age must be a valid number between 0 and 120');
-            } else {
-              parsedAge = num;
-            }
-          }
-
-          // 5. Email validation (optional)
-          let cleanEmail: string | null = null;
-          if (rawEmail) {
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
-              rowErrors.push('Invalid email address format');
-            } else {
-              cleanEmail = rawEmail.toLowerCase();
-            }
-          }
-
-          // 6. Duplicate checking in file
-          const nameKey = rawName.toLowerCase();
-          if (rawName && seenNames.has(nameKey)) {
-            rowErrors.push(`Duplicate passenger name in sheet (matches row ${seenNames.get(nameKey)})`);
-          } else if (rawName) {
-            seenNames.set(nameKey, i + 1);
-          }
-
-          rows.push({
-            rowNumber: i + 1,
-            name: rawName,
-            gender: gender || 'MALE',
-            phone: phone || rawPhone,
-            age: parsedAge,
-            email: cleanEmail,
-            idNumber: rawIdNumber || null,
-            address: rawAddress || null,
-            isValid: rowErrors.length === 0,
-            errors: rowErrors,
-          });
-        }
-
-        if (rows.length === 0) {
-          setGlobalError('No passenger records found in the uploaded file.');
-        }
-
-        setParsedRows(rows);
-      } catch (err: any) {
-        console.error('File parsing error:', err);
-        setGlobalError('Failed to read spreadsheet file. Please check file format and try again.');
-      } finally {
+      if (!rawRows || rawRows.length === 0) {
+        setGlobalError('The uploaded spreadsheet contains no passenger data.');
+        setParsedRows([]);
         setIsProcessing(false);
+        return;
       }
-    };
 
-    reader.readAsBinaryString(file);
+      const nameColIdx = headers.findIndex((h) => safeIncludes(h, 'name') || safeIncludes(h, 'passenger'));
+      const phoneColIdx = headers.findIndex((h) => safeIncludes(h, 'phone') || safeIncludes(h, 'contact') || safeIncludes(h, 'mobile'));
+      const genderColIdx = headers.findIndex((h) => safeIncludes(h, 'gender') || safeIncludes(h, 'sex'));
+      const ageColIdx = headers.findIndex((h) => safeStr(h).toLowerCase() === 'age' || safeIncludes(h, 'years'));
+      const emailColIdx = headers.findIndex((h) => safeIncludes(h, 'email') || safeIncludes(h, 'mail'));
+      const idColIdx = headers.findIndex((h) => safeIncludes(h, 'passport') || safeIncludes(h, 'id') || safeIncludes(h, 'aadhaar') || safeIncludes(h, 'govt'));
+      const addressColIdx = headers.findIndex((h) => safeIncludes(h, 'address') || safeIncludes(h, 'city') || safeIncludes(h, 'location'));
+
+      if (nameColIdx === -1 || phoneColIdx === -1) {
+        const found = headers.filter((h) => safeStr(h).length > 0).join(', ');
+        setGlobalError(
+          `Could not find columns for "Name" and "Contact Number". Detected columns: ${found || 'None'}`
+        );
+        setParsedRows([]);
+        setIsProcessing(false);
+        return;
+      }
+
+      const rows: ParsedPassengerRow[] = [];
+      const seenNames = new Map<string, number>();
+
+      for (let i = 0; i < rawRows.length; i++) {
+        const rawRow = rawRows[i];
+        if (!rawRow || rawRow.length === 0 || rawRow.every((c) => safeStr(c).length === 0)) continue;
+
+        const rawName = safeStr(rawRow[nameColIdx]);
+        const rawGender = genderColIdx !== -1 ? rawRow[genderColIdx] : '';
+        const rawPhone = safeStr(rawRow[phoneColIdx]);
+        const rawAge = ageColIdx !== -1 ? rawRow[ageColIdx] : null;
+        const rawEmail = emailColIdx !== -1 ? safeStr(rawRow[emailColIdx]) : '';
+        const rawIdNumber = idColIdx !== -1 ? safeStr(rawRow[idColIdx]) : '';
+        const rawAddress = addressColIdx !== -1 ? safeStr(rawRow[addressColIdx]) : '';
+
+        const rowErrors: string[] = [];
+
+        // 1. Name validation
+        if (!rawName) {
+          rowErrors.push('Passenger name is missing');
+        } else if (rawName.length < 2) {
+          rowErrors.push('Name is too short (min 2 characters)');
+        }
+
+        // 2. Gender validation
+        const { gender, isValid: isGenderValid } = normalizeGender(rawGender);
+        if (!isGenderValid) {
+          rowErrors.push('Gender must be Male, Female, or Other');
+        }
+
+        // 3. Contact Number validation
+        const { phone, isValid: isPhoneValid } = cleanPhone(rawPhone);
+        if (!isPhoneValid) {
+          rowErrors.push('Invalid contact number (minimum 10 digits required)');
+        }
+
+        // 4. Age validation (optional)
+        let parsedAge: number | null = null;
+        if (rawAge !== undefined && rawAge !== null && safeStr(rawAge) !== '') {
+          const num = parseInt(safeStr(rawAge), 10);
+          if (isNaN(num) || num < 0 || num > 120) {
+            rowErrors.push('Age must be a valid number between 0 and 120');
+          } else {
+            parsedAge = num;
+          }
+        }
+
+        // 5. Email validation (optional)
+        let cleanEmail: string | null = null;
+        if (rawEmail) {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+            rowErrors.push('Invalid email address format');
+          } else {
+            cleanEmail = rawEmail.toLowerCase();
+          }
+        }
+
+        // 6. Duplicate checking in file
+        const nameKey = rawName.toLowerCase();
+        let isDuplicate = false;
+        if (rawName && seenNames.has(nameKey)) {
+          isDuplicate = true;
+          rowErrors.push(`Duplicate passenger in sheet (matches row ${seenNames.get(nameKey)})`);
+        } else if (rawName) {
+          seenNames.set(nameKey, i + 1);
+        }
+
+        rows.push({
+          rowNumber: i + 1,
+          name: rawName,
+          gender: gender || 'MALE',
+          phone: phone || rawPhone,
+          age: parsedAge,
+          email: cleanEmail,
+          idNumber: rawIdNumber || null,
+          address: rawAddress || null,
+          isValid: rowErrors.length === 0,
+          errors: rowErrors,
+          isDuplicate,
+        });
+      }
+
+      if (rows.length === 0) {
+        setGlobalError('No passenger records found in the uploaded file.');
+      }
+
+      setParsedRows(rows);
+    } catch (err: any) {
+      console.error('File parsing error:', err);
+      setGlobalError(err?.message || 'Failed to read spreadsheet file. Please check file format and try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const validRows = parsedRows.filter((r) => r.isValid);

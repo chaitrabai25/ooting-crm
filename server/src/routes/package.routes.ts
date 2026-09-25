@@ -95,8 +95,8 @@ const packageSchema = z.object({
   packageName: z.string().min(2, 'Package name is required'),
   destination: z.string().min(2, 'Destination is required'),
   duration: z.string().min(1, 'Duration is required'),
-  description: z.string().min(5, 'Description is required'),
-  price: z.number().min(0, 'Price must be 0 or positive'),
+  description: z.string().optional().default(''),
+  price: z.number().min(0, 'Price must be 0 or positive').default(0),
   packageType: z.string().default('HOLIDAY'),
   inclusions: z.string().optional().nullable(),
   exclusions: z.string().optional().nullable(),
@@ -105,12 +105,12 @@ const packageSchema = z.object({
   status: z.string().default('ACTIVE'),
   itineraries: z.array(z.object({
     dayNumber: z.number().int().min(1),
-    title: z.string().min(1),
-    description: z.string().min(1),
+    title: z.string().optional().default(''),
+    description: z.string().optional().default(''),
     activities: z.string().optional().nullable(),
     places: z.string().optional().nullable(),
     imageUrl: z.string().optional().nullable(),
-    images: z.string().optional().nullable(),
+    images: z.union([z.string(), z.array(z.any())]).optional().nullable(),
     startTime: z.string().optional().nullable(),
     endTime: z.string().optional().nullable(),
   })).optional(),
@@ -135,17 +135,23 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         gallery: data.gallery || null,
         status: data.status || 'ACTIVE',
         itineraries: data.itineraries ? {
-          create: data.itineraries.map(d => ({
-            dayNumber: d.dayNumber,
-            title: d.title.trim(),
-            description: d.description.trim(),
-            activities: d.activities?.trim() || null,
-            places: d.places?.trim() || null,
-            imageUrl: d.imageUrl || null,
-            images: d.images || null,
-            startTime: d.startTime || null,
-            endTime: d.endTime || null,
-          })),
+          create: data.itineraries.map((d, index) => {
+            let imagesStr: string | null = null;
+            if (d.images) {
+              imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
+            }
+            return {
+              dayNumber: d.dayNumber || (index + 1),
+              title: (d.title || `Day ${index + 1}`).trim(),
+              description: (d.description || '').trim(),
+              activities: d.activities?.trim() || null,
+              places: d.places?.trim() || null,
+              imageUrl: d.imageUrl || null,
+              images: imagesStr,
+              startTime: d.startTime || null,
+              endTime: d.endTime || null,
+            };
+          }),
         } : undefined,
       },
       include: {
@@ -177,6 +183,32 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 
     const updatePayload: any = { ...data };
     delete updatePayload.itineraries;
+
+    if (data.itineraries && Array.isArray(data.itineraries)) {
+      await prisma.$transaction([
+        prisma.itineraryDay.deleteMany({ where: { packageId: id } }),
+        prisma.itineraryDay.createMany({
+          data: data.itineraries.map((d: any, index: number) => {
+            let imagesStr: string | null = null;
+            if (d.images) {
+              imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
+            }
+            return {
+              packageId: id,
+              dayNumber: d.dayNumber || (index + 1),
+              title: (d.title || `Day ${index + 1}`).trim(),
+              description: (d.description || '').trim(),
+              activities: d.activities?.trim() || null,
+              places: d.places?.trim() || null,
+              imageUrl: d.imageUrl || null,
+              images: imagesStr,
+              startTime: d.startTime || null,
+              endTime: d.endTime || null,
+            };
+          }),
+        }),
+      ]);
+    }
 
     const updated = await prisma.package.update({
       where: { id },
@@ -217,18 +249,24 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
     await prisma.$transaction([
       prisma.itineraryDay.deleteMany({ where: { packageId: id } }),
       prisma.itineraryDay.createMany({
-        data: days.map((d: any, index: number) => ({
-          packageId: id,
-          dayNumber: d.dayNumber || (index + 1),
-          title: d.title || `Day ${index + 1}`,
-          description: d.description || '',
-          activities: d.activities || null,
-          places: d.places || null,
-          imageUrl: d.imageUrl || null,
-          images: d.images ? (typeof d.images === 'string' ? d.images : JSON.stringify(d.images)) : null,
-          startTime: d.startTime || null,
-          endTime: d.endTime || null,
-        })),
+        data: days.map((d: any, index: number) => {
+          let imagesStr: string | null = null;
+          if (d.images) {
+            imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
+          }
+          return {
+            packageId: id,
+            dayNumber: d.dayNumber || (index + 1),
+            title: (d.title || `Day ${index + 1}`).trim(),
+            description: (d.description || '').trim(),
+            activities: d.activities || null,
+            places: d.places || null,
+            imageUrl: d.imageUrl || null,
+            images: imagesStr,
+            startTime: d.startTime || null,
+            endTime: d.endTime || null,
+          };
+        }),
       }),
     ]);
 

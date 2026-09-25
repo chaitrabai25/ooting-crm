@@ -971,40 +971,73 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       <h3 className="text-sm font-bold text-slate-900">{day.title}</h3>
                       <p className="text-xs text-slate-600 leading-relaxed">{day.description}</p>
 
-                      {/* Day Photos - Proportional scaling with ZERO cropping */}
+                      {/* Day Photos - Intelligent aspect-ratio scaling with Place Name label */}
                       {(() => {
                         const photos = day.imageUrls && day.imageUrls.length > 0
                           ? day.imageUrls
                           : day.imageUrl ? [day.imageUrl] : [];
                         if (photos.length === 0) return null;
+
+                        const placesList = day.places
+                          ? day.places.split(',').map((s: string) => s.trim()).filter(Boolean)
+                          : [];
+
                         if (photos.length === 1) {
+                          const placeLabel = placesList.length > 0 ? placesList.join(' • ') : day.title;
                           return (
                             <div className="pt-2">
-                              <div className="w-full bg-white border border-slate-200 rounded-xl p-2 flex items-center justify-center min-h-[160px]">
-                                <img
-                                  src={photos[0]}
-                                  alt={day.title}
-                                  className="max-h-72 max-w-full object-contain rounded-lg shadow-2xs"
-                                />
+                              <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                                <div className="relative w-full bg-slate-100 flex items-center justify-center aspect-[16/9] max-h-64 overflow-hidden">
+                                  <img
+                                    src={photos[0]}
+                                    alt={placeLabel}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src =
+                                        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
+                                    }}
+                                  />
+                                </div>
+                                {placeLabel && (
+                                  <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-xs text-slate-800 font-medium">
+                                    <MapPin className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
+                                    <span className="font-semibold text-slate-900">{placeLabel}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
                         }
                         return (
                           <div className="pt-2">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {photos.map((photoUrl, pIdx) => (
-                                <div
-                                  key={pIdx}
-                                  className="bg-white border border-slate-200 rounded-xl p-1.5 flex items-center justify-center min-h-[130px]"
-                                >
-                                  <img
-                                    src={photoUrl}
-                                    alt={`${day.title} ${pIdx + 1}`}
-                                    className="max-h-36 max-w-full object-contain rounded-lg shadow-2xs"
-                                  />
-                                </div>
-                              ))}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                              {photos.map((photoUrl, pIdx) => {
+                                const placeLabel = placesList[pIdx] || placesList[0] || `${day.title} - View ${pIdx + 1}`;
+                                return (
+                                  <div
+                                    key={pIdx}
+                                    className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
+                                  >
+                                    <div className="relative w-full bg-slate-100 flex items-center justify-center aspect-[16/10] overflow-hidden">
+                                      <img
+                                        src={photoUrl}
+                                        alt={placeLabel}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src =
+                                            'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
+                                        }}
+                                      />
+                                    </div>
+                                    {placeLabel && (
+                                      <div className="px-2.5 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-[11px] text-slate-800 font-medium">
+                                        <MapPin className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
+                                        <span className="truncate font-semibold text-slate-800">{placeLabel}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         );

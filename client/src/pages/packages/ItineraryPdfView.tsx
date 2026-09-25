@@ -265,38 +265,62 @@ export const ItineraryPdfView: React.FC = () => {
                     {day.description}
                   </p>
 
-                  {/* Day Photo(s) - Proportional scaling with ZERO cropping */}
+                  {/* Day Photo(s) - Intelligent aspect-ratio scaling with Place Name label */}
                   {(() => {
-                    let photos: string[] = [];
+                    let photoItems: { url: string; label?: string }[] = [];
                     if ((day as any).images) {
                       try {
                         const parsed = JSON.parse((day as any).images);
                         if (Array.isArray(parsed) && parsed.length > 0) {
-                          photos = parsed
-                            .map((item: any) => (typeof item === 'string' ? item : item.url))
-                            .filter(Boolean);
+                          photoItems = parsed
+                            .map((item: any) => {
+                              if (typeof item === 'string') return { url: item };
+                              return { url: item.url || item.imageUrl, label: item.label || item.name || item.placeName };
+                            })
+                            .filter((item) => Boolean(item.url));
                         }
                       } catch {
                         if (typeof (day as any).images === 'string' && (day as any).images.includes(',')) {
-                          photos = (day as any).images.split(',').map((s: string) => s.trim()).filter(Boolean);
+                          photoItems = (day as any).images
+                            .split(',')
+                            .map((s: string) => ({ url: s.trim() }))
+                            .filter((item: any) => Boolean(item.url));
                         }
                       }
                     }
-                    if (photos.length === 0 && day.imageUrl) {
-                      photos = [day.imageUrl];
+                    if (photoItems.length === 0 && day.imageUrl) {
+                      photoItems = [{ url: day.imageUrl }];
                     }
 
-                    if (photos.length === 0) return null;
+                    if (photoItems.length === 0) return null;
 
-                    if (photos.length === 1) {
+                    const placesList = day.places
+                      ? day.places.split(',').map((s: string) => s.trim()).filter(Boolean)
+                      : [];
+
+                    if (photoItems.length === 1) {
+                      const item = photoItems[0];
+                      const placeLabel = item.label || (placesList.length > 0 ? placesList.join(' • ') : day.title);
                       return (
                         <div className="pt-2">
-                          <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 flex items-center justify-center min-h-[180px]">
-                            <img
-                              src={photos[0]}
-                              alt={day.title}
-                              className="max-h-80 max-w-full object-contain rounded-lg shadow-2xs"
-                            />
+                          <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                            <div className="relative w-full bg-slate-100 flex items-center justify-center aspect-[16/9] max-h-72 overflow-hidden">
+                              <img
+                                src={item.url}
+                                alt={placeLabel}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src =
+                                    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
+                                }}
+                              />
+                            </div>
+                            {placeLabel && (
+                              <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-xs text-slate-800 font-medium">
+                                <MapPin className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
+                                <span className="font-semibold text-slate-900">{placeLabel}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -304,19 +328,35 @@ export const ItineraryPdfView: React.FC = () => {
 
                     return (
                       <div className="pt-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                          {photos.map((photoUrl, pIdx) => (
-                            <div
-                              key={pIdx}
-                              className="bg-slate-50 border border-slate-200 rounded-xl p-1.5 flex items-center justify-center min-h-[160px]"
-                            >
-                              <img
-                                src={photoUrl}
-                                alt={`${day.title} photo ${pIdx + 1}`}
-                                className="max-h-48 max-w-full object-contain rounded-lg shadow-2xs"
-                              />
-                            </div>
-                          ))}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                          {photoItems.map((item, pIdx) => {
+                            const placeLabel =
+                              item.label || placesList[pIdx] || placesList[0] || `${day.title} - View ${pIdx + 1}`;
+                            return (
+                              <div
+                                key={pIdx}
+                                className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
+                              >
+                                <div className="relative w-full bg-slate-100 flex items-center justify-center aspect-[16/10] overflow-hidden">
+                                  <img
+                                    src={item.url}
+                                    alt={placeLabel}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src =
+                                        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
+                                    }}
+                                  />
+                                </div>
+                                {placeLabel && (
+                                  <div className="px-2.5 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-[11px] text-slate-800 font-medium">
+                                    <MapPin className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
+                                    <span className="truncate font-semibold text-slate-800">{placeLabel}</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
