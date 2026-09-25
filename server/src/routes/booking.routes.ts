@@ -35,7 +35,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const sortBy = ALLOWED_SORT_FIELDS.includes(sortByParam) ? sortByParam : 'createdAt';
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (search) {
       where.OR = [
         { bookingNumber: { contains: search } },
@@ -113,7 +113,7 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
     const sortBy = ALLOWED_SORT_FIELDS.includes(sortByParam) ? sortByParam : 'travelStartDate';
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (packageId) where.packageId = packageId;
     if (status) where.bookingStatus = status;
     if (search) {
@@ -236,7 +236,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!booking) {
+    if (!booking || booking.isDeleted) {
       res.status(404).json({ message: 'Booking not found.' });
       return;
     }
@@ -309,30 +309,6 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = bookingCreateSchema.parse(req.body);
 
-    // Resolve Customer ID (find existing, create on-the-fly, or use provided)
-    let finalCustomerId = data.customerId;
-    if (!finalCustomerId) {
-      if (data.customerName && data.customerPhone) {
-        let customer = await prisma.customer.findFirst({
-          where: { phone: data.customerPhone.trim() },
-        });
-        if (!customer) {
-          customer = await prisma.customer.create({
-            data: {
-              fullName: data.customerName.trim(),
-              phone: data.customerPhone.trim(),
-              email: data.customerEmail?.trim() || null,
-              city: data.customerCity?.trim() || null,
-            },
-          });
-        }
-        finalCustomerId = customer.id;
-      } else {
-        res.status(400).json({ message: 'Customer or Customer Details (Name & Phone) are required.' });
-        return;
-      }
-    }
-
     const finalAmount = Math.max(0, data.totalAmount - data.discount);
 
     // Generate unique Booking Number: OOT-BK-YYYYMM-XXXX
@@ -340,81 +316,111 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const count = await prisma.booking.count();
     const bookingNumber = `OOT-BK-${dateStr}-${String(count + 1).padStart(4, '0')}`;
 
-    // Prepare traveller records
-    let travellersToCreate = data.travellersList || [];
-    if (travellersToCreate.length === 0) {
-      // Auto-create Primary Traveller from Customer record
-      const customer = await prisma.customer.findUnique({
-        where: { id: finalCustomerId },
-      });
-      if (customer) {
-        travellersToCreate = [
-          {
-            name: customer.fullName,
-            phone: customer.phone,
-            email: customer.email,
-            isPrimary: true,
-          },
-        ];
+    const booking = await prisma.$transaction(async (tx) => {
+      // Resolve Customer ID (find existing, create on-the-fly, or use provided)
+      let finalCustomerId = data.customerId;
+      if (!finalCustomerId) {
+        if (data.customerName && data.customerPhone) {
+          let customer = await tx.customer.findFirst({
+            where: { phone: data.customerPhone.trim() },
+          });
+          if (!customer) {
+            customer = await tx.customer.create({
+              data: {
+                fullName: data.customerName.trim(),
+                phone: data.customerPhone.trim(),
+                email: data.customerEmail?.trim() || null,
+                city: data.customerCity?.trim() || null,
+                createdById: req.user?.id || null,
+                updatedById: req.user?.id || null,
+              },
+            });
+          }
+          finalCustomerId = customer.id;
+        } else {
+          throw new Error('Customer or Customer Details (Name & Phone) are required.');
+        }
       }
-    }
 
-    const booking = await prisma.booking.create({
-      data: {
-        bookingNumber,
-        customerId: finalCustomerId,
-        leadId: data.leadId || null,
-        packageId: data.packageId || null,
-        assignedUserId: data.assignedUserId || req.user!.id,
-        travelStartDate: new Date(data.travelStartDate),
-        travelEndDate: new Date(data.travelEndDate),
-        durationDays: data.durationDays ?? null,
-        durationNights: data.durationNights ?? null,
-        tripType: data.tripType || (travellersToCreate.length > 1 ? 'GROUP' : 'SINGLE'),
-        travellers: Math.max(data.travellers, travellersToCreate.length),
-        totalAmount: data.totalAmount,
-        discount: data.discount,
-        finalAmount,
-        bookingStatus: data.bookingStatus,
-        serviceProviders: data.serviceProviders ? (typeof data.serviceProviders === 'string' ? data.serviceProviders : JSON.stringify(data.serviceProviders)) : null,
-        notes: data.notes?.trim() || null,
-        travellersList: travellersToCreate.length > 0 ? {
-          create: travellersToCreate.map((t, idx) => ({
-            name: t.name.trim(),
-            age: t.age !== undefined && t.age !== null ? Number(t.age) : null,
-            gender: t.gender || null,
-            phone: t.phone?.trim() || null,
-            email: t.email?.trim() || null,
-            idNumber: t.idNumber?.trim() || null,
-            address: t.address?.trim() || null,
-            isPrimary: t.isPrimary !== undefined ? t.isPrimary : idx === 0,
-          })),
-        } : undefined,
-        agentBooking: data.agentId ? {
-          create: {
-            agentId: data.agentId,
-            commissionRate: data.commissionRate || 0,
-            commissionAmount: (finalAmount * (data.commissionRate || 0)) / 100,
-            netAmount: finalAmount - ((finalAmount * (data.commissionRate || 0)) / 100),
-            payoutStatus: 'PENDING',
-          },
-        } : undefined,
-      },
-      include: {
-        customer: true,
-        package: true,
-        travellersList: true,
-        agentBooking: { include: { agent: true } },
-      },
-    });
+      // Prepare traveller records
+      let travellersToCreate = data.travellersList || [];
+      if (travellersToCreate.length === 0) {
+        const customer = await tx.customer.findUnique({
+          where: { id: finalCustomerId },
+        });
+        if (customer) {
+          travellersToCreate = [
+            {
+              name: customer.fullName,
+              phone: customer.phone,
+              email: customer.email,
+              isPrimary: true,
+            },
+          ];
+        }
+      }
 
-    // If converted from lead, mark lead as WON
-    if (data.leadId) {
-      await prisma.lead.update({
-        where: { id: data.leadId },
-        data: { enquiryStatus: 'WON' },
+      const createdBooking = await tx.booking.create({
+        data: {
+          bookingNumber,
+          customerId: finalCustomerId,
+          leadId: data.leadId || null,
+          packageId: data.packageId || null,
+          assignedUserId: data.assignedUserId || req.user!.id,
+          travelStartDate: new Date(data.travelStartDate),
+          travelEndDate: new Date(data.travelEndDate),
+          durationDays: data.durationDays ?? null,
+          durationNights: data.durationNights ?? null,
+          tripType: data.tripType || (travellersToCreate.length > 1 ? 'GROUP' : 'SINGLE'),
+          travellers: Math.max(data.travellers, travellersToCreate.length),
+          totalAmount: data.totalAmount,
+          discount: data.discount,
+          finalAmount,
+          bookingStatus: data.bookingStatus,
+          serviceProviders: data.serviceProviders ? (typeof data.serviceProviders === 'string' ? data.serviceProviders : JSON.stringify(data.serviceProviders)) : null,
+          notes: data.notes?.trim() || null,
+          createdById: req.user?.id || null,
+          updatedById: req.user?.id || null,
+          travellersList: travellersToCreate.length > 0 ? {
+            create: travellersToCreate.map((t, idx) => ({
+              name: t.name.trim(),
+              age: t.age !== undefined && t.age !== null ? Number(t.age) : null,
+              gender: t.gender || null,
+              phone: t.phone?.trim() || null,
+              email: t.email?.trim() || null,
+              idNumber: t.idNumber?.trim() || null,
+              address: t.address?.trim() || null,
+              isPrimary: t.isPrimary !== undefined ? t.isPrimary : idx === 0,
+            })),
+          } : undefined,
+          agentBooking: data.agentId ? {
+            create: {
+              agentId: data.agentId,
+              commissionRate: data.commissionRate || 0,
+              commissionAmount: (finalAmount * (data.commissionRate || 0)) / 100,
+              netAmount: finalAmount - ((finalAmount * (data.commissionRate || 0)) / 100),
+              payoutStatus: 'PENDING',
+            },
+          } : undefined,
+        },
+        include: {
+          customer: true,
+          package: true,
+          travellersList: true,
+          agentBooking: { include: { agent: true } },
+        },
       });
-    }
+
+      // If converted from lead, mark lead as WON
+      if (data.leadId) {
+        await tx.lead.update({
+          where: { id: data.leadId },
+          data: { enquiryStatus: 'WON', updatedById: req.user?.id || null },
+        });
+      }
+
+      return createdBooking;
+    });
 
     await logAudit({
       userId: req.user!.id,
@@ -423,11 +429,16 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       entity: 'BOOKING',
       entityId: booking.id,
       details: `Created booking ${booking.bookingNumber} for ${booking.customer.fullName} (${booking.travellers} travellers, ₹${finalAmount})`,
+      newValue: JSON.stringify(booking),
       ipAddress: req.ip,
     });
 
     res.status(201).json(booking);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Customer or Customer Details (Name & Phone) are required.') {
+      res.status(400).json({ message: error.message });
+      return;
+    }
     next(error);
   }
 });
@@ -439,7 +450,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const data = bookingCreateSchema.partial().parse(req.body);
 
     const currentBooking = await prisma.booking.findUnique({ where: { id } });
-    if (!currentBooking) {
+    if (!currentBooking || currentBooking.isDeleted) {
       res.status(404).json({ message: 'Booking not found.' });
       return;
     }
@@ -452,6 +463,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       totalAmount,
       discount,
       finalAmount,
+      updatedById: req.user?.id || null,
     };
     if (data.packageId !== undefined) updatePayload.packageId = data.packageId || null;
     if (data.assignedUserId !== undefined) updatePayload.assignedUserId = data.assignedUserId || null;
@@ -508,6 +520,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       entity: 'BOOKING',
       entityId: id,
       details: `Updated booking ${updated.bookingNumber}`,
+      oldValue: JSON.stringify(currentBooking),
+      newValue: JSON.stringify(updated),
       ipAddress: req.ip,
     });
 
@@ -602,9 +616,15 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     const id = req.params.id as string;
     const { status } = req.body;
 
+    const currentBooking = await prisma.booking.findUnique({ where: { id } });
+    if (!currentBooking || currentBooking.isDeleted) {
+      res.status(404).json({ message: 'Booking not found.' });
+      return;
+    }
+
     const booking = await prisma.booking.update({
       where: { id },
-      data: { bookingStatus: status },
+      data: { bookingStatus: status, updatedById: req.user?.id || null },
       include: { customer: true },
     });
 
@@ -615,6 +635,8 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
       entity: 'BOOKING',
       entityId: id,
       details: `Booking ${booking.bookingNumber} status set to ${status}`,
+      oldValue: JSON.stringify({ bookingStatus: currentBooking.bookingStatus }),
+      newValue: JSON.stringify({ bookingStatus: status }),
       ipAddress: req.ip,
     });
 
@@ -628,6 +650,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
     const bookings = await prisma.booking.findMany({
+      where: { isDeleted: false },
       include: {
         customer: true,
         package: true,
@@ -686,6 +709,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
   try {
     const bookings = await prisma.booking.findMany({
+      where: { isDeleted: false },
       include: {
         customer: true,
         package: true,
@@ -741,7 +765,7 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
 router.get('/export/passengers/excel', async (req: AuthRequest, res: Response, next) => {
   try {
     const packageId = (req.query.packageId as string || '').trim();
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (packageId) where.packageId = packageId;
 
     const bookings = await prisma.booking.findMany({
@@ -822,7 +846,7 @@ router.get('/export/passengers/excel', async (req: AuthRequest, res: Response, n
 router.get('/export/passengers', async (req: AuthRequest, res: Response, next) => {
   try {
     const packageId = (req.query.packageId as string || '').trim();
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (packageId) where.packageId = packageId;
 
     const bookings = await prisma.booking.findMany({
@@ -1043,6 +1067,58 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       skipped,
       errors,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Soft-delete Booking safely with audit logging (preserves financial history permanently)
+router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const existing = await prisma.booking.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        payments: { where: { paymentStatus: 'SUCCESS' } },
+      },
+    });
+
+    if (!existing || existing.isDeleted) {
+      res.status(404).json({ message: 'Booking not found.' });
+      return;
+    }
+
+    const successfulPaymentsTotal = existing.payments.reduce((acc, p) => acc + Number(p.amount), 0);
+    if (successfulPaymentsTotal > 0 && req.user?.role !== 'ADMIN') {
+      res.status(400).json({
+        message: `Cannot delete booking ${existing.bookingNumber} with ₹${successfulPaymentsTotal} in successful payments. Admin privileges required.`,
+      });
+      return;
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedById: req.user!.id,
+      },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'DELETE',
+      entity: 'BOOKING',
+      entityId: id,
+      details: `Soft-deleted booking ${existing.bookingNumber} for ${existing.customer?.fullName || 'Unknown'}`,
+      oldValue: JSON.stringify({ isDeleted: false }),
+      newValue: JSON.stringify({ isDeleted: true, deletedAt: new Date(), deletedById: req.user!.id }),
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Booking ${existing.bookingNumber} deleted successfully.` });
   } catch (error) {
     next(error);
   }

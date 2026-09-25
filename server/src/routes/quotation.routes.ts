@@ -19,7 +19,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     const packageId = (req.query.packageId as string || '').trim();
     const createdById = (req.query.createdById as string || '').trim();
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (search) {
       where.OR = [
         { quotationNumber: { contains: search } },
@@ -103,7 +103,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const startDate = (req.query.startDate as string || '').trim();
     const endDate = (req.query.endDate as string || '').trim();
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (search) {
       where.OR = [
         { quotationNumber: { contains: search } },
@@ -175,7 +175,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!quotation) {
+    if (!quotation || quotation.isDeleted) {
       res.status(404).json({ message: 'Quotation not found.' });
       return;
     }
@@ -267,6 +267,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         status: data.status,
         termsAndConditions: data.termsAndConditions || defaultTerms,
         createdById: req.user?.id || null,
+        updatedById: req.user?.id || null,
       },
       include: {
         customer: true,
@@ -279,7 +280,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     if (data.leadId) {
       await prisma.lead.update({
         where: { id: data.leadId },
-        data: { enquiryStatus: 'QUOTATION_SENT' },
+        data: { enquiryStatus: 'QUOTATION_SENT', updatedById: req.user?.id || null },
       });
     }
 
@@ -290,6 +291,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       entity: 'QUOTATION',
       entityId: quotation.id,
       details: `Generated quotation ${quotation.quotationNumber} for ${quotation.customer.fullName} (₹${finalAmount})`,
+      newValue: JSON.stringify(quotation),
       ipAddress: req.ip,
     });
 
@@ -306,7 +308,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const data = quotationSchema.parse(req.body);
 
     const existing = await prisma.quotation.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || existing.isDeleted) {
       res.status(404).json({ message: 'Quotation not found.' });
       return;
     }
@@ -342,6 +344,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
         finalAmount,
         status: data.status,
         termsAndConditions: data.termsAndConditions || existing.termsAndConditions,
+        updatedById: req.user?.id || null,
       },
       include: {
         customer: true,
@@ -357,6 +360,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       entity: 'QUOTATION',
       entityId: id,
       details: `Updated quotation ${updated.quotationNumber} for ${updated.customer.fullName} (₹${finalAmount})`,
+      oldValue: JSON.stringify(existing),
+      newValue: JSON.stringify(updated),
       ipAddress: req.ip,
     });
 
@@ -375,7 +380,7 @@ router.post('/:id/duplicate', async (req: AuthRequest, res: Response, next) => {
       include: { customer: true },
     });
 
-    if (!source) {
+    if (!source || source.isDeleted) {
       res.status(404).json({ message: 'Source quotation not found.' });
       return;
     }
@@ -413,6 +418,7 @@ router.post('/:id/duplicate', async (req: AuthRequest, res: Response, next) => {
         status: 'DRAFT',
         termsAndConditions: source.termsAndConditions,
         createdById: req.user?.id || null,
+        updatedById: req.user?.id || null,
       },
       include: {
         customer: true,
@@ -428,6 +434,7 @@ router.post('/:id/duplicate', async (req: AuthRequest, res: Response, next) => {
       entity: 'QUOTATION',
       entityId: duplicate.id,
       details: `Duplicated quotation ${source.quotationNumber} into ${duplicate.quotationNumber}`,
+      newValue: JSON.stringify(duplicate),
       ipAddress: req.ip,
     });
 
@@ -443,9 +450,15 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     const id = req.params.id as string;
     const { status } = req.body;
 
+    const existing = await prisma.quotation.findUnique({ where: { id } });
+    if (!existing || existing.isDeleted) {
+      res.status(404).json({ message: 'Quotation not found.' });
+      return;
+    }
+
     const quotation = await prisma.quotation.update({
       where: { id },
-      data: { status },
+      data: { status, updatedById: req.user?.id || null },
       include: { customer: true },
     });
 
@@ -456,6 +469,8 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
       entity: 'QUOTATION',
       entityId: id,
       details: `Quotation ${quotation.quotationNumber} marked as ${status}`,
+      oldValue: JSON.stringify({ status: existing.status }),
+      newValue: JSON.stringify({ status }),
       ipAddress: req.ip,
     });
 
@@ -465,7 +480,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Delete Quotation (Safe with Audit)
+// Delete Quotation (Soft-delete with Audit)
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
@@ -474,12 +489,19 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       include: { customer: true },
     });
 
-    if (!existing) {
+    if (!existing || existing.isDeleted) {
       res.status(404).json({ message: 'Quotation not found.' });
       return;
     }
 
-    await prisma.quotation.delete({ where: { id } });
+    await prisma.quotation.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedById: req.user!.id,
+      },
+    });
 
     await logAudit({
       userId: req.user!.id,
@@ -487,7 +509,9 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       action: 'DELETE',
       entity: 'QUOTATION',
       entityId: id,
-      details: `Deleted quotation ${existing.quotationNumber} for ${existing.customer?.fullName}`,
+      details: `Soft-deleted quotation ${existing.quotationNumber} for ${existing.customer?.fullName || 'Unknown'}`,
+      oldValue: JSON.stringify({ isDeleted: false }),
+      newValue: JSON.stringify({ isDeleted: true, deletedAt: new Date(), deletedById: req.user!.id }),
       ipAddress: req.ip,
     });
 

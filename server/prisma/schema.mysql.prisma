@@ -34,10 +34,22 @@ model User {
   updatedAt          DateTime  @updatedAt
 
   assignedCustomers      Customer[]       @relation("CustomerAssignedUser")
+  customersCreated       Customer[]       @relation("CustomerCreatedByUser")
+  customersUpdated       Customer[]       @relation("CustomerUpdatedByUser")
+
   assignedLeads          Lead[]           @relation("LeadAssignedUser")
+  leadsCreated           Lead[]           @relation("LeadCreatedByUser")
+  leadsUpdated           Lead[]           @relation("LeadUpdatedByUser")
+
   assignedFollowUps      FollowUp[]       @relation("FollowUpAssignedUser")
+
   assignedBookings       Booking[]        @relation("BookingAssignedUser")
+  bookingsCreated        Booking[]        @relation("BookingCreatedByUser")
+  bookingsUpdated        Booking[]        @relation("BookingUpdatedByUser")
+
   quotationsCreated      Quotation[]      @relation("QuotationCreatedByUser")
+  quotationsUpdated      Quotation[]      @relation("QuotationUpdatedByUser")
+
   assignedCabBookings    CabBooking[]     @relation("CabBookingAssignedUser")
   assignedCalendarEvents CalendarEvent[]  @relation("CalendarEventAssignedUser")
   expensesCreated        Expense[]        @relation("ExpenseCreatedByUser")
@@ -66,10 +78,20 @@ model Customer {
   notes          String?   @db.Text
   assignedToId   String?   @db.VarChar(36)
   status         String    @default("ACTIVE") @db.VarChar(50)
+
+  createdById    String?   @db.VarChar(36)
+  updatedById    String?   @db.VarChar(36)
+  isDeleted      Boolean   @default(false)
+  deletedAt      DateTime?
+  deletedById    String?   @db.VarChar(36)
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   assignedTo     User?        @relation("CustomerAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdByUser  User?        @relation("CustomerCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedByUser  User?        @relation("CustomerUpdatedByUser", fields: [updatedById], references: [id], onDelete: SetNull)
+
   leads          Lead[]
   bookings       Booking[]
   quotations     Quotation[]
@@ -79,6 +101,7 @@ model Customer {
   @@index([email])
   @@index([fullName])
   @@index([assignedToId])
+  @@index([isDeleted])
 }
 
 // ------------------------------------------------------------------------------
@@ -95,17 +118,26 @@ model Lead {
   adults          Int       @default(2)
   children        Int       @default(0)
   infants         Int       @default(0)
-  budget          Decimal?  @db.Decimal(12, 2)
+  budget          Float?
   packageId       String?   @db.VarChar(36)
   enquiryStatus   String    @default("NEW") @db.VarChar(50)
   priority        String    @default("MEDIUM") @db.VarChar(50)
   notes           String?   @db.Text
   nextFollowUpAt  DateTime?
+
+  createdById     String?   @db.VarChar(36)
+  updatedById     String?   @db.VarChar(36)
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  deletedById     String?   @db.VarChar(36)
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   customer        Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   assignedUser    User?        @relation("LeadAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdByUser   User?        @relation("LeadCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedByUser   User?        @relation("LeadUpdatedByUser", fields: [updatedById], references: [id], onDelete: SetNull)
   package         Package?     @relation(fields: [packageId], references: [id], onDelete: SetNull)
   followUps       FollowUp[]
   quotations      Quotation[]
@@ -118,6 +150,7 @@ model Lead {
   @@index([destination])
   @@index([createdAt])
   @@index([nextFollowUpAt])
+  @@index([isDeleted])
 }
 
 // ------------------------------------------------------------------------------
@@ -153,7 +186,7 @@ model Package {
   destination String   @db.VarChar(191)
   duration    String   @db.VarChar(100)
   description String   @db.Text
-  price       Decimal  @default(0.00) @db.Decimal(12, 2)
+  price       Float    @default(0)
   packageType String   @default("HOLIDAY") @db.VarChar(50)
   inclusions  String?  @db.Text
   exclusions  String?  @db.Text
@@ -199,7 +232,7 @@ model ItineraryDay {
 }
 
 // ------------------------------------------------------------------------------
-// 7. Quotations & Travel Proposals
+// 7. Quotations & Proposals
 // ------------------------------------------------------------------------------
 model Quotation {
   id                 String    @id @default(uuid()) @db.VarChar(36)
@@ -219,17 +252,23 @@ model Quotation {
   inclusions         String?   @db.Text
   exclusions         String?   @db.Text
   cabDetails         String?   @db.Text
-  additionalCharges  Decimal   @default(0.00) @db.Decimal(12, 2)
+  additionalCharges  Float     @default(0)
   paymentTerms       String?   @db.Text
   cancellationTerms  String?   @db.Text
   notes              String?   @db.Text
-  basePrice          Decimal   @default(0.00) @db.Decimal(12, 2)
-  discount           Decimal   @default(0.00) @db.Decimal(12, 2)
-  tax                Decimal   @default(0.00) @db.Decimal(12, 2)
-  finalAmount        Decimal   @default(0.00) @db.Decimal(12, 2)
+  basePrice          Float     @default(0)
+  discount           Float     @default(0)
+  tax                Float     @default(0)
+  finalAmount        Float     @default(0)
   status             String    @default("DRAFT") @db.VarChar(50)
   termsAndConditions String?   @db.Text
+
   createdById        String?   @db.VarChar(36)
+  updatedById        String?   @db.VarChar(36)
+  isDeleted          Boolean   @default(false)
+  deletedAt          DateTime?
+  deletedById        String?   @db.VarChar(36)
+
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -237,55 +276,68 @@ model Quotation {
   customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   package            Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
   createdByUser      User?     @relation("QuotationCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedByUser      User?     @relation("QuotationUpdatedByUser", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([quotationNumber])
   @@index([customerId])
   @@index([leadId])
   @@index([status])
   @@index([createdById])
+  @@index([isDeleted])
 }
 
 // ------------------------------------------------------------------------------
 // 8. Bookings
 // ------------------------------------------------------------------------------
 model Booking {
-  id              String    @id @default(uuid()) @db.VarChar(36)
-  bookingNumber   String    @unique @db.VarChar(100)
-  customerId      String    @db.VarChar(36)
-  leadId          String?   @db.VarChar(36)
-  packageId       String?   @db.VarChar(36)
-  assignedUserId  String?   @db.VarChar(36)
-  travelStartDate DateTime
-  travelEndDate   DateTime
-  durationDays    Int?      @default(1)
-  durationNights  Int?      @default(0)
-  tripType        String?   @default("SINGLE") @db.VarChar(50)
-  travellers      Int       @default(1)
-  totalAmount     Decimal   @default(0.00) @db.Decimal(12, 2)
-  discount        Decimal   @default(0.00) @db.Decimal(12, 2)
-  finalAmount     Decimal   @default(0.00) @db.Decimal(12, 2)
-  bookingStatus   String    @default("CONFIRMED") @db.VarChar(50)
-  bookingDate     DateTime  @default(now())
+  id               String    @id @default(uuid()) @db.VarChar(36)
+  bookingNumber    String    @unique @db.VarChar(100)
+  customerId       String    @db.VarChar(36)
+  leadId           String?   @db.VarChar(36)
+  packageId        String?   @db.VarChar(36)
+  assignedUserId   String?   @db.VarChar(36)
+  travelStartDate  DateTime
+  travelEndDate    DateTime
+  durationDays     Int?      @default(1)
+  durationNights   Int?      @default(0)
+  tripType         String?   @default("SINGLE") @db.VarChar(50)
+  travellers       Int       @default(1)
+  totalAmount      Float     @default(0)
+  discount         Float     @default(0)
+  finalAmount      Float     @default(0)
+  bookingStatus    String    @default("CONFIRMED") @db.VarChar(50)
+  bookingDate      DateTime  @default(now())
   serviceProviders String?   @db.Text
-  notes           String?   @db.Text
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  notes            String?   @db.Text
 
-  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  lead            Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  package         Package?      @relation(fields: [packageId], references: [id], onDelete: SetNull)
-  assignedUser    User?         @relation("BookingAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  payments        Payment[]
-  expenses        Expense[]
-  agentBooking    AgentBooking?
-  travellersList  Traveller[]
-  cabBookings     CabBooking[]
+  createdById      String?   @db.VarChar(36)
+  updatedById      String?   @db.VarChar(36)
+  isDeleted        Boolean   @default(false)
+  deletedAt        DateTime?
+  deletedById      String?   @db.VarChar(36)
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lead             Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  package          Package?      @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  assignedUser     User?         @relation("BookingAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdByUser    User?         @relation("BookingCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedByUser    User?         @relation("BookingUpdatedByUser", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  payments         Payment[]
+  expenses         Expense[]
+  agentBooking     AgentBooking?
+  travellersList   Traveller[]
+  cabBookings      CabBooking[]
 
   @@index([bookingNumber])
   @@index([customerId])
   @@index([assignedUserId])
   @@index([bookingStatus])
   @@index([bookingDate])
+  @@index([isDeleted])
 }
 
 // ------------------------------------------------------------------------------
@@ -317,7 +369,7 @@ model Payment {
   id                   String   @id @default(uuid()) @db.VarChar(36)
   bookingId            String   @db.VarChar(36)
   customerId           String?  @db.VarChar(36)
-  amount               Decimal  @default(0.00) @db.Decimal(12, 2)
+  amount               Float    @default(0)
   paymentDate          DateTime @default(now())
   paymentTime          String?  @db.VarChar(50)
   paymentMethod        String   @default("UPI") @db.VarChar(50)
@@ -351,7 +403,7 @@ model Agent {
   state              String?  @db.VarChar(100)
   gstNumber          String?  @db.VarChar(50)
   panNumber          String?  @db.VarChar(50)
-  agentType          String?  @default("Silver") @db.VarChar(50) // Diamond, Gold, Silver
+  agentType          String?  @default("Silver") @db.VarChar(50)
   status             String   @default("ACTIVE") @db.VarChar(50)
   googleReviewUrl    String?  @db.Text
   googleReviewRating Float?
@@ -372,9 +424,9 @@ model AgentBooking {
   id               String   @id @default(uuid()) @db.VarChar(36)
   agentId          String   @db.VarChar(36)
   bookingId        String   @unique @db.VarChar(36)
-  commissionRate   Decimal  @default(0.00) @db.Decimal(5, 2)
-  commissionAmount Decimal  @default(0.00) @db.Decimal(12, 2)
-  netAmount        Decimal  @default(0.00) @db.Decimal(12, 2)
+  commissionRate   Float    @default(0)
+  commissionAmount Float    @default(0)
+  netAmount        Float    @default(0)
   payoutStatus     String   @default("PENDING") @db.VarChar(50)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -393,7 +445,7 @@ model AgentBooking {
 model Expense {
   id          String   @id @default(uuid()) @db.VarChar(36)
   category    String   @db.VarChar(50)
-  amount      Decimal  @default(0.00) @db.Decimal(12, 2)
+  amount      Float    @default(0)
   expenseDate DateTime @default(now())
   description String   @db.Text
   bookingId   String?  @db.VarChar(36)
@@ -420,6 +472,8 @@ model AuditLog {
   entity      String   @db.VarChar(50)
   entityId    String?  @db.VarChar(191)
   details     String?  @db.Text
+  oldValue    String?  @db.Text
+  newValue    String?  @db.Text
   ipAddress   String?  @db.VarChar(100)
   createdAt   DateTime @default(now())
 
@@ -470,53 +524,68 @@ model WhatsAppMessage {
 // 16. Cab Bookings & Fleet Transfers
 // ------------------------------------------------------------------------------
 model CabBooking {
-  id                  String    @id @default(uuid()) @db.VarChar(36)
-  bookingReference    String    @unique @db.VarChar(100)
-  customerId          String?   @db.VarChar(36)
-  customerName        String    @db.VarChar(191)
-  customerPhone       String    @db.VarChar(50)
-  customerEmail       String?   @db.VarChar(191)
-  leadId              String?   @db.VarChar(36)
-  bookingId           String?   @db.VarChar(36)
-  packageId           String?   @db.VarChar(36)
-  assignedStaffId     String?   @db.VarChar(36)
-  pickupDate          DateTime
-  pickupTime          String    @db.VarChar(50)
-  pickupPlace         String    @db.VarChar(191)
-  dropPlace           String    @db.VarChar(191)
-  travelRoute         String?   @db.Text
-  enquiryDate         DateTime? @default(now())
-  carNumber           String?   @db.VarChar(50)
-  vehicleType         String    @default("SEDAN") @db.VarChar(50)
-  passengerCount      Int       @default(1)
-  driverName          String?   @db.VarChar(191)
-  driverPhone         String?   @db.VarChar(50)
-  cabProvider         String?   @db.VarChar(100)
-  requiredCabType     String?   @default("AC") @db.VarChar(50)
-  tripType            String    @default("OUTSTATION") @db.VarChar(50)
-  estimatedDistance   String?   @db.VarChar(50)
-  estimatedDuration   String?   @db.VarChar(50)
-  cabAmount           Decimal   @default(0.00) @db.Decimal(12, 2)
-  advanceAmount       Decimal   @default(0.00) @db.Decimal(12, 2)
-  balanceAmount       Decimal   @default(0.00) @db.Decimal(12, 2)
-  paymentStatus       String    @default("PENDING") @db.VarChar(50)
-  bookingStatus       String    @default("CONFIRMED") @db.VarChar(50)
-  specialInstructions String?   @db.Text
-  internalNotes       String?   @db.Text
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                   String    @id @default(uuid()) @db.VarChar(36)
+  bookingReference     String    @unique @db.VarChar(100)
+  customerId           String?   @db.VarChar(36)
+  customerName         String    @db.VarChar(191)
+  customerPhone        String    @db.VarChar(50)
+  customerEmail        String?   @db.VarChar(191)
+  leadId               String?   @db.VarChar(36)
+  bookingId            String?   @db.VarChar(36)
+  packageId            String?   @db.VarChar(36)
+  assignedStaffId      String?   @db.VarChar(36)
+  pickupDate           DateTime
+  pickupTime           String    @db.VarChar(50)
+  pickupPlace          String    @db.VarChar(191)
+  dropPlace            String    @db.VarChar(191)
+  travelRoute          String?   @db.Text
+  enquiryDate          DateTime? @default(now())
+  carNumber            String?   @db.VarChar(50)
+  vehicleType          String    @default("SEDAN") @db.VarChar(50)
+  passengerCount       Int       @default(1)
+  driverName           String?   @db.VarChar(191)
+  driverPhone          String?   @db.VarChar(50)
+  cabProvider          String?   @db.VarChar(100)
+  requiredCabType      String?   @default("AC") @db.VarChar(50)
+  tripType             String    @default("OUTSTATION") @db.VarChar(50)
+  estimatedDistance    String?   @db.VarChar(50)
+  estimatedDuration    String?   @db.VarChar(50)
+  cabAmount            Float     @default(0)
+  advanceAmount        Float     @default(0)
+  balanceAmount        Float     @default(0)
+  paymentStatus        String    @default("PENDING") @db.VarChar(50)
+  bookingStatus        String    @default("CONFIRMED") @db.VarChar(50)
+  specialInstructions  String?   @db.Text
+  internalNotes        String?   @db.Text
 
-  customer            Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  lead                Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  booking             Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  package             Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
-  assignedStaff       User?     @relation("CabBookingAssignedUser", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  driverAllowanceType  String?   @db.VarChar(50)
+  driverAllowanceRate  Float?
+  driverAllowanceDays  Int?
+  driverAllowanceTotal Float?
+  dutyRange            String?   @db.VarChar(191)
+  customTableRows      String?   @db.Text
+
+  createdById          String?   @db.VarChar(36)
+  updatedById          String?   @db.VarChar(36)
+  isDeleted            Boolean   @default(false)
+  deletedAt            DateTime?
+  deletedById          String?   @db.VarChar(36)
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  customer             Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  lead                 Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  booking              Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  package              Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  assignedStaff        User?     @relation("CabBookingAssignedUser", fields: [assignedStaffId], references: [id], onDelete: SetNull)
 
   @@index([bookingReference])
   @@index([customerPhone])
   @@index([pickupDate])
   @@index([bookingStatus])
   @@index([assignedStaffId])
+  @@index([isDeleted])
 }
 
 // ------------------------------------------------------------------------------
@@ -569,7 +638,7 @@ model Supplier {
   pincode             String?   @db.VarChar(20)
   gstNumber           String?   @db.VarChar(50)
   panNumber           String?   @db.VarChar(50)
-  tier                String?   @default("Silver") @db.VarChar(50) // Diamond, Gold, Silver
+  tier                String?   @default("Silver") @db.VarChar(50)
   serviceCategories   String?   @db.Text
   categoryDetails     String?   @db.Text
   category            String?   @db.VarChar(100)
@@ -577,7 +646,7 @@ model Supplier {
   destinationsCovered String?   @db.Text
   contractDetails     String?   @db.Text
   paymentTerms        String?   @db.VarChar(191)
-  creditLimit         Decimal?  @default(0) @db.Decimal(12, 2)
+  creditLimit         Float?    @default(0)
   commissionDetails   String?   @db.Text
   bankDetails         String?   @db.Text
   status              String    @default("ACTIVE") @db.VarChar(50)

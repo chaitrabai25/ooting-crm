@@ -26,7 +26,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const sortBy = ALLOWED_CUSTOMER_SORT_FIELDS.includes(sortByParam) ? sortByParam : 'createdAt';
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (search) {
       where.OR = [
         { fullName: { contains: search } },
@@ -48,6 +48,8 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         where,
         include: {
           assignedTo: { select: { id: true, name: true, email: true } },
+          createdByUser: { select: { id: true, name: true, email: true } },
+          updatedByUser: { select: { id: true, name: true, email: true } },
           _count: {
             select: { leads: true, bookings: true },
           },
@@ -176,10 +178,15 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         source: data.source || 'DIRECT',
         notes: data.notes?.trim() || null,
         assignedToId: data.assignedToId || req.user!.id,
+        createdById: req.user!.id,
+        updatedById: req.user!.id,
         status: data.status || 'ACTIVE',
+        isDeleted: false,
       },
       include: {
         assignedTo: { select: { id: true, name: true } },
+        createdByUser: { select: { id: true, name: true } },
+        updatedByUser: { select: { id: true, name: true } },
       },
     });
 
@@ -190,6 +197,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       entity: 'CUSTOMER',
       entityId: customer.id,
       details: `Created customer ${customer.fullName} (${customer.phone})`,
+      newValue: customer,
       ipAddress: req.ip,
     });
 
@@ -205,7 +213,15 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const id = req.params.id as string;
     const data = customerSchema.partial().parse(req.body);
 
-    const updatePayload: any = {};
+    const previous = await prisma.customer.findUnique({ where: { id } });
+    if (!previous || previous.isDeleted) {
+      res.status(404).json({ message: 'Customer not found.' });
+      return;
+    }
+
+    const updatePayload: any = {
+      updatedById: req.user!.id,
+    };
     if (data.fullName !== undefined) updatePayload.fullName = data.fullName.trim();
     if (data.phone !== undefined) updatePayload.phone = data.phone.trim();
     if (data.alternatePhone !== undefined) updatePayload.alternatePhone = data.alternatePhone?.trim() || null;
@@ -223,6 +239,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       data: updatePayload,
       include: {
         assignedTo: { select: { id: true, name: true } },
+        createdByUser: { select: { id: true, name: true } },
+        updatedByUser: { select: { id: true, name: true } },
       },
     });
 
@@ -233,6 +251,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       entity: 'CUSTOMER',
       entityId: customer.id,
       details: `Updated details for customer ${customer.fullName}`,
+      oldValue: previous,
+      newValue: customer,
       ipAddress: req.ip,
     });
 
@@ -242,7 +262,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Delete / Archive Customer (Restricted to SUPER_ADMIN & ADMIN)
+// Delete / Soft-Delete Customer (Restricted to SUPER_ADMIN & ADMIN)
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
@@ -261,38 +281,21 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!customer) {
+    if (!customer || customer.isDeleted) {
       res.status(404).json({ message: 'Customer not found.' });
       return;
     }
 
-    // If active bookings exist, soft-archive customer to protect financial & travel history
-    if (customer._count.bookings > 0) {
-      const updated = await prisma.customer.update({
-        where: { id },
-        data: { status: 'INACTIVE' },
-      });
-
-      await logAudit({
-        userId: req.user!.id,
-        userName: req.user!.name,
-        action: 'UPDATE',
-        entity: 'CUSTOMER',
-        entityId: customer.id,
-        details: `Archived customer ${customer.fullName} (has ${customer._count.bookings} active bookings)`,
-        ipAddress: req.ip,
-      });
-
-      res.json({
-        message: `Customer has ${customer._count.bookings} booking(s). To protect accounting and booking records, customer status has been set to INACTIVE.`,
-        action: 'ARCHIVED',
-        customer: updated,
-      });
-      return;
-    }
-
-    // Clean delete if no bookings exist (leads & quotations cascade delete automatically)
-    await prisma.customer.delete({ where: { id } });
+    // Soft-delete to preserve all related bookings, leads, invoices, and accounting history
+    const updated = await prisma.customer.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        status: 'INACTIVE',
+        deletedAt: new Date(),
+        deletedById: req.user!.id,
+      },
+    });
 
     await logAudit({
       userId: req.user!.id,
@@ -300,13 +303,15 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       action: 'DELETE',
       entity: 'CUSTOMER',
       entityId: customer.id,
-      details: `Permanently deleted customer ${customer.fullName} (${customer.phone})`,
+      details: `Soft-deleted customer ${customer.fullName} (${customer.phone})`,
+      oldValue: customer,
       ipAddress: req.ip,
     });
 
     res.json({
-      message: `Customer ${customer.fullName} successfully deleted.`,
+      message: `Customer ${customer.fullName} successfully removed.`,
       action: 'DELETED',
+      customer: updated,
     });
   } catch (error) {
     next(error);

@@ -30,7 +30,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       orderBy.createdAt = 'desc';
     }
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (search) {
       where.OR = [
         { customer: { fullName: { contains: search } } },
@@ -55,7 +55,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     if (source) where.source = source;
 
     // Base where without status filter to calculate counts for tabs
-    const baseWhere: any = {};
+    const baseWhere: any = { isDeleted: false };
     if (search) baseWhere.OR = where.OR;
     if (priority) baseWhere.priority = priority;
     if (destination) baseWhere.destination = where.destination;
@@ -127,7 +127,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!lead) {
+    if (!lead || lead.isDeleted) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
@@ -247,6 +247,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
             source: data.source,
             assignedToId: assignedUserId,
             status: 'ACTIVE',
+            createdById: req.user?.id || null,
+            updatedById: req.user?.id || null,
           },
         });
       }
@@ -255,10 +257,10 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       // Verify customer exists
       const custExists = await prisma.customer.findUnique({
         where: { id: customerId },
-        select: { id: true },
+        select: { id: true, isDeleted: true },
       });
-      if (!custExists) {
-        res.status(400).json({ message: 'Selected customer not found.' });
+      if (!custExists || custExists.isDeleted) {
+        res.status(400).json({ message: 'Selected customer not found or has been deactivated.' });
         return;
       }
     }
@@ -282,6 +284,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         notes: data.notes?.trim() || null,
         assignedUserId,
         nextFollowUpAt: scheduledDate,
+        createdById: req.user?.id || null,
+        updatedById: req.user?.id || null,
       },
       include: {
         customer: true,
@@ -311,6 +315,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       entity: 'LEAD',
       entityId: lead.id,
       details: `Created lead for ${lead.customer.fullName} to ${lead.destination} (${lead.enquiryStatus})`,
+      newValue: JSON.stringify(lead),
       ipAddress: req.ip,
     });
 
@@ -327,12 +332,14 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const body = req.body;
 
     const currentLead = await prisma.lead.findUnique({ where: { id } });
-    if (!currentLead) {
+    if (!currentLead || currentLead.isDeleted) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
 
-    const updatePayload: any = {};
+    const updatePayload: any = {
+      updatedById: req.user?.id || null,
+    };
     if (body.destination !== undefined) updatePayload.destination = body.destination.trim();
     if (body.travelStartDate !== undefined) updatePayload.travelStartDate = parseSafeDate(body.travelStartDate);
     if (body.travelEndDate !== undefined) updatePayload.travelEndDate = parseSafeDate(body.travelEndDate);
@@ -390,6 +397,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       entity: 'LEAD',
       entityId: id,
       details: detailMsg,
+      oldValue: JSON.stringify(currentLead),
+      newValue: JSON.stringify(updated),
       ipAddress: req.ip,
     });
 
@@ -406,7 +415,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     const { status, notes } = req.body;
 
     const currentLead = await prisma.lead.findUnique({ where: { id }, include: { customer: true } });
-    if (!currentLead) {
+    if (!currentLead || currentLead.isDeleted) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
@@ -416,6 +425,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
       data: {
         enquiryStatus: status,
         notes: notes ? `${currentLead.notes ? currentLead.notes + '\n' : ''}[${new Date().toLocaleDateString()}] ${notes}` : currentLead.notes,
+        updatedById: req.user?.id || null,
       },
     });
 
@@ -426,6 +436,8 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
       entity: 'LEAD',
       entityId: id,
       details: `Lead status changed from ${currentLead.enquiryStatus} to ${status}${notes ? ` (Note: ${notes})` : ''}`,
+      oldValue: JSON.stringify({ enquiryStatus: currentLead.enquiryStatus }),
+      newValue: JSON.stringify({ enquiryStatus: status }),
       ipAddress: req.ip,
     });
 
@@ -446,7 +458,7 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
       include: { customer: true, package: true },
     });
 
-    if (!lead) {
+    if (!lead || lead.isDeleted) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
@@ -475,6 +487,8 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
         finalAmount,
         bookingStatus: 'CONFIRMED',
         notes: notes?.trim() || `Converted from Lead ${lead.id}`,
+        createdById: req.user?.id || null,
+        updatedById: req.user?.id || null,
       },
       include: {
         customer: true,
@@ -485,7 +499,7 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
     // Mark lead as WON
     await prisma.lead.update({
       where: { id: lead.id },
-      data: { enquiryStatus: 'WON' },
+      data: { enquiryStatus: 'WON', updatedById: req.user?.id || null },
     });
 
     await logAudit({
@@ -495,6 +509,7 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
       entity: 'BOOKING',
       entityId: booking.id,
       details: `Converted lead to booking ${booking.bookingNumber} for ₹${finalAmount}`,
+      newValue: JSON.stringify(booking),
       ipAddress: req.ip,
     });
 
@@ -513,14 +528,14 @@ router.post('/:id/convert-customer', async (req: AuthRequest, res: Response, nex
       include: { customer: true },
     });
 
-    if (!lead) {
+    if (!lead || lead.isDeleted) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
 
     const customer = await prisma.customer.update({
       where: { id: lead.customerId },
-      data: { status: 'ACTIVE' },
+      data: { status: 'ACTIVE', updatedById: req.user?.id || null },
     });
 
     await logAudit({
@@ -550,7 +565,7 @@ router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, ne
       include: { customer: true, package: true },
     });
 
-    if (!lead) {
+    if (!lead || lead.isDeleted) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
@@ -588,6 +603,7 @@ router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, ne
         status: 'DRAFT',
         notes: notes || `Converted from Lead for ${lead.destination}`,
         createdById: req.user?.id || null,
+        updatedById: req.user?.id || null,
       },
       include: {
         customer: true,
@@ -597,7 +613,7 @@ router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, ne
 
     await prisma.lead.update({
       where: { id: lead.id },
-      data: { enquiryStatus: 'QUOTATION_SENT' },
+      data: { enquiryStatus: 'QUOTATION_SENT', updatedById: req.user?.id || null },
     });
 
     await logAudit({
@@ -620,6 +636,7 @@ router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, ne
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
     const leads = await prisma.lead.findMany({
+      where: { isDeleted: false },
       include: {
         customer: true,
         assignedUser: { select: { name: true } },
@@ -674,6 +691,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
   try {
     const leads = await prisma.lead.findMany({
+      where: { isDeleted: false },
       include: {
         customer: true,
         assignedUser: { select: { name: true } },
@@ -835,7 +853,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Delete Lead / Enquiry safely with cascade clean-up and audit logging
+// Soft-delete Lead / Enquiry safely with audit logging (preserves data permanently)
 router.delete('/:id', requirePermission('leads', 'delete'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
@@ -843,33 +861,31 @@ router.delete('/:id', requirePermission('leads', 'delete'), async (req: AuthRequ
       where: { id },
       include: {
         customer: { select: { fullName: true } },
-        bookings: { select: { id: true, bookingNumber: true } },
-        quotations: { select: { id: true } },
-        followUps: { select: { id: true } },
+        bookings: { select: { id: true, bookingNumber: true, isDeleted: true } },
       },
     });
 
-    if (!lead) {
+    if (!lead || lead.isDeleted) {
       res.status(404).json({ message: 'Lead / Enquiry not found.' });
       return;
     }
 
-    if (lead.bookings && lead.bookings.length > 0) {
+    const activeBookings = lead.bookings?.filter((b: any) => !b.isDeleted) || [];
+    if (activeBookings.length > 0) {
       res.status(400).json({
-        message: `Cannot delete this lead because it has ${lead.bookings.length} linked booking(s) (${lead.bookings.map((b: any) => b.bookingNumber).join(', ')}). Please manage or delete the booking records first.`,
+        message: `Cannot delete this lead because it has ${activeBookings.length} linked active booking(s) (${activeBookings.map((b: any) => b.bookingNumber).join(', ')}). Please manage or delete the booking records first.`,
       });
       return;
     }
 
-    // Safely remove linked follow-ups and unbooked quotations
-    if (lead.followUps && lead.followUps.length > 0) {
-      await prisma.followUp.deleteMany({ where: { leadId: id } });
-    }
-    if (lead.quotations && lead.quotations.length > 0) {
-      await prisma.quotation.deleteMany({ where: { leadId: id } });
-    }
-
-    await prisma.lead.delete({ where: { id } });
+    await prisma.lead.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedById: req.user!.id,
+      },
+    });
 
     await logAudit({
       userId: req.user!.id,
@@ -877,7 +893,9 @@ router.delete('/:id', requirePermission('leads', 'delete'), async (req: AuthRequ
       action: 'DELETE',
       entity: 'LEAD',
       entityId: id,
-      details: `Deleted lead for customer: ${lead.customer?.fullName || 'Unknown'}, destination: ${lead.destination}`,
+      details: `Soft-deleted lead for customer: ${lead.customer?.fullName || 'Unknown'}, destination: ${lead.destination}`,
+      oldValue: JSON.stringify({ isDeleted: false }),
+      newValue: JSON.stringify({ isDeleted: true, deletedAt: new Date(), deletedById: req.user!.id }),
       ipAddress: req.ip,
     });
 

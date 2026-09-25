@@ -12,6 +12,7 @@
     "prisma:generate": "node scripts/prepare-prisma.js",
     "prisma:push": "prisma db push",
     "db:migrate:mysql": "node scripts/migrate-to-mysql.js",
+    "db:migrate:cloud": "node scripts/migrate-to-cloud-mysql.js",
     "db:setup:local": "prisma db push && node scripts/migrate-to-mysql.js",
     "db:dump": "node scripts/generate-dump.js",
     "prisma:pg:generate": "prisma generate --schema=prisma/schema.postgresql.prisma",

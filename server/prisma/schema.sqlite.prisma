@@ -1,5 +1,6 @@
-// Prisma Schema for OOTING CRM
-// Relational schema with foreign keys, indexes, and full relationship integrity
+// ==============================================================================
+// Ooting CRM - SQLite Database Schema (Local / Fallback)
+// ==============================================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -10,15 +11,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ------------------------------------------------------------------------------
+// 1. User & Authentication
+// ------------------------------------------------------------------------------
 model User {
-  id           String    @id @default(uuid())
-  name         String
-  email        String    @unique
-  passwordHash String
-  role         String    @default("SALES") // SUPER_ADMIN, ADMIN, SALES, OPERATIONS, ACCOUNTANT, AGENT
-  phone        String?
-  status             String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
-  permissions        String?   // JSON object with module-level permissions
+  id                 String    @id @default(uuid())
+  name               String
+  email              String    @unique
+  passwordHash       String
+  role               String    @default("SALES")
+  phone              String?
+  status             String    @default("ACTIVE")
+  permissions        String?
   lastLoginAt        DateTime?
   otpHash            String?
   otpExpiresAt       DateTime?
@@ -28,10 +32,22 @@ model User {
   updatedAt          DateTime  @updatedAt
 
   assignedCustomers      Customer[]       @relation("CustomerAssignedUser")
+  customersCreated       Customer[]       @relation("CustomerCreatedByUser")
+  customersUpdated       Customer[]       @relation("CustomerUpdatedByUser")
+
   assignedLeads          Lead[]           @relation("LeadAssignedUser")
+  leadsCreated           Lead[]           @relation("LeadCreatedByUser")
+  leadsUpdated           Lead[]           @relation("LeadUpdatedByUser")
+
   assignedFollowUps      FollowUp[]       @relation("FollowUpAssignedUser")
+
   assignedBookings       Booking[]        @relation("BookingAssignedUser")
+  bookingsCreated        Booking[]        @relation("BookingCreatedByUser")
+  bookingsUpdated        Booking[]        @relation("BookingUpdatedByUser")
+
   quotationsCreated      Quotation[]      @relation("QuotationCreatedByUser")
+  quotationsUpdated      Quotation[]      @relation("QuotationUpdatedByUser")
+
   assignedCabBookings    CabBooking[]     @relation("CabBookingAssignedUser")
   assignedCalendarEvents CalendarEvent[]  @relation("CalendarEventAssignedUser")
   expensesCreated        Expense[]        @relation("ExpenseCreatedByUser")
@@ -44,6 +60,9 @@ model User {
   @@index([status])
 }
 
+// ------------------------------------------------------------------------------
+// 2. Customer Directory
+// ------------------------------------------------------------------------------
 model Customer {
   id             String    @id @default(uuid())
   fullName       String
@@ -53,14 +72,24 @@ model Customer {
   city           String?
   state          String?
   country        String?   @default("India")
-  source         String?   @default("DIRECT") // WEBSITE, WHATSAPP, REFERRAL, SOCIAL_MEDIA, B2B_AGENT, WALK_IN, OTHER
+  source         String?   @default("DIRECT")
   notes          String?
   assignedToId   String?
-  status         String    @default("ACTIVE") // ACTIVE, INACTIVE
+  status         String    @default("ACTIVE")
+
+  createdById    String?
+  updatedById    String?
+  isDeleted      Boolean   @default(false)
+  deletedAt      DateTime?
+  deletedById    String?
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  assignedTo     User?       @relation("CustomerAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo     User?        @relation("CustomerAssignedUser", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdByUser  User?        @relation("CustomerCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedByUser  User?        @relation("CustomerUpdatedByUser", fields: [updatedById], references: [id], onDelete: SetNull)
+
   leads          Lead[]
   bookings       Booking[]
   quotations     Quotation[]
@@ -70,13 +99,17 @@ model Customer {
   @@index([email])
   @@index([fullName])
   @@index([assignedToId])
+  @@index([isDeleted])
 }
 
+// ------------------------------------------------------------------------------
+// 3. Leads & Enquiries
+// ------------------------------------------------------------------------------
 model Lead {
   id              String    @id @default(uuid())
   customerId      String
   assignedUserId  String?
-  source          String    @default("WEBSITE") // WEBSITE, WHATSAPP, PHONE, INSTAGRAM, REFERRAL, B2B_AGENT, OTHER
+  source          String    @default("WEBSITE")
   destination     String
   travelStartDate DateTime?
   travelEndDate   DateTime?
@@ -85,16 +118,25 @@ model Lead {
   infants         Int       @default(0)
   budget          Float?
   packageId       String?
-  enquiryStatus   String    @default("NEW") // NEW, CONTACTED, QUALIFIED, QUOTATION_SENT, FOLLOW_UP, WON, LOST, CANCELLED
-  priority        String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  enquiryStatus   String    @default("NEW")
+  priority        String    @default("MEDIUM")
   notes           String?
   nextFollowUpAt  DateTime?
+
+  createdById     String?
+  updatedById     String?
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  deletedById     String?
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  assignedUser    User?       @relation("LeadAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  package         Package?    @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  customer        Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedUser    User?        @relation("LeadAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdByUser   User?        @relation("LeadCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedByUser   User?        @relation("LeadUpdatedByUser", fields: [updatedById], references: [id], onDelete: SetNull)
+  package         Package?     @relation(fields: [packageId], references: [id], onDelete: SetNull)
   followUps       FollowUp[]
   quotations      Quotation[]
   bookings        Booking[]
@@ -106,16 +148,20 @@ model Lead {
   @@index([destination])
   @@index([createdAt])
   @@index([nextFollowUpAt])
+  @@index([isDeleted])
 }
 
+// ------------------------------------------------------------------------------
+// 4. Follow-ups & Reminders
+// ------------------------------------------------------------------------------
 model FollowUp {
   id             String    @id @default(uuid())
   leadId         String
   assignedUserId String?
   scheduledAt    DateTime
-  type           String    @default("CALL") // CALL, WHATSAPP, EMAIL, MEETING, OTHER
+  type           String    @default("CALL")
   notes          String?
-  status         String    @default("PENDING") // PENDING, COMPLETED, CANCELLED, RESCHEDULED
+  status         String    @default("PENDING")
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -129,19 +175,22 @@ model FollowUp {
   @@index([status])
 }
 
+// ------------------------------------------------------------------------------
+// 5. Tour Packages & Catalog
+// ------------------------------------------------------------------------------
 model Package {
   id          String   @id @default(uuid())
   packageName String
   destination String
-  duration    String // e.g. "3 Days / 2 Nights"
+  duration    String
   description String
   price       Float    @default(0)
-  packageType String   @default("HOLIDAY") // HOLIDAY, FLIGHT, HOTEL, BUS, CUSTOM
-  inclusions  String? // JSON or text list of inclusions
-  exclusions  String? // JSON or text list of exclusions
+  packageType String   @default("HOLIDAY")
+  inclusions  String?
+  exclusions  String?
   imageUrl    String?
-  gallery     String? // JSON string array of image URLs
-  status      String   @default("ACTIVE") // ACTIVE, INACTIVE, DRAFT
+  gallery     String?
+  status      String   @default("ACTIVE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -156,6 +205,9 @@ model Package {
   @@index([status])
 }
 
+// ------------------------------------------------------------------------------
+// 6. Day-Wise Itineraries
+// ------------------------------------------------------------------------------
 model ItineraryDay {
   id          String   @id @default(uuid())
   packageId   String
@@ -166,8 +218,8 @@ model ItineraryDay {
   places      String?
   startTime   String?
   endTime     String?
-  imageUrl    String? // Primary photo for this day
-  images      String? // JSON array of day-wise photo URLs
+  imageUrl    String?
+  images      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -177,9 +229,12 @@ model ItineraryDay {
   @@index([dayNumber])
 }
 
+// ------------------------------------------------------------------------------
+// 7. Quotations & Proposals
+// ------------------------------------------------------------------------------
 model Quotation {
   id                 String    @id @default(uuid())
-  quotationNumber    String    @unique // e.g. "OOT-QT-202609-001"
+  quotationNumber    String    @unique
   leadId             String?
   customerId         String
   packageId          String?
@@ -203,9 +258,15 @@ model Quotation {
   discount           Float     @default(0)
   tax                Float     @default(0)
   finalAmount        Float     @default(0)
-  status             String    @default("DRAFT") // DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED, CONVERTED
+  status             String    @default("DRAFT")
   termsAndConditions String?
+
   createdById        String?
+  updatedById        String?
+  isDeleted          Boolean   @default(false)
+  deletedAt          DateTime?
+  deletedById        String?
+
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -213,63 +274,82 @@ model Quotation {
   customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   package            Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
   createdByUser      User?     @relation("QuotationCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedByUser      User?     @relation("QuotationUpdatedByUser", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([quotationNumber])
   @@index([customerId])
   @@index([leadId])
   @@index([status])
   @@index([createdById])
+  @@index([isDeleted])
 }
 
+// ------------------------------------------------------------------------------
+// 8. Bookings
+// ------------------------------------------------------------------------------
 model Booking {
-  id              String    @id @default(uuid())
-  bookingNumber   String    @unique // e.g. "OOT-BK-202609-001"
-  customerId      String
-  leadId          String?
-  packageId       String?
-  assignedUserId  String?
-  travelStartDate DateTime
-  travelEndDate   DateTime
-  durationDays    Int?      @default(1)
-  durationNights  Int?      @default(0)
-  tripType        String?   @default("SINGLE") // SINGLE, GROUP
-  travellers      Int       @default(1)
-  totalAmount     Float     @default(0)
-  discount        Float     @default(0)
-  finalAmount     Float     @default(0)
-  bookingStatus   String    @default("CONFIRMED") // ENQUIRY, HOLD, CONFIRMED, COMPLETED, CANCELLED
-  bookingDate     DateTime  @default(now())
-  serviceProviders String?  // JSON array of attached service providers
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id               String    @id @default(uuid())
+  bookingNumber    String    @unique
+  customerId       String
+  leadId           String?
+  packageId        String?
+  assignedUserId   String?
+  travelStartDate  DateTime
+  travelEndDate    DateTime
+  durationDays     Int?      @default(1)
+  durationNights   Int?      @default(0)
+  tripType         String?   @default("SINGLE")
+  travellers       Int       @default(1)
+  totalAmount      Float     @default(0)
+  discount         Float     @default(0)
+  finalAmount      Float     @default(0)
+  bookingStatus    String    @default("CONFIRMED")
+  bookingDate      DateTime  @default(now())
+  serviceProviders String?
+  notes            String?
 
-  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  lead            Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  package         Package?      @relation(fields: [packageId], references: [id], onDelete: SetNull)
-  assignedUser    User?         @relation("BookingAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  payments        Payment[]
-  expenses        Expense[]
-  agentBooking    AgentBooking?
-  travellersList  Traveller[]
-  cabBookings     CabBooking[]
+  createdById      String?
+  updatedById      String?
+  isDeleted        Boolean   @default(false)
+  deletedAt        DateTime?
+  deletedById      String?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lead             Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  package          Package?      @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  assignedUser     User?         @relation("BookingAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdByUser    User?         @relation("BookingCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedByUser    User?         @relation("BookingUpdatedByUser", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  payments         Payment[]
+  expenses         Expense[]
+  agentBooking     AgentBooking?
+  travellersList   Traveller[]
+  cabBookings      CabBooking[]
 
   @@index([bookingNumber])
   @@index([customerId])
   @@index([assignedUserId])
   @@index([bookingStatus])
   @@index([bookingDate])
+  @@index([isDeleted])
 }
 
+// ------------------------------------------------------------------------------
+// 9. Passengers & Travellers
+// ------------------------------------------------------------------------------
 model Traveller {
   id        String   @id @default(uuid())
   bookingId String
   name      String
   age       Int?
-  gender    String? // MALE, FEMALE, OTHER
+  gender    String?
   phone     String?
   email     String?
-  idNumber  String? // Passport, Aadhaar, National ID
+  idNumber  String?
   address   String?
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -280,6 +360,9 @@ model Traveller {
   @@index([bookingId])
 }
 
+// ------------------------------------------------------------------------------
+// 10. Payments & Receipts
+// ------------------------------------------------------------------------------
 model Payment {
   id                   String   @id @default(uuid())
   bookingId            String
@@ -287,11 +370,11 @@ model Payment {
   amount               Float    @default(0)
   paymentDate          DateTime @default(now())
   paymentTime          String?
-  paymentMethod        String   @default("UPI") // CASH, UPI, BANK_TRANSFER, CARD, OTHER
+  paymentMethod        String   @default("UPI")
   transactionReference String?
   screenshotUrl        String?
   recordedById         String?
-  paymentStatus        String   @default("SUCCESS") // SUCCESS, PENDING, FAILED, REFUNDED
+  paymentStatus        String   @default("SUCCESS")
   notes                String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -305,6 +388,9 @@ model Payment {
   @@index([transactionReference])
 }
 
+// ------------------------------------------------------------------------------
+// 11. B2B Travel Agents & Partners
+// ------------------------------------------------------------------------------
 model Agent {
   id                 String   @id @default(uuid())
   companyName        String
@@ -315,8 +401,8 @@ model Agent {
   state              String?
   gstNumber          String?
   panNumber          String?
-  agentType          String?  @default("Silver") // Diamond, Gold, Silver
-  status             String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  agentType          String?  @default("Silver")
+  status             String   @default("ACTIVE")
   googleReviewUrl    String?
   googleReviewRating Float?
   googleReviewNotes  String?
@@ -336,10 +422,10 @@ model AgentBooking {
   id               String   @id @default(uuid())
   agentId          String
   bookingId        String   @unique
-  commissionRate   Float    @default(0) // Percentage, e.g. 10%
+  commissionRate   Float    @default(0)
   commissionAmount Float    @default(0)
   netAmount        Float    @default(0)
-  payoutStatus     String   @default("PENDING") // PENDING, PAID, CANCELLED
+  payoutStatus     String   @default("PENDING")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -351,9 +437,12 @@ model AgentBooking {
   @@index([payoutStatus])
 }
 
+// ------------------------------------------------------------------------------
+// 12. Office & Tour Expenses
+// ------------------------------------------------------------------------------
 model Expense {
   id          String   @id @default(uuid())
-  category    String // HOTEL_BOOKING, TRANSPORT, GUIDE, FLIGHT_TICKETS, ENTRY_FEES, MARKETING, OFFICE, MISC
+  category    String
   amount      Float    @default(0)
   expenseDate DateTime @default(now())
   description String
@@ -370,14 +459,19 @@ model Expense {
   @@index([expenseDate])
 }
 
+// ------------------------------------------------------------------------------
+// 13. System Audit Logs
+// ------------------------------------------------------------------------------
 model AuditLog {
   id          String   @id @default(uuid())
   userId      String?
   userName    String?
-  action      String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, LOGIN, EXPORT, IMPORT
-  entity      String   // CUSTOMER, LEAD, BOOKING, PAYMENT, PACKAGE, AGENT, USER, EXPENSE
+  action      String
+  entity      String
   entityId    String?
-  details     String?  // Detailed description or JSON snapshot
+  details     String?
+  oldValue    String?
+  newValue    String?
   ipAddress   String?
   createdAt   DateTime @default(now())
 
@@ -390,6 +484,9 @@ model AuditLog {
   @@index([createdAt])
 }
 
+// ------------------------------------------------------------------------------
+// 14. Company Branding & Settings
+// ------------------------------------------------------------------------------
 model CompanySetting {
   id          String   @id @default(uuid())
   key         String   @unique
@@ -400,14 +497,17 @@ model CompanySetting {
   @@index([key])
 }
 
+// ------------------------------------------------------------------------------
+// 15. WhatsApp Logs
+// ------------------------------------------------------------------------------
 model WhatsAppMessage {
   id             String    @id @default(uuid())
   customerId     String?
   phone          String
   messageContent String
   templateName   String?
-  status         String    @default("PENDING") // PENDING, SENT, DELIVERED, FAILED
-  provider       String?   // META_CLOUD_API, TWILIO, DIRECT_WEB
+  status         String    @default("PENDING")
+  provider       String?
   externalId     String?
   errorDetails   String?
   sentByUserId   String?
@@ -418,61 +518,82 @@ model WhatsAppMessage {
   @@index([createdAt])
 }
 
+// ------------------------------------------------------------------------------
+// 16. Cab Bookings & Fleet Transfers
+// ------------------------------------------------------------------------------
 model CabBooking {
-  id                  String    @id @default(uuid())
-  bookingReference    String    @unique // e.g. "OOT-CAB-202609-001"
-  customerId          String?
-  customerName        String
-  customerPhone       String
-  customerEmail       String?
-  leadId              String?
-  bookingId           String?
-  packageId           String?
-  assignedStaffId     String?
-  pickupDate          DateTime
-  pickupTime          String
-  pickupPlace         String
-  dropPlace           String
-  travelRoute         String?
-  enquiryDate         DateTime? @default(now())
-  carNumber           String?
-  vehicleType         String    @default("SEDAN") // SEDAN, SUV, INNOVA, TEMPO_TRAVELLER, HATCHBACK, LUXURY
-  passengerCount      Int       @default(1)
-  driverName          String?
-  driverPhone         String?
-  cabProvider         String?
-  requiredCabType     String?   @default("AC") // AC, NON_AC
-  tripType            String    @default("OUTSTATION") // ONE_WAY, ROUND_TRIP, LOCAL, OUTSTATION
-  estimatedDistance   String?
-  estimatedDuration   String?
-  cabAmount           Float     @default(0)
-  advanceAmount       Float     @default(0)
-  balanceAmount       Float     @default(0)
-  paymentStatus       String    @default("PENDING") // PENDING, PARTIAL, PAID, REFUNDED
-  bookingStatus       String    @default("CONFIRMED") // PENDING, CONFIRMED, COMPLETED, CANCELLED, ON_TRIP
-  specialInstructions String?
-  internalNotes       String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                   String    @id @default(uuid())
+  bookingReference     String    @unique
+  customerId           String?
+  customerName         String
+  customerPhone        String
+  customerEmail        String?
+  leadId               String?
+  bookingId            String?
+  packageId            String?
+  assignedStaffId      String?
+  pickupDate           DateTime
+  pickupTime           String
+  pickupPlace          String
+  dropPlace            String
+  travelRoute          String?
+  enquiryDate          DateTime? @default(now())
+  carNumber            String?
+  vehicleType          String    @default("SEDAN")
+  passengerCount       Int       @default(1)
+  driverName           String?
+  driverPhone          String?
+  cabProvider          String?
+  requiredCabType      String?   @default("AC")
+  tripType             String    @default("OUTSTATION")
+  estimatedDistance    String?
+  estimatedDuration    String?
+  cabAmount            Float     @default(0)
+  advanceAmount        Float     @default(0)
+  balanceAmount        Float     @default(0)
+  paymentStatus        String    @default("PENDING")
+  bookingStatus        String    @default("CONFIRMED")
+  specialInstructions  String?
+  internalNotes        String?
 
-  customer            Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  lead                Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  booking             Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  package             Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
-  assignedStaff       User?     @relation("CabBookingAssignedUser", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  driverAllowanceType  String?
+  driverAllowanceRate  Float?
+  driverAllowanceDays  Int?
+  driverAllowanceTotal Float?
+  dutyRange            String?
+  customTableRows      String?
+
+  createdById          String?
+  updatedById          String?
+  isDeleted            Boolean   @default(false)
+  deletedAt            DateTime?
+  deletedById          String?
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  customer             Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  lead                 Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  booking              Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  package              Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  assignedStaff        User?     @relation("CabBookingAssignedUser", fields: [assignedStaffId], references: [id], onDelete: SetNull)
 
   @@index([bookingReference])
   @@index([customerPhone])
   @@index([pickupDate])
   @@index([bookingStatus])
   @@index([assignedStaffId])
+  @@index([isDeleted])
 }
 
+// ------------------------------------------------------------------------------
+// 17. Calendar & Tasks
+// ------------------------------------------------------------------------------
 model CalendarEvent {
   id          String    @id @default(uuid())
   title       String
   description String?
-  eventType   String    @default("TASK") // MEETING, TASK, REMINDER, FOLLOW_UP, CAB_TRIP, DEPARTURE, PAYMENT_DUE, LEAVE
+  eventType   String    @default("TASK")
   startDate   DateTime
   endDate     DateTime?
   allDay      Boolean   @default(false)
@@ -480,8 +601,8 @@ model CalendarEvent {
   customerId  String?
   leadId      String?
   bookingId   String?
-  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-  priority    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status      String    @default("PENDING")
+  priority    String    @default("MEDIUM")
   color       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -494,10 +615,13 @@ model CalendarEvent {
   @@index([status])
 }
 
+// ------------------------------------------------------------------------------
+// 18. B2B Suppliers Directory
+// ------------------------------------------------------------------------------
 model Supplier {
   id                  String    @id @default(uuid())
   name                String
-  supplierType        String    @default("HOTEL") // HOTEL, TRANSPORT, CAB, FLIGHT, ACTIVITY, TOUR_OPERATOR, VISA, GUIDE, OTHER
+  supplierType        String    @default("HOTEL")
   contactPerson       String?
   phone               String
   whatsapp            String?
@@ -512,9 +636,9 @@ model Supplier {
   pincode             String?
   gstNumber           String?
   panNumber           String?
-  tier                String?   @default("Silver") // Diamond, Gold, Silver
-  serviceCategories   String?   // JSON array of service categories e.g. ["Hotel", "Bus"]
-  categoryDetails     String?   // JSON object with category specific fields
+  tier                String?   @default("Silver")
+  serviceCategories   String?
+  categoryDetails     String?
   category            String?
   servicesProvided    String?
   destinationsCovered String?
@@ -523,7 +647,7 @@ model Supplier {
   creditLimit         Float?    @default(0)
   commissionDetails   String?
   bankDetails         String?
-  status              String    @default("ACTIVE") // ACTIVE, INACTIVE
+  status              String    @default("ACTIVE")
   assignedToId        String?
   tags                String?
   notes               String?
@@ -539,4 +663,3 @@ model Supplier {
   @@index([status])
   @@index([assignedToId])
 }
-

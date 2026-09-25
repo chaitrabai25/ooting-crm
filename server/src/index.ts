@@ -12,40 +12,7 @@ const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function ensureDatabaseSeed() {
-  const dbUrl = process.env.DATABASE_URL || '';
-  const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
-  const isMysql = dbUrl.startsWith('mysql://');
-  const isSqlite = dbUrl.startsWith('file:') || (!isPostgres && !isMysql);
-
-  if (isSqlite) {
-    const serverDir = path.resolve(__dirname, '..');
-    const backupDb = path.resolve(serverDir, 'prisma', 'backup', 'ooting.db.backup');
-    if (fs.existsSync(backupDb)) {
-      const candidatePaths = [
-        path.resolve(serverDir, 'prisma', 'ooting.db'),
-        path.resolve(serverDir, 'ooting.db'),
-        path.resolve(process.cwd(), 'ooting.db'),
-        path.resolve(process.cwd(), 'server', 'prisma', 'ooting.db'),
-      ];
-      for (const dest of candidatePaths) {
-        try {
-          const dir = path.dirname(dest);
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-          }
-          if (!fs.existsSync(dest) || fs.statSync(dest).size < 10000) {
-            fs.copyFileSync(backupDb, dest);
-            console.log(`[Auto-Seed] Pre-seeded verified database to: ${dest}`);
-          }
-        } catch (copyErr: any) {
-          console.warn(`[Auto-Seed] Note:`, copyErr?.message);
-        }
-      }
-    }
-  }
-}
-
+// Database integrity guarantee: Never automatically overwrite or seed dummy data over production records
 import { ensureColumns } from './db/migrations.js';
 
 async function ensureDBSchema() {
@@ -70,7 +37,7 @@ async function ensureDBSchema() {
       ));
 
     if (isTableMissing) {
-      console.log('🔄 Required database tables/columns missing. Automatically initializing database schema...');
+      console.log('🔄 Required database tables/columns missing. Automatically initializing database schema safely...');
       try {
         const dbUrl = process.env.DATABASE_URL || '';
         const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
@@ -98,11 +65,12 @@ async function ensureDBSchema() {
           prismaCli = '';
         }
 
+        // Push schema safely WITHOUT data loss
         const pushCmd = prismaCli
-          ? `"${process.execPath}" "${prismaCli}" db push --accept-data-loss --skip-generate --schema="${schemaPath}"`
-          : `npx prisma db push --accept-data-loss --skip-generate --schema="${schemaPath}"`;
+          ? `"${process.execPath}" "${prismaCli}" db push --skip-generate --schema="${schemaPath}"`
+          : `npx prisma db push --skip-generate --schema="${schemaPath}"`;
 
-        console.log(`[Auto-Schema] Executing: ${pushCmd}`);
+        console.log(`[Auto-Schema] Executing non-destructive push: ${pushCmd}`);
         execSync(pushCmd, {
           cwd: serverDir,
           stdio: 'inherit',
@@ -161,7 +129,6 @@ async function ensureInitialAdmin() {
             data: { status: 'ACTIVE' },
           });
         }
-        console.log(`✅ Verified active status for: ${acc.email}`);
       }
     }
   } catch (err: any) {
@@ -170,7 +137,6 @@ async function ensureInitialAdmin() {
 }
 
 async function bootstrap() {
-  ensureDatabaseSeed();
   await connectDB();
   await ensureDBSchema();
   await ensureInitialAdmin();

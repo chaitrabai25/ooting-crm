@@ -144,11 +144,11 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
     const endOfToday = todayBounds.lte!;
 
     // Construct model-specific where clauses
-    const leadDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
-    const bookingDateWhere: any = hasDateFilter ? { bookingDate: dateFilter } : {};
-    const quotationDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
-    const cabDateWhere: any = hasDateFilter ? { pickupDate: dateFilter } : {};
-    const customerDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
+    const leadDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { createdAt: dateFilter } : {}) };
+    const bookingDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { bookingDate: dateFilter } : {}) };
+    const quotationDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { createdAt: dateFilter } : {}) };
+    const cabDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { pickupDate: dateFilter } : {}) };
+    const customerDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { createdAt: dateFilter } : {}) };
     const paymentDateWhere: any = hasDateFilter ? { paymentDate: dateFilter } : {};
 
     // Search conditions if search query provided
@@ -249,6 +249,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         where: {
           status: 'PENDING',
           scheduledAt: { gte: startOfToday, lte: endOfToday },
+          lead: { isDeleted: false },
         },
         include: {
           lead: { include: { customer: { select: { fullName: true, phone: true } } } },
@@ -263,6 +264,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         where: {
           status: 'PENDING',
           scheduledAt: { lt: startOfToday },
+          lead: { isDeleted: false },
         },
         include: {
           lead: { include: { customer: { select: { fullName: true, phone: true } } } },
@@ -277,6 +279,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         where: {
           travelStartDate: { gte: startOfToday, lte: endOfToday },
           bookingStatus: { not: 'CANCELLED' },
+          isDeleted: false,
         },
         include: {
           customer: { select: { fullName: true, phone: true } },
@@ -291,6 +294,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         where: {
           pickupDate: { gte: startOfToday, lte: endOfToday },
           bookingStatus: { not: 'CANCELLED' },
+          isDeleted: false,
         },
         include: {
           assignedStaff: { select: { name: true } },
@@ -304,6 +308,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         where: {
           status: { in: ['SENT', 'DRAFT'] },
           createdAt: { lt: new Date(Date.now() - 5 * 86400000) },
+          isDeleted: false,
         },
         include: {
           customer: { select: { fullName: true, phone: true } },
@@ -400,10 +405,10 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
     const dateFilter = getISTDateRange(range, startDateQuery, endDateQuery, monthQuery, yearQuery);
     const hasDateFilter = Object.keys(dateFilter).length > 0;
 
-    const leadDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
-    const bookingDateWhere: any = hasDateFilter ? { bookingDate: dateFilter } : {};
-    const quotationDateWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
-    const cabDateWhere: any = hasDateFilter ? { pickupDate: dateFilter } : {};
+    const leadDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { createdAt: dateFilter } : {}) };
+    const bookingDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { bookingDate: dateFilter } : {}) };
+    const quotationDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { createdAt: dateFilter } : {}) };
+    const cabDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { pickupDate: dateFilter } : {}) };
     const paymentDateWhere: any = hasDateFilter ? { paymentDate: dateFilter } : {};
     const expenseDateWhere: any = hasDateFilter ? { expenseDate: dateFilter } : {};
 

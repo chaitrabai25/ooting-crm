@@ -25,39 +25,18 @@ let sourceSchema = 'prisma/schema.mysql.prisma';
 if (isPostgres) {
   dbType = 'PostgreSQL (Cloud)';
   sourceSchema = 'prisma/schema.postgresql.prisma';
+} else if (isMysql) {
+  dbType = 'MySQL (Local / Cloud Production)';
+  sourceSchema = 'prisma/schema.mysql.prisma';
 } else if (isSqlite) {
-  dbType = 'SQLite (Local / Render Fallback)';
+  dbType = 'SQLite (Local / Fallback)';
   sourceSchema = 'prisma/schema.sqlite.prisma';
-
-  // Ensure verified pre-seeded SQLite database file exists
-  const backupDb = path.resolve(serverDir, 'prisma', 'backup', 'ooting.db.backup');
-  if (fs.existsSync(backupDb)) {
-    const candidatePaths = [
-      path.resolve(serverDir, 'prisma', 'ooting.db'),
-      path.resolve(serverDir, 'ooting.db'),
-      path.resolve(serverDir, '..', 'ooting.db'),
-    ];
-    for (const dest of candidatePaths) {
-      try {
-        const dir = path.dirname(dest);
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-        }
-        if (!fs.existsSync(dest) || fs.statSync(dest).size < 10000) {
-          fs.copyFileSync(backupDb, dest);
-          console.log(`[Prisma Init] Seeded database from verified backup to: ${dest}`);
-        }
-      } catch (copyErr) {
-        console.warn(`[Prisma Init] Could not seed database to ${dest}:`, copyErr?.message);
-      }
-    }
-  }
 }
 
 console.log(`[Prisma Init] Database Engine: ${dbType}`);
 console.log(`[Prisma Init] Active Schema: ${sourceSchema}`);
 
-// Synchronize active schema to primary schema.prisma
+// Synchronize active schema to primary schema.prisma without touching database files
 const sourcePath = path.resolve(serverDir, sourceSchema);
 const targetPath = path.resolve(serverDir, 'prisma', 'schema.prisma');
 
@@ -94,4 +73,3 @@ try {
 } catch (error) {
   console.warn('[Prisma Init] Warning during prisma generate:', error?.message || error);
 }
-

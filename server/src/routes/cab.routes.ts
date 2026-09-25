@@ -20,7 +20,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     const tripType = (req.query.tripType as string || '').trim();
     const assignedStaffId = (req.query.assignedStaffId as string || '').trim();
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (search) {
       where.OR = [
         { bookingReference: { contains: search } },
@@ -106,12 +106,13 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 router.get('/stats', async (req: AuthRequest, res: Response, next) => {
   try {
     const [total, confirmed, onTrip, completed, cancelled, allBookings] = await Promise.all([
-      prisma.cabBooking.count(),
-      prisma.cabBooking.count({ where: { bookingStatus: 'CONFIRMED' } }),
-      prisma.cabBooking.count({ where: { bookingStatus: 'ON_TRIP' } }),
-      prisma.cabBooking.count({ where: { bookingStatus: 'COMPLETED' } }),
-      prisma.cabBooking.count({ where: { bookingStatus: 'CANCELLED' } }),
+      prisma.cabBooking.count({ where: { isDeleted: false } }),
+      prisma.cabBooking.count({ where: { isDeleted: false, bookingStatus: 'CONFIRMED' } }),
+      prisma.cabBooking.count({ where: { isDeleted: false, bookingStatus: 'ON_TRIP' } }),
+      prisma.cabBooking.count({ where: { isDeleted: false, bookingStatus: 'COMPLETED' } }),
+      prisma.cabBooking.count({ where: { isDeleted: false, bookingStatus: 'CANCELLED' } }),
       prisma.cabBooking.findMany({
+        where: { isDeleted: false },
         select: { cabAmount: true, balanceAmount: true, advanceAmount: true },
       }),
     ]);
@@ -149,7 +150,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const startDate = (req.query.startDate as string || '').trim();
     const endDate = (req.query.endDate as string || '').trim();
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (search) {
       where.OR = [
         { bookingReference: { contains: search } },
@@ -221,7 +222,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!cab) {
+    if (!cab || cab.isDeleted) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
@@ -246,7 +247,7 @@ router.get('/:id/voucher', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!cab) {
+    if (!cab || cab.isDeleted) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
@@ -374,6 +375,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       bookingStatus: data.bookingStatus,
       specialInstructions: specialInstructions || null,
       internalNotes: data.internalNotes || null,
+      createdById: req.user?.id || null,
+      updatedById: req.user?.id || null,
     };
 
     try {
@@ -400,6 +403,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       entity: 'CAB_BOOKING',
       entityId: cab.id,
       details: `Created cab booking ${cab.bookingReference} for ${cab.customerName} (${cab.pickupPlace} to ${cab.dropPlace})`,
+      newValue: JSON.stringify(cab),
       ipAddress: req.ip,
     });
 
@@ -416,7 +420,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const data = cabBookingSchema.parse(req.body);
 
     const existing = await prisma.cabBooking.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || existing.isDeleted) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
@@ -483,6 +487,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       bookingStatus: data.bookingStatus,
       specialInstructions: specialInstructions || null,
       internalNotes: data.internalNotes || null,
+      updatedById: req.user?.id || null,
     };
 
     try {
@@ -510,6 +515,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       entity: 'CAB_BOOKING',
       entityId: id,
       details: `Updated cab booking ${updated.bookingReference} for ${updated.customerName}`,
+      oldValue: JSON.stringify(existing),
+      newValue: JSON.stringify(updated),
       ipAddress: req.ip,
     });
 
@@ -525,7 +532,15 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     const id = req.params.id as string;
     const { bookingStatus, paymentStatus } = req.body;
 
-    const dataToUpdate: any = {};
+    const existing = await prisma.cabBooking.findUnique({ where: { id } });
+    if (!existing || existing.isDeleted) {
+      res.status(404).json({ message: 'Cab booking not found.' });
+      return;
+    }
+
+    const dataToUpdate: any = {
+      updatedById: req.user?.id || null,
+    };
     if (bookingStatus) dataToUpdate.bookingStatus = bookingStatus;
     if (paymentStatus) dataToUpdate.paymentStatus = paymentStatus;
 
@@ -541,6 +556,8 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
       entity: 'CAB_BOOKING',
       entityId: id,
       details: `Cab booking ${updated.bookingReference} updated: ${JSON.stringify(dataToUpdate)}`,
+      oldValue: JSON.stringify({ bookingStatus: existing.bookingStatus, paymentStatus: existing.paymentStatus }),
+      newValue: JSON.stringify(dataToUpdate),
       ipAddress: req.ip,
     });
 
@@ -550,18 +567,25 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Delete Cab Booking
+// Delete Cab Booking (Soft-delete with Audit)
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const existing = await prisma.cabBooking.findUnique({ where: { id } });
 
-    if (!existing) {
+    if (!existing || existing.isDeleted) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
 
-    await prisma.cabBooking.delete({ where: { id } });
+    await prisma.cabBooking.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedById: req.user!.id,
+      },
+    });
 
     await logAudit({
       userId: req.user!.id,
@@ -569,7 +593,9 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       action: 'DELETE',
       entity: 'CAB_BOOKING',
       entityId: id,
-      details: `Deleted cab booking ${existing.bookingReference} for ${existing.customerName}`,
+      details: `Soft-deleted cab booking ${existing.bookingReference} for ${existing.customerName}`,
+      oldValue: JSON.stringify({ isDeleted: false }),
+      newValue: JSON.stringify({ isDeleted: true, deletedAt: new Date(), deletedById: req.user!.id }),
       ipAddress: req.ip,
     });
 

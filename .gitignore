@@ -23,6 +23,9 @@ build/
 *.sqlite
 *.sqlite3
 *.db.backup
+*.sql
+*.zip
+server/prisma/backup/
 server/prisma/*.db
 server/prisma/*.db-journal
 server/prisma/*.db.backup

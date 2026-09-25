@@ -1,6 +1,6 @@
 {
-  "exportedAt": "2026-09-18T16:49:01.334Z",
-  "sourceDatabase": "SQLite (ooting.db)",
+  "timestamp": "2026-09-24T16:57:25.001Z",
+  "engine": "SQLite -> MySQL",
   "summary": {
     "users": 7,
     "customers": 3,
@@ -15,11 +15,12 @@
     "agents": 0,
     "agentBookings": 0,
     "expenses": 1,
-    "auditLogs": 34,
+    "cabBookings": 1,
+    "calendarEvents": 1,
     "companySettings": 7,
     "whatsAppMessages": 0,
-    "cabBookings": 1,
-    "calendarEvents": 1
+    "auditLogs": 37,
+    "suppliers": 0
   },
   "tables": {
     "users": [
@@ -31,13 +32,14 @@
         "role": "SUPER_ADMIN",
         "phone": "+91 98765 00001",
         "status": "ACTIVE",
-        "lastLoginAt": "2026-09-13T07:21:05.430Z",
+        "permissions": null,
+        "lastLoginAt": "2026-09-23T10:37:24.951Z",
         "otpHash": null,
         "otpExpiresAt": null,
         "otpAttempts": 0,
-        "lastOtpRequestedAt": "2026-09-13T07:21:05.214Z",
+        "lastOtpRequestedAt": "2026-09-23T10:37:22.358Z",
         "createdAt": "2026-09-10T05:22:13.668Z",
-        "updatedAt": "2026-09-18T08:28:27.864Z"
+        "updatedAt": "2026-09-23T10:37:24.953Z"
       },
       {
         "id": "d311fef8-4103-4397-852e-142e95525809",
@@ -47,6 +49,7 @@
         "role": "SALES",
         "phone": "+91 98765 00002",
         "status": "ACTIVE",
+        "permissions": null,
         "lastLoginAt": "2026-09-11T06:29:50.196Z",
         "otpHash": null,
         "otpExpiresAt": null,
@@ -63,6 +66,7 @@
         "role": "ACCOUNTANT",
         "phone": "+91 98765 00003",
         "status": "ACTIVE",
+        "permissions": null,
         "lastLoginAt": null,
         "otpHash": null,
         "otpExpiresAt": null,
@@ -79,6 +83,7 @@
         "role": "ADMIN",
         "phone": "1234567889",
         "status": "ACTIVE",
+        "permissions": null,
         "lastLoginAt": "2026-09-11T06:32:57.428Z",
         "otpHash": null,
         "otpExpiresAt": null,
@@ -95,6 +100,7 @@
         "role": "SALES",
         "phone": "+918147064497",
         "status": "ACTIVE",
+        "permissions": null,
         "lastLoginAt": "2026-09-11T08:11:27.163Z",
         "otpHash": null,
         "otpExpiresAt": null,
@@ -111,6 +117,7 @@
         "role": "SUPER_ADMIN",
         "phone": "+91 98765 00001",
         "status": "ACTIVE",
+        "permissions": null,
         "lastLoginAt": null,
         "otpHash": null,
         "otpExpiresAt": null,
@@ -127,6 +134,7 @@
         "role": "SUPER_ADMIN",
         "phone": "+91 98765 00001",
         "status": "ACTIVE",
+        "permissions": null,
         "lastLoginAt": null,
         "otpHash": null,
         "otpExpiresAt": null,
@@ -406,12 +414,16 @@
         "assignedUserId": "d311fef8-4103-4397-852e-142e95525809",
         "travelStartDate": "2026-09-11T00:00:00.000Z",
         "travelEndDate": "2026-09-19T00:00:00.000Z",
+        "durationDays": 1,
+        "durationNights": 0,
+        "tripType": "SINGLE",
         "travellers": 2,
         "totalAmount": 84000,
         "discount": 1,
         "finalAmount": 83999,
         "bookingStatus": "ENQUIRY",
         "bookingDate": "2026-09-11T05:53:49.781Z",
+        "serviceProviders": null,
         "notes": null,
         "createdAt": "2026-09-11T05:53:49.781Z",
         "updatedAt": "2026-09-11T05:53:49.781Z"
@@ -434,6 +446,117 @@
         "updatedAt": "2026-09-11T06:35:44.690Z"
       }
     ],
+    "cabBookings": [
+      {
+        "id": "8370a7b5-6c15-425c-9d22-ab7e83e08549",
+        "bookingReference": "OOT-CAB-202609-0001",
+        "customerId": null,
+        "customerName": "Anita Desai",
+        "customerPhone": "+91 9876501234",
+        "customerEmail": "anita@example.com",
+        "leadId": null,
+        "bookingId": null,
+        "packageId": null,
+        "assignedStaffId": "84602a31-2f03-4e37-9763-1556ca754445",
+        "pickupDate": "2026-09-13T00:00:00.000Z",
+        "pickupTime": "07:30 AM",
+        "pickupPlace": "Coimbatore Airport",
+        "dropPlace": "Sterling Ooty Fern Hill",
+        "travelRoute": "Coimbatore -> Mettupalayam -> Coonoor -> Ooty",
+        "enquiryDate": "2026-09-13T07:20:23.944Z",
+        "carNumber": "TN 43 Z 9999",
+        "vehicleType": "INNOVA",
+        "passengerCount": 4,
+        "driverName": "Senthil Kumar",
+        "driverPhone": "+91 9443299999",
+        "cabProvider": "Ooty Prime Cabs",
+        "requiredCabType": "AC",
+        "tripType": "OUTSTATION",
+        "estimatedDistance": null,
+        "estimatedDuration": null,
+        "cabAmount": 6500,
+        "advanceAmount": 2000,
+        "balanceAmount": 4500,
+        "paymentStatus": "PARTIAL",
+        "bookingStatus": "CONFIRMED",
+        "specialInstructions": "AC off during hill climbing. Child safety seat required.",
+        "internalNotes": null,
+        "createdAt": "2026-09-13T07:20:23.952Z",
+        "updatedAt": "2026-09-13T07:20:23.952Z"
+      }
+    ],
+    "calendarEvents": [
+      {
+        "id": "1",
+        "title": "trip",
+        "description": null,
+        "eventType": "TASK",
+        "startDate": "2026-09-20T00:00:00.000Z",
+        "endDate": "2026-09-30T00:00:00.000Z",
+        "allDay": true,
+        "userId": null,
+        "customerId": null,
+        "leadId": null,
+        "bookingId": null,
+        "status": "PENDING",
+        "priority": "MEDIUM",
+        "color": null,
+        "createdAt": "2026-09-18T08:43:15.836Z",
+        "updatedAt": "2026-09-18T08:41:48.752Z"
+      }
+    ],
+    "companySettings": [
+      {
+        "id": "ea88e37f-b495-4b29-87ad-47fe0391325e",
+        "key": "company_name",
+        "value": "Ooting",
+        "description": null,
+        "updatedAt": "2026-09-10T05:22:14.611Z"
+      },
+      {
+        "id": "4ee9800f-22af-4c03-b0f3-420cc9902e59",
+        "key": "company_tagline",
+        "value": "Journeys Beyond Ordinary",
+        "description": null,
+        "updatedAt": "2026-09-10T05:22:14.787Z"
+      },
+      {
+        "id": "7decf1f3-1d33-4d52-8089-3f4d4e992ce6",
+        "key": "company_email",
+        "value": "contact@ooting.com",
+        "description": null,
+        "updatedAt": "2026-09-10T05:22:14.883Z"
+      },
+      {
+        "id": "555c4cc8-15c0-46a5-9210-272dc0d82d5d",
+        "key": "company_phone",
+        "value": "+91 98765 43210",
+        "description": null,
+        "updatedAt": "2026-09-10T05:22:14.983Z"
+      },
+      {
+        "id": "bf59cd1b-4e65-4cf5-ba07-83411143b451",
+        "key": "company_address",
+        "value": "Ooting Holidays Private Limited, Bangalore, Karnataka, India",
+        "description": null,
+        "updatedAt": "2026-09-10T05:22:15.097Z"
+      },
+      {
+        "id": "fa753025-c399-495c-aa03-cf691e781287",
+        "key": "company_gstin",
+        "value": "29AABCO1234F1Z5",
+        "description": null,
+        "updatedAt": "2026-09-10T05:22:15.182Z"
+      },
+      {
+        "id": "f25aacf3-9eb3-4705-99bd-6fb634acb873",
+        "key": "company_logo_url",
+        "value": "/assets/ooting-logo.jpg",
+        "description": null,
+        "updatedAt": "2026-09-10T05:22:15.429Z"
+      }
+    ],
+    "whatsAppMessages": [],
     "auditLogs": [
       {
         "id": "09202995-49ea-4f22-9c64-27e0ee587491",
@@ -808,118 +931,41 @@
         "details": "User completed 2FA authentication from IP 127.0.0.1",
         "ipAddress": "127.0.0.1",
         "createdAt": "2026-09-13T07:21:05.528Z"
+      },
+      {
+        "id": "c1e9f1f8-8eb5-4cb9-8f2b-f5dfccb25024",
+        "userId": "84602a31-2f03-4e37-9763-1556ca754445",
+        "userName": "Ooting Super Admin",
+        "action": "LOGIN",
+        "entity": "USER",
+        "entityId": "84602a31-2f03-4e37-9763-1556ca754445",
+        "details": "User completed 2FA authentication from IP 127.0.0.1",
+        "ipAddress": "127.0.0.1",
+        "createdAt": "2026-09-19T08:19:02.886Z"
+      },
+      {
+        "id": "8f247e68-75f6-49a3-8c80-c2136f745b4b",
+        "userId": "84602a31-2f03-4e37-9763-1556ca754445",
+        "userName": "Ooting Super Admin",
+        "action": "LOGIN",
+        "entity": "USER",
+        "entityId": "84602a31-2f03-4e37-9763-1556ca754445",
+        "details": "User completed 2FA authentication from IP 127.0.0.1",
+        "ipAddress": "127.0.0.1",
+        "createdAt": "2026-09-19T12:15:53.024Z"
+      },
+      {
+        "id": "ad3b587d-16ed-4384-aa5a-6453968fcc23",
+        "userId": "84602a31-2f03-4e37-9763-1556ca754445",
+        "userName": "Ooting Super Admin",
+        "action": "LOGIN",
+        "entity": "USER",
+        "entityId": "84602a31-2f03-4e37-9763-1556ca754445",
+        "details": "User completed 2FA authentication from IP 127.0.0.1",
+        "ipAddress": "127.0.0.1",
+        "createdAt": "2026-09-23T10:37:25.120Z"
       }
     ],
-    "companySettings": [
-      {
-        "id": "ea88e37f-b495-4b29-87ad-47fe0391325e",
-        "key": "company_name",
-        "value": "Ooting",
-        "description": null,
-        "updatedAt": "2026-09-10T05:22:14.611Z"
-      },
-      {
-        "id": "4ee9800f-22af-4c03-b0f3-420cc9902e59",
-        "key": "company_tagline",
-        "value": "Journeys Beyond Ordinary",
-        "description": null,
-        "updatedAt": "2026-09-10T05:22:14.787Z"
-      },
-      {
-        "id": "7decf1f3-1d33-4d52-8089-3f4d4e992ce6",
-        "key": "company_email",
-        "value": "contact@ooting.com",
-        "description": null,
-        "updatedAt": "2026-09-10T05:22:14.883Z"
-      },
-      {
-        "id": "555c4cc8-15c0-46a5-9210-272dc0d82d5d",
-        "key": "company_phone",
-        "value": "+91 98765 43210",
-        "description": null,
-        "updatedAt": "2026-09-10T05:22:14.983Z"
-      },
-      {
-        "id": "bf59cd1b-4e65-4cf5-ba07-83411143b451",
-        "key": "company_address",
-        "value": "Ooting Holidays Private Limited, Bangalore, Karnataka, India",
-        "description": null,
-        "updatedAt": "2026-09-10T05:22:15.097Z"
-      },
-      {
-        "id": "fa753025-c399-495c-aa03-cf691e781287",
-        "key": "company_gstin",
-        "value": "29AABCO1234F1Z5",
-        "description": null,
-        "updatedAt": "2026-09-10T05:22:15.182Z"
-      },
-      {
-        "id": "f25aacf3-9eb3-4705-99bd-6fb634acb873",
-        "key": "company_logo_url",
-        "value": "/assets/ooting-logo.jpg",
-        "description": null,
-        "updatedAt": "2026-09-10T05:22:15.429Z"
-      }
-    ],
-    "whatsAppMessages": [],
-    "cabBookings": [
-      {
-        "id": "8370a7b5-6c15-425c-9d22-ab7e83e08549",
-        "bookingReference": "OOT-CAB-202609-0001",
-        "customerId": null,
-        "customerName": "Anita Desai",
-        "customerPhone": "+91 9876501234",
-        "customerEmail": "anita@example.com",
-        "leadId": null,
-        "bookingId": null,
-        "packageId": null,
-        "assignedStaffId": "84602a31-2f03-4e37-9763-1556ca754445",
-        "pickupDate": "2026-09-13T00:00:00.000Z",
-        "pickupTime": "07:30 AM",
-        "pickupPlace": "Coimbatore Airport",
-        "dropPlace": "Sterling Ooty Fern Hill",
-        "travelRoute": "Coimbatore -> Mettupalayam -> Coonoor -> Ooty",
-        "enquiryDate": "2026-09-13T07:20:23.944Z",
-        "carNumber": "TN 43 Z 9999",
-        "vehicleType": "INNOVA",
-        "passengerCount": 4,
-        "driverName": "Senthil Kumar",
-        "driverPhone": "+91 9443299999",
-        "cabProvider": "Ooty Prime Cabs",
-        "requiredCabType": "AC",
-        "tripType": "OUTSTATION",
-        "estimatedDistance": null,
-        "estimatedDuration": null,
-        "cabAmount": 6500,
-        "advanceAmount": 2000,
-        "balanceAmount": 4500,
-        "paymentStatus": "PARTIAL",
-        "bookingStatus": "CONFIRMED",
-        "specialInstructions": "AC off during hill climbing. Child safety seat required.",
-        "internalNotes": null,
-        "createdAt": "2026-09-13T07:20:23.952Z",
-        "updatedAt": "2026-09-13T07:20:23.952Z"
-      }
-    ],
-    "calendarEvents": [
-      {
-        "id": "1",
-        "title": "trip",
-        "description": null,
-        "eventType": "TASK",
-        "startDate": "2026-09-20T00:00:00.000Z",
-        "endDate": "2026-09-30T00:00:00.000Z",
-        "allDay": true,
-        "userId": null,
-        "customerId": null,
-        "leadId": null,
-        "bookingId": null,
-        "status": "PENDING",
-        "priority": "MEDIUM",
-        "color": null,
-        "createdAt": "2026-09-18T08:43:15.836Z",
-        "updatedAt": "2026-09-18T08:41:48.752Z"
-      }
-    ]
+    "suppliers": []
   }
 }

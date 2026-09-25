@@ -7,11 +7,21 @@ interface AuditParams {
   entity: 'CUSTOMER' | 'LEAD' | 'BOOKING' | 'PAYMENT' | 'PACKAGE' | 'AGENT' | 'USER' | 'EXPENSE' | 'QUOTATION' | 'SETTING' | 'CAB_BOOKING' | 'CALENDAR_EVENT' | 'SUPPLIER';
   entityId?: string;
   details?: string;
+  oldValue?: any;
+  newValue?: any;
   ipAddress?: string;
 }
 
 export async function logAudit(params: AuditParams): Promise<void> {
   try {
+    const oldValueStr = params.oldValue !== undefined && params.oldValue !== null
+      ? (typeof params.oldValue === 'string' ? params.oldValue : JSON.stringify(params.oldValue))
+      : null;
+
+    const newValueStr = params.newValue !== undefined && params.newValue !== null
+      ? (typeof params.newValue === 'string' ? params.newValue : JSON.stringify(params.newValue))
+      : null;
+
     await prisma.auditLog.create({
       data: {
         userId: params.userId,
@@ -20,6 +30,8 @@ export async function logAudit(params: AuditParams): Promise<void> {
         entity: params.entity,
         entityId: params.entityId,
         details: params.details,
+        oldValue: oldValueStr,
+        newValue: newValueStr,
         ipAddress: params.ipAddress,
       },
     });
