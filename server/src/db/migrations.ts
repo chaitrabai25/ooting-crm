@@ -41,6 +41,10 @@ export async function ensureColumns() {
       `ALTER TABLE \`Quotation\` ADD COLUMN \`isDeleted\` TINYINT(1) DEFAULT 0`,
       `ALTER TABLE \`Quotation\` ADD COLUMN \`deletedAt\` DATETIME NULL`,
       `ALTER TABLE \`Quotation\` ADD COLUMN \`deletedById\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Quotation\` ADD COLUMN \`basePackagePrice\` DOUBLE NOT NULL DEFAULT 0`,
+      `ALTER TABLE \`Quotation\` ADD COLUMN \`adultUnitPrice\` DOUBLE NOT NULL DEFAULT 0`,
+      `ALTER TABLE \`Quotation\` ADD COLUMN \`childUnitPrice\` DOUBLE NOT NULL DEFAULT 0`,
+      `ALTER TABLE \`Quotation\` ADD COLUMN \`infantUnitPrice\` DOUBLE NOT NULL DEFAULT 0`,
 
       // CabBooking
       `ALTER TABLE \`CabBooking\` ADD COLUMN \`createdById\` VARCHAR(36) NULL`,
@@ -81,6 +85,32 @@ export async function ensureColumns() {
       // AuditLog
       `ALTER TABLE \`AuditLog\` ADD COLUMN \`oldValue\` LONGTEXT NULL`,
       `ALTER TABLE \`AuditLog\` ADD COLUMN \`newValue\` LONGTEXT NULL`,
+
+      // Place / Destinations
+      `CREATE TABLE IF NOT EXISTS \`Place\` (
+        \`id\` VARCHAR(36) NOT NULL,
+        \`name\` VARCHAR(191) NOT NULL,
+        \`state\` VARCHAR(100) NOT NULL,
+        \`district\` VARCHAR(100) NOT NULL,
+        \`category\` VARCHAR(50) NULL DEFAULT 'Sightseeing',
+        \`description\` TEXT NULL,
+        \`famousReason\` TEXT NULL,
+        \`suggestedDuration\` VARCHAR(100) NULL,
+        \`distanceFromCenter\` VARCHAR(100) NULL,
+        \`imageUrl\` TEXT NULL,
+        \`gallery\` TEXT NULL,
+        \`activities\` TEXT NULL,
+        \`notes\` TEXT NULL,
+        \`createdById\` VARCHAR(36) NULL,
+        \`isDeleted\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`createdAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (\`id\`),
+        INDEX \`Place_state_idx\` (\`state\`),
+        INDEX \`Place_district_idx\` (\`district\`),
+        INDEX \`Place_name_idx\` (\`name\`),
+        INDEX \`Place_isDeleted_idx\` (\`isDeleted\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     ];
 
     for (const sql of mysqlMigrations) {
@@ -116,6 +146,10 @@ export async function ensureColumns() {
       `ALTER TABLE "Quotation" ADD COLUMN "isDeleted" BOOLEAN DEFAULT 0`,
       `ALTER TABLE "Quotation" ADD COLUMN "deletedAt" DATETIME`,
       `ALTER TABLE "Quotation" ADD COLUMN "deletedById" TEXT`,
+      `ALTER TABLE "Quotation" ADD COLUMN "basePackagePrice" REAL DEFAULT 0`,
+      `ALTER TABLE "Quotation" ADD COLUMN "adultUnitPrice" REAL DEFAULT 0`,
+      `ALTER TABLE "Quotation" ADD COLUMN "childUnitPrice" REAL DEFAULT 0`,
+      `ALTER TABLE "Quotation" ADD COLUMN "infantUnitPrice" REAL DEFAULT 0`,
       `ALTER TABLE "CabBooking" ADD COLUMN "createdById" TEXT`,
       `ALTER TABLE "CabBooking" ADD COLUMN "updatedById" TEXT`,
       `ALTER TABLE "CabBooking" ADD COLUMN "isDeleted" BOOLEAN DEFAULT 0`,

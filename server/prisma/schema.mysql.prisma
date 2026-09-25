@@ -257,6 +257,10 @@ model Quotation {
   cancellationTerms  String?   @db.Text
   notes              String?   @db.Text
   basePrice          Float     @default(0)
+  basePackagePrice   Float     @default(0)
+  adultUnitPrice     Float     @default(0)
+  childUnitPrice     Float     @default(0)
+  infantUnitPrice    Float     @default(0)
   discount           Float     @default(0)
   tax                Float     @default(0)
   finalAmount        Float     @default(0)
@@ -664,4 +668,32 @@ model Supplier {
   @@index([city])
   @@index([status])
   @@index([assignedToId])
+}
+
+// ------------------------------------------------------------------------------
+// 19. Destinations & Places Directory
+// ------------------------------------------------------------------------------
+model Place {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  name               String    @db.VarChar(191)
+  state              String    @db.VarChar(100)
+  district           String    @db.VarChar(100)
+  category           String?   @default("Sightseeing") @db.VarChar(50)
+  description        String?   @db.Text
+  famousReason       String?   @db.Text
+  suggestedDuration  String?   @db.VarChar(100)
+  distanceFromCenter String?   @db.VarChar(100)
+  imageUrl           String?   @db.Text
+  gallery            String?   @db.Text
+  activities         String?   @db.Text
+  notes              String?   @db.Text
+  createdById        String?   @db.VarChar(36)
+  isDeleted          Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([state])
+  @@index([district])
+  @@index([name])
+  @@index([isDeleted])
 }

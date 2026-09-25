@@ -20,12 +20,13 @@ import {
   ChevronRight,
   Filter,
   FileText,
+  MapPin,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { downloadExcelTemplate, parseExcelDate, parseExcelNumber, cleanPhoneNumber } from '../../utils/excel.js';
 
-type ModuleKey = 'leads' | 'enquiries' | 'followups' | 'customers' | 'bookings' | 'cabs' | 'agents' | 'suppliers';
+type ModuleKey = 'leads' | 'enquiries' | 'followups' | 'customers' | 'bookings' | 'cabs' | 'agents' | 'suppliers' | 'places';
 
 interface ModuleConfig {
   key: ModuleKey;
@@ -336,6 +337,56 @@ const MODULE_CONFIGS: ModuleConfig[] = [
     requiredFields: ['Supplier / Company Name', 'Phone'],
     duplicateFieldDescription: 'Matched by Supplier Name or Phone Number',
   },
+  {
+    key: 'places',
+    name: 'Places & Destinations',
+    category: 'Master Data',
+    icon: MapPin,
+    description: 'Tourist places, sightseeing spots, and attractions master records for itineraries and quotations.',
+    templateFileName: 'ooting-places-template.xlsx',
+    templateColumns: [
+      'Place Name',
+      'State',
+      'District',
+      'Category',
+      'Description',
+      'Duration',
+      'Distance',
+      'Activities',
+      'Image URL',
+      'Notes',
+    ],
+    sampleData: [
+      {
+        'Place Name': 'Ooty Lake & Boathouse',
+        'State': 'Tamil Nadu',
+        'District': 'The Nilgiris (Ooty)',
+        'Category': 'Sightseeing',
+        'Description': 'Iconic artificial lake formed in 1824 offering scenic eucalyptus shores and pedal/motor boating.',
+        'Duration': '2 - 3 Hours',
+        'Distance': '1.5 km from Town Center',
+        'Activities': 'Speed Boating, Mini Toy Train Ride, Lakeside Photography',
+        'Image URL': 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=800&auto=format&fit=crop&q=80',
+        'Notes': 'Morning visit recommended.',
+      },
+      {
+        'Place Name': 'Jog Falls (Gerosoppa Falls)',
+        'State': 'Karnataka',
+        'District': 'Shivamogga (Shimoga)',
+        'Category': 'Nature',
+        'Description': 'Second-highest plunge waterfall in India dropping 253m across Raja, Roarer, Rocket, and Rani cascades.',
+        'Duration': '3 - 4 Hours',
+        'Distance': '100 km from Shivamogga Town',
+        'Activities': 'Valley Viewpoint, 1400 Steps Bottom Walk, Laser Light Show',
+        'Image URL': 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&auto=format&fit=crop&q=80',
+        'Notes': 'Best visited during monsoon and post-monsoon.',
+      },
+    ],
+    exportUrl: '/places/export/excel',
+    importUrl: '/places/import',
+    requiredFields: ['Place Name', 'State', 'District'],
+    duplicateFieldDescription: 'Matched by Place Name, District, and State',
+  },
 ];
 
 export const ImportExportPage: React.FC = () => {
@@ -385,13 +436,13 @@ export const ImportExportPage: React.FC = () => {
     downloadExcelTemplate(config.templateColumns, config.sampleData, config.templateFileName);
   };
 
-  // Parse & Validate uploaded Excel file (.xlsx only)
+  // Parse & Validate uploaded Excel / CSV file
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.match(/\.(xlsx|xls)$/i)) {
-      alert('Please upload a valid Excel spreadsheet (.xlsx or .xls).');
+    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+      alert('Please upload a valid spreadsheet file (.xlsx, .xls, or .csv).');
       return;
     }
 
@@ -405,7 +456,7 @@ export const ImportExportPage: React.FC = () => {
         const workbook = XLSX.read(buffer, { type: 'binary' });
         const firstSheetName = workbook.SheetNames[0];
         if (!firstSheetName) {
-          alert('Excel file has no readable sheets.');
+          alert('Spreadsheet file has no readable sheets.');
           return;
         }
 
@@ -413,7 +464,7 @@ export const ImportExportPage: React.FC = () => {
         const rawJson: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
         if (rawJson.length === 0) {
-          alert('Excel file contains no data rows.');
+          alert('Spreadsheet file contains no data rows.');
           return;
         }
 
@@ -434,26 +485,27 @@ export const ImportExportPage: React.FC = () => {
             );
 
             if (!hasVal) {
-              error = `Missing required field "${reqField}"`;
+              error = `Row ${idx + 2} could not be imported because "${reqField}" is missing or empty.`;
               break;
             }
           }
 
-          // Check Phone formatting if present
-          const phoneKey = Object.keys(row).find((k) => k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile'));
-          if (phoneKey && row[phoneKey]) {
-            const cleaned = cleanPhoneNumber(row[phoneKey]);
-            if (cleaned.length < 7) {
-              error = error || 'Invalid phone number format';
+          // Check Phone and Email formatting only for contact-oriented modules
+          if (selectedModule.key !== 'places') {
+            const phoneKey = Object.keys(row).find((k) => k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile'));
+            if (phoneKey && row[phoneKey]) {
+              const cleaned = cleanPhoneNumber(row[phoneKey]);
+              if (cleaned.length < 7) {
+                error = error || `Row ${idx + 2}: Invalid phone number format`;
+              }
             }
-          }
 
-          // Check Email formatting if present
-          const emailKey = Object.keys(row).find((k) => k.toLowerCase().includes('email'));
-          if (emailKey && row[emailKey]) {
-            const emailStr = String(row[emailKey]).trim();
-            if (emailStr && !emailStr.includes('@')) {
-              warning = 'Email address looks incomplete';
+            const emailKey = Object.keys(row).find((k) => k.toLowerCase().includes('email'));
+            if (emailKey && row[emailKey]) {
+              const emailStr = String(row[emailKey]).trim();
+              if (emailStr && !emailStr.includes('@')) {
+                warning = `Row ${idx + 2}: Email address looks incomplete`;
+              }
             }
           }
 
@@ -478,8 +530,8 @@ export const ImportExportPage: React.FC = () => {
           rowStatuses,
         });
       } catch (err: any) {
-        console.error('Error parsing excel:', err);
-        alert('Failed to parse Excel file. Please ensure it is a valid, uncorrupted .xlsx file.');
+        console.error('Error parsing spreadsheet:', err);
+        alert('Failed to parse spreadsheet file. Please ensure it is a valid, uncorrupted .xlsx, .xls, or .csv file.');
       }
     };
     reader.readAsBinaryString(file);
@@ -501,13 +553,17 @@ export const ImportExportPage: React.FC = () => {
       setIsImporting(true);
       const res = await api.post(selectedModule.importUrl, {
         items: parsedRows,
+        rows: parsedRows,
         duplicateAction,
       });
 
+      const imported = res.data.imported !== undefined ? res.data.imported : (res.data.importedCount || 0);
+      const skipped = res.data.skipped !== undefined ? res.data.skipped : (res.data.skippedCount || (res.data.duplicateCount || 0));
+
       setImportSummary({
         isOpen: true,
-        imported: res.data.imported || 0,
-        skipped: res.data.skipped || 0,
+        imported,
+        skipped,
         errors: res.data.errors || [],
         message: res.data.message || 'Import completed successfully.',
       });
@@ -674,7 +730,7 @@ export const ImportExportPage: React.FC = () => {
               type="file"
               ref={fileInputRef}
               onChange={handleFileUpload}
-              accept=".xlsx, .xls"
+              accept=".xlsx, .xls, .csv"
               className="hidden"
             />
 
@@ -684,10 +740,10 @@ export const ImportExportPage: React.FC = () => {
             >
               <Upload className="w-10 h-10 text-slate-400 mx-auto mb-2" />
               <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                {uploadedFile ? uploadedFile.name : 'Click or Drag & Drop Excel file (.xlsx or .xls)'}
+                {uploadedFile ? uploadedFile.name : 'Click or Drag & Drop Excel or CSV file (.xlsx, .xls, .csv)'}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Supports Microsoft Excel OpenXML (.xlsx). Maximum 5,000 rows per batch.
+                Supports Microsoft Excel OpenXML (.xlsx, .xls) and Comma-Separated Values (.csv). Maximum 5,000 rows per batch.
               </p>
               {uploadedFile && (
                 <span className="inline-block mt-3 px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 text-xs rounded-full font-bold">

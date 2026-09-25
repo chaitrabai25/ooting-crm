@@ -265,18 +265,62 @@ export const ItineraryPdfView: React.FC = () => {
                     {day.description}
                   </p>
 
-                  {/* Day Photo if present */}
-                  {day.imageUrl && (
-                    <div className="pt-1">
-                      <div className="w-full max-h-60 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                        <img
-                          src={day.imageUrl}
-                          alt={day.title}
-                          className="w-full h-52 object-cover"
-                        />
+                  {/* Day Photo(s) - Proportional scaling with ZERO cropping */}
+                  {(() => {
+                    let photos: string[] = [];
+                    if ((day as any).images) {
+                      try {
+                        const parsed = JSON.parse((day as any).images);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                          photos = parsed
+                            .map((item: any) => (typeof item === 'string' ? item : item.url))
+                            .filter(Boolean);
+                        }
+                      } catch {
+                        if (typeof (day as any).images === 'string' && (day as any).images.includes(',')) {
+                          photos = (day as any).images.split(',').map((s: string) => s.trim()).filter(Boolean);
+                        }
+                      }
+                    }
+                    if (photos.length === 0 && day.imageUrl) {
+                      photos = [day.imageUrl];
+                    }
+
+                    if (photos.length === 0) return null;
+
+                    if (photos.length === 1) {
+                      return (
+                        <div className="pt-2">
+                          <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 flex items-center justify-center min-h-[180px]">
+                            <img
+                              src={photos[0]}
+                              alt={day.title}
+                              className="max-h-80 max-w-full object-contain rounded-lg shadow-2xs"
+                            />
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                          {photos.map((photoUrl, pIdx) => (
+                            <div
+                              key={pIdx}
+                              className="bg-slate-50 border border-slate-200 rounded-xl p-1.5 flex items-center justify-center min-h-[160px]"
+                            >
+                              <img
+                                src={photoUrl}
+                                alt={`${day.title} photo ${pIdx + 1}`}
+                                className="max-h-48 max-w-full object-contain rounded-lg shadow-2xs"
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Places & Activities */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs border-t border-slate-100">

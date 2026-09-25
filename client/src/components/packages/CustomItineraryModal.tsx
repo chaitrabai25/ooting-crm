@@ -27,6 +27,8 @@ import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { api } from '../../api/client.js';
+import { LocationSelector } from '../common/LocationSelector.js';
+import { ProfessionalImageUploader } from '../common/ProfessionalImageUploader.js';
 
 interface CustomItineraryModalProps {
   isOpen: boolean;
@@ -62,6 +64,10 @@ interface ItineraryDayPlan {
   startTime: string;
   endTime: string;
   imageUrl?: string;
+  imageUrls?: string[];
+  hotelName?: string;
+  hotelType?: string;
+  mealPlan?: string;
   notes?: string;
 }
 
@@ -113,6 +119,9 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
       startTime: '09:30 AM',
       endTime: '06:00 PM',
       imageUrl: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=800&auto=format&fit=crop&q=80',
+      imageUrls: ['https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=800&auto=format&fit=crop&q=80'],
+      hotelName: 'Heritage Hill Resort / Sterling Ooty',
+      mealPlan: 'Dinner Included',
       notes: 'Evening free for local shopping and market stroll.',
     },
     {
@@ -124,6 +133,9 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
       startTime: '09:00 AM',
       endTime: '05:30 PM',
       imageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&auto=format&fit=crop&q=80',
+      imageUrls: ['https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&auto=format&fit=crop&q=80'],
+      hotelName: 'Heritage Hill Resort / Sterling Ooty',
+      mealPlan: 'Breakfast & Dinner Included',
       notes: 'Carry light woolens for mountain winds.',
     },
   ]);
@@ -206,8 +218,14 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
       currentDay.activities = currentActs.join(', ');
     }
 
-    if (!currentDay.imageUrl && place.imageUrl) {
-      currentDay.imageUrl = place.imageUrl;
+    if (place.imageUrl) {
+      const existing = currentDay.imageUrls || (currentDay.imageUrl ? [currentDay.imageUrl] : []);
+      if (!existing.includes(place.imageUrl)) {
+        currentDay.imageUrls = [...existing, place.imageUrl];
+      }
+      if (!currentDay.imageUrl) {
+        currentDay.imageUrl = place.imageUrl;
+      }
     }
 
     setDays(updated);
@@ -223,7 +241,10 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
   const handleSelectPhotoView = (photoUrl: string) => {
     const updated = [...days];
     if (updated[activeDayIndex]) {
+      const existing = updated[activeDayIndex].imageUrls || (updated[activeDayIndex].imageUrl ? [updated[activeDayIndex].imageUrl] : []);
+      const newUrls = [photoUrl, ...existing.filter((u) => u !== photoUrl)];
       updated[activeDayIndex].imageUrl = photoUrl;
+      updated[activeDayIndex].imageUrls = newUrls;
       setDays(updated);
     }
     setGalleryModalOpen(false);
@@ -337,16 +358,20 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
         description: `Custom curated itinerary for ${selectedDistrict}, ${selectedState} covering ${days.length} days of sightseeing and activities.`,
         price: parseFloat(approxPrice) || 0,
         packageType,
-        itineraries: days.map((d) => ({
-          dayNumber: d.dayNumber,
-          title: d.title,
-          description: d.description,
-          places: d.places,
-          activities: d.activities,
-          startTime: d.startTime,
-          endTime: d.endTime,
-          imageUrl: d.imageUrl || null,
-        })),
+        itineraries: days.map((d) => {
+          const allPhotos = d.imageUrls && d.imageUrls.length > 0 ? d.imageUrls : (d.imageUrl ? [d.imageUrl] : []);
+          return {
+            dayNumber: d.dayNumber,
+            title: d.title,
+            description: d.description,
+            places: d.places,
+            activities: d.activities,
+            startTime: d.startTime,
+            endTime: d.endTime,
+            imageUrl: allPhotos[0] || null,
+            images: allPhotos.length > 0 ? JSON.stringify(allPhotos) : null,
+          };
+        }),
       };
 
       await api.post('/packages', payload);
@@ -370,6 +395,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
       const { download } = await generateA4Pdf({
         elementId: 'itinerary-document',
         filename,
+        onePageOnly: false,
       });
       download();
     } catch (err) {
@@ -452,66 +478,39 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
           {activeView === 'builder' ? (
             <div className="space-y-4">
               {/* Location Selector: State -> District */}
-              <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <span className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-[#C91F28]" />
-                  Destination & Tour Details
-                </span>
+                <div className="space-y-3">
+                  <LocationSelector
+                    selectedState={selectedState}
+                    selectedDistrict={selectedDistrict}
+                    onStateChange={(s) => setSelectedState(s)}
+                    onDistrictChange={(d) => setSelectedDistrict(d)}
+                    showPlace={false}
+                  />
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300">Select State</label>
-                    <select
-                      value={selectedState}
-                      onChange={(e) => setSelectedState(e.target.value)}
-                      className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none font-medium"
-                    >
-                      {INDIA_STATES_AND_DISTRICTS.map((s) => (
-                        <option key={s.state} value={s.state}>
-                          {s.state}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="font-semibold text-slate-700 dark:text-slate-300">Tour Title</label>
+                      <input
+                        type="text"
+                        value={tripTitle}
+                        onChange={(e) => setTripTitle(e.target.value)}
+                        placeholder="e.g. Scenic Hill Station Holiday"
+                        className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300">Select District</label>
-                    <select
-                      value={selectedDistrict}
-                      onChange={(e) => setSelectedDistrict(e.target.value)}
-                      className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none font-bold text-brand-600"
-                    >
-                      {availableDistricts.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300">Tour Title</label>
-                    <input
-                      type="text"
-                      value={tripTitle}
-                      onChange={(e) => setTripTitle(e.target.value)}
-                      placeholder="e.g. Scenic Hill Station Holiday"
-                      className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300">Estimated Price (₹)</label>
-                    <input
-                      type="number"
-                      value={approxPrice}
-                      onChange={(e) => setApproxPrice(e.target.value)}
-                      placeholder="e.g. 25000"
-                      className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none font-bold"
-                    />
+                    <div>
+                      <label className="font-semibold text-slate-700 dark:text-slate-300">Estimated Price (₹)</label>
+                      <input
+                        type="number"
+                        value={approxPrice}
+                        onChange={(e) => setApproxPrice(e.target.value)}
+                        placeholder="e.g. 25000"
+                        className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none font-bold"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
               {/* Destination Catalog & AI Suggestions */}
               <div className="p-3.5 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
@@ -808,6 +807,60 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                         className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                       />
                     </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">
+                          Hotel / Stay Accommodation
+                        </label>
+                        <input
+                          type="text"
+                          value={days[activeDayIndex].hotelName || ''}
+                          onChange={(e) => {
+                            const u = [...days];
+                            u[activeDayIndex].hotelName = e.target.value;
+                            setDays(u);
+                          }}
+                          placeholder="e.g. 4-Star Mountain Resort / Sterling Ooty"
+                          className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">
+                          Meal Plan Included
+                        </label>
+                        <input
+                          type="text"
+                          value={days[activeDayIndex].mealPlan || ''}
+                          onChange={(e) => {
+                            const u = [...days];
+                            u[activeDayIndex].mealPlan = e.target.value;
+                            setDays(u);
+                          }}
+                          placeholder="e.g. Breakfast & Dinner Included"
+                          className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+                        Day Photos & Gallery (Aspect ratio: 5:8 Portrait recommended, zero-crop proportional display)
+                      </label>
+                      <ProfessionalImageUploader
+                        category="ITINERARY_DAY"
+                        images={days[activeDayIndex].imageUrls || (days[activeDayIndex].imageUrl ? [days[activeDayIndex].imageUrl] : [])}
+                        onUrlListChange={(newUrls) => {
+                          const u = [...days];
+                          u[activeDayIndex].imageUrls = newUrls;
+                          u[activeDayIndex].imageUrl = newUrls[0] || '';
+                          setDays(u);
+                        }}
+                        maxImages={6}
+                        helperText="Upload or attach landmark photos. Portrait (5:8) or standard photos fit without any clipping."
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -918,6 +971,45 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       <h3 className="text-sm font-bold text-slate-900">{day.title}</h3>
                       <p className="text-xs text-slate-600 leading-relaxed">{day.description}</p>
 
+                      {/* Day Photos - Proportional scaling with ZERO cropping */}
+                      {(() => {
+                        const photos = day.imageUrls && day.imageUrls.length > 0
+                          ? day.imageUrls
+                          : day.imageUrl ? [day.imageUrl] : [];
+                        if (photos.length === 0) return null;
+                        if (photos.length === 1) {
+                          return (
+                            <div className="pt-2">
+                              <div className="w-full bg-white border border-slate-200 rounded-xl p-2 flex items-center justify-center min-h-[160px]">
+                                <img
+                                  src={photos[0]}
+                                  alt={day.title}
+                                  className="max-h-72 max-w-full object-contain rounded-lg shadow-2xs"
+                                />
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="pt-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {photos.map((photoUrl, pIdx) => (
+                                <div
+                                  key={pIdx}
+                                  className="bg-white border border-slate-200 rounded-xl p-1.5 flex items-center justify-center min-h-[130px]"
+                                >
+                                  <img
+                                    src={photoUrl}
+                                    alt={`${day.title} ${pIdx + 1}`}
+                                    className="max-h-36 max-w-full object-contain rounded-lg shadow-2xs"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {day.places && (
                         <div className="pt-2 flex items-start gap-1.5 text-xs text-slate-700">
                           <MapPin className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0 mt-0.5" />
@@ -933,6 +1025,21 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           <span>
                             <strong>Activities:</strong> {day.activities}
                           </span>
+                        </div>
+                      )}
+
+                      {(day.hotelName || day.mealPlan) && (
+                        <div className="pt-1 flex flex-wrap items-center gap-2 text-xs">
+                          {day.hotelName && (
+                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200/80 px-2 py-0.5 rounded-md font-medium text-[11px]">
+                              🏨 {day.hotelName}
+                            </span>
+                          )}
+                          {day.mealPlan && (
+                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 px-2 py-0.5 rounded-md font-medium text-[11px]">
+                              🍽️ {day.mealPlan}
+                            </span>
+                          )}
                         </div>
                       )}
 

@@ -306,36 +306,91 @@ export const QuotationView: React.FC = () => {
             </div>
           </div>
 
-          {/* Pricing Summary Box */}
-          <div className="flex justify-end pt-4 border-t border-slate-200">
-            <div className="w-full sm:w-80 space-y-2 text-xs">
-              <div className="flex justify-between text-slate-600">
-                <span>Base Package Cost:</span>
-                <span className="font-medium">₹{Number(quotation.basePrice).toLocaleString('en-IN')}</span>
-              </div>
-              {quotation.discount > 0 && (
-                <div className="flex justify-between text-emerald-700">
-                  <span>Special Discount:</span>
-                  <span className="font-medium">- ₹{Number(quotation.discount).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              {quotation.tax > 0 && (
-                <div className="flex justify-between text-slate-600">
-                  <span>Taxes / GST:</span>
-                  <span className="font-medium">+ ₹{Number(quotation.tax).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              {Number(quotation.additionalCharges || 0) > 0 && (
-                <div className="flex justify-between text-slate-600">
-                  <span>Additional Charges:</span>
-                  <span className="font-medium">+ ₹{Number(quotation.additionalCharges).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 text-sm">
-                <span className="font-bold text-slate-900">Total Net Amount:</span>
-                <span className="font-extrabold text-brand-600 text-lg">
-                  ₹{Number(quotation.finalAmount).toLocaleString('en-IN')}
+          {/* Pricing Summary Box with Transparent Tiered Breakdown */}
+          <div className="pt-4 border-t border-slate-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Transparent Itemized Cost Breakdown */}
+              <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/80 text-xs space-y-2">
+                <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block border-b border-slate-200 pb-1.5">
+                  Transparent Cost Calculation
                 </span>
+                
+                <div className="space-y-1.5 text-slate-600">
+                  {Number(quotation.basePackagePrice || 0) > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span>Base Package / Vehicle Fixed Rate:</span>
+                      <span className="font-semibold text-slate-800">
+                        ₹{Number(quotation.basePackagePrice).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  )}
+
+                  {Number(quotation.adultUnitPrice || 0) > 0 ? (
+                    <div className="flex justify-between items-center">
+                      <span>Adults ({quotation.adults || 1} × ₹{Number(quotation.adultUnitPrice).toLocaleString('en-IN')}):</span>
+                      <span className="font-semibold text-slate-800">
+                        ₹{((quotation.adults || 1) * Number(quotation.adultUnitPrice)).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {Number(quotation.children || 0) > 0 && Number(quotation.childUnitPrice || 0) > 0 ? (
+                    <div className="flex justify-between items-center">
+                      <span>Children ({quotation.children} × ₹{Number(quotation.childUnitPrice).toLocaleString('en-IN')}):</span>
+                      <span className="font-semibold text-slate-800">
+                        ₹{(quotation.children * Number(quotation.childUnitPrice)).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {Number(quotation.infants || 0) > 0 && Number(quotation.infantUnitPrice || 0) > 0 ? (
+                    <div className="flex justify-between items-center">
+                      <span>Infants ({quotation.infants} × ₹{Number(quotation.infantUnitPrice).toLocaleString('en-IN')}):</span>
+                      <span className="font-semibold text-slate-800">
+                        ₹{(quotation.infants * Number(quotation.infantUnitPrice)).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {!(Number(quotation.adultUnitPrice || 0) > 0 || Number(quotation.basePackagePrice || 0) > 0) && (
+                    <div className="flex justify-between items-center text-slate-500 italic">
+                      <span>Standard package flat rate applied for all guests</span>
+                      <span>₹{Number(quotation.basePrice).toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Financial Summary Net Totals */}
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Base Package Cost:</span>
+                  <span className="font-medium">₹{Number(quotation.basePrice).toLocaleString('en-IN')}</span>
+                </div>
+                {quotation.discount > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Special Discount:</span>
+                    <span className="font-medium">- ₹{Number(quotation.discount).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {quotation.tax > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Taxes / GST:</span>
+                    <span className="font-medium">+ ₹{Number(quotation.tax).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {Number(quotation.additionalCharges || 0) > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Additional Charges:</span>
+                    <span className="font-medium">+ ₹{Number(quotation.additionalCharges).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 text-sm">
+                  <span className="font-bold text-slate-900">Total Net Amount:</span>
+                  <span className="font-extrabold text-brand-600 text-lg">
+                    ₹{Number(quotation.finalAmount).toLocaleString('en-IN')}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

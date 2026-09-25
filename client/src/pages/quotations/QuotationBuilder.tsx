@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Sparkles, User, MapPin, Calendar, Clock, Car } from 'lucide-react';
 import { api } from '../../api/client.js';
+import { LocationSelector } from '../../components/common/LocationSelector.js';
 
 export const QuotationBuilder: React.FC = () => {
   const navigate = useNavigate();
@@ -15,6 +16,9 @@ export const QuotationBuilder: React.FC = () => {
   const [customerId, setCustomerId] = useState('');
   const [packageId, setPackageId] = useState('');
   const [destination, setDestination] = useState('');
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [pickerState, setPickerState] = useState('Karnataka');
+  const [pickerDistrict, setPickerDistrict] = useState('Mysuru');
   const [travelStartDate, setTravelStartDate] = useState('');
   const [travelEndDate, setTravelEndDate] = useState('');
   const [adults, setAdults] = useState(2);
@@ -26,6 +30,10 @@ export const QuotationBuilder: React.FC = () => {
   const [inclusions, setInclusions] = useState('Daily Breakfast & Dinner, AC Private Vehicle, Sightseeing Transfers, Toll & Parking charges');
   const [exclusions, setExclusions] = useState('Airfare / Train tickets, Personal expenses, Lunches, Adventure sports');
   const [cabDetails, setCabDetails] = useState('AC Sedan / Innova with verified professional chauffeur, all tolls and parking included');
+  const [basePackagePrice, setBasePackagePrice] = useState(0);
+  const [adultUnitPrice, setAdultUnitPrice] = useState(0);
+  const [childUnitPrice, setChildUnitPrice] = useState(0);
+  const [infantUnitPrice, setInfantUnitPrice] = useState(0);
   const [additionalCharges, setAdditionalCharges] = useState(0);
   const [basePrice, setBasePrice] = useState(0);
   const [discount, setDiscount] = useState(0);
@@ -43,6 +51,25 @@ export const QuotationBuilder: React.FC = () => {
   );
 
   const [quotationNumber, setQuotationNumber] = useState('');
+
+  const updateBasePrice = (
+    basePkg: number,
+    adultRate: number,
+    childRate: number,
+    infantRate: number,
+    customAdults = adults,
+    customChildren = children,
+    customInfants = infants
+  ) => {
+    const tieredTotal =
+      Number(basePkg || 0) +
+      Number(customAdults) * Number(adultRate || 0) +
+      Number(customChildren) * Number(childRate || 0) +
+      Number(customInfants) * Number(infantRate || 0);
+    if (tieredTotal > 0 || basePkg > 0 || adultRate > 0) {
+      setBasePrice(tieredTotal);
+    }
+  };
   const [customers, setCustomers] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,6 +102,10 @@ export const QuotationBuilder: React.FC = () => {
             setInclusions(q.inclusions || '');
             setExclusions(q.exclusions || '');
             setCabDetails(q.cabDetails || '');
+            setBasePackagePrice(Number(q.basePackagePrice || 0));
+            setAdultUnitPrice(Number(q.adultUnitPrice || 0));
+            setChildUnitPrice(Number(q.childUnitPrice || 0));
+            setInfantUnitPrice(Number(q.infantUnitPrice || 0));
             setAdditionalCharges(Number(q.additionalCharges || 0));
             setBasePrice(Number(q.basePrice || 0));
             setDiscount(Number(q.discount || 0));
@@ -157,6 +188,10 @@ export const QuotationBuilder: React.FC = () => {
       inclusions,
       exclusions,
       cabDetails,
+      basePackagePrice: Number(basePackagePrice || 0),
+      adultUnitPrice: Number(adultUnitPrice || 0),
+      childUnitPrice: Number(childUnitPrice || 0),
+      infantUnitPrice: Number(infantUnitPrice || 0),
       additionalCharges: Number(additionalCharges),
       basePrice: Number(basePrice),
       discount: Number(discount),
@@ -271,7 +306,16 @@ export const QuotationBuilder: React.FC = () => {
         {/* Destination & Dates */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="font-semibold text-slate-700 dark:text-slate-200">Destination *</label>
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-slate-700 dark:text-slate-200">Destination *</label>
+              <button
+                type="button"
+                onClick={() => setShowLocationPicker(!showLocationPicker)}
+                className="text-[10px] text-brand-600 hover:text-brand-700 font-semibold cursor-pointer"
+              >
+                {showLocationPicker ? 'Hide Picker' : '⚡ Location Dropdown'}
+              </button>
+            </div>
             <input
               type="text"
               required
@@ -301,6 +345,28 @@ export const QuotationBuilder: React.FC = () => {
           </div>
         </div>
 
+        {/* Optional Hierarchical Location Selector Bar */}
+        {showLocationPicker && (
+          <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+              Quick State ➔ District ➔ Place Picker (Autofills Destination)
+            </span>
+            <LocationSelector
+              selectedState={pickerState}
+              selectedDistrict={pickerDistrict}
+              onStateChange={(st) => setPickerState(st)}
+              onDistrictChange={(dist) => {
+                setPickerDistrict(dist);
+                setDestination(dist);
+              }}
+              onPlaceChange={(plc) => {
+                if (plc) setDestination(`${plc}, ${pickerDistrict}`);
+              }}
+              showPlace={true}
+            />
+          </div>
+        )}
+
         {/* Travellers count & Status */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
@@ -310,7 +376,11 @@ export const QuotationBuilder: React.FC = () => {
               min="1"
               required
               value={adults}
-              onChange={(e) => setAdults(Number(e.target.value))}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setAdults(val);
+                updateBasePrice(basePackagePrice, adultUnitPrice, childUnitPrice, infantUnitPrice, val, children, infants);
+              }}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-semibold bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
@@ -320,7 +390,11 @@ export const QuotationBuilder: React.FC = () => {
               type="number"
               min="0"
               value={children}
-              onChange={(e) => setChildren(Number(e.target.value))}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setChildren(val);
+                updateBasePrice(basePackagePrice, adultUnitPrice, childUnitPrice, infantUnitPrice, adults, val, infants);
+              }}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
@@ -330,7 +404,11 @@ export const QuotationBuilder: React.FC = () => {
               type="number"
               min="0"
               value={infants}
-              onChange={(e) => setInfants(Number(e.target.value))}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setInfants(val);
+                updateBasePrice(basePackagePrice, adultUnitPrice, childUnitPrice, infantUnitPrice, adults, children, val);
+              }}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
@@ -415,6 +493,114 @@ export const QuotationBuilder: React.FC = () => {
               onChange={(e) => setExclusions(e.target.value)}
               className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
+          </div>
+        </div>
+
+        {/* Tiered Passenger & Base Package Pricing Breakdown */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-200 dark:border-slate-800 pb-2">
+            <div>
+              <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
+                Tiered Passenger & Package Pricing
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Unit pricing automatically calculates the Base Package Cost based on guests
+              </span>
+            </div>
+            <div className="text-right text-[11px]">
+              <span className="font-semibold text-brand-600 dark:text-brand-400">
+                Calculated Base: ₹{(
+                  Number(basePackagePrice || 0) +
+                  adults * (adultUnitPrice || 0) +
+                  children * (childUnitPrice || 0) +
+                  infants * (infantUnitPrice || 0)
+                ).toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">
+                Base Package Amount (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={basePackagePrice || ''}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setBasePackagePrice(val);
+                  updateBasePrice(val, adultUnitPrice, childUnitPrice, infantUnitPrice);
+                }}
+                placeholder="Fixed hotel/cab base"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">Fixed trip component</span>
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">
+                Adult Unit Price (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={adultUnitPrice || ''}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setAdultUnitPrice(val);
+                  updateBasePrice(basePackagePrice, val, childUnitPrice, infantUnitPrice);
+                }}
+                placeholder="Per adult rate"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+              <span className="text-[10px] text-slate-500 mt-0.5 block">
+                {adults} × ₹{(adultUnitPrice || 0).toLocaleString('en-IN')} = ₹{(adults * (adultUnitPrice || 0)).toLocaleString('en-IN')}
+              </span>
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">
+                Child Unit Price (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={childUnitPrice || ''}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setChildUnitPrice(val);
+                  updateBasePrice(basePackagePrice, adultUnitPrice, val, infantUnitPrice);
+                }}
+                placeholder="Per child rate"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+              <span className="text-[10px] text-slate-500 mt-0.5 block">
+                {children} × ₹{(childUnitPrice || 0).toLocaleString('en-IN')} = ₹{(children * (childUnitPrice || 0)).toLocaleString('en-IN')}
+              </span>
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">
+                Infant Unit Price (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={infantUnitPrice || ''}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setInfantUnitPrice(val);
+                  updateBasePrice(basePackagePrice, adultUnitPrice, childUnitPrice, val);
+                }}
+                placeholder="Per infant rate"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+              <span className="text-[10px] text-slate-500 mt-0.5 block">
+                {infants} × ₹{(infantUnitPrice || 0).toLocaleString('en-IN')} = ₹{(infants * (infantUnitPrice || 0)).toLocaleString('en-IN')}
+              </span>
+            </div>
           </div>
         </div>
 
