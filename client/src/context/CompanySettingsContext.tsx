@@ -9,7 +9,7 @@ const defaultSettings: CompanySettings = {
   phone: '+91 98765 43210',
   address: 'Ooting Holidays Private Limited, Bangalore, Karnataka, India',
   website: 'https://ooting.in',
-  gstin: '29AABCO1234F1Z5',
+  gstin: 'NIL',
   logoUrl: '/assets/ooting-logo.jpg',
   bankName: 'HDFC Bank',
   accountHolderName: 'Ooting Holidays Private Limited',

@@ -13,6 +13,7 @@ import {
   Download,
   Loader2,
   Globe,
+  FileText,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -212,60 +213,90 @@ export const QuotationView: React.FC = () => {
         </div>
 
         <div className="p-6 sm:p-8 space-y-5 print:p-6 print:space-y-4">
-          {/* Header Row with Official Ooting Logo & Quotation Title */}
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-slate-200">
-            <div className="flex flex-col sm:flex-row items-start gap-4">
-              <div className="w-32 h-12 flex items-center justify-start flex-shrink-0">
+          {/* Header Row with Official Ooting Logo, Quotation Reference & Right-Aligned Company Details */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 pb-5 border-b border-slate-200">
+            {/* LEFT SIDE: Brand Logo, Company Title & Quotation Reference */}
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0">
                 <img
-                  src="/assets/ooting-logo.jpg"
-                  alt="Ooting Logo"
-                  className="h-full w-auto object-contain"
+                  src={company?.logoUrl || '/assets/ooting-logo.jpg'}
+                  alt={company?.name || 'Ooting'}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                  }}
                 />
               </div>
-              <div className="border-l-0 sm:border-l sm:border-slate-200 sm:pl-4 space-y-1 text-[11px]">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  {company?.name || 'OOTING JOURNEYS'}
-                </h3>
-                <div className="text-slate-600 flex items-center gap-1.5 leading-tight">
-                  <MapPin className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
-                  <span>{company?.address || 'Bangalore, Karnataka, India'}</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-slate-600">
-                  <span className="flex items-center gap-1.5 whitespace-nowrap">
-                    <Mail className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
-                    <span>{company?.email || 'contact@ooting.com'}</span>
+              <div className="space-y-1">
+                <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                  {(company?.name || 'OOTING').toUpperCase()}
+                </span>
+                <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block">
+                  {company?.tagline || 'Journeys Beyond Ordinary'}
+                </span>
+                
+                <div className="pt-2">
+                  <span className="inline-block px-2.5 py-0.5 bg-[#C91F28] text-white text-[10px] font-bold uppercase tracking-wider rounded-md mb-1">
+                    Official Travel Quotation
                   </span>
-                  <span className="flex items-center gap-1.5 whitespace-nowrap">
-                    <Phone className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
-                    <span>{company?.phone || '+91 98765 43210'}</span>
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-600 text-[10.5px]">
-                  <span>
-                    GSTIN: <strong className="text-slate-800 font-mono">{company?.gstin && !/^(nil|nill|null|none|n\/a|na|-)$/i.test(company.gstin.trim()) ? company.gstin.trim().toUpperCase() : 'NIL'}</strong>
-                  </span>
-                  {company?.website && (
-                    <span className="flex items-center gap-1.5 whitespace-nowrap">
-                      <Globe className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
-                      <strong className="text-slate-800">{company.website}</strong>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="font-mono text-sm font-bold text-slate-900">
+                      {quotation.quotationNumber}
                     </span>
-                  )}
+                    <Badge status={quotation.status} />
+                  </div>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Date: {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="text-left sm:text-right flex-shrink-0">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#C91F28] block">
-                Travel Quotation
-              </span>
-              <h2 className="text-lg font-extrabold text-slate-900 mt-0.5 font-mono">
-                {quotation.quotationNumber}
-              </h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Date: {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </p>
-              <div className="mt-1.5 inline-block">
-                <Badge status={quotation.status} />
+            {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons) */}
+            <div className="flex justify-end ml-auto shrink-0">
+              <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[260px] max-w-[340px]">
+                {company?.website && (
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                      <Globe className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-medium text-slate-800 tracking-tight break-all">{company.website}</span>
+                  </div>
+                )}
+                {company?.email && (
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                      <Mail className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-medium text-slate-800 tracking-tight break-all">{company.email}</span>
+                  </div>
+                )}
+                {company?.phone && (
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                      <Phone className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2.5">
+                  <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                    <FileText className="w-3.5 h-3.5" />
+                  </span>
+                  <span className="font-mono font-bold text-slate-900 tracking-tight">
+                    GSTIN: {company?.gstin?.trim() ? company.gstin.trim().toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
+                  </span>
+                </div>
+                {company?.address && (
+                  <div className="flex items-start gap-2.5 pt-0.5">
+                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
+                      <MapPin className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-slate-600 leading-snug break-words">
+                      {company.address}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

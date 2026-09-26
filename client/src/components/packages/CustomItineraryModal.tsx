@@ -21,6 +21,9 @@ import {
   Image as ImageIcon,
   Loader2,
   Check,
+  Globe,
+  Mail,
+  Phone,
 } from 'lucide-react';
 import { Modal } from '../ui/Modal.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
@@ -922,28 +925,52 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       </div>
                     </div>
 
-                    {/* RIGHT SIDE: Company Details (Strictly Left-Aligned within its column) */}
-                    <div className="text-xs text-slate-600 space-y-1 pl-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Website:</span>
-                        <span className="text-slate-700 font-medium break-all">{company.website || 'https://ooting.in'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Phone:</span>
-                        <span className="text-slate-700 font-medium">{company.phone || '+91 98765 43210'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-800 w-16 flex-shrink-0">Email:</span>
-                        <span className="text-slate-700 font-medium break-all">{company.email || 'contact@ooting.com'}</span>
-                      </div>
-                      {company.address && (
-                        <div className="flex items-start gap-2 pt-0.5">
-                          <span className="font-semibold text-slate-800 w-16 flex-shrink-0 pt-0.5">Address:</span>
-                          <span className="text-slate-600 leading-snug break-words flex-1">
-                            {company.address}
+                    {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons) */}
+                    <div className="flex justify-end ml-auto shrink-0">
+                      <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[260px] max-w-[340px]">
+                        {company.website && (
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                              <Globe className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="font-medium text-slate-800 tracking-tight break-all">{company.website}</span>
+                          </div>
+                        )}
+                        {company.email && (
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                              <Mail className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="font-medium text-slate-800 tracking-tight break-all">{company.email}</span>
+                          </div>
+                        )}
+                        {company.phone && (
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                              <Phone className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                            <FileText className="w-3.5 h-3.5" />
+                          </span>
+                          <span className="font-mono font-bold text-slate-900 tracking-tight">
+                            GSTIN: {company?.gstin?.trim() ? company.gstin.trim().toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
                           </span>
                         </div>
-                      )}
+                        {company.address && (
+                          <div className="flex items-start gap-2.5 pt-0.5">
+                            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
+                              <MapPin className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="text-slate-600 leading-snug break-words">
+                              {company.address}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -424,35 +424,45 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Contact Details (Moved flush right with ml-auto) */}
-                <div className="text-left text-xs space-y-1 text-slate-700 max-w-[320px] ml-auto shrink-0">
+                {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons) */}
+                <div className="text-left text-xs space-y-2 text-slate-700 min-w-[260px] max-w-[340px] ml-auto shrink-0">
                   {company.website && (
-                    <div className="flex items-center gap-2">
-                      <Globe size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                        <Globe className="w-3.5 h-3.5" />
+                      </span>
                       <span className="font-medium text-[11px] text-slate-800 break-all leading-normal">{company.website}</span>
                     </div>
                   )}
-                  {company.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
-                      <span className="font-medium text-[11px] text-slate-800 leading-normal">{company.phone}</span>
-                    </div>
-                  )}
                   {company.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                        <Mail className="w-3.5 h-3.5" />
+                      </span>
                       <span className="font-medium text-[11px] text-slate-800 break-all leading-normal">{company.email}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2">
-                    <FileText size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                  {company.phone && (
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                        <Phone className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="font-medium text-[11px] text-slate-800 leading-normal">{company.phone}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                      <FileText className="w-3.5 h-3.5" />
+                    </span>
                     <span className="font-mono font-bold text-[11px] text-slate-900 leading-normal">
-                      GSTIN: {company?.gstin && !/^(nil|nill|null|none|n\/a|na|-)$/i.test(company.gstin.trim()) ? company.gstin.toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
+                      GSTIN: {company?.gstin?.trim() ? company.gstin.trim().toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
                     </span>
                   </div>
                   {company.address && (
-                    <div className="flex items-start gap-2">
-                      <MapPin size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0 mt-[1.5px]" />
+                    <div className="flex items-start gap-2.5 pt-0.5">
+                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
+                        <MapPin className="w-3.5 h-3.5" />
+                      </span>
                       <span className="text-[10.5px] text-slate-600 leading-snug break-words flex-1">{company.address}</span>
                     </div>
                   )}

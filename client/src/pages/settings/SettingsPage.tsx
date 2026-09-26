@@ -25,7 +25,7 @@ export const SettingsPage: React.FC = () => {
     phone: '+91 98765 43210',
     address: 'Ooting Holidays Private Limited, Bangalore, Karnataka, India',
     website: 'https://ooting.in',
-    gstin: '29AABCO1234F1Z5',
+    gstin: 'NIL',
     logoUrl: '/assets/ooting-logo.jpg',
     bankName: '',
     accountHolderName: '',

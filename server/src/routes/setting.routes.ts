@@ -11,8 +11,8 @@ router.use(authenticate);
 export function normalizeGstin(val?: string | null): string {
   if (!val) return 'NIL';
   const clean = String(val).trim();
-  if (!clean || /^(nil|nill|null|none|n\/a|na|-)$/i.test(clean)) return 'NIL';
-  return clean;
+  if (!clean) return 'NIL';
+  return clean.toUpperCase();
 }
 
 export async function getCompanySettings() {
@@ -96,7 +96,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 const updateSettingsSchema = z.object({
   name: z.string().optional(),
   tagline: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
   website: z.string().optional(),
