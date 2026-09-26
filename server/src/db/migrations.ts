@@ -86,6 +86,12 @@ export async function ensureColumns() {
       `ALTER TABLE \`AuditLog\` ADD COLUMN \`oldValue\` LONGTEXT NULL`,
       `ALTER TABLE \`AuditLog\` ADD COLUMN \`newValue\` LONGTEXT NULL`,
 
+      // ItineraryDay & Package image capacity upgrade (prevents P2000 column too long on large URLs/photos)
+      `ALTER TABLE \`ItineraryDay\` MODIFY COLUMN \`imageUrl\` LONGTEXT NULL`,
+      `ALTER TABLE \`ItineraryDay\` MODIFY COLUMN \`images\` LONGTEXT NULL`,
+      `ALTER TABLE \`Package\` MODIFY COLUMN \`imageUrl\` LONGTEXT NULL`,
+      `ALTER TABLE \`Package\` MODIFY COLUMN \`gallery\` LONGTEXT NULL`,
+
       // Place / Destinations
       `CREATE TABLE IF NOT EXISTS \`Place\` (
         \`id\` VARCHAR(36) NOT NULL,

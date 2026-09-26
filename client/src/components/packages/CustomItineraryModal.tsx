@@ -370,10 +370,10 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
         packageType,
         imageUrl: allPackagePhotos[0] || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
         gallery: allPackagePhotos.length > 0 ? JSON.stringify(allPackagePhotos) : null,
-        itineraries: days.map((d) => {
+        itineraries: days.map((d, idx) => {
           const allPhotos = d.imageUrls && d.imageUrls.length > 0 ? d.imageUrls : (d.imageUrl ? [d.imageUrl] : []);
           return {
-            dayNumber: d.dayNumber,
+            dayNumber: Number(d.dayNumber) || (idx + 1),
             title: d.title,
             description: d.description,
             places: d.places,

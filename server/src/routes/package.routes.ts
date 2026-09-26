@@ -104,7 +104,7 @@ const packageSchema = z.object({
   gallery: z.string().optional().nullable(),
   status: z.string().default('ACTIVE'),
   itineraries: z.array(z.object({
-    dayNumber: z.number().int().min(1),
+    dayNumber: z.coerce.number().int().min(1),
     title: z.string().optional().default(''),
     description: z.string().optional().default(''),
     activities: z.string().optional().nullable(),
@@ -141,15 +141,15 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
               imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
             }
             return {
-              dayNumber: d.dayNumber || (index + 1),
-              title: (d.title || `Day ${index + 1}`).trim(),
-              description: (d.description || '').trim(),
-              activities: d.activities?.trim() || null,
-              places: d.places?.trim() || null,
-              imageUrl: d.imageUrl || null,
+              dayNumber: parseInt(String(d.dayNumber), 10) || (index + 1),
+              title: String(d.title || `Day ${index + 1}`).trim(),
+              description: String(d.description || '').trim(),
+              activities: d.activities ? String(d.activities).trim() : null,
+              places: d.places ? String(d.places).trim() : null,
+              imageUrl: d.imageUrl ? String(d.imageUrl).trim() : null,
               images: imagesStr,
-              startTime: d.startTime || null,
-              endTime: d.endTime || null,
+              startTime: d.startTime ? String(d.startTime).trim() : null,
+              endTime: d.endTime ? String(d.endTime).trim() : null,
             };
           }),
         } : undefined,
@@ -195,15 +195,15 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
             }
             return {
               packageId: id,
-              dayNumber: d.dayNumber || (index + 1),
-              title: (d.title || `Day ${index + 1}`).trim(),
-              description: (d.description || '').trim(),
-              activities: d.activities?.trim() || null,
-              places: d.places?.trim() || null,
-              imageUrl: d.imageUrl || null,
+              dayNumber: parseInt(String(d.dayNumber), 10) || (index + 1),
+              title: String(d.title || `Day ${index + 1}`).trim(),
+              description: String(d.description || '').trim(),
+              activities: d.activities ? String(d.activities).trim() : null,
+              places: d.places ? String(d.places).trim() : null,
+              imageUrl: d.imageUrl ? String(d.imageUrl).trim() : null,
               images: imagesStr,
-              startTime: d.startTime || null,
-              endTime: d.endTime || null,
+              startTime: d.startTime ? String(d.startTime).trim() : null,
+              endTime: d.endTime ? String(d.endTime).trim() : null,
             };
           }),
         }),
@@ -245,29 +245,37 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
       return;
     }
 
+    const targetPackage = await prisma.package.findUnique({
+      where: { id },
+    });
+    if (!targetPackage) {
+      res.status(404).json({ message: 'Travel package not found.' });
+      return;
+    }
+
+    const sanitizedData = days.map((d: any, index: number) => {
+      let imagesStr: string | null = null;
+      if (d.images) {
+        imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
+      }
+      return {
+        packageId: id,
+        dayNumber: parseInt(String(d.dayNumber), 10) || (index + 1),
+        title: String(d.title || `Day ${index + 1}`).trim(),
+        description: String(d.description || '').trim(),
+        activities: d.activities ? String(d.activities).trim() : null,
+        places: d.places ? String(d.places).trim() : null,
+        imageUrl: d.imageUrl ? String(d.imageUrl).trim() : null,
+        images: imagesStr,
+        startTime: d.startTime ? String(d.startTime).trim() : null,
+        endTime: d.endTime ? String(d.endTime).trim() : null,
+      };
+    });
+
     // Delete existing days and insert updated days inside a transaction
     await prisma.$transaction([
       prisma.itineraryDay.deleteMany({ where: { packageId: id } }),
-      prisma.itineraryDay.createMany({
-        data: days.map((d: any, index: number) => {
-          let imagesStr: string | null = null;
-          if (d.images) {
-            imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
-          }
-          return {
-            packageId: id,
-            dayNumber: d.dayNumber || (index + 1),
-            title: (d.title || `Day ${index + 1}`).trim(),
-            description: (d.description || '').trim(),
-            activities: d.activities || null,
-            places: d.places || null,
-            imageUrl: d.imageUrl || null,
-            images: imagesStr,
-            startTime: d.startTime || null,
-            endTime: d.endTime || null,
-          };
-        }),
-      }),
+      ...(sanitizedData.length > 0 ? [prisma.itineraryDay.createMany({ data: sanitizedData })] : []),
     ]);
 
     const updatedPackage = await prisma.package.findUnique({
@@ -275,19 +283,22 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
 
-    await logAudit({
-      userId: req.user!.id,
-      userName: req.user!.name,
-      action: 'UPDATE',
-      entity: 'PACKAGE',
-      entityId: id,
-      details: `Saved ${days.length} itinerary days for package`,
-      ipAddress: req.ip,
-    });
+    if (req.user?.id) {
+      await logAudit({
+        userId: req.user.id,
+        userName: req.user.name,
+        action: 'UPDATE',
+        entity: 'PACKAGE',
+        entityId: id,
+        details: `Saved ${days.length} itinerary days for package "${targetPackage.packageName}"`,
+        ipAddress: req.ip,
+      });
+    }
 
     res.json(updatedPackage);
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    console.error('Failed to save package itineraries:', error);
+    res.status(500).json({ message: error?.message || 'Failed to save itinerary changes to database.' });
   }
 });
 

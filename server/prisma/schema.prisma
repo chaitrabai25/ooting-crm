@@ -190,8 +190,8 @@ model Package {
   packageType String   @default("HOLIDAY") @db.VarChar(50)
   inclusions  String?  @db.Text
   exclusions  String?  @db.Text
-  imageUrl    String?  @db.Text
-  gallery     String?  @db.Text
+  imageUrl    String?  @db.LongText
+  gallery     String?  @db.LongText
   status      String   @default("ACTIVE") @db.VarChar(50)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -220,8 +220,8 @@ model ItineraryDay {
   places      String?  @db.Text
   startTime   String?  @db.VarChar(50)
   endTime     String?  @db.VarChar(50)
-  imageUrl    String?  @db.Text
-  images      String?  @db.Text
+  imageUrl    String?  @db.LongText
+  images      String?  @db.LongText
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
