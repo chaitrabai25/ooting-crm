@@ -932,7 +932,9 @@ export const PackageDetail: React.FC = () => {
               <div className="space-y-0.5">
                 <span className="font-bold block">Recommended Photo Resolution & Sizing:</span>
                 <p className="text-blue-800 dark:text-blue-300">
-                  Landscape: <strong>1600 × 1000 px</strong> (16:10 ratio) • Portrait: <strong>1500 × 2400 px</strong> (5:8 ratio) • Formats: <strong>JPG, PNG, WebP</strong> (Max 15MB each). Images automatically scale with proportional fitting without distortion.
+                  • <strong>Single Photo:</strong> <strong>1600 × 1000 px</strong> (Ratio <strong>16:10</strong>) or <strong>1920 × 1080 px</strong> (Ratio <strong>16:9</strong>) — seamlessly fills 100% full width with zero side margins.<br />
+                  • <strong>Multiple Photos (Grid):</strong> <strong>1600 × 1000 px</strong> (Landscape 16:10) or <strong>1200 × 1600 px</strong> (Portrait 3:4).<br />
+                  • <strong>Formats & Size:</strong> JPG, PNG, WebP (Max 15MB each). Proportional edge-to-edge fitting is enabled.
                 </p>
               </div>
             </div>

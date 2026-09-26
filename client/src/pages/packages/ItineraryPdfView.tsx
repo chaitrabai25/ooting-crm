@@ -369,11 +369,11 @@ export const ItineraryPdfView: React.FC = () => {
                       return (
                         <div className="pt-2">
                           <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                            <div className="relative w-full bg-slate-900/5 flex items-center justify-center aspect-[16/9] max-h-72 overflow-hidden">
+                            <div className="relative w-full bg-slate-900/5 flex items-center justify-center aspect-[16/10] max-h-[420px] overflow-hidden">
                               <img
                                 src={item.url}
                                 alt={placeLabel}
-                                className="w-full h-full object-contain"
+                                className="w-full h-full object-cover"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src =
                                     'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
@@ -406,7 +406,7 @@ export const ItineraryPdfView: React.FC = () => {
                                   <img
                                     src={item.url}
                                     alt={placeLabel}
-                                    className="w-full h-full object-contain"
+                                    className="w-full h-full object-cover"
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).src =
                                         'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
