@@ -230,24 +230,24 @@ export const QuotationView: React.FC = () => {
                   <MapPin className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
                   <span>{company?.address || 'Bangalore, Karnataka, India'}</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-600">
-                  <span className="flex items-center gap-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-slate-600">
+                  <span className="flex items-center gap-1.5 whitespace-nowrap">
                     <Mail className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
                     <span>{company?.email || 'contact@ooting.com'}</span>
                   </span>
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 whitespace-nowrap">
                     <Phone className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
                     <span>{company?.phone || '+91 98765 43210'}</span>
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-slate-500 text-[10px]">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-600 text-[10.5px]">
                   <span>
-                    GSTIN: <strong className="text-slate-700 font-mono">{company?.gstin?.trim() || 'NIL'}</strong>
+                    GSTIN: <strong className="text-slate-800 font-mono">{company?.gstin && !/^(nil|nill|null|none|n\/a|na|-)$/i.test(company.gstin.trim()) ? company.gstin.trim().toUpperCase() : 'NIL'}</strong>
                   </span>
                   {company?.website && (
-                    <span className="flex items-center gap-1">
-                      <Globe className="w-2.5 h-2.5 text-slate-400" />
-                      <strong className="text-slate-700">{company.website}</strong>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <Globe className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
+                      <strong className="text-slate-800">{company.website}</strong>
                     </span>
                   )}
                 </div>

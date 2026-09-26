@@ -91,6 +91,10 @@ export async function ensureColumns() {
       `ALTER TABLE \`ItineraryDay\` MODIFY COLUMN \`images\` LONGTEXT NULL`,
       `ALTER TABLE \`Package\` MODIFY COLUMN \`imageUrl\` LONGTEXT NULL`,
       `ALTER TABLE \`Package\` MODIFY COLUMN \`gallery\` LONGTEXT NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`date\` VARCHAR(50) NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`highlights\` TEXT NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`travelDetails\` TEXT NULL`,
+      `ALTER TABLE \`Payment\` ADD UNIQUE INDEX \`Payment_transactionReference_key\` (\`transactionReference\`)`,
 
       // Place / Destinations
       `CREATE TABLE IF NOT EXISTS \`Place\` (

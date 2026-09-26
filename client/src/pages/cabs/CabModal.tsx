@@ -11,6 +11,30 @@ interface CabModalProps {
   initialData?: CabBooking | null;
 }
 
+const POPULAR_CAB_LOCATIONS = [
+  'Coimbatore Airport (CJB)',
+  'Coimbatore Junction Railway Station',
+  'Bangalore Kempegowda Airport (BLR)',
+  'Bangalore City / Majestic',
+  'Mysore Railway Station',
+  'Mysore City Center',
+  'Ooty Charing Cross / Town',
+  'Ooty Commercial Road',
+  'Ooty Lake / Boat House',
+  'Ooty Botanical Garden',
+  'Coonoor Sim\'s Park',
+  'Coonoor Railway Station',
+  'Kotagiri Town',
+  'Calicut International Airport (CCJ)',
+  'Kochi Cochin International Airport (COK)',
+  'Madurai Airport (IXM)',
+  'Chennai Airport (MAA)',
+  'Kodaikanal Lake / Bus Stand',
+  'Wayanad Kalpetta / Sulthan Bathery',
+  'Bandipur National Park',
+  'Mudumalai Tiger Reserve',
+];
+
 export const CabModal: React.FC<CabModalProps> = ({
   isOpen,
   onClose,
@@ -383,6 +407,7 @@ export const CabModal: React.FC<CabModalProps> = ({
               <input
                 type="text"
                 required
+                list="popular-cab-locations"
                 value={pickupPlace}
                 onChange={(e) => setPickupPlace(e.target.value)}
                 placeholder="e.g. Coimbatore Airport / Hotel"
@@ -397,6 +422,7 @@ export const CabModal: React.FC<CabModalProps> = ({
               <input
                 type="text"
                 required
+                list="popular-cab-locations"
                 value={dropPlace}
                 onChange={(e) => setDropPlace(e.target.value)}
                 placeholder="e.g. Ooty Town / Resort"
@@ -404,6 +430,13 @@ export const CabModal: React.FC<CabModalProps> = ({
               />
             </div>
           </div>
+
+          {/* Datalist for instant autocomplete suggestions */}
+          <datalist id="popular-cab-locations">
+            {POPULAR_CAB_LOCATIONS.map((loc) => (
+              <option key={loc} value={loc} />
+            ))}
+          </datalist>
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
             <div>

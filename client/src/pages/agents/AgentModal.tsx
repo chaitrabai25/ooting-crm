@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ExternalLink, Star, MessageSquare } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
+import { StateDistrictSelect } from '../../components/ui/StateDistrictSelect.js';
 import { Agent } from '../../types/index.js';
 
 interface AgentModalProps {
@@ -167,7 +168,7 @@ export const AgentModal: React.FC<AgentModalProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="font-semibold text-slate-700">Agent Tier</label>
             <select
@@ -179,26 +180,6 @@ export const AgentModal: React.FC<AgentModalProps> = ({
               <option value="Gold">🥇 Gold</option>
               <option value="Silver">🥈 Silver</option>
             </select>
-          </div>
-          <div>
-            <label className="font-semibold text-slate-700">City</label>
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="Bangalore"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="font-semibold text-slate-700">State</label>
-            <input
-              type="text"
-              value={state}
-              onChange={(e) => setState(e.target.value)}
-              placeholder="Karnataka"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-            />
           </div>
           <div>
             <label className="font-semibold text-slate-700">Status</label>
@@ -213,6 +194,15 @@ export const AgentModal: React.FC<AgentModalProps> = ({
             </select>
           </div>
         </div>
+
+        {/* Searchable State & District / City Selector */}
+        <StateDistrictSelect
+          state={state}
+          district={city}
+          onStateChange={(st) => setState(st)}
+          onDistrictChange={(dt) => setCity(dt)}
+          required={false}
+        />
 
         {/* Google Review Section */}
         <div className="p-4 bg-amber-50/50 border border-amber-200/80 rounded-2xl space-y-3">

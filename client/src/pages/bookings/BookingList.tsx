@@ -153,12 +153,7 @@ export const BookingList: React.FC = () => {
 
   const columns: Column<any>[] = [
     {
-      header: 'S.No.',
-      accessor: 'sNo',
-      className: 'w-16 text-center',
-    },
-    {
-      header: 'Booking #',
+      header: 'Booking Reference',
       sortKey: 'bookingNumber',
       render: (b) => (
         <div>

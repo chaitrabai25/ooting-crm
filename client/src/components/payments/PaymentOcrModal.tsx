@@ -544,7 +544,7 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     try {
       const res = await api.get(`/payments/check-utr?utr=${encodeURIComponent(utrValue.trim())}`);
       if (res.data?.exists) {
-        setDuplicateUtrModal('This UTR number already exists for another payment. Please enter a unique UTR number.');
+        setDuplicateUtrModal('This UTR number already exists. Please enter a unique UTR number.');
       }
     } catch (e) {
       // quiet error
@@ -612,7 +612,7 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       if (err.response?.status === 409) {
         setDuplicateUtrModal(
           err.response?.data?.message ||
-          'This UTR number already exists for another payment. Please enter a unique UTR number.'
+          'This UTR number already exists. Please enter a unique UTR number.'
         );
       } else {
         setSaveError(err.response?.data?.message || 'Failed to record payment. Please try again.');

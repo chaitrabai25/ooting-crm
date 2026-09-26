@@ -147,7 +147,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 
       if (duplicate) {
         res.status(409).json({
-          message: 'This UTR number already exists for another transaction. Please enter a unique UTR number.',
+          message: 'This UTR number already exists. Please enter a unique UTR number.',
           duplicateBooking: (duplicate as any).booking?.bookingNumber,
           duplicateCustomer: (duplicate as any).booking?.customer?.fullName,
         });
@@ -212,7 +212,13 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     });
 
     res.status(201).json(payment);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'P2002') {
+      res.status(409).json({
+        message: 'This UTR number already exists. Please enter a unique UTR number.',
+      });
+      return;
+    }
     next(error);
   }
 });

@@ -8,6 +8,13 @@ import { config } from '../config/index.js';
 const router = Router();
 router.use(authenticate);
 
+export function normalizeGstin(val?: string | null): string {
+  if (!val) return 'NIL';
+  const clean = String(val).trim();
+  if (!clean || /^(nil|nill|null|none|n\/a|na|-)$/i.test(clean)) return 'NIL';
+  return clean;
+}
+
 export async function getCompanySettings() {
   try {
     const settings = await prisma.companySetting.findMany();
@@ -23,7 +30,7 @@ export async function getCompanySettings() {
       phone: settingsMap['company_phone'] || config.company.phone,
       address: settingsMap['company_address'] || config.company.address,
       website: settingsMap['company_website'] || (config.company as any).website || 'https://ooting.in',
-      gstin: settingsMap['company_gstin'] || config.company.gstin,
+      gstin: normalizeGstin(settingsMap['company_gstin'] || config.company.gstin),
       logoUrl: settingsMap['company_logo_url'] || '/assets/ooting-logo.jpg',
       bankName: settingsMap['bank_name'] || '',
       accountHolderName: settingsMap['account_holder_name'] || '',
@@ -42,7 +49,7 @@ export async function getCompanySettings() {
       phone: config.company.phone,
       address: config.company.address,
       website: (config.company as any).website || 'https://ooting.in',
-      gstin: config.company.gstin,
+      gstin: normalizeGstin(config.company.gstin),
       logoUrl: '/assets/ooting-logo.jpg',
       bankName: '',
       accountHolderName: '',

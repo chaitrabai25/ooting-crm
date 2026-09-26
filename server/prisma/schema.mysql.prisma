@@ -220,6 +220,9 @@ model ItineraryDay {
   places      String?  @db.Text
   startTime   String?  @db.VarChar(50)
   endTime     String?  @db.VarChar(50)
+  date        String?  @db.VarChar(50)
+  highlights  String?  @db.Text
+  travelDetails String? @db.Text
   imageUrl    String?  @db.LongText
   images      String?  @db.LongText
   createdAt   DateTime @default(now())
@@ -377,7 +380,7 @@ model Payment {
   paymentDate          DateTime @default(now())
   paymentTime          String?  @db.VarChar(50)
   paymentMethod        String   @default("UPI") @db.VarChar(50)
-  transactionReference String?  @db.VarChar(191)
+  transactionReference String?  @unique @db.VarChar(191)
   screenshotUrl        String?  @db.VarChar(500)
   recordedById         String?  @db.VarChar(36)
   paymentStatus        String   @default("SUCCESS") @db.VarChar(50)

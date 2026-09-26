@@ -204,7 +204,9 @@ export const ItineraryPdfView: React.FC = () => {
                   <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
                     <FileText className="w-3.5 h-3.5" />
                   </span>
-                  <span className="font-mono font-bold text-slate-900 tracking-tight">{company.gstin || '29AABCO1234F1Z5'}</span>
+                  <span className="font-mono font-bold text-slate-900 tracking-tight">
+                    GSTIN: {company?.gstin && !/^(nil|nill|null|none|n\/a|na|-)$/i.test(company.gstin.trim()) ? company.gstin.trim().toUpperCase() : 'NIL'}
+                  </span>
                 </div>
                 <div className="flex items-start gap-2.5 pt-0.5">
                   <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
@@ -285,7 +287,14 @@ export const ItineraryPdfView: React.FC = () => {
                     <span className="w-7 h-7 rounded-lg bg-[#C91F28] text-white font-black text-xs flex items-center justify-center shadow-xs">
                       {day.dayNumber}
                     </span>
-                    <h3 className="font-bold text-sm text-slate-900">{day.title}</h3>
+                    <div>
+                      <h3 className="font-bold text-sm text-slate-900">{day.title}</h3>
+                      {(day as any).date && (
+                        <span className="text-[11px] text-[#C91F28] font-bold block">
+                          {(day as any).date}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {(day.startTime || day.endTime) && (
@@ -303,6 +312,23 @@ export const ItineraryPdfView: React.FC = () => {
                   <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
                     {day.description}
                   </p>
+
+                  {((day as any).highlights || (day as any).travelDetails) && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                      {(day as any).highlights && (
+                        <div>
+                          <strong className="text-slate-800">Highlights: </strong>
+                          <span className="text-slate-700">{(day as any).highlights}</span>
+                        </div>
+                      )}
+                      {(day as any).travelDetails && (
+                        <div>
+                          <strong className="text-slate-800">Travel & Logistics: </strong>
+                          <span className="text-slate-700">{(day as any).travelDetails}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Day Photo(s) - Intelligent aspect-ratio scaling with Place Name label */}
                   {(() => {

@@ -130,12 +130,7 @@ export const QuotationList: React.FC = () => {
 
   const columns: Column<Quotation>[] = [
     {
-      header: 'S.No.',
-      accessor: 'sNo',
-      className: 'w-14 text-center',
-    },
-    {
-      header: 'Quotation #',
+      header: 'Quotation Reference',
       render: (q) => (
         <span
           onClick={() => navigate(`/quotations/${q.id}`)}

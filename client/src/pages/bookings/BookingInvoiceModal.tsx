@@ -447,7 +447,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   <div className="flex items-center gap-2">
                     <FileText size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
                     <span className="font-mono font-bold text-[11px] text-slate-900 leading-normal">
-                      GSTIN: {company.gstin && company.gstin.trim() !== '' && company.gstin.toLowerCase() !== 'nill' ? company.gstin.toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
+                      GSTIN: {company?.gstin && !/^(nil|nill|null|none|n\/a|na|-)$/i.test(company.gstin.trim()) ? company.gstin.toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
                     </span>
                   </div>
                   {company.address && (
@@ -556,7 +556,6 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-700 bg-slate-50 font-bold">
-                      <th className="py-1.5 px-2.5 w-10 text-center text-[10px]">#</th>
                       <th className="py-1.5 px-2.5 text-[10px]">Service Description</th>
                       <th className="py-1.5 px-2.5 w-28 text-center text-[10px]">Travellers / Qty</th>
                       <th className="py-1.5 px-2.5 w-32 text-right text-[10px]">Rate (₹)</th>
@@ -565,7 +564,6 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     <tr>
-                      <td className="py-2 px-2.5 text-center text-slate-400 font-semibold text-[11px]">1</td>
                       <td className="py-2 px-2.5">
                         <span className="font-bold text-slate-900 text-xs block">
                           {booking.package?.packageName || 'Holiday Travel Package & Tour Services'}

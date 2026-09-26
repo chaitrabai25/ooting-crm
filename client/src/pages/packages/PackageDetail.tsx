@@ -16,6 +16,11 @@ import {
   Image as ImageIcon,
   Loader2,
   AlertCircle,
+  ArrowUp,
+  ArrowDown,
+  Star,
+  Info,
+  Upload,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -38,6 +43,11 @@ export const PackageDetail: React.FC = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  interface DayImageItem {
+    url: string;
+    label?: string;
+  }
+
   // Add/Edit Day Modal
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
   const [isSavingDay, setIsSavingDay] = useState(false);
@@ -48,9 +58,14 @@ export const PackageDetail: React.FC = () => {
   const [dayDescription, setDayDescription] = useState('');
   const [dayPlaces, setDayPlaces] = useState('');
   const [dayActivities, setDayActivities] = useState('');
+  const [dayDate, setDayDate] = useState('');
+  const [dayHighlights, setDayHighlights] = useState('');
+  const [dayTravelDetails, setDayTravelDetails] = useState('');
   const [dayStartTime, setDayStartTime] = useState('');
   const [dayEndTime, setDayEndTime] = useState('');
   const [dayImageUrl, setDayImageUrl] = useState('');
+  const [dayImages, setDayImages] = useState<DayImageItem[]>([]);
+  const [newImageUrlInput, setNewImageUrlInput] = useState('');
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMessage({ text, type });
@@ -95,87 +110,179 @@ export const PackageDetail: React.FC = () => {
     setDayDescription('');
     setDayPlaces('');
     setDayActivities('');
+    setDayDate('');
+    setDayHighlights('');
+    setDayTravelDetails('');
     setDayStartTime('09:00 AM');
     setDayEndTime('06:00 PM');
     setDayImageUrl('');
+    setDayImages([]);
+    setNewImageUrlInput('');
     setIsDayModalOpen(true);
   };
 
   const openEditDay = (index: number) => {
-    const item = itineraries[index];
+    const item: any = itineraries[index];
     setDayIndex(index);
     setDayNumber(item.dayNumber);
     setDayTitle(item.title);
     setDayDescription(item.description);
     setDayPlaces(item.places || '');
     setDayActivities(item.activities || '');
+    setDayDate(item.date || '');
+    setDayHighlights(item.highlights || '');
+    setDayTravelDetails(item.travelDetails || '');
     setDayStartTime(item.startTime || '');
     setDayEndTime(item.endTime || '');
     setDayImageUrl(item.imageUrl || '');
+    setNewImageUrlInput('');
+
+    let parsedImages: DayImageItem[] = [];
+    if (item.images) {
+      try {
+        const parsed = typeof item.images === 'string' ? JSON.parse(item.images) : item.images;
+        if (Array.isArray(parsed)) {
+          parsedImages = parsed
+            .map((p: any) => {
+              if (typeof p === 'string') return { url: p, label: '' };
+              return { url: p.url || p.imageUrl || '', label: p.label || p.name || p.placeName || '' };
+            })
+            .filter((p) => Boolean(p.url));
+        }
+      } catch {
+        if (typeof item.images === 'string' && item.images.includes(',')) {
+          parsedImages = item.images
+            .split(',')
+            .map((s: string) => ({ url: s.trim(), label: '' }))
+            .filter((p: any) => Boolean(p.url));
+        }
+      }
+    }
+    if (parsedImages.length === 0 && item.imageUrl) {
+      parsedImages = [{ url: item.imageUrl, label: item.places || '' }];
+    }
+    setDayImages(parsedImages);
     setIsDayModalOpen(true);
   };
 
-  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 15 * 1024 * 1024) {
-      alert('Selected photo exceeds 15 MB. Please select a smaller photo.');
-      return;
-    }
+  const handleMultipleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsUploadingImage(true);
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await api.post('/upload/image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      if (res.data?.url) {
-        setDayImageUrl(res.data.url);
-        setIsUploadingImage(false);
-        return;
+    const added: DayImageItem[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > 15 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds 15 MB and was skipped.`);
+        continue;
       }
-    } catch (uploadErr) {
-      console.warn('Server upload not reachable, using optimized client compression...', uploadErr);
+
+      let uploadedUrl = '';
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await api.post('/upload/image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (res.data?.url) {
+          uploadedUrl = res.data.url;
+        }
+      } catch (err) {
+        console.warn('Server upload not reachable, using client compression...', err);
+      }
+
+      if (!uploadedUrl) {
+        uploadedUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const maxDim = 1200;
+              let w = img.width;
+              let h = img.height;
+              if (w > maxDim || h > maxDim) {
+                if (w > h) {
+                  h = Math.round((h * maxDim) / w);
+                  w = maxDim;
+                } else {
+                  w = Math.round((w * maxDim) / h);
+                  h = maxDim;
+                }
+              }
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', 0.8));
+              } else {
+                resolve(reader.result as string);
+              }
+            };
+            img.onerror = () => resolve(reader.result as string);
+            img.src = reader.result as string;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (uploadedUrl) {
+        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        added.push({
+          url: uploadedUrl,
+          label: cleanName.length < 35 ? cleanName : '',
+        });
+      }
     }
 
-    // Client-side canvas compression fallback (scales to max 800px JPEG quality 0.75, always < 40KB)
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxDim = 800;
-        let w = img.width;
-        let h = img.height;
-        if (w > maxDim || h > maxDim) {
-          if (w > h) {
-            h = Math.round((h * maxDim) / w);
-            w = maxDim;
-          } else {
-            w = Math.round((w * maxDim) / h);
-            h = maxDim;
-          }
-        }
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, w, h);
-          setDayImageUrl(canvas.toDataURL('image/jpeg', 0.75));
-        } else {
-          setDayImageUrl(reader.result as string);
-        }
-        setIsUploadingImage(false);
-      };
-      img.onerror = () => {
-        setDayImageUrl(reader.result as string);
-        setIsUploadingImage(false);
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
+    if (added.length > 0) {
+      setDayImages((prev) => [...prev, ...added]);
+    }
+    setIsUploadingImage(false);
+    e.target.value = '';
+  };
+
+  const handleAddImageUrl = () => {
+    if (!newImageUrlInput.trim()) return;
+    setDayImages((prev) => [...prev, { url: newImageUrlInput.trim(), label: '' }]);
+    setNewImageUrlInput('');
+  };
+
+  const handleMoveImage = (fromIdx: number, direction: 'up' | 'down') => {
+    setDayImages((prev) => {
+      const targetIdx = direction === 'up' ? fromIdx - 1 : fromIdx + 1;
+      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[fromIdx];
+      copy[fromIdx] = copy[targetIdx];
+      copy[targetIdx] = temp;
+      return copy;
+    });
+  };
+
+  const handleSetPrimaryImage = (index: number) => {
+    if (index === 0) return;
+    setDayImages((prev) => {
+      const copy = [...prev];
+      const [item] = copy.splice(index, 1);
+      copy.unshift(item);
+      return copy;
+    });
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setDayImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImageLabelChange = (index: number, label: string) => {
+    setDayImages((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], label };
+      return copy;
+    });
   };
 
   const handleSaveDayModal = async (e: React.FormEvent) => {
@@ -183,15 +290,22 @@ export const PackageDetail: React.FC = () => {
     setIsSavingDay(true);
 
     try {
-      const newDay: ItineraryDay = {
+      const primaryUrl = dayImages[0]?.url || dayImageUrl.trim() || null;
+      const imagesJson = dayImages.length > 0 ? JSON.stringify(dayImages) : null;
+
+      const newDay: ItineraryDay | any = {
         dayNumber: Number(dayNumber) || 1,
         title: dayTitle.trim() || `Day ${dayNumber}`,
         description: dayDescription.trim(),
         places: dayPlaces.trim() || null,
         activities: dayActivities.trim() || null,
+        date: dayDate.trim() || null,
+        highlights: dayHighlights.trim() || null,
+        travelDetails: dayTravelDetails.trim() || null,
         startTime: dayStartTime.trim() || null,
         endTime: dayEndTime.trim() || null,
-        imageUrl: dayImageUrl.trim() || null,
+        imageUrl: primaryUrl,
+        images: imagesJson,
       };
 
       let updated = [...itineraries];
@@ -204,12 +318,15 @@ export const PackageDetail: React.FC = () => {
       updated.sort((a, b) => Number(a.dayNumber) - Number(b.dayNumber));
 
       // Sanitize days payload for database
-      const sanitizedDays = updated.map((d, idx) => ({
+      const sanitizedDays = updated.map((d: any, idx) => ({
         dayNumber: Number(d.dayNumber) || (idx + 1),
         title: (d.title || `Day ${idx + 1}`).trim(),
         description: (d.description || '').trim(),
         places: d.places?.trim() || null,
         activities: d.activities?.trim() || null,
+        date: d.date?.trim() || null,
+        highlights: d.highlights?.trim() || null,
+        travelDetails: d.travelDetails?.trim() || null,
         startTime: d.startTime?.trim() || null,
         endTime: d.endTime?.trim() || null,
         imageUrl: d.imageUrl?.trim() || null,
@@ -246,12 +363,15 @@ export const PackageDetail: React.FC = () => {
     setIsSaving(true);
 
     try {
-      const sanitizedDays = updated.map((d, idx) => ({
+      const sanitizedDays = updated.map((d: any, idx) => ({
         dayNumber: Number(d.dayNumber) || (idx + 1),
         title: (d.title || `Day ${idx + 1}`).trim(),
         description: (d.description || '').trim(),
         places: d.places?.trim() || null,
         activities: d.activities?.trim() || null,
+        date: d.date?.trim() || null,
+        highlights: d.highlights?.trim() || null,
+        travelDetails: d.travelDetails?.trim() || null,
         startTime: d.startTime?.trim() || null,
         endTime: d.endTime?.trim() || null,
         imageUrl: d.imageUrl?.trim() || null,
@@ -277,12 +397,15 @@ export const PackageDetail: React.FC = () => {
   const handlePersistItineraries = async () => {
     setIsSaving(true);
     try {
-      const sanitizedDays = itineraries.map((d, idx) => ({
+      const sanitizedDays = itineraries.map((d: any, idx) => ({
         dayNumber: Number(d.dayNumber) || (idx + 1),
         title: (d.title || `Day ${idx + 1}`).trim(),
         description: (d.description || '').trim(),
         places: d.places?.trim() || null,
         activities: d.activities?.trim() || null,
+        date: d.date?.trim() || null,
+        highlights: d.highlights?.trim() || null,
+        travelDetails: d.travelDetails?.trim() || null,
         startTime: d.startTime?.trim() || null,
         endTime: d.endTime?.trim() || null,
         imageUrl: d.imageUrl?.trim() || null,
@@ -541,47 +664,103 @@ export const PackageDetail: React.FC = () => {
                       {day.description}
                     </p>
 
-                    {(day.places || day.activities) && (
-                      <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                        {day.places && (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-[#C91F28]" />
-                            <span className="font-medium text-slate-700 dark:text-slate-300">{day.places}</span>
+                    {(day.places || day.activities || (day as any).date || (day as any).highlights || (day as any).travelDetails) && (
+                      <div className="space-y-1.5 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        <div className="flex flex-wrap items-center gap-3">
+                          {(day as any).date && (
+                            <div className="flex items-center gap-1 text-[#C91F28] font-bold">
+                              <Calendar className="w-3 h-3 text-[#C91F28]" />
+                              <span>{(day as any).date}</span>
+                            </div>
+                          )}
+                          {day.places && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-[#C91F28]" />
+                              <span className="font-medium text-slate-700 dark:text-slate-300">{day.places}</span>
+                            </div>
+                          )}
+                          {day.activities && (
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>{day.activities}</span>
+                            </div>
+                          )}
+                          {(day.startTime || day.endTime) && (
+                            <span className="text-[#C91F28] font-medium">
+                              {day.startTime} - {day.endTime}
+                            </span>
+                          )}
+                        </div>
+                        {(day as any).highlights && (
+                          <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">Highlights: </span>
+                            <span>{(day as any).highlights}</span>
                           </div>
                         )}
-                        {day.activities && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-400" />
-                            <span>{day.activities}</span>
+                        {(day as any).travelDetails && (
+                          <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">Travel & Logistics: </span>
+                            <span>{(day as any).travelDetails}</span>
                           </div>
-                        )}
-                        {(day.startTime || day.endTime) && (
-                          <span className="text-[#C91F28] font-medium">
-                            {day.startTime} - {day.endTime}
-                          </span>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Day Image Preview if attached */}
-                {day.imageUrl && (
-                  <div className="w-36 h-24 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-100 shadow-2xs">
-                    <img
-                      src={day.imageUrl}
-                      alt={day.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
+                {/* Day Photo Gallery Preview */}
+                {(() => {
+                  let photos: { url: string; label?: string }[] = [];
+                  if ((day as any).images) {
+                    try {
+                      const parsed = JSON.parse((day as any).images);
+                      if (Array.isArray(parsed)) {
+                        photos = parsed
+                          .map((p: any) => ({
+                            url: typeof p === 'string' ? p : p.url || p.imageUrl || '',
+                            label: typeof p === 'string' ? '' : p.label || p.name || p.placeName || '',
+                          }))
+                          .filter((p) => Boolean(p.url));
+                      }
+                    } catch {}
+                  }
+                  if (photos.length === 0 && day.imageUrl) {
+                    photos = [{ url: day.imageUrl, label: day.places || '' }];
+                  }
+
+                  if (photos.length === 0) return null;
+
+                  return (
+                    <div className="flex flex-wrap gap-2 max-w-xs shrink-0 self-start">
+                      {photos.map((p, pIdx) => (
+                        <div
+                          key={pIdx}
+                          className="w-24 flex flex-col bg-white dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-2xs"
+                        >
+                          <div className="h-16 w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
+                            <img
+                              src={p.url}
+                              alt={p.label || `Day ${day.dayNumber} photo ${pIdx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          {p.label && (
+                            <span className="p-1 text-[9.5px] text-slate-700 dark:text-slate-300 font-medium truncate block text-center bg-slate-50 dark:bg-slate-850">
+                              {p.label}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 <div className="flex items-center gap-1 flex-shrink-0 self-end md:self-start">
                   <button
                     type="button"
                     onClick={() => openEditDay(idx)}
                     title="Edit Day"
-                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors"
+                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
@@ -589,7 +768,7 @@ export const PackageDetail: React.FC = () => {
                     type="button"
                     onClick={() => handleDeleteDay(idx)}
                     title="Remove Day"
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -600,145 +779,310 @@ export const PackageDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Add / Edit Day Modal */}
+      {/* Add / Edit Day Modal with Multi-Image Support */}
       <Modal
         isOpen={isDayModalOpen}
         onClose={() => setIsDayModalOpen(false)}
         title={dayIndex !== null ? `Edit Day ${dayNumber}` : `Add Day ${dayNumber}`}
-        subtitle="Configure daily activities, sightseeing, timing, and photo"
-        maxWidth="md"
+        subtitle="Configure daily schedule, multiple sightseeing photos, place captions, and travel logistics"
+        maxWidth="2xl"
       >
-        <form onSubmit={handleSaveDayModal} className="space-y-4 text-xs max-h-[78vh] overflow-y-auto pr-1">
-          <div className="grid grid-cols-3 gap-3">
+        <form onSubmit={handleSaveDayModal} className="space-y-4 text-xs max-h-[80vh] overflow-y-auto pr-1">
+          {/* Day #, Day Title, Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
-              <label className="font-semibold text-slate-700">Day # *</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Day # *</label>
               <input
                 type="number"
                 min="1"
                 required
                 value={dayNumber}
                 onChange={(e) => setDayNumber(Number(e.target.value))}
-                className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
               />
             </div>
-            <div className="col-span-2">
-              <label className="font-semibold text-slate-700">Day Title *</label>
+            <div className="sm:col-span-2">
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Day Title *</label>
               <input
                 type="text"
                 required
                 value={dayTitle}
                 onChange={(e) => setDayTitle(e.target.value)}
                 placeholder="e.g. Arrival in Ooty & Botanical Gardens"
-                className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none font-semibold"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none font-semibold"
+              />
+            </div>
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Date (Optional)</label>
+              <input
+                type="text"
+                value={dayDate}
+                onChange={(e) => setDayDate(e.target.value)}
+                placeholder="e.g. 15 Oct 2026"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
               />
             </div>
           </div>
 
+          {/* Description */}
           <div>
-            <label className="font-semibold text-slate-700">Description of the Day *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Description of the Day *</label>
             <textarea
               rows={3}
               required
               value={dayDescription}
               onChange={(e) => setDayDescription(e.target.value)}
               placeholder="Detail morning pickup, sightseeing route, lunch stops, and evening relaxation..."
-              className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
             />
           </div>
 
-          {/* Photo upload / URL */}
-          <div>
-            <label className="font-semibold text-slate-700">Day Photo (URL or File Upload)</label>
-            <div className="flex items-center gap-2 mt-1">
+          {/* Places & Activities */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Places to Visit</label>
               <input
                 type="text"
-                value={dayImageUrl}
-                onChange={(e) => setDayImageUrl(e.target.value)}
-                placeholder="https://... or choose photo"
-                className="flex-1 p-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+                value={dayPlaces}
+                onChange={(e) => setDayPlaces(e.target.value)}
+                placeholder="e.g. Mysore Palace, Chamundi Hills, Brindavan Gardens"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
               />
-              <label className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs cursor-pointer border border-slate-300 flex items-center gap-1.5 transition-colors">
-                {isUploadingImage ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C91F28]" />
-                ) : (
-                  <Camera className="w-3.5 h-3.5" />
-                )}
-                <span>{isUploadingImage ? 'Uploading...' : 'Upload'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={isUploadingImage}
-                  onChange={handleImageFileUpload}
-                  className="hidden"
-                />
-              </label>
             </div>
-
-            {dayImageUrl && (
-              <div className="mt-2 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                <img src={dayImageUrl} alt="Preview" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setDayImageUrl('')}
-                  className="absolute top-1.5 right-1.5 p-1 bg-black/70 text-white rounded-full hover:bg-black transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            )}
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Activities & Highlights</label>
+              <input
+                type="text"
+                value={dayActivities}
+                onChange={(e) => setDayActivities(e.target.value)}
+                placeholder="e.g. Boating, heritage walk, sunset tea tasting"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="font-semibold text-slate-700">Places to Visit</label>
-            <input
-              type="text"
-              value={dayPlaces}
-              onChange={(e) => setDayPlaces(e.target.value)}
-              placeholder="e.g. Mysore Palace, Chamundi Hills, Brindavan Gardens"
-              className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-            />
+          {/* Highlights summary & Travel Details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Key Highlights (Short)</label>
+              <input
+                type="text"
+                value={dayHighlights}
+                onChange={(e) => setDayHighlights(e.target.value)}
+                placeholder="e.g. Royal Palace Light Show, Tea Factory Visit"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Travel & Logistics Details</label>
+              <input
+                type="text"
+                value={dayTravelDetails}
+                onChange={(e) => setDayTravelDetails(e.target.value)}
+                placeholder="e.g. Private AC Sedan Transfer from Coimbatore (3.5 hrs)"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="font-semibold text-slate-700">Activities & Highlights</label>
-            <input
-              type="text"
-              value={dayActivities}
-              onChange={(e) => setDayActivities(e.target.value)}
-              placeholder="e.g. Boating, heritage walk, sunset tea tasting"
-              className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-            />
-          </div>
-
+          {/* Timing */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700">Start Time</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Start Time</label>
               <input
                 type="text"
                 value={dayStartTime}
                 onChange={(e) => setDayStartTime(e.target.value)}
                 placeholder="09:00 AM"
-                className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700">End Time</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">End Time</label>
               <input
                 type="text"
                 value={dayEndTime}
                 onChange={(e) => setDayEndTime(e.target.value)}
                 placeholder="06:00 PM"
-                className="mt-1 w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+          {/* MULTI-IMAGE SIGHTSEEING GALLERY SECTION */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-[#C91F28]" />
+                  <span>Sightseeing Photos & Destination Gallery (Multiple Images)</span>
+                </label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                  Upload multiple photos for this day. Give each image a place name label underneath.
+                </span>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-md self-start sm:self-auto">
+                {dayImages.length} {dayImages.length === 1 ? 'photo' : 'photos'} added
+              </span>
+            </div>
+
+            {/* Recommended Image Size Banner */}
+            <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="font-bold block">Recommended Photo Resolution & Sizing:</span>
+                <p className="text-blue-800 dark:text-blue-300">
+                  Landscape: <strong>1600 × 1000 px</strong> (16:10 ratio) • Portrait: <strong>1500 × 2400 px</strong> (5:8 ratio) • Formats: <strong>JPG, PNG, WebP</strong> (Max 15MB each). Images automatically scale with proportional fitting without distortion.
+                </p>
+              </div>
+            </div>
+
+            {/* Multi-Image Action Bar: Upload File(s) + Add URL */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              {/* Multi-file upload button */}
+              <label className="px-3.5 py-2 bg-[#C91F28] hover:bg-[#a81920] text-white font-bold rounded-xl text-xs cursor-pointer flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0">
+                {isUploadingImage ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                <span>{isUploadingImage ? 'Uploading Photos...' : '+ Upload Multiple Photos'}</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  disabled={isUploadingImage}
+                  onChange={handleMultipleImageUpload}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Add by URL input */}
+              <div className="flex items-center gap-1.5 flex-1">
+                <input
+                  type="text"
+                  value={newImageUrlInput}
+                  onChange={(e) => setNewImageUrlInput(e.target.value)}
+                  placeholder="Or paste image URL (https://...)"
+                  className="flex-1 p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  disabled={!newImageUrlInput.trim()}
+                  className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-semibold rounded-xl text-xs transition-colors disabled:opacity-40 cursor-pointer shrink-0"
+                >
+                  + Add URL
+                </button>
+              </div>
+            </div>
+
+            {/* Gallery of Uploaded Photos */}
+            {dayImages.length === 0 ? (
+              <div className="p-4 text-center border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-500">
+                <Camera className="w-6 h-6 mx-auto mb-1 text-slate-400" />
+                <p className="font-semibold text-xs text-slate-700 dark:text-slate-300">No photos added for this day</p>
+                <p className="text-[10.5px] text-slate-400 mt-0.5">
+                  Click "+ Upload Multiple Photos" above to select one or multiple images from your computer or phone.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {dayImages.map((imgItem, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-2 relative"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      {/* Photo Thumbnail */}
+                      <div className="relative w-28 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shrink-0">
+                        <img
+                          src={imgItem.url}
+                          alt={imgItem.label || `Day photo ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {idx === 0 && (
+                          <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-[#C91F28] text-white text-[8.5px] font-black uppercase rounded shadow-xs">
+                            Cover
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Photo Actions & Controls */}
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">
+                            Photo #{idx + 1}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {idx > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveImage(idx, 'up')}
+                                title="Move up"
+                                className="p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                              >
+                                <ArrowUp className="w-3 h-3" />
+                              </button>
+                            )}
+                            {idx < dayImages.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveImage(idx, 'down')}
+                                title="Move down"
+                                className="p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                              >
+                                <ArrowDown className="w-3 h-3" />
+                              </button>
+                            )}
+                            {idx !== 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetPrimaryImage(idx)}
+                                title="Set as Cover Photo"
+                                className="p-1 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors cursor-pointer"
+                              >
+                                <Star className="w-3 h-3" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(idx)}
+                              title="Delete photo"
+                              className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Place Name / Caption input for this specific photo */}
+                        <div>
+                          <label className="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 block mb-0.5">
+                            Place Name / Caption Label:
+                          </label>
+                          <input
+                            type="text"
+                            value={imgItem.label || ''}
+                            onChange={(e) => handleImageLabelChange(idx, e.target.value)}
+                            placeholder="e.g. Botanical Garden, Doddabetta..."
+                            className="w-full p-1.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
             <button
               type="button"
               disabled={isSavingDay}
               onClick={() => setIsDayModalOpen(false)}
-              className="px-3.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>

@@ -136,40 +136,41 @@ export const AgentList: React.FC = () => {
 
   const columns: Column<Agent>[] = [
     {
-      header: 'S.No.',
-      accessor: 'sNo',
-      className: 'w-16 text-center',
-    },
-    {
-      header: 'Agency / Company',
+      header: 'Agency Name',
       sortKey: 'companyName',
       render: (a) => (
-        <div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              onClick={() => navigate(`/agents/${a.id}`)}
-              className="font-bold text-slate-900 dark:text-slate-100 hover:text-[#C91F28] dark:hover:text-brand-400 cursor-pointer block text-xs sm:text-sm"
-            >
-              {a.companyName}
-            </span>
-            <span
-              className={`inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-bold rounded-full border shadow-2xs ${
-                a.agentType === 'Diamond'
-                  ? 'bg-cyan-50 text-cyan-700 border-cyan-300 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800'
-                  : a.agentType === 'Gold'
-                  ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
-                  : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-              }`}
-            >
-              {a.agentType === 'Diamond' && <Sparkles className="w-2.5 h-2.5 text-cyan-600" />}
-              {a.agentType === 'Gold' && <Award className="w-2.5 h-2.5 text-amber-600" />}
-              {a.agentType || 'Silver'}
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-            Contact: {a.contactPerson}
-          </span>
-        </div>
+        <span
+          onClick={() => navigate(`/agents/${a.id}`)}
+          className="font-bold text-slate-900 dark:text-slate-100 hover:text-[#C91F28] dark:hover:text-brand-400 cursor-pointer block text-xs sm:text-sm"
+        >
+          {a.companyName}
+        </span>
+      ),
+    },
+    {
+      header: 'Category / Tier',
+      render: (a) => (
+        <span
+          className={`inline-flex items-center gap-0.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full border shadow-2xs ${
+            a.agentType === 'Diamond'
+              ? 'bg-cyan-50 text-cyan-700 border-cyan-300 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800'
+              : a.agentType === 'Gold'
+              ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+              : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+          }`}
+        >
+          {a.agentType === 'Diamond' && <Sparkles className="w-2.5 h-2.5 text-cyan-600" />}
+          {a.agentType === 'Gold' && <Award className="w-2.5 h-2.5 text-amber-600" />}
+          {a.agentType || 'Silver'}
+        </span>
+      ),
+    },
+    {
+      header: 'Contact Person',
+      render: (a) => (
+        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 block">
+          {a.contactPerson || '—'}
+        </span>
       ),
     },
     {

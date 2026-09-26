@@ -119,40 +119,50 @@ export const PassengerList: React.FC = () => {
 
   const columns: Column<PassengerItem>[] = [
     {
-      header: 'S.No.',
-      accessor: 'sNo',
-      className: 'w-16 text-center',
+      header: 'Traveler Name',
+      sortKey: 'name',
+      render: (p) => (
+        <span className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm block">
+          {p.name}
+        </span>
+      ),
     },
     {
-      header: 'Passenger Details',
-      sortKey: 'name',
+      header: 'Category',
+      render: (p) => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full border shadow-2xs ${
+            p.isPrimary
+              ? 'bg-red-50 text-[#C91F28] border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60'
+              : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+          }`}
+        >
+          {p.isPrimary ? 'Primary' : 'Guest'}
+        </span>
+      ),
+    },
+    {
+      header: 'Age & Gender',
+      render: (p) => (
+        <div className="text-xs text-slate-700 dark:text-slate-300">
+          <span>{p.age ? `${p.age} yrs` : '—'}</span>
+          <span className="text-slate-400 mx-1">•</span>
+          <span className="capitalize">{p.gender ? p.gender.toLowerCase() : '—'}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Contact',
       render: (p) => {
         const phone = p.phone || p.customerPhone;
-        return (
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{p.name}</span>
-              {p.isPrimary && (
-                <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-red-100 dark:bg-red-950/60 text-[#C91F28] dark:text-red-400 rounded-full">
-                  Primary
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-              {p.age ? <span>{p.age} yrs</span> : <span>Age: —</span>}
-              <span>•</span>
-              <span className="capitalize">{p.gender ? p.gender.toLowerCase() : 'Not specified'}</span>
-              {phone && (
-                <>
-                  <span>•</span>
-                  <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
-                    <Phone className="w-3 h-3 text-slate-400" /> {phone}
-                    <CopyButton text={phone} title="Copy phone" />
-                  </span>
-                </>
-              )}
-            </div>
+        return phone ? (
+          <div className="flex items-center gap-1 text-xs text-slate-700 dark:text-slate-300">
+            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+            <span>{phone}</span>
+            <CopyButton text={phone} title="Copy phone" />
           </div>
+        ) : (
+          <span className="text-xs text-slate-400">—</span>
         );
       },
     },
