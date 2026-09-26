@@ -14,10 +14,13 @@ import {
   Camera,
   Share2,
   FileText,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Package, ItineraryDay } from '../../types/index.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
+import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 
 export const ItineraryPdfView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +29,7 @@ export const ItineraryPdfView: React.FC = () => {
 
   const [pkg, setPkg] = useState<Package | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     const fetchPackage = async () => {
@@ -44,6 +48,27 @@ export const ItineraryPdfView: React.FC = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!pkg) return;
+    try {
+      setIsGeneratingPdf(true);
+      const cleanTitle = (pkg.packageName || 'Itinerary').replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `Itinerary_${cleanTitle}.pdf`;
+
+      const { download } = await generateA4Pdf({
+        elementId: 'itinerary-document',
+        filename,
+        onePageOnly: false,
+      });
+      download();
+    } catch (err) {
+      console.error('Failed to download itinerary PDF:', err);
+      alert('PDF generation error. Please try the Print button.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   if (isLoading) {
@@ -79,29 +104,43 @@ export const ItineraryPdfView: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate('/packages/' + id)}
-          className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+          className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Package</span>
         </button>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500 hidden sm:inline">
-            Press 'Print / Save as PDF' to export high-resolution letterhead
-          </span>
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isGeneratingPdf}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {isGeneratingPdf ? (
+              <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+            ) : (
+              <Download className="w-4 h-4 text-amber-400" />
+            )}
+            <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
+          </button>
+
           <button
             type="button"
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C91F28] hover:bg-[#a81920] text-white text-xs font-bold rounded-xl shadow-md transition-all"
+            className="inline-flex items-center gap-2 px-5 py-2 bg-[#C91F28] hover:bg-[#a81920] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
           >
             <Printer className="w-4 h-4" />
-            <span>Print / Save as PDF</span>
+            <span>Print</span>
           </button>
         </div>
       </div>
 
       {/* Main A4 Printable Document Paper */}
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-sans print:m-0">
+      <div
+        id="itinerary-document"
+        className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-sans print:m-0"
+      >
         
         {/* Top Header Wave Asset */}
         <div className="w-full h-4 bg-[#C91F28] overflow-hidden relative">
@@ -304,11 +343,11 @@ export const ItineraryPdfView: React.FC = () => {
                       return (
                         <div className="pt-2">
                           <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                            <div className="relative w-full bg-slate-100 flex items-center justify-center aspect-[16/9] max-h-72 overflow-hidden">
+                            <div className="relative w-full bg-slate-900/5 flex items-center justify-center aspect-[16/9] max-h-72 overflow-hidden">
                               <img
                                 src={item.url}
                                 alt={placeLabel}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src =
                                     'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
@@ -337,11 +376,11 @@ export const ItineraryPdfView: React.FC = () => {
                                 key={pIdx}
                                 className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
                               >
-                                <div className="relative w-full bg-slate-100 flex items-center justify-center aspect-[16/10] overflow-hidden">
+                                <div className="relative w-full bg-slate-900/5 flex items-center justify-center aspect-[16/10] overflow-hidden">
                                   <img
                                     src={item.url}
                                     alt={placeLabel}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-contain"
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).src =
                                         'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';

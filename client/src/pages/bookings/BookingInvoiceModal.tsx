@@ -424,8 +424,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Contact Details (Moved ~1-2cm further right, flush with right margin, left-aligned internally) */}
-                <div className="text-left text-xs space-y-1 text-slate-700 max-w-[290px] shrink-0">
+                {/* RIGHT SIDE: Company Contact Details (Moved flush right with ml-auto) */}
+                <div className="text-left text-xs space-y-1 text-slate-700 max-w-[320px] ml-auto shrink-0">
                   {company.website && (
                     <div className="flex items-center gap-2">
                       <Globe size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
@@ -444,14 +444,12 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                       <span className="font-medium text-[11px] text-slate-800 break-all leading-normal">{company.email}</span>
                     </div>
                   )}
-                  {company.gstin && company.gstin.trim() !== '' && company.gstin.toLowerCase() !== 'nill' && (
-                    <div className="flex items-center gap-2">
-                      <FileText size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
-                      <span className="font-mono font-bold text-[11px] text-slate-900 leading-normal">
-                        {company.gstin.toUpperCase().startsWith('GSTIN') ? company.gstin : `GSTIN: ${company.gstin}`}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <FileText size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                    <span className="font-mono font-bold text-[11px] text-slate-900 leading-normal">
+                      GSTIN: {company.gstin && company.gstin.trim() !== '' && company.gstin.toLowerCase() !== 'nill' ? company.gstin.toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
+                    </span>
+                  </div>
                   {company.address && (
                     <div className="flex items-start gap-2">
                       <MapPin size={14} className="w-3.5 h-3.5 text-[#C91F28] shrink-0 mt-[1.5px]" />
@@ -598,26 +596,48 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                     <span className="text-[9px] font-bold text-[#C91F28] uppercase tracking-wider block">
                       Bank & Remittance Details
                     </span>
-                    <div className="space-y-0.5 text-[10.5px] text-slate-600">
+                    <div className="space-y-1 text-[10.5px] text-slate-600">
                       <div className="flex justify-between">
                         <span className="text-slate-500">Beneficiary:</span>
-                        <span className="font-bold text-slate-900">{company.name || 'Ooting'}</span>
+                        <span className="font-bold text-slate-900">{company.accountHolderName || company.name || 'Ooting Holidays Private Limited'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">Bank Name:</span>
-                        <span className="font-medium text-slate-800">Authorized Commercial Bank</span>
+                        <span className="font-semibold text-slate-800">{company.bankName || 'HDFC Bank'}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">UPI ID / VPA:</span>
-                        <span className="font-mono font-semibold text-slate-800">ooting@upi</span>
-                      </div>
+                      {company.accountNumber && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Account No:</span>
+                          <span className="font-mono font-bold text-slate-900">{company.accountNumber}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-slate-500">Account Type:</span>
-                        <span className="font-medium text-slate-800">Current Account</span>
+                        <span className="font-medium text-slate-800">{company.accountType || 'Current Account'}</span>
                       </div>
+                      {company.ifsc && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">IFSC Code:</span>
+                          <span className="font-mono font-bold text-slate-900 uppercase">{company.ifsc}</span>
+                        </div>
+                      )}
+                      {company.branch && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Branch:</span>
+                          <span className="font-medium text-slate-800">{company.branch}</span>
+                        </div>
+                      )}
+                      {company.upiId && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">UPI ID / VPA:</span>
+                          <span className="font-mono font-bold text-[#C91F28]">{company.upiId}</span>
+                        </div>
+                      )}
                     </div>
                     <p className="text-[9.5px] text-slate-500 pt-1 border-t border-slate-200/80">
-                      Please quote Booking Ref <strong>{booking.bookingNumber}</strong> during bank fund transfer.
+                      {company.paymentNotes || (
+                        <>Please quote Booking Ref <strong>{booking.bookingNumber}</strong> during bank fund transfer.</>
+                      )}
                     </p>
                   </div>
 

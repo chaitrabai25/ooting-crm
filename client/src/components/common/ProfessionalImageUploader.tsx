@@ -118,17 +118,53 @@ export const ProfessionalImageUploader: React.FC<ProfessionalImageUploaderProps>
         return reject(new Error('File too large'));
       }
 
-      // Convert to Data URL for reliable zero-latency storage & cross-platform persistence
+      // Convert to Data URL and optimize to prevent multi-megabyte payload bloat
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
         const img = new Image();
         img.onload = () => {
-          const width = img.naturalWidth;
-          const height = img.naturalHeight;
+          let width = img.naturalWidth;
+          let height = img.naturalHeight;
           const actualRatio = width / height;
           const ratioDisplay = calculateAspectRatioDisplay(width, height);
-          const sizeKb = Math.round(file.size / 1024);
+
+          // Client-side optimization: scale down if image exceeds 1600px
+          const MAX_DIM = 1600;
+          let finalDataUrl = dataUrl;
+          let finalSizeBytes = file.size;
+
+          if (width > MAX_DIM || height > MAX_DIM || file.size > 350 * 1024) {
+            try {
+              let targetW = width;
+              let targetH = height;
+              if (targetW > MAX_DIM || targetH > MAX_DIM) {
+                if (targetW > targetH) {
+                  targetH = Math.round((targetH * MAX_DIM) / targetW);
+                  targetW = MAX_DIM;
+                } else {
+                  targetW = Math.round((targetW * MAX_DIM) / targetH);
+                  targetH = MAX_DIM;
+                }
+              }
+
+              const canvas = document.createElement('canvas');
+              canvas.width = targetW;
+              canvas.height = targetH;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+                finalDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                width = targetW;
+                height = targetH;
+                finalSizeBytes = Math.round((finalDataUrl.length * 3) / 4);
+              }
+            } catch (err) {
+              console.warn('Image scaling skipped, using original:', err);
+            }
+          }
+
+          const sizeKb = Math.round(finalSizeBytes / 1024);
           const sizeDisplay =
             sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
 
@@ -143,13 +179,13 @@ export const ProfessionalImageUploader: React.FC<ProfessionalImageUploaderProps>
 
           const meta: UploadedImageMeta = {
             id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-            url: dataUrl,
+            url: finalDataUrl,
             name: file.name,
             width,
             height,
             aspectRatioDisplay: ratioDisplay,
             aspectRatioNumeric: actualRatio,
-            fileSizeBytes: file.size,
+            fileSizeBytes: finalSizeBytes,
             fileSizeDisplay: sizeDisplay,
             isFeatured: activeImages.length === 0,
             aspectWarning,

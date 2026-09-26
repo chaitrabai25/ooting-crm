@@ -246,6 +246,10 @@ export function detectHeaderRow(
   if (!rawRows || !Array.isArray(rawRows)) return null;
   const maxScanRows = Math.min(rawRows.length, 15);
 
+  let bestIndex = -1;
+  let maxMatchedCount = 0;
+  let bestHeaders: string[] = [];
+
   for (let r = 0; r < maxScanRows; r++) {
     const row = rawRows[r];
     if (!row || !Array.isArray(row) || row.length === 0) continue;
@@ -253,25 +257,61 @@ export function detectHeaderRow(
     // Safely map cells to clean lower-case strings
     const rowStrings = row.map((cell) => safeStr(cell).toLowerCase());
 
-    const allGroupsMatched = keywordGroups.every((group) => {
-      if (!Array.isArray(group) || group.length === 0) return true;
+    // Count how many groups matched
+    const matchedCount = keywordGroups.filter((group) => {
+      if (!Array.isArray(group) || group.length === 0) return false;
       return group.some((keyword) => {
         const kwLower = safeStr(keyword).toLowerCase();
         if (!kwLower) return false;
-        return rowStrings.some((cellStr) => cellStr && cellStr.includes(kwLower));
+        return rowStrings.some((cellStr) => cellStr && (cellStr === kwLower || cellStr.includes(kwLower) || kwLower.includes(cellStr)));
       });
-    });
+    }).length;
 
-    if (allGroupsMatched) {
+    // If all groups matched, return immediately
+    if (matchedCount === keywordGroups.length && matchedCount > 0) {
       return {
         headerIndex: r,
         headers: rowStrings,
       };
     }
+
+    if (matchedCount > maxMatchedCount) {
+      maxMatchedCount = matchedCount;
+      bestIndex = r;
+      bestHeaders = rowStrings;
+    }
+  }
+
+  if (maxMatchedCount > 0 && bestIndex !== -1) {
+    return {
+      headerIndex: bestIndex,
+      headers: bestHeaders,
+    };
   }
 
   return null;
 }
+
+/**
+ * Finds a matching column name from a list of available row keys based on concept synonyms.
+ */
+export function findMatchingColumnKey(availableKeys: string[], targetConcepts: string[]): string | undefined {
+  const lowerKeys = availableKeys.map((k) => ({
+    original: k,
+    clean: safeStr(k).toLowerCase().replace(/[^a-z0-9]/g, ''),
+  }));
+
+  for (const concept of targetConcepts) {
+    const cleanConcept = concept.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!cleanConcept) continue;
+    const found = lowerKeys.find(
+      (k) => k.clean === cleanConcept || k.clean.includes(cleanConcept) || cleanConcept.includes(k.clean)
+    );
+    if (found) return found.original;
+  }
+  return undefined;
+}
+
 
 /**
  * Robustly parses a date from an Excel cell value.
@@ -344,8 +384,12 @@ export function parseExcelNumber(val: any, fallback: number = 0): number {
  * Standardizes phone numbers to digits with optional leading '+'.
  */
 export function cleanPhoneNumber(val: any): string {
-  if (!val) return '';
-  const str = String(val).trim();
+  if (val === null || val === undefined || val === '') return '';
+  if (typeof val === 'number') {
+    return Math.round(val).toString();
+  }
+  let str = String(val).trim();
+  str = str.replace(/\.0+$/, '');
   const startsWithPlus = str.startsWith('+');
   const digits = str.replace(/[^\d]/g, '');
   return startsWithPlus ? `+${digits}` : digits;

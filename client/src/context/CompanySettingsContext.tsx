@@ -11,6 +11,14 @@ const defaultSettings: CompanySettings = {
   website: 'https://ooting.in',
   gstin: '29AABCO1234F1Z5',
   logoUrl: '/assets/ooting-logo.jpg',
+  bankName: 'HDFC Bank',
+  accountHolderName: 'Ooting Holidays Private Limited',
+  accountNumber: '50200088991122',
+  accountType: 'Current Account',
+  ifsc: 'HDFC0001234',
+  branch: 'Indiranagar, Bangalore',
+  upiId: 'ooting@upi',
+  paymentNotes: 'Please share transaction screenshot/UTR number after payment.',
 };
 
 interface CompanySettingsContextType {

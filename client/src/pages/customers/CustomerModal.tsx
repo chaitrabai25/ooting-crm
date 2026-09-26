@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { Customer } from '../../types/index.js';
+import { LocationSelector } from '../../components/common/LocationSelector.js';
 
 interface CustomerModalProps {
   isOpen: boolean;
@@ -72,89 +73,79 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
         {error && (
-          <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg">
+          <div className="p-3 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg">
             {error}
           </div>
         )}
 
         <div>
-          <label className="font-semibold text-slate-700">Full Name *</label>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Full Name *</label>
           <input
             type="text"
             required
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             placeholder="e.g. Anand Kumar"
-            className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+            className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Phone Number *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Phone Number *</label>
             <input
               type="tel"
               required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="e.g. +91 98450 12345"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700">Alternate Phone</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Alternate Phone</label>
             <input
               type="tel"
               value={alternatePhone}
               onChange={(e) => setAlternatePhone(e.target.value)}
               placeholder="e.g. +91 98450 67890"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
         </div>
 
         <div>
-          <label className="font-semibold text-slate-700">Email Address</label>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Email Address</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="anand@example.com"
-            className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+            className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="font-semibold text-slate-700">City</label>
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="Bangalore"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="font-semibold text-slate-700">State</label>
-            <input
-              type="text"
-              value={state}
-              onChange={(e) => setState(e.target.value)}
-              placeholder="Karnataka"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
-            />
-          </div>
-        </div>
+        {/* Searchable State & City/District Selector */}
+        <LocationSelector
+          selectedState={state}
+          onStateChange={(s) => setState(s)}
+          selectedDistrict={city}
+          onDistrictChange={(d) => setCity(d)}
+          showPlace={false}
+          stateLabel="State"
+          districtLabel="City / District"
+          statePlaceholder="Select State..."
+          districtPlaceholder="Select City / District..."
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Lead Source</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Lead Source</label>
             <select
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             >
               <option value="DIRECT">Direct / Walk-in</option>
               <option value="WEBSITE">Website</option>
@@ -167,11 +158,11 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700">Status</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             >
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
@@ -180,28 +171,28 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
         </div>
 
         <div>
-          <label className="font-semibold text-slate-700">Notes</label>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Notes</label>
           <textarea
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Special preferences, preferred airlines, anniversary dates..."
-            className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+            className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
           />
         </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
           >
             {isSubmitting ? 'Saving...' : initialData ? 'Update Profile' : 'Save Customer'}
           </button>

@@ -12,6 +12,7 @@ import {
   Mail,
   Download,
   Loader2,
+  Globe,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -198,8 +199,11 @@ export const QuotationView: React.FC = () => {
         id="quotation-document"
         className="bg-white rounded-2xl border border-slate-200/90 shadow-xl overflow-hidden print:border-none print:shadow-none print:rounded-none"
       >
+        {/* Persistent Red Header Accent Line */}
+        <div className="w-full h-1.5 bg-[#C91F28]" />
+
         {/* Authentic Header Wave Accent */}
-        <div className="w-full h-8 overflow-hidden bg-brand-600 relative">
+        <div className="w-full h-6 overflow-hidden bg-brand-600 relative">
           <img
             src="/assets/ooting-header-wave.png"
             alt=""
@@ -207,54 +211,60 @@ export const QuotationView: React.FC = () => {
           />
         </div>
 
-        <div className="p-8 sm:p-10 space-y-8">
+        <div className="p-6 sm:p-8 space-y-5 print:p-6 print:space-y-4">
           {/* Header Row with Official Ooting Logo & Quotation Title */}
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 pb-6 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-slate-200">
             <div className="flex flex-col sm:flex-row items-start gap-4">
-              <div className="w-36 h-14 flex items-center justify-start flex-shrink-0">
+              <div className="w-32 h-12 flex items-center justify-start flex-shrink-0">
                 <img
                   src="/assets/ooting-logo.jpg"
                   alt="Ooting Logo"
                   className="h-full w-auto object-contain"
                 />
               </div>
-              <div className="border-l-0 sm:border-l sm:border-slate-200 sm:pl-4 space-y-1">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              <div className="border-l-0 sm:border-l sm:border-slate-200 sm:pl-4 space-y-1 text-[11px]">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                   {company?.name || 'OOTING JOURNEYS'}
                 </h3>
-                <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                <div className="text-slate-600 flex items-center gap-1.5 leading-tight">
+                  <MapPin className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
                   <span>{company?.address || 'Bangalore, Karnataka, India'}</span>
-                </p>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-600">
                   <span className="flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                    <Mail className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
                     <span>{company?.email || 'contact@ooting.com'}</span>
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                    <Phone className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
                     <span>{company?.phone || '+91 98765 43210'}</span>
                   </span>
                 </div>
-                {company?.gstin && (
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    GSTIN: <span className="font-semibold text-slate-800">{company.gstin}</span>
-                  </p>
-                )}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-slate-500 text-[10px]">
+                  <span>
+                    GSTIN: <strong className="text-slate-700 font-mono">{company?.gstin?.trim() || 'NIL'}</strong>
+                  </span>
+                  {company?.website && (
+                    <span className="flex items-center gap-1">
+                      <Globe className="w-2.5 h-2.5 text-slate-400" />
+                      <strong className="text-slate-700">{company.website}</strong>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="text-left sm:text-right">
-              <span className="text-xs font-bold uppercase tracking-widest text-brand-600 block">
-                Travel Itinerary & Quotation
+            <div className="text-left sm:text-right flex-shrink-0">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#C91F28] block">
+                Travel Quotation
               </span>
-              <h2 className="text-xl font-extrabold text-slate-900 mt-1">
+              <h2 className="text-lg font-extrabold text-slate-900 mt-0.5 font-mono">
                 {quotation.quotationNumber}
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Date: {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Date: {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </p>
-              <div className="mt-2 inline-block">
+              <div className="mt-1.5 inline-block">
                 <Badge status={quotation.status} />
               </div>
             </div>
@@ -474,9 +484,9 @@ export const QuotationView: React.FC = () => {
 
           {/* Payment & Cancellation Policies */}
           {(quotation.paymentTerms || quotation.cancellationTerms) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200 text-[11px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-200 text-[11px] break-inside-avoid">
               {quotation.paymentTerms && (
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
                   <span className="font-bold text-slate-700 uppercase tracking-wider block mb-1">
                     Payment Milestones
                   </span>
@@ -484,7 +494,7 @@ export const QuotationView: React.FC = () => {
                 </div>
               )}
               {quotation.cancellationTerms && (
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
                   <span className="font-bold text-slate-700 uppercase tracking-wider block mb-1">
                     Cancellation Policy
                   </span>
@@ -496,17 +506,25 @@ export const QuotationView: React.FC = () => {
 
           {/* Terms & Conditions */}
           {quotation.termsAndConditions && (
-            <div className="pt-4 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
+            <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-500 space-y-1 break-inside-avoid">
               <span className="font-bold text-slate-700 uppercase tracking-wider block">
                 Terms & Conditions
               </span>
               <p className="whitespace-pre-line leading-relaxed">{quotation.termsAndConditions}</p>
             </div>
           )}
+
+          {/* Professional Document Closure */}
+          <div className="pt-2 text-center text-[10px] text-slate-400 break-inside-avoid">
+            <p>Thank you for choosing {company?.name || 'Ooting'}. For reservations & inquiries, reach us at {company?.email || 'contact@ooting.com'} or {company?.phone || '+91 98765 43210'}.</p>
+          </div>
         </div>
 
+        {/* Persistent Red Footer Line */}
+        <div className="w-full h-1 bg-[#C91F28]" />
+
         {/* Authentic Footer Wave Accent */}
-        <div className="w-full h-6 overflow-hidden bg-brand-600 relative mt-4">
+        <div className="w-full h-5 overflow-hidden bg-brand-600 relative">
           <img
             src="/assets/ooting-footer-wave.png"
             alt=""

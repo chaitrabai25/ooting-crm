@@ -22,6 +22,8 @@ import {
   Eye,
   X,
   FileText,
+  Save,
+  Check,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { CabBooking } from '../../types/index.js';
@@ -332,51 +334,71 @@ const DutySlipDocumentBody: React.FC<{
                       {isStaticPreview ? (
                         <span>{row.label}</span>
                       ) : (
-                        <input
-                          type="text"
-                          value={row.label}
-                          onChange={(e) => onRowChange?.(row.id, 'label', e.target.value)}
-                          className="w-full bg-transparent border-none focus:outline-none font-semibold text-slate-800 text-xs"
-                        />
+                        <>
+                          <span className="hidden print:inline-block pdf-show text-xs font-semibold text-slate-800">
+                            {row.label || '—'}
+                          </span>
+                          <input
+                            type="text"
+                            value={row.label}
+                            onChange={(e) => onRowChange?.(row.id, 'label', e.target.value)}
+                            className="w-full bg-transparent border-none focus:outline-none font-semibold text-slate-800 text-xs print:hidden pdf-hide"
+                          />
+                        </>
                       )}
                     </td>
                     <td className="border-r border-slate-200 px-2 text-center">
                       {isStaticPreview ? (
                         <span>{row.startVal || '—'}</span>
                       ) : (
-                        <input
-                          type="text"
-                          value={row.startVal}
-                          onChange={(e) => onRowChange?.(row.id, 'startVal', e.target.value)}
-                          placeholder="—"
-                          className="w-full bg-transparent text-center border-none focus:outline-none text-xs"
-                        />
+                        <>
+                          <span className="hidden print:inline-block pdf-show text-xs text-slate-800">
+                            {row.startVal || '—'}
+                          </span>
+                          <input
+                            type="text"
+                            value={row.startVal}
+                            onChange={(e) => onRowChange?.(row.id, 'startVal', e.target.value)}
+                            placeholder="—"
+                            className="w-full bg-transparent text-center border-none focus:outline-none text-xs print:hidden pdf-hide"
+                          />
+                        </>
                       )}
                     </td>
                     <td className="border-r border-slate-200 px-2 text-center">
                       {isStaticPreview ? (
                         <span>{row.endVal || '—'}</span>
                       ) : (
-                        <input
-                          type="text"
-                          value={row.endVal}
-                          onChange={(e) => onRowChange?.(row.id, 'endVal', e.target.value)}
-                          placeholder="—"
-                          className="w-full bg-transparent text-center border-none focus:outline-none text-xs"
-                        />
+                        <>
+                          <span className="hidden print:inline-block pdf-show text-xs text-slate-800">
+                            {row.endVal || '—'}
+                          </span>
+                          <input
+                            type="text"
+                            value={row.endVal}
+                            onChange={(e) => onRowChange?.(row.id, 'endVal', e.target.value)}
+                            placeholder="—"
+                            className="w-full bg-transparent text-center border-none focus:outline-none text-xs print:hidden pdf-hide"
+                          />
+                        </>
                       )}
                     </td>
                     <td className="border-r border-slate-200 px-2 text-center">
                       {isStaticPreview ? (
                         <span>{row.remarks || '—'}</span>
                       ) : (
-                        <input
-                          type="text"
-                          value={row.remarks}
-                          onChange={(e) => onRowChange?.(row.id, 'remarks', e.target.value)}
-                          placeholder="—"
-                          className="w-full bg-transparent text-center border-none focus:outline-none text-xs"
-                        />
+                        <>
+                          <span className="hidden print:inline-block pdf-show text-xs text-slate-800">
+                            {row.remarks || '—'}
+                          </span>
+                          <input
+                            type="text"
+                            value={row.remarks}
+                            onChange={(e) => onRowChange?.(row.id, 'remarks', e.target.value)}
+                            placeholder="—"
+                            className="w-full bg-transparent text-center border-none focus:outline-none text-xs print:hidden pdf-hide"
+                          />
+                        </>
                       )}
                     </td>
                     {!isStaticPreview && onRemoveRow && (
@@ -530,6 +552,9 @@ export const CabVoucher: React.FC = () => {
     { id: '3', label: 'Toll & Parking (₹)', startVal: '', endVal: '', remarks: '' },
   ]);
 
+  const [isSavingRows, setIsSavingRows] = useState(false);
+  const [saveRowsSuccess, setSaveRowsSuccess] = useState(false);
+
   // Merge server company with global company settings (global context is primary source of truth)
   const company = {
     ...serverCompany,
@@ -543,6 +568,20 @@ export const CabVoucher: React.FC = () => {
         const res = await api.get(`/cabs/${id}/voucher`);
         setCab(res.data.cab);
         setServerCompany(res.data.company);
+
+        if (res.data.cab?.customTableRows) {
+          try {
+            const loaded = typeof res.data.cab.customTableRows === 'string'
+              ? JSON.parse(res.data.cab.customTableRows)
+              : res.data.cab.customTableRows;
+            if (Array.isArray(loaded) && loaded.length > 0) {
+              setCustomRows(loaded);
+              setShowCustomTable(true);
+            }
+          } catch (e) {
+            console.warn('Could not parse saved customTableRows:', e);
+          }
+        }
       } catch (err) {
         console.error('Failed to load cab voucher:', err);
       } finally {
@@ -551,6 +590,23 @@ export const CabVoucher: React.FC = () => {
     };
     if (id) fetchVoucher();
   }, [id]);
+
+  const handleSaveRows = async () => {
+    if (!cab) return;
+    setIsSavingRows(true);
+    try {
+      await api.patch(`/cabs/${cab.id}/table-rows`, {
+        customTableRows: showCustomTable ? customRows : null,
+      });
+      setSaveRowsSuccess(true);
+      setTimeout(() => setSaveRowsSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to save duty slip table:', err);
+      alert('Failed to save duty slip table rows.');
+    } finally {
+      setIsSavingRows(false);
+    }
+  };
 
   const handlePrint = () => {
     document.body.classList.add('printing-dedicated');
@@ -678,6 +734,29 @@ export const CabVoucher: React.FC = () => {
             <Table className="w-4 h-4" />
             <span>{showCustomTable ? 'Hide Extra Table' : '+ Add Table / Additional Details'}</span>
           </button>
+
+          {/* Save Table Rows Button */}
+          {showCustomTable && (
+            <button
+              type="button"
+              onClick={handleSaveRows}
+              disabled={isSavingRows}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer ${
+                saveRowsSuccess
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              {isSavingRows ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : saveRowsSuccess ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>{saveRowsSuccess ? 'Saved!' : isSavingRows ? 'Saving...' : 'Save Table'}</span>
+            </button>
+          )}
 
           {/* Preview Modal Button */}
           <button

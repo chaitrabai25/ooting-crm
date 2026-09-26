@@ -351,6 +351,16 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
       setIsSaving(true);
       const durationStr = `${days.length} Days / ${Math.max(1, days.length - 1)} Nights`;
 
+      const allPackagePhotos: string[] = [];
+      days.forEach((d) => {
+        const photos = d.imageUrls && d.imageUrls.length > 0 ? d.imageUrls : (d.imageUrl ? [d.imageUrl] : []);
+        photos.forEach((p) => {
+          if (p && !allPackagePhotos.includes(p)) {
+            allPackagePhotos.push(p);
+          }
+        });
+      });
+
       const payload = {
         packageName: tripTitle.trim() || `${selectedDistrict} Custom Itinerary`,
         destination: selectedDistrict,
@@ -358,6 +368,8 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
         description: `Custom curated itinerary for ${selectedDistrict}, ${selectedState} covering ${days.length} days of sightseeing and activities.`,
         price: parseFloat(approxPrice) || 0,
         packageType,
+        imageUrl: allPackagePhotos[0] || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
+        gallery: allPackagePhotos.length > 0 ? JSON.stringify(allPackagePhotos) : null,
         itineraries: days.map((d) => {
           const allPhotos = d.imageUrls && d.imageUrls.length > 0 ? d.imageUrls : (d.imageUrl ? [d.imageUrl] : []);
           return {
@@ -987,11 +999,11 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           return (
                             <div className="pt-2">
                               <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                                <div className="relative w-full bg-slate-100 flex items-center justify-center aspect-[16/9] max-h-64 overflow-hidden">
+                                <div className="relative w-full bg-slate-900/5 flex items-center justify-center aspect-[16/9] max-h-64 overflow-hidden">
                                   <img
                                     src={photos[0]}
                                     alt={placeLabel}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-contain"
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).src =
                                         'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
@@ -1018,11 +1030,11 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                                     key={pIdx}
                                     className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
                                   >
-                                    <div className="relative w-full bg-slate-100 flex items-center justify-center aspect-[16/10] overflow-hidden">
+                                    <div className="relative w-full bg-slate-900/5 flex items-center justify-center aspect-[16/10] overflow-hidden">
                                       <img
                                         src={photoUrl}
                                         alt={placeLabel}
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-contain"
                                         onError={(e) => {
                                           (e.target as HTMLImageElement).src =
                                             'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';

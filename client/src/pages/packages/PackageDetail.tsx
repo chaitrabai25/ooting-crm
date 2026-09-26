@@ -186,27 +186,27 @@ export const PackageDetail: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/packages')}
-            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900">{pkg.packageName}</h1>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-white">{pkg.packageName}</h1>
               <Badge status={pkg.status} />
             </div>
-            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
               <MapPin className="w-3.5 h-3.5 text-slate-400" />
               <span>{pkg.destination}</span>
               <span>•</span>
               <Clock className="w-3.5 h-3.5 text-slate-400" />
               <span>{pkg.duration}</span>
               <span>•</span>
-              <span className="font-semibold text-slate-800">
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
                 ₹{Number(pkg.price).toLocaleString('en-IN')} / person
               </span>
             </p>
@@ -217,7 +217,7 @@ export const PackageDetail: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/packages/' + id + '/itinerary-pdf')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 text-[#C91F28]" />
             <span>Download Itinerary PDF</span>
@@ -226,9 +226,9 @@ export const PackageDetail: React.FC = () => {
           <button
             type="button"
             onClick={openAddDay}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5 text-slate-500" />
+            <Plus className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span>Add Day</span>
           </button>
 
@@ -236,7 +236,7 @@ export const PackageDetail: React.FC = () => {
             type="button"
             disabled={isSaving}
             onClick={handlePersistItineraries}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-sm transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
           >
             <Save className="w-3.5 h-3.5" />
             <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
@@ -246,7 +246,7 @@ export const PackageDetail: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsDeleteOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 rounded-xl border border-red-200 dark:border-red-800 shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 rounded-xl border border-red-200 dark:border-red-800 shadow-xs transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Delete</span>
@@ -257,31 +257,31 @@ export const PackageDetail: React.FC = () => {
 
       {/* Package Description & Inclusions Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+        <div className="md:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
+          <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-2">
             Overview & Experience
           </h3>
-          <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
             {pkg.description}
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5 pt-4 border-t border-slate-100 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
             <div>
-              <span className="font-bold text-emerald-800 flex items-center gap-1 mb-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-1 mb-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Inclusions</span>
               </span>
-              <p className="text-slate-600 leading-relaxed whitespace-pre-line bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line bg-emerald-50/50 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
                 {pkg.inclusions || 'No standard inclusions specified.'}
               </p>
             </div>
 
             <div>
-              <span className="font-bold text-rose-800 flex items-center gap-1 mb-1.5">
-                <XCircle className="w-3.5 h-3.5 text-rose-600" />
+              <span className="font-bold text-rose-800 dark:text-rose-400 flex items-center gap-1 mb-1.5">
+                <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                 <span>Exclusions</span>
               </span>
-              <p className="text-slate-600 leading-relaxed whitespace-pre-line bg-rose-50/50 p-3 rounded-xl border border-rose-100">
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line bg-rose-50/50 dark:bg-rose-950/20 p-3 rounded-xl border border-rose-100 dark:border-rose-900/40">
                 {pkg.exclusions || 'No exclusions specified.'}
               </p>
             </div>
@@ -289,47 +289,47 @@ export const PackageDetail: React.FC = () => {
         </div>
 
         {/* Highlights & Metadata */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-4 text-xs">
-          <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs space-y-4 text-xs">
+          <h3 className="font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider text-[11px]">
             Package Parameters
           </h3>
 
           <div className="space-y-2">
-            <div className="flex justify-between py-1.5 border-b border-slate-100">
-              <span className="text-slate-500">Tour Type:</span>
-              <span className="font-semibold text-slate-800">{pkg.packageType}</span>
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Tour Type:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{pkg.packageType}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-slate-100">
-              <span className="text-slate-500">Duration:</span>
-              <span className="font-semibold text-slate-800">{pkg.duration}</span>
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Duration:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{pkg.duration}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-slate-100">
-              <span className="text-slate-500">Standard Price:</span>
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Standard Price:</span>
               <span className="font-bold text-[#C91F28]">
                 ₹{Number(pkg.price).toLocaleString('en-IN')}
               </span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-slate-100">
-              <span className="text-slate-500">Itinerary Days:</span>
-              <span className="font-semibold text-slate-800">{itineraries.length} Days</span>
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Itinerary Days:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{itineraries.length} Days</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Day-by-Day Itinerary Timeline */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
           <div>
-            <h3 className="text-sm font-bold text-slate-900">Day-by-Day Itinerary Schedule</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Day-by-Day Itinerary Schedule</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Organized chronological travel schedule and daily route stops
             </p>
           </div>
           <button
             type="button"
             onClick={openAddDay}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#C91F28] hover:text-[#a81920]"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[#C91F28] hover:text-[#a81920] cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Day</span>
@@ -349,7 +349,7 @@ export const PackageDetail: React.FC = () => {
             {itineraries.map((day, idx) => (
               <div
                 key={idx}
-                className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50/30 transition-colors flex flex-col md:flex-row items-start justify-between gap-4"
+                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/30 dark:bg-slate-850/40 transition-colors flex flex-col md:flex-row items-start justify-between gap-4"
               >
                 <div className="flex items-start gap-3.5 flex-1">
                   <div className="w-9 h-9 rounded-xl bg-[#C91F28] text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-xs">
@@ -357,17 +357,17 @@ export const PackageDetail: React.FC = () => {
                   </div>
 
                   <div className="space-y-1.5 text-xs flex-1">
-                    <h4 className="font-bold text-slate-900 text-sm">{day.title}</h4>
-                    <p className="text-slate-600 leading-relaxed whitespace-pre-line">
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">{day.title}</h4>
+                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                       {day.description}
                     </p>
 
                     {(day.places || day.activities) && (
-                      <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-500">
+                      <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
                         {day.places && (
                           <div className="flex items-center gap-1">
                             <MapPin className="w-3 h-3 text-[#C91F28]" />
-                            <span className="font-medium text-slate-700">{day.places}</span>
+                            <span className="font-medium text-slate-700 dark:text-slate-300">{day.places}</span>
                           </div>
                         )}
                         {day.activities && (

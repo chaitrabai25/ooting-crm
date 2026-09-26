@@ -248,8 +248,9 @@ export const CalendarPage: React.FC = () => {
     const currentMonth = currentDate.getMonth();
 
     return (
-      <div className="grid grid-cols-7 border-t border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-xs">
-        {/* Day headers */}
+      <div className="overflow-x-auto pb-2">
+        <div className="min-w-[650px] grid grid-cols-7 border-t border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-xs">
+          {/* Day headers */}
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
           <div
             key={d}
@@ -362,6 +363,7 @@ export const CalendarPage: React.FC = () => {
             </div>
           );
         })}
+        </div>
       </div>
     );
   };

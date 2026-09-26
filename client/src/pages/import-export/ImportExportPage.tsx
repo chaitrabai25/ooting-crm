@@ -469,18 +469,32 @@ export const ImportExportPage: React.FC = () => {
         let error: string | undefined;
         let warning: string | undefined;
 
-        // Check required fields
+        // Check required fields using concept synonyms
         for (const reqField of selectedModule.requiredFields) {
           const cleanReq = safeStr(reqField).toLowerCase().replace(/[^a-z0-9]/g, '');
+          
+          const synonyms = [cleanReq];
+          if (cleanReq.includes('name')) synonyms.push('name', 'fullname', 'customername', 'customer', 'client', 'tourist', 'touristname', 'guest', 'guestname', 'lead');
+          if (cleanReq.includes('phone') || cleanReq.includes('mobile')) synonyms.push('phone', 'customerphone', 'mobile', 'contact', 'contactnumber', 'cell', 'tel', 'whatsapp');
+          if (cleanReq.includes('email')) synonyms.push('email', 'customeremail', 'mail');
+          if (cleanReq.includes('destination')) synonyms.push('destination', 'dest', 'tour', 'package', 'place');
+          if (cleanReq.includes('state')) synonyms.push('state', 'province', 'region');
+          if (cleanReq.includes('district')) synonyms.push('district', 'dist', 'city');
+
           const hasVal = Object.keys(row).some((key) => {
             const cleanKey = safeStr(key).toLowerCase().replace(/[^a-z0-9]/g, '');
-            return (
-              cleanKey.length > 0 &&
-              cleanReq.length > 0 &&
-              (cleanKey.includes(cleanReq) || cleanReq.includes(cleanKey)) &&
-              safeStr(row[key]).length > 0
-            );
+            const isMatch = synonyms.some((syn) => cleanKey === syn || cleanKey.includes(syn) || syn.includes(cleanKey));
+            return isMatch && safeStr(row[key]).length > 0;
           });
+
+          // Allow email fallback if phone is missing for customers module
+          if (!hasVal && (cleanReq.includes('phone') || cleanReq.includes('mobile')) && selectedModule.key === 'customers') {
+            const emailKey = Object.keys(row).find((k) => safeIncludes(k, 'email') || safeIncludes(k, 'mail'));
+            if (emailKey && safeStr(row[emailKey]).includes('@')) {
+              warning = `Row ${idx + 2}: Phone is empty, using Email for profile`;
+              continue;
+            }
+          }
 
           if (!hasVal) {
             error = `Row ${idx + 2} could not be imported because "${reqField}" is missing or empty.`;
@@ -493,8 +507,8 @@ export const ImportExportPage: React.FC = () => {
           const phoneKey = Object.keys(row).find((k) => safeIncludes(k, 'phone') || safeIncludes(k, 'mobile') || safeIncludes(k, 'contact'));
           if (phoneKey && row[phoneKey]) {
             const cleaned = cleanPhoneNumber(row[phoneKey]);
-            if (cleaned.length < 7) {
-              error = error || `Row ${idx + 2}: Invalid phone number format`;
+            if (cleaned.length < 5) {
+              warning = warning || `Row ${idx + 2}: Phone number looks short (${cleaned})`;
             }
           }
 

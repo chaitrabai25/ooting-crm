@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
@@ -27,6 +27,14 @@ export const SettingsPage: React.FC = () => {
     website: 'https://ooting.in',
     gstin: '29AABCO1234F1Z5',
     logoUrl: '/assets/ooting-logo.jpg',
+    bankName: '',
+    accountHolderName: '',
+    accountNumber: '',
+    accountType: 'Current Account',
+    ifsc: '',
+    branch: '',
+    upiId: '',
+    paymentNotes: '',
   });
 
   const [masterData, setMasterData] = useState<MasterData | null>(null);
@@ -299,8 +307,120 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Bank & Payment Information Section (For Invoices) */}
+          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-1.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 rounded-md">
+                <Landmark className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">Bank Account & UPI Details (For Invoices)</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">These details will dynamically appear in all generated invoices and client payment slips</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Bank Name</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.bankName || ''}
+                  onChange={(e) => setCompany({ ...company, bankName: e.target.value })}
+                  placeholder="e.g. HDFC Bank / State Bank of India"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Account Holder Name</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.accountHolderName || ''}
+                  onChange={(e) => setCompany({ ...company, accountHolderName: e.target.value })}
+                  placeholder="e.g. Ooting Holidays Private Limited"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Account Number</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.accountNumber || ''}
+                  onChange={(e) => setCompany({ ...company, accountNumber: e.target.value })}
+                  placeholder="e.g. 50200088991122"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Account Type</label>
+                <select
+                  disabled={!isAdmin}
+                  value={company.accountType || 'Current Account'}
+                  onChange={(e) => setCompany({ ...company, accountType: e.target.value })}
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                >
+                  <option value="Current Account">Current Account</option>
+                  <option value="Savings Account">Savings Account</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">IFSC Code</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.ifsc || ''}
+                  onChange={(e) => setCompany({ ...company, ifsc: e.target.value.toUpperCase() })}
+                  placeholder="e.g. HDFC0001234"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 font-mono uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Branch Name</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.branch || ''}
+                  onChange={(e) => setCompany({ ...company, branch: e.target.value })}
+                  placeholder="e.g. Indiranagar, Bangalore"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">UPI ID / VPA</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.upiId || ''}
+                  onChange={(e) => setCompany({ ...company, upiId: e.target.value })}
+                  placeholder="e.g. ooting@upi or 9876543210@okhdfcbank"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Payment Notes / Instructions</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.paymentNotes || ''}
+                  onChange={(e) => setCompany({ ...company, paymentNotes: e.target.value })}
+                  placeholder="e.g. Share transaction UTR screenshot after payment"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                />
+              </div>
+            </div>
+          </div>
+
           {isAdmin && (
-            <div className="pt-2 flex justify-end">
+            <div className="pt-4 flex justify-end">
               <button
                 type="submit"
                 disabled={isSaving}

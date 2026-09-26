@@ -25,6 +25,14 @@ export async function getCompanySettings() {
       website: settingsMap['company_website'] || (config.company as any).website || 'https://ooting.in',
       gstin: settingsMap['company_gstin'] || config.company.gstin,
       logoUrl: settingsMap['company_logo_url'] || '/assets/ooting-logo.jpg',
+      bankName: settingsMap['bank_name'] || '',
+      accountHolderName: settingsMap['account_holder_name'] || '',
+      accountNumber: settingsMap['account_number'] || '',
+      accountType: settingsMap['account_type'] || 'Current Account',
+      ifsc: settingsMap['ifsc'] || '',
+      branch: settingsMap['branch'] || '',
+      upiId: settingsMap['upi_id'] || '',
+      paymentNotes: settingsMap['payment_notes'] || '',
     };
   } catch (error) {
     return {
@@ -36,6 +44,14 @@ export async function getCompanySettings() {
       website: (config.company as any).website || 'https://ooting.in',
       gstin: config.company.gstin,
       logoUrl: '/assets/ooting-logo.jpg',
+      bankName: '',
+      accountHolderName: '',
+      accountNumber: '',
+      accountType: 'Current Account',
+      ifsc: '',
+      branch: '',
+      upiId: '',
+      paymentNotes: '',
     };
   }
 }
@@ -79,6 +95,14 @@ const updateSettingsSchema = z.object({
   website: z.string().optional(),
   gstin: z.string().optional(),
   logoUrl: z.string().optional(),
+  bankName: z.string().optional(),
+  accountHolderName: z.string().optional(),
+  accountNumber: z.string().optional(),
+  accountType: z.string().optional(),
+  ifsc: z.string().optional(),
+  branch: z.string().optional(),
+  upiId: z.string().optional(),
+  paymentNotes: z.string().optional(),
 });
 
 // Update Company Settings (Admin only)
@@ -95,6 +119,14 @@ router.put('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next
       { key: 'company_website', value: data.website },
       { key: 'company_gstin', value: data.gstin },
       { key: 'company_logo_url', value: data.logoUrl },
+      { key: 'bank_name', value: data.bankName },
+      { key: 'account_holder_name', value: data.accountHolderName },
+      { key: 'account_number', value: data.accountNumber },
+      { key: 'account_type', value: data.accountType },
+      { key: 'ifsc', value: data.ifsc },
+      { key: 'branch', value: data.branch },
+      { key: 'upi_id', value: data.upiId },
+      { key: 'payment_notes', value: data.paymentNotes },
     ].filter(u => u.value !== undefined);
 
     for (const item of updates) {

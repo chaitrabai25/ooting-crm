@@ -567,6 +567,32 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
+// Update Custom Table Rows on Duty Slip
+router.patch('/:id/table-rows', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { customTableRows } = req.body;
+
+    const existing = await prisma.cabBooking.findUnique({ where: { id } });
+    if (!existing || existing.isDeleted) {
+      res.status(404).json({ message: 'Cab booking not found.' });
+      return;
+    }
+
+    const updated = await prisma.cabBooking.update({
+      where: { id },
+      data: {
+        customTableRows: typeof customTableRows === 'string' ? customTableRows : JSON.stringify(customTableRows),
+        updatedById: req.user?.id || null,
+      },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete Cab Booking (Soft-delete with Audit)
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {

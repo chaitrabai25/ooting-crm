@@ -70,6 +70,27 @@ export async function generateA4Pdf({
       svg.style.flexShrink = '0';
     });
 
+    // Ensure all input and textarea values are captured in canvas
+    const inputs = targetEl.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
+    inputs.forEach((input) => {
+      input.setAttribute('value', input.value || '');
+      if (input.tagName.toLowerCase() === 'textarea') {
+        input.textContent = input.value || '';
+      }
+    });
+
+    // Handle .pdf-show and .pdf-hide classes
+    const pdfShows = targetEl.querySelectorAll<HTMLElement>('.pdf-show');
+    pdfShows.forEach((el) => {
+      el.style.setProperty('display', 'inline-block', 'important');
+      el.style.setProperty('visibility', 'visible', 'important');
+    });
+    const pdfHides = targetEl.querySelectorAll<HTMLElement>('.pdf-hide');
+    pdfHides.forEach((el) => {
+      el.style.setProperty('display', 'none', 'important');
+      el.style.setProperty('visibility', 'hidden', 'important');
+    });
+
     // Un-clip ancestor containers so html2canvas captures full dimensions
     let current: HTMLElement | null = targetEl.parentElement;
     while (current && current !== clonedDoc.body) {
@@ -159,8 +180,8 @@ export async function generateA4Pdf({
 
     const contentHeightMm = (canvas.height * printableWidth) / canvas.width;
 
-    // Guaranteed single-page fitting if onePageOnly or fits within 1 page
-    if (onePageOnly || contentHeightMm <= printableHeight * 1.02) {
+    // Guaranteed single-page fitting if onePageOnly or fits within 1 page (up to 1.15x content gracefully scaled)
+    if (onePageOnly || contentHeightMm <= printableHeight * 1.15) {
       const scale = Math.min(1, printableHeight / contentHeightMm);
       const finalWidth = printableWidth * scale;
       const finalHeight = contentHeightMm * scale;

@@ -461,4 +461,12 @@ export interface CompanySettings {
   website: string;
   gstin: string;
   logoUrl: string;
+  bankName?: string;
+  accountHolderName?: string;
+  accountNumber?: string;
+  accountType?: string;
+  ifsc?: string;
+  branch?: string;
+  upiId?: string;
+  paymentNotes?: string;
 }

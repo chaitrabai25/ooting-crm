@@ -491,7 +491,15 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
         item['Contact Number'] ||
         ''
       ).toString().trim();
-      rawPhone = rawPhone.replace(/\.0$/, '').replace(/[^0-9+]/g, '');
+      rawPhone = rawPhone.replace(/\.0+$/, '').replace(/[^0-9+]/g, '');
+
+      const rawEmail = (
+        item.email ||
+        item['Email'] ||
+        item.mail ||
+        item['Mail'] ||
+        ''
+      ).toString().trim().toLowerCase();
 
       if (!fullName) {
         skipped++;
@@ -499,15 +507,25 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
         continue;
       }
 
-      if (!rawPhone || rawPhone.length < 7) {
+      if ((!rawPhone || rawPhone.length < 5) && (!rawEmail || !rawEmail.includes('@'))) {
         skipped++;
-        errors.push(`Row ${i + 1} (${fullName}): Valid phone number is required.`);
+        errors.push(`Row ${i + 1} (${fullName}): Either a valid phone number or email address is required.`);
         continue;
       }
 
-      const existing = await prisma.customer.findFirst({
-        where: { phone: rawPhone },
-      });
+      const finalPhone = rawPhone && rawPhone.length >= 5 ? rawPhone : 'N/A';
+      const finalEmail = rawEmail && rawEmail.includes('@') ? rawEmail : null;
+
+      let existing = null;
+      if (finalPhone !== 'N/A') {
+        existing = await prisma.customer.findFirst({
+          where: { phone: finalPhone, isDeleted: false },
+        });
+      } else if (finalEmail) {
+        existing = await prisma.customer.findFirst({
+          where: { email: finalEmail, isDeleted: false },
+        });
+      }
 
       if (existing) {
         if (duplicateAction === 'update') {
@@ -516,7 +534,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
             data: {
               fullName: fullName || existing.fullName,
               alternatePhone: item.alternatePhone || item['Alternate Phone'] ? String(item.alternatePhone || item['Alternate Phone']).trim() : existing.alternatePhone,
-              email: item.email || item['Email'] ? String(item.email || item['Email']).trim().toLowerCase() : existing.email,
+              email: finalEmail || existing.email,
               city: item.city || item['City'] ? String(item.city || item['City']).trim() : existing.city,
               state: item.state || item['State'] ? String(item.state || item['State']).trim() : existing.state,
               notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : existing.notes,
@@ -526,7 +544,8 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
           continue;
         } else if (duplicateAction !== 'new') {
           skipped++;
-          errors.push(`Row ${i + 1} (${fullName}): Phone ${rawPhone} is already registered to "${existing.fullName}".`);
+          const matchField = finalPhone !== 'N/A' ? `Phone ${finalPhone}` : `Email ${finalEmail}`;
+          errors.push(`Row ${i + 1} (${fullName}): ${matchField} is already registered to "${existing.fullName}".`);
           continue;
         }
       }
@@ -534,9 +553,9 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       await prisma.customer.create({
         data: {
           fullName,
-          phone: rawPhone,
+          phone: finalPhone,
           alternatePhone: item.alternatePhone || item['Alternate Phone'] ? String(item.alternatePhone || item['Alternate Phone']).trim() : null,
-          email: item.email || item['Email'] ? String(item.email || item['Email']).trim().toLowerCase() : null,
+          email: finalEmail,
           city: item.city || item['City'] ? String(item.city || item['City']).trim() : null,
           state: item.state || item['State'] ? String(item.state || item['State']).trim() : null,
           country: item.country || item['Country'] ? String(item.country || item['Country']).trim() : 'India',

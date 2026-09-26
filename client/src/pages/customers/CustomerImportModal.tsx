@@ -61,8 +61,8 @@ export const CustomerImportModal: React.FC<CustomerImportModalProps> = ({
 
     try {
       const parsed = await parseSpreadsheetSafely(file, [
-        ['name', 'customer'],
-        ['phone', 'mobile', 'contact'],
+        ['name', 'customer', 'client', 'tourist', 'guest', 'full name', 'lead'],
+        ['phone', 'mobile', 'contact', 'cell', 'tel', 'whatsapp', 'email', 'mail'],
       ]);
 
       const { headers, rawRows } = parsed;
@@ -73,30 +73,36 @@ export const CustomerImportModal: React.FC<CustomerImportModalProps> = ({
         return;
       }
 
-      const nameIdx = headers.findIndex((h) => safeIncludes(h, 'name'));
-      const phoneIdx = headers.findIndex((h) => safeIncludes(h, 'phone') || safeIncludes(h, 'mobile') || safeIncludes(h, 'contact'));
+      const nameIdx = headers.findIndex((h) => 
+        safeIncludes(h, 'name') || safeIncludes(h, 'customer') || safeIncludes(h, 'client') || safeIncludes(h, 'tourist') || safeIncludes(h, 'guest')
+      );
+      const phoneIdx = headers.findIndex((h) => 
+        safeIncludes(h, 'phone') || safeIncludes(h, 'mobile') || safeIncludes(h, 'contact') || safeIncludes(h, 'cell') || safeIncludes(h, 'tel') || safeIncludes(h, 'whatsapp')
+      );
       const emailIdx = headers.findIndex((h) => safeIncludes(h, 'email') || safeIncludes(h, 'mail'));
-      const cityIdx = headers.findIndex((h) => safeIncludes(h, 'city') || safeIncludes(h, 'location'));
-      const sourceIdx = headers.findIndex((h) => safeIncludes(h, 'source'));
-      const notesIdx = headers.findIndex((h) => safeIncludes(h, 'notes') || safeIncludes(h, 'remark'));
+      const cityIdx = headers.findIndex((h) => safeIncludes(h, 'city') || safeIncludes(h, 'location') || safeIncludes(h, 'place') || safeIncludes(h, 'district'));
+      const sourceIdx = headers.findIndex((h) => safeIncludes(h, 'source') || safeIncludes(h, 'lead'));
+      const notesIdx = headers.findIndex((h) => safeIncludes(h, 'notes') || safeIncludes(h, 'remark') || safeIncludes(h, 'comment'));
 
-      if (nameIdx === -1 || phoneIdx === -1) {
+      if (nameIdx === -1 && phoneIdx === -1 && emailIdx === -1) {
         const found = headers.filter((h) => safeStr(h).length > 0).join(', ');
-        setError(`Spreadsheet must have columns for "Full Name" and "Phone Number". Detected columns: ${found || 'None'}`);
+        setError(`Spreadsheet must have columns for Name, and Phone or Email. Detected columns: ${found || 'None'}`);
         setParsedRows([]);
         return;
       }
 
       const rows: ParsedCustomerRow[] = [];
       const seenPhones = new Set<string>();
+      const seenEmails = new Set<string>();
 
       for (let i = 0; i < rawRows.length; i++) {
         const row = rawRows[i];
         if (!row || row.length === 0 || row.every((c: any) => safeStr(c).length === 0)) continue;
 
-        const fullName = safeStr(row[nameIdx]);
-        const cleanPhone = cleanPhoneNumber(row[phoneIdx]);
-        const email = emailIdx !== -1 && row[emailIdx] ? safeStr(row[emailIdx]) : undefined;
+        const fullName = nameIdx !== -1 ? safeStr(row[nameIdx]) : '';
+        const rawPhone = phoneIdx !== -1 ? row[phoneIdx] : '';
+        const cleanPhone = cleanPhoneNumber(rawPhone);
+        const email = emailIdx !== -1 && row[emailIdx] ? safeStr(row[emailIdx]).trim().toLowerCase() : undefined;
         const city = cityIdx !== -1 && row[cityIdx] ? safeStr(row[cityIdx]) : undefined;
         const source = sourceIdx !== -1 && row[sourceIdx] ? safeStr(row[sourceIdx]).toUpperCase() : 'EXCEL_IMPORT';
         const notes = notesIdx !== -1 && row[notesIdx] ? safeStr(row[notesIdx]) : undefined;
@@ -108,20 +114,24 @@ export const CustomerImportModal: React.FC<CustomerImportModalProps> = ({
         if (!fullName) {
           isValid = false;
           validationError = 'Missing Full Name';
-        } else if (!cleanPhone || cleanPhone.length < 8) {
+        } else if ((!cleanPhone || cleanPhone.length < 7) && (!email || !email.includes('@'))) {
           isValid = false;
-          validationError = 'Invalid Phone Number';
-        } else if (seenPhones.has(cleanPhone)) {
+          validationError = 'Either valid Phone or Email required';
+        } else if (cleanPhone && cleanPhone.length >= 7 && seenPhones.has(cleanPhone)) {
           isDuplicate = true;
           validationError = 'Duplicate Phone in File';
+        } else if (!cleanPhone && email && seenEmails.has(email)) {
+          isDuplicate = true;
+          validationError = 'Duplicate Email in File';
         } else {
-          seenPhones.add(cleanPhone);
+          if (cleanPhone && cleanPhone.length >= 7) seenPhones.add(cleanPhone);
+          if (email) seenEmails.add(email);
         }
 
         rows.push({
           rowNumber: i + 1,
-          fullName,
-          phone: cleanPhone || safeStr(row[phoneIdx]),
+          fullName: fullName || 'Unknown',
+          phone: cleanPhone || (rawPhone ? String(rawPhone) : 'N/A'),
           email,
           city,
           source,
