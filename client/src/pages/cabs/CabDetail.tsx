@@ -312,10 +312,10 @@ export const CabDetail: React.FC = () => {
               <button
                 key={st}
                 onClick={() => handleStatusChange(st)}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                   cab.bookingStatus === st
                     ? 'bg-brand-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
                 {st.replace('_', ' ')}
@@ -331,10 +331,10 @@ export const CabDetail: React.FC = () => {
               <button
                 key={pst}
                 onClick={() => handlePaymentStatusChange(pst)}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                   cab.paymentStatus === pst
                     ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
                 {pst}

@@ -624,7 +624,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 tripType === 'SINGLE'
                   ? 'border-[#C91F28] bg-red-50/50 dark:bg-red-950/40 text-[#C91F28] dark:text-red-300 font-bold shadow-2xs'
-                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               <User className="w-4 h-4" />
@@ -636,7 +636,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 tripType === 'GROUP'
                   ? 'border-[#C91F28] bg-red-50/50 dark:bg-red-950/40 text-[#C91F28] dark:text-red-300 font-bold shadow-2xs'
-                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               <Users className="w-4 h-4" />
@@ -742,7 +742,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     className={`w-7 h-7 rounded-lg font-bold text-xs border transition-colors cursor-pointer ${
                       durationDays === d && !isCustomDuration
                         ? 'bg-[#C91F28] text-white border-[#C91F28]'
-                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                   >
                     {d}
@@ -787,7 +787,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     className={`w-7 h-7 rounded-lg font-bold text-xs border transition-colors cursor-pointer ${
                       durationNights === n && !isCustomDuration
                         ? 'bg-[#C91F28] text-white border-[#C91F28]'
-                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                   >
                     {n}

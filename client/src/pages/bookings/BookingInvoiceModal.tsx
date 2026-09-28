@@ -336,7 +336,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                         className={`px-2 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
                           dueOption === days
                             ? 'bg-[#C91F28] text-white'
-                            : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                         }`}
                       >
                         {days}D
@@ -348,7 +348,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                       className={`px-2 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
                         dueOption === 'custom'
                           ? 'bg-[#C91F28] text-white'
-                          : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                       }`}
                     >
                       Custom

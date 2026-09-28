@@ -137,8 +137,8 @@ export const LeadDetail: React.FC = () => {
   if (isLoading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-6 bg-slate-200 rounded w-40" />
-        <div className="h-32 bg-white rounded-xl border border-slate-200" />
+        <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded w-40" />
+        <div className="h-32 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800" />
       </div>
     );
   }

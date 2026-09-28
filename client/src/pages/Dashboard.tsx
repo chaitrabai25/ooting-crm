@@ -635,7 +635,7 @@ export const Dashboard: React.FC = () => {
               <Calendar className="w-4 h-4 text-[#C91F28]" />
               Today's Priority Operational Tasks
             </h2>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Live operational tasks requiring action today. Click tabs to switch categories.
             </p>
           </div>
@@ -644,70 +644,70 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             <button
               onClick={() => setActiveTaskTab('followUps')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTaskTab === 'followUps'
                   ? 'bg-brand-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               <span>Today's Calls</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTaskTab === 'followUps' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                 {todaysTasks.todayFollowUps.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTaskTab('overdue')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTaskTab === 'overdue'
                   ? 'bg-rose-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               <span>Overdue Calls</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTaskTab === 'overdue' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                 {todaysTasks.overdueFollowUps.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTaskTab('departures')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTaskTab === 'departures'
                   ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               <span>Tour Departures</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTaskTab === 'departures' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                 {todaysTasks.todayDepartures.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTaskTab('cabs')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTaskTab === 'cabs'
                   ? 'bg-cyan-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               <span>Cab Pickups</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTaskTab === 'cabs' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                 {todaysTasks.todayCabs.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTaskTab('quotations')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTaskTab === 'quotations'
                   ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               <span>Expiring Quotes</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTaskTab === 'quotations' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                 {todaysTasks.expiringQuotations.length}
               </span>
             </button>
@@ -730,14 +730,14 @@ export const Dashboard: React.FC = () => {
                     className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-brand-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer flex items-center justify-between text-xs"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                      <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
                         <Phone className="w-3.5 h-3.5" />
                       </div>
                       <div>
                         <span className="font-bold text-slate-900 dark:text-slate-100 block">
                           {fu.lead?.customer?.fullName || 'Client'} ({fu.lead?.customer?.phone})
                         </span>
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
                           {fu.type} • Scheduled for {new Date(fu.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           {fu.assignedUser?.name && ` • In-charge: ${fu.assignedUser.name}`}
                         </span>
@@ -761,17 +761,17 @@ export const Dashboard: React.FC = () => {
                   <div
                     key={fu.id}
                     onClick={() => navigate(`/leads/${fu.leadId}`)}
-                    className="p-3 rounded-xl border border-rose-100 dark:border-rose-950/40 bg-rose-50/20 hover:bg-rose-50/50 transition-all cursor-pointer flex items-center justify-between text-xs"
+                    className="p-3 rounded-xl border border-rose-100 dark:border-rose-950/40 bg-rose-50/20 dark:bg-rose-950/20 hover:bg-rose-50/50 dark:hover:bg-rose-950/40 transition-all cursor-pointer flex items-center justify-between text-xs"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-rose-100 text-rose-600">
+                      <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
                         <Clock className="w-3.5 h-3.5" />
                       </div>
                       <div>
                         <span className="font-bold text-slate-900 dark:text-slate-100 block">
                           {fu.lead?.customer?.fullName || 'Client'} ({fu.lead?.customer?.phone})
                         </span>
-                        <span className="text-[11px] text-rose-600 font-semibold">
+                        <span className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold">
                           Overdue since {new Date(fu.scheduledAt).toLocaleDateString('en-IN')}
                         </span>
                       </div>
@@ -797,14 +797,14 @@ export const Dashboard: React.FC = () => {
                     className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-purple-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer flex items-center justify-between text-xs"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
+                      <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
                         <Plane className="w-3.5 h-3.5" />
                       </div>
                       <div>
                         <span className="font-bold text-slate-900 dark:text-slate-100 block">
                           {b.customer?.fullName} • {b.package?.packageName || 'Tour Package'}
                         </span>
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
                           Booking #{b.bookingNumber} • Travellers: {b.travellers}
                         </span>
                       </div>
@@ -830,14 +830,14 @@ export const Dashboard: React.FC = () => {
                     className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-cyan-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer flex items-center justify-between text-xs"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-cyan-50 text-cyan-600">
+                      <div className="p-2 rounded-lg bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400">
                         <Car className="w-3.5 h-3.5" />
                       </div>
                       <div>
                         <span className="font-bold text-slate-900 dark:text-slate-100 block">
                           {c.customerName} ({c.pickupPlace} ➔ {c.dropPlace})
                         </span>
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
                           Pickup: {c.pickupTime} • Car: {c.carNumber || 'To assign'} • Ref: {c.bookingReference}
                         </span>
                       </div>
@@ -863,14 +863,14 @@ export const Dashboard: React.FC = () => {
                     className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-amber-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer flex items-center justify-between text-xs"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
+                      <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
                         <FileText className="w-3.5 h-3.5" />
                       </div>
                       <div>
                         <span className="font-bold text-slate-900 dark:text-slate-100 block">
                           {q.quotationNumber} • {q.customer?.fullName} ({q.destination})
                         </span>
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
                           Amount: ₹{Number(q.finalAmount).toLocaleString('en-IN')} • Sent on {new Date(q.createdAt).toLocaleDateString('en-IN')}
                         </span>
                       </div>

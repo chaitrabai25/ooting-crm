@@ -259,22 +259,22 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
         )}
 
         {resultSummary ? (
-          <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-3">
-            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+          <div className="p-6 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-xl text-center space-y-3">
+            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
               <Check className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-emerald-900">Bookings Import Completed!</h3>
-            <p className="text-xs text-emerald-800">{resultSummary.message}</p>
+            <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-300">Bookings Import Completed!</h3>
+            <p className="text-xs text-emerald-800 dark:text-emerald-400">{resultSummary.message}</p>
             <div className="flex justify-center gap-3 pt-3">
               <button
                 onClick={resetImport}
-                className="px-4 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-lg"
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg cursor-pointer"
               >
                 Import Another File
               </button>
               <button
                 onClick={onClose}
-                className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg shadow-sm"
+                className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg shadow-sm cursor-pointer"
               >
                 Close & View Bookings
               </button>
@@ -288,13 +288,13 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
                 <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
                 <div>
                   <h4 className="font-semibold text-slate-800 dark:text-slate-200">Standard Booking Template</h4>
-                  <p className="text-[11px] text-slate-500">Includes columns for customer info, travel dates, travellers & amounts</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Includes columns for customer info, travel dates, travellers & amounts</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={downloadSampleTemplate}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 rounded-lg transition-colors cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Download Template</span>
@@ -305,7 +305,7 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
             {!fileName ? (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-brand-500 rounded-xl p-8 text-center cursor-pointer bg-slate-50/50 hover:bg-slate-100/50 transition-all"
+                className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 rounded-xl p-8 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100/50 dark:hover:bg-slate-800 transition-all"
               >
                 <input
                   ref={fileInputRef}
@@ -330,7 +330,7 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
                 <button
                   type="button"
                   onClick={resetImport}
-                  className="p-1 text-slate-400 hover:text-slate-600 rounded-md"
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -371,7 +371,7 @@ export const BookingImportModal: React.FC<BookingImportModalProps> = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 font-medium"
+                    className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium cursor-pointer"
                   >
                     Cancel
                   </button>

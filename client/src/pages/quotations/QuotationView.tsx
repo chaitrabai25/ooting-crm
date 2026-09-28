@@ -164,18 +164,18 @@ export const QuotationView: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/quotations')}
-            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900">
+              <h1 className="text-lg font-bold text-slate-900 dark:text-white">
                 {quotation.quotationNumber}
               </h1>
               <Badge status={quotation.status} />
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Prepared for {quotation.customer?.fullName} • {quotation.destination}
             </p>
           </div>

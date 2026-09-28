@@ -446,23 +446,23 @@ export const SettingsPage: React.FC = () => {
 
       {/* CRM Master Data Reference */}
       {masterData && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-6">
           <div>
-            <h2 className="text-sm font-bold text-slate-900">CRM Workflow & Master Taxonomies</h2>
-            <p className="text-[11px] text-slate-500">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">CRM Workflow & Master Taxonomies</h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               Active CRM lifecycle stages and workflow categories enforced across the system
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-xs">
             {/* Lead Statuses */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-              <span className="font-bold text-slate-800 block mb-2">Lead Pipeline Stages</span>
+            <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50/50 dark:bg-slate-850/50">
+              <span className="font-bold text-slate-800 dark:text-slate-200 block mb-2">Lead Pipeline Stages</span>
               <div className="flex flex-wrap gap-1.5">
                 {masterData.leadStatuses.map((st) => (
                   <span
                     key={st}
-                    className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded text-[10px] font-medium"
+                    className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded text-[10px] font-medium"
                   >
                     {st}
                   </span>
@@ -471,13 +471,13 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Booking Statuses */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-              <span className="font-bold text-slate-800 block mb-2">Booking Statuses</span>
+            <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50/50 dark:bg-slate-850/50">
+              <span className="font-bold text-slate-800 dark:text-slate-200 block mb-2">Booking Statuses</span>
               <div className="flex flex-wrap gap-1.5">
                 {masterData.bookingStatuses.map((st) => (
                   <span
                     key={st}
-                    className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded text-[10px] font-medium"
+                    className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded text-[10px] font-medium"
                   >
                     {st}
                   </span>
@@ -486,13 +486,13 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Payment Methods */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-              <span className="font-bold text-slate-800 block mb-2">Payment Methods</span>
+            <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50/50 dark:bg-slate-850/50">
+              <span className="font-bold text-slate-800 dark:text-slate-200 block mb-2">Payment Methods</span>
               <div className="flex flex-wrap gap-1.5">
                 {masterData.paymentMethods.map((pm) => (
                   <span
                     key={pm}
-                    className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded text-[10px] font-medium"
+                    className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded text-[10px] font-medium"
                   >
                     {pm}
                   </span>
@@ -501,13 +501,13 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Follow-up Channels */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-              <span className="font-bold text-slate-800 block mb-2">Follow-up Communication</span>
+            <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50/50 dark:bg-slate-850/50">
+              <span className="font-bold text-slate-800 dark:text-slate-200 block mb-2">Follow-up Communication</span>
               <div className="flex flex-wrap gap-1.5">
                 {masterData.followUpTypes.map((ft) => (
                   <span
                     key={ft}
-                    className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded text-[10px] font-medium"
+                    className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded text-[10px] font-medium"
                   >
                     {ft}
                   </span>
@@ -516,13 +516,13 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Expense Categories */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 md:col-span-2">
-              <span className="font-bold text-slate-800 block mb-2">Expense Categories (P&L Ledger)</span>
+            <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50/50 dark:bg-slate-850/50 md:col-span-2">
+              <span className="font-bold text-slate-800 dark:text-slate-200 block mb-2">Expense Categories (P&L Ledger)</span>
               <div className="flex flex-wrap gap-1.5">
                 {masterData.expenseCategories.map((ec) => (
                   <span
                     key={ec}
-                    className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded text-[10px] font-medium"
+                    className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded text-[10px] font-medium"
                   >
                     {ec.replace('_', ' ')}
                   </span>

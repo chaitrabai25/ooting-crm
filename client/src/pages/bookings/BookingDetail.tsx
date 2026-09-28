@@ -154,8 +154,8 @@ export const BookingDetail: React.FC = () => {
   if (isLoading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-6 bg-slate-200 rounded w-40" />
-        <div className="h-48 bg-white rounded-xl border border-slate-200" />
+        <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded w-40" />
+        <div className="h-48 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800" />
       </div>
     );
   }
@@ -181,16 +181,16 @@ export const BookingDetail: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/bookings')}
-            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900">{booking.bookingNumber}</h1>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">{booking.bookingNumber}</h1>
               <Badge status={booking.bookingStatus} />
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Customer: {booking.customer?.fullName} • Trip:{' '}
               {new Date(booking.travelStartDate).toLocaleDateString()} to{' '}
               {new Date(booking.travelEndDate).toLocaleDateString()}
@@ -198,12 +198,12 @@ export const BookingDetail: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Status selector */}
           <select
             value={booking.bookingStatus}
             onChange={(e) => handleStatusChange(e.target.value)}
-            className="px-2.5 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none"
+            className="px-2.5 py-1.5 text-xs font-semibold border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none"
           >
             <option value="CONFIRMED">Confirmed</option>
             <option value="HOLD">Hold</option>
@@ -214,16 +214,16 @@ export const BookingDetail: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsInvoiceOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors cursor-pointer"
           >
-            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+            <FileText className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>Generate Invoice</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsPaymentOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors cursor-pointer"
           >
             <CreditCard className="w-3.5 h-3.5" />
             <span>Record Payment</span>
@@ -232,7 +232,7 @@ export const BookingDetail: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsExpenseOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors cursor-pointer"
           >
             <Receipt className="w-3.5 h-3.5" />
             <span>Add Expense</span>
@@ -241,7 +241,7 @@ export const BookingDetail: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsDeleteOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-white hover:bg-rose-50 border border-rose-200 rounded-lg shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-lg shadow-xs transition-colors cursor-pointer"
             title="Delete Booking"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -257,8 +257,8 @@ export const BookingDetail: React.FC = () => {
           value={formatCurrency(financials.finalAmount)}
           subtitle={financials.discount > 0 ? `Saved: ₹${financials.discount}` : 'Net trip value'}
           icon={CreditCard}
-          iconBg="bg-blue-50"
-          iconColor="text-blue-600"
+          iconBg="bg-blue-50 dark:bg-blue-950/50"
+          iconColor="text-blue-600 dark:text-blue-400"
         />
 
         <StatCard
@@ -266,8 +266,8 @@ export const BookingDetail: React.FC = () => {
           value={formatCurrency(financials.amountPaid)}
           subtitle="Settled receipts"
           icon={CheckCircle2}
-          iconBg="bg-emerald-50"
-          iconColor="text-emerald-600"
+          iconBg="bg-emerald-50 dark:bg-emerald-950/50"
+          iconColor="text-emerald-600 dark:text-emerald-400"
         />
 
         <StatCard
@@ -275,8 +275,8 @@ export const BookingDetail: React.FC = () => {
           value={formatCurrency(financials.balanceDue)}
           subtitle="Pending receivable"
           icon={AlertCircle}
-          iconBg="bg-rose-50"
-          iconColor={financials.balanceDue > 0 ? 'text-rose-600' : 'text-slate-400'}
+          iconBg="bg-rose-50 dark:bg-rose-950/50"
+          iconColor={financials.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}
         />
 
         <StatCard
@@ -284,8 +284,8 @@ export const BookingDetail: React.FC = () => {
           value={formatCurrency(financials.totalExpenses)}
           subtitle="Hotels, cabs & vendors"
           icon={Receipt}
-          iconBg="bg-amber-50"
-          iconColor="text-amber-600"
+          iconBg="bg-amber-50 dark:bg-amber-950/50"
+          iconColor="text-amber-600 dark:text-amber-400"
         />
 
         <StatCard
@@ -293,8 +293,8 @@ export const BookingDetail: React.FC = () => {
           value={formatCurrency(financials.grossProfit)}
           subtitle="Revenue minus expenses"
           icon={CreditCard}
-          iconBg="bg-purple-50"
-          iconColor="text-purple-600"
+          iconBg="bg-purple-50 dark:bg-purple-950/50"
+          iconColor="text-purple-600 dark:text-purple-400"
         />
       </div>
 
@@ -302,72 +302,72 @@ export const BookingDetail: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Customer & Itinerary info */}
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs space-y-3 text-xs">
-            <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs space-y-3 text-xs">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
               Customer Information
             </h3>
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-slate-400" />
               <span
                 onClick={() => navigate(`/customers/${booking.customer?.id}`)}
-                className="font-semibold text-slate-900 hover:text-brand-600 cursor-pointer"
+                className="font-semibold text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer"
               >
                 {booking.customer?.fullName}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Phone className="w-4 h-4 text-slate-400" />
-              <span className="text-slate-700">{booking.customer?.phone}</span>
+              <span className="text-slate-700 dark:text-slate-300">{booking.customer?.phone}</span>
             </div>
             {booking.customer?.city && (
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-slate-400" />
-                <span className="text-slate-700">{booking.customer?.city}</span>
+                <span className="text-slate-700 dark:text-slate-300">{booking.customer?.city}</span>
               </div>
             )}
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs space-y-2.5 text-xs">
-            <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs space-y-2.5 text-xs">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
               Tour Summary
             </h3>
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Package:</span>
-              <span className="font-semibold text-slate-800">
+            <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Package:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
                 {booking.package?.packageName || 'Custom Package'}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Trip Type:</span>
-              <span className="font-semibold text-slate-800">
+            <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Trip Type:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
                 {booking.tripType === 'GROUP' ? 'Group Trip' : 'Single / Individual'}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Duration:</span>
-              <span className="font-bold text-[#C91F28]">
+            <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Duration:</span>
+              <span className="font-bold text-[#C91F28] dark:text-rose-400">
                 {booking.durationDays || 1} {booking.durationDays === 1 ? 'Day' : 'Days'} / {booking.durationNights || 0} {booking.durationNights === 1 ? 'Night' : 'Nights'}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Travellers:</span>
-              <span className="font-semibold text-slate-800">{booking.travellers} Pax</span>
+            <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Travellers:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{booking.travellers} Pax</span>
             </div>
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Travel Start:</span>
-              <span className="font-semibold text-slate-800">
+            <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Travel Start:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
                 {new Date(booking.travelStartDate).toLocaleDateString()}
               </span>
             </div>
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Travel End:</span>
-              <span className="font-semibold text-slate-800">
+            <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Travel End:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
                 {new Date(booking.travelEndDate).toLocaleDateString()}
               </span>
             </div>
             <div className="flex justify-between py-1">
-              <span className="text-slate-500">Assigned Staff:</span>
-              <span className="font-semibold text-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Assigned Staff:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
                 {booking.assignedUser?.name || 'Unassigned'}
               </span>
             </div>
@@ -375,21 +375,21 @@ export const BookingDetail: React.FC = () => {
 
           {/* B2B Agent Card */}
           {booking.agentBooking && (
-            <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs space-y-2">
+            <div className="bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 p-4 rounded-xl text-xs space-y-2">
               <div className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-brand-600" />
-                <span className="font-bold text-slate-800">B2B Agent Partnership</span>
+                <Briefcase className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                <span className="font-bold text-slate-800 dark:text-slate-200">B2B Agent Partnership</span>
               </div>
-              <p className="text-slate-700">
-                Partner: <span className="font-semibold">{booking.agentBooking.agent?.companyName}</span>
+              <p className="text-slate-700 dark:text-slate-300">
+                Partner: <span className="font-semibold text-slate-900 dark:text-slate-100">{booking.agentBooking.agent?.companyName}</span>
               </p>
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
                 <span>Commission ({booking.agentBooking.commissionRate}%):</span>
-                <span className="font-semibold text-brand-600">
+                <span className="font-semibold text-brand-600 dark:text-brand-400">
                   {formatCurrency(booking.agentBooking.commissionAmount)}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
                 <span>Payout Status:</span>
                 <Badge status={booking.agentBooking.payoutStatus} />
               </div>
@@ -411,25 +411,25 @@ export const BookingDetail: React.FC = () => {
             if (!providers || providers.length === 0) return null;
 
             return (
-              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs space-y-2.5">
+              <div className="bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 p-4 rounded-xl text-xs space-y-2.5">
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-[#C91F28]" />
-                  <span className="font-bold text-slate-800">Linked Service Providers ({providers.length})</span>
+                  <Building2 className="w-4 h-4 text-[#C91F28] dark:text-rose-400" />
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Linked Service Providers ({providers.length})</span>
                 </div>
                 <div className="space-y-2">
                   {providers.map((p: any, idx: number) => (
-                    <div key={idx} className="p-2.5 rounded-lg bg-white border border-slate-200/80 space-y-1">
+                    <div key={idx} className="p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">{p.supplierName}</span>
-                        <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <span className="font-bold text-slate-900 dark:text-slate-100">{p.supplierName}</span>
+                        <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                           {p.category}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-600">
+                      <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300">
                         <span>Tier: <strong>{p.tier || 'Silver'}</strong></span>
-                        {p.rate > 0 && <span className="font-bold text-slate-900">Cost: ₹{Number(p.rate).toLocaleString('en-IN')}</span>}
+                        {p.rate > 0 && <span className="font-bold text-slate-900 dark:text-slate-100">Cost: ₹{Number(p.rate).toLocaleString('en-IN')}</span>}
                       </div>
-                      {p.notes && <p className="text-[10px] text-slate-500 italic mt-0.5">Notes: {p.notes}</p>}
+                      {p.notes && <p className="text-[10px] text-slate-500 dark:text-slate-400 italic mt-0.5">Notes: {p.notes}</p>}
                     </div>
                   ))}
                 </div>
@@ -441,17 +441,17 @@ export const BookingDetail: React.FC = () => {
         {/* Right 2 Columns: Travellers, Payment Ledger & Expense Breakdown */}
         <div className="lg:col-span-2 space-y-6">
           {/* Passengers & Travellers Roster */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3.5">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-red-50 text-[#C91F28] rounded-lg">
+                <div className="p-1.5 bg-red-50 dark:bg-red-950/50 text-[#C91F28] dark:text-rose-400 rounded-lg">
                   <Users className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Passengers & Travellers Roster ({booking.travellersList?.length || booking.travellers} Pax)
                   </h3>
-                  <p className="text-[11px] text-slate-500">Verified travellers and contact information for this trip</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Verified travellers and contact information for this trip</p>
                 </div>
               </div>
               <button
@@ -466,40 +466,40 @@ export const BookingDetail: React.FC = () => {
             </div>
 
             {(!booking.travellersList || booking.travellersList.length === 0) ? (
-              <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl text-center text-xs text-slate-500">
-                <p>Primary booker: <span className="font-semibold text-slate-800">{booking.customer?.fullName}</span> ({booking.customer?.phone})</p>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 rounded-xl text-center text-xs text-slate-500 dark:text-slate-400">
+                <p>Primary booker: <span className="font-semibold text-slate-800 dark:text-slate-200">{booking.customer?.fullName}</span> ({booking.customer?.phone})</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {booking.travellersList.map((t: any, idx: number) => (
-                  <div key={t.id || idx} className="p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-1.5 text-xs">
+                  <div key={t.id || idx} className="p-3 bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 rounded-xl space-y-1.5 text-xs">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-red-100 text-[#C91F28] font-bold text-[10px] flex items-center justify-center">
+                        <span className="w-5 h-5 rounded-full bg-red-100 dark:bg-red-950/80 text-[#C91F28] dark:text-rose-400 font-bold text-[10px] flex items-center justify-center">
                           {idx + 1}
                         </span>
-                        <span className="font-bold text-slate-900">{t.name}</span>
+                        <span className="font-bold text-slate-900 dark:text-slate-100">{t.name}</span>
                       </div>
                       {t.isPrimary && (
-                        <span className="text-[10px] bg-red-100 text-[#C91F28] font-semibold px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] bg-red-100 dark:bg-red-950/80 text-[#C91F28] dark:text-rose-400 font-semibold px-2 py-0.5 rounded-full">
                           Primary Booker
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                    <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
                       <span>Age: {t.age ?? '—'}</span>
                       <span>•</span>
                       <span className="capitalize">{t.gender ? t.gender.toLowerCase() : 'Not specified'}</span>
                     </div>
                     {(t.phone || t.email) && (
-                      <div className="pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-600 space-y-0.5">
+                      <div className="pt-1.5 border-t border-slate-200/60 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300 space-y-0.5">
                         {t.phone && <div className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-slate-400" /> {t.phone}</div>}
                         {t.email && <div className="flex items-center gap-1.5">✉️ {t.email}</div>}
                       </div>
                     )}
                     {(t.idNumber || t.address) && (
-                      <div className="pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-600 space-y-0.5">
-                        {t.idNumber && <div>🪪 ID/Passport: <strong>{t.idNumber}</strong></div>}
+                      <div className="pt-1.5 border-t border-slate-200/60 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300 space-y-0.5">
+                        {t.idNumber && <div>🪪 ID/Passport: <strong className="text-slate-900 dark:text-slate-100">{t.idNumber}</strong></div>}
                         {t.address && <div>📍 {t.address}</div>}
                       </div>
                     )}
@@ -510,16 +510,16 @@ export const BookingDetail: React.FC = () => {
           </div>
 
           {/* Payment Receipts Ledger */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Payments & Receipts</h3>
-                <p className="text-xs text-slate-500">Settled client payments towards this trip</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Payments & Receipts</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Settled client payments towards this trip</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPaymentOpen(true)}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Payment</span>
@@ -530,13 +530,13 @@ export const BookingDetail: React.FC = () => {
               <EmptyState
                 title="No payments recorded"
                 description="Click '+ Record Payment' to log an advance or full payment."
-                className="py-6 border-none bg-slate-50/50"
+                className="py-6 border-none bg-slate-50/50 dark:bg-slate-850/50"
               />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-500">
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
                       <th className="pb-2 font-semibold">Date</th>
                       <th className="pb-2 font-semibold">Method</th>
                       <th className="pb-2 font-semibold">Reference</th>
@@ -544,15 +544,15 @@ export const BookingDetail: React.FC = () => {
                       <th className="pb-2 font-semibold">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {booking.payments.map((p: any) => (
                       <tr key={p.id}>
-                        <td className="py-2.5 text-slate-700">
+                        <td className="py-2.5 text-slate-700 dark:text-slate-300">
                           {new Date(p.paymentDate).toLocaleDateString()}
                         </td>
-                        <td className="py-2.5 font-semibold text-slate-800">{p.paymentMethod}</td>
-                        <td className="py-2.5 text-slate-500">{p.transactionReference || '—'}</td>
-                        <td className="py-2.5 font-bold text-emerald-600">
+                        <td className="py-2.5 font-semibold text-slate-800 dark:text-slate-200">{p.paymentMethod}</td>
+                        <td className="py-2.5 text-slate-500 dark:text-slate-400">{p.transactionReference || '—'}</td>
+                        <td className="py-2.5 font-bold text-emerald-600 dark:text-emerald-400">
                           {formatCurrency(p.amount)}
                         </td>
                         <td className="py-2.5">
@@ -567,16 +567,16 @@ export const BookingDetail: React.FC = () => {
           </div>
 
           {/* Operating Expenses Ledger */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Trip Expenses</h3>
-                <p className="text-xs text-slate-500">Hotel vouchers, transport, safari permits, etc.</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Trip Expenses</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Hotel vouchers, transport, safari permits, etc.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsExpenseOpen(true)}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Expense</span>
@@ -587,30 +587,30 @@ export const BookingDetail: React.FC = () => {
               <EmptyState
                 title="No expenses logged"
                 description="Record vendor disbursements to monitor actual trip profit."
-                className="py-6 border-none bg-slate-50/50"
+                className="py-6 border-none bg-slate-50/50 dark:bg-slate-850/50"
               />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-500">
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
                       <th className="pb-2 font-semibold">Date</th>
                       <th className="pb-2 font-semibold">Category</th>
                       <th className="pb-2 font-semibold">Description</th>
                       <th className="pb-2 font-semibold">Amount</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {booking.expenses.map((e: any) => (
                       <tr key={e.id}>
-                        <td className="py-2.5 text-slate-700">
+                        <td className="py-2.5 text-slate-700 dark:text-slate-300">
                           {new Date(e.expenseDate).toLocaleDateString()}
                         </td>
-                        <td className="py-2.5 font-semibold text-slate-800">
+                        <td className="py-2.5 font-semibold text-slate-800 dark:text-slate-200">
                           {e.category.replace('_', ' ')}
                         </td>
-                        <td className="py-2.5 text-slate-600">{e.description}</td>
-                        <td className="py-2.5 font-bold text-slate-900">
+                        <td className="py-2.5 text-slate-600 dark:text-slate-300">{e.description}</td>
+                        <td className="py-2.5 font-bold text-slate-900 dark:text-slate-100">
                           {formatCurrency(e.amount)}
                         </td>
                       </tr>
@@ -648,11 +648,11 @@ export const BookingDetail: React.FC = () => {
       >
         <form onSubmit={handleRecordExpense} className="space-y-4 text-xs">
           <div>
-            <label className="font-semibold text-slate-700">Expense Category *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Expense Category *</label>
             <select
               value={expenseCategory}
               onChange={(e) => setExpenseCategory(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             >
               <option value="HOTEL_BOOKING">Hotel Booking</option>
               <option value="TRANSPORT">Transport & Cab</option>
@@ -664,26 +664,26 @@ export const BookingDetail: React.FC = () => {
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700">Amount (₹) *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Amount (₹) *</label>
             <input
               type="number"
               min="1"
               required
               value={expenseAmount}
               onChange={(e) => setExpenseAmount(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-bold"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-bold bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700">Description *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Description *</label>
             <textarea
               rows={2}
               required
               value={expenseDesc}
               onChange={(e) => setExpenseDesc(e.target.value)}
               placeholder="e.g. Paid advance to hotel resort for 3 nights..."
-              className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
 
@@ -691,14 +691,14 @@ export const BookingDetail: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsExpenseOpen(false)}
-              className="px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-3 py-1.5 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSavingExpense}
-              className="px-4 py-1.5 font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm disabled:opacity-50"
+              className="px-4 py-1.5 font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm disabled:opacity-50 cursor-pointer"
             >
               {isSavingExpense ? 'Saving...' : 'Add Expense'}
             </button>

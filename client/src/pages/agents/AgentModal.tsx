@@ -98,83 +98,83 @@ export const AgentModal: React.FC<AgentModalProps> = ({
         )}
 
         <div>
-          <label className="font-semibold text-slate-700">Agency / Company Name *</label>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Agency / Company Name *</label>
           <input
             type="text"
             required
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="e.g. Skyline Travels Private Limited"
-            className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none font-semibold"
+            className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none font-semibold"
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Key Contact Person *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Key Contact Person *</label>
             <input
               type="text"
               required
               value={contactPerson}
               onChange={(e) => setContactPerson(e.target.value)}
               placeholder="e.g. Vikram Sethi"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">Contact Phone *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Contact Phone *</label>
             <input
               type="tel"
               required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+91 98765 11223"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Email Address</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Email Address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="agent@skylinetravels.com"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">GSTIN / Tax ID</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">GSTIN / Tax ID</label>
             <input
               type="text"
               value={gstNumber}
               onChange={(e) => setGstNumber(e.target.value)}
               placeholder="29AAAAA0000A1Z5"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none uppercase font-mono"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none uppercase font-mono"
             />
           </div>
           <div>
-            <label className="font-semibold text-slate-700">PAN Number</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">PAN Number</label>
             <input
               type="text"
               value={panNumber}
               onChange={(e) => setPanNumber(e.target.value)}
               placeholder="ABCDE1234F"
               maxLength={10}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none uppercase font-mono"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none uppercase font-mono"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Agent Tier</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Agent Tier</label>
             <select
               value={agentType}
               onChange={(e) => setAgentType(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white font-semibold"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold"
             >
               <option value="Diamond">💎 Diamond</option>
               <option value="Gold">🥇 Gold</option>
@@ -182,11 +182,11 @@ export const AgentModal: React.FC<AgentModalProps> = ({
             </select>
           </div>
           <div>
-            <label className="font-semibold text-slate-700">Status</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             >
               <option value="ACTIVE">Active Partner</option>
               <option value="INACTIVE">Inactive</option>
@@ -205,20 +205,20 @@ export const AgentModal: React.FC<AgentModalProps> = ({
         />
 
         {/* Google Review Section */}
-        <div className="p-4 bg-amber-50/50 border border-amber-200/80 rounded-2xl space-y-3">
+        <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 rounded-2xl space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1 bg-white border border-amber-200 rounded-md shadow-2xs">
+              <div className="p-1 bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-800/60 rounded-md shadow-2xs">
                 <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
               </div>
-              <span className="font-bold text-slate-900 text-xs">Google Review & Reputation</span>
+              <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">Google Review & Reputation</span>
             </div>
             {googleReviewUrl && (
               <a
                 href={googleReviewUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#C91F28] hover:underline bg-white px-2.5 py-1 rounded-lg border border-red-200"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#C91F28] hover:underline bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-900/60"
               >
                 <span>Test Link</span>
                 <ExternalLink className="w-3 h-3" />
@@ -228,17 +228,17 @@ export const AgentModal: React.FC<AgentModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
-              <label className="font-semibold text-slate-700">Google Review URL</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Google Review URL</label>
               <input
                 type="url"
                 value={googleReviewUrl}
                 onChange={(e) => setGoogleReviewUrl(e.target.value)}
                 placeholder="https://g.page/r/... or https://maps.app.goo.gl/..."
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700">Rating (1-5)</label>
+              <label className="font-semibold text-slate-700 dark:text-slate-300">Rating (1-5)</label>
               <input
                 type="number"
                 step="0.1"
@@ -247,35 +247,35 @@ export const AgentModal: React.FC<AgentModalProps> = ({
                 value={googleReviewRating}
                 onChange={(e) => setGoogleReviewRating(e.target.value ? Number(e.target.value) : '')}
                 placeholder="4.8"
-                className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white font-bold"
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none font-bold"
               />
             </div>
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700">Review Highlights / Testimonial</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Review Highlights / Testimonial</label>
             <input
               type="text"
               value={googleReviewNotes}
               onChange={(e) => setGoogleReviewNotes(e.target.value)}
               placeholder="e.g. Highly trusted B2B partner with 100+ 5-star Google reviews"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
+        <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+            className="px-4 py-2 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-5 py-2 font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-sm disabled:opacity-50 transition-all"
+            className="px-5 py-2 font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-sm disabled:opacity-50 transition-all cursor-pointer"
           >
             {isSubmitting ? 'Saving...' : initialData ? 'Update Agent' : 'Register Agent'}
           </button>

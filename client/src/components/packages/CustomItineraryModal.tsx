@@ -767,7 +767,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           type="button"
                           onClick={() => handleMoveDay(activeDayIndex, 'up')}
                           disabled={activeDayIndex === 0}
-                          className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                          className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
                           title="Move Day Up"
                         >
                           <ChevronUp className="w-4 h-4" />
@@ -776,7 +776,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           type="button"
                           onClick={() => handleMoveDay(activeDayIndex, 'down')}
                           disabled={activeDayIndex === days.length - 1}
-                          className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                          className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
                           title="Move Day Down"
                         >
                           <ChevronDown className="w-4 h-4" />

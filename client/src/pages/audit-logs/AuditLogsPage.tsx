@@ -129,17 +129,17 @@ export const AuditLogsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Shield className="w-5 h-5 text-brand-600" />
             Security & Audit Activity Trail
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Immutable log of user actions, lead status changes, payments, and system events ({total} entries)
           </p>
         </div>
         <button
           onClick={() => fetchLogs()}
-          className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg shadow-sm transition"
+          className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg shadow-sm transition cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           Refresh Log
@@ -147,10 +147,10 @@ export const AuditLogsPage: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap gap-3 items-center">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-semibold text-slate-700">Filter By:</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Filter By:</span>
         </div>
 
         <select
@@ -159,7 +159,7 @@ export const AuditLogsPage: React.FC = () => {
             setEntityFilter(e.target.value);
             setPage(1);
           }}
-          className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
         >
           <option value="">All Entities</option>
           <option value="LEAD">Leads</option>
@@ -180,7 +180,7 @@ export const AuditLogsPage: React.FC = () => {
             setActionFilter(e.target.value);
             setPage(1);
           }}
-          className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
         >
           <option value="">All Actions</option>
           <option value="CREATE">Create</option>

@@ -560,7 +560,7 @@ export const CalendarPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleToday}
-                className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-lg transition-colors"
+                className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
               >
                 Today
               </button>
@@ -809,7 +809,7 @@ export const CalendarPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedEvent(null)}
-                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-medium"
+                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-200 font-medium cursor-pointer transition-colors"
               >
                 Close
               </button>

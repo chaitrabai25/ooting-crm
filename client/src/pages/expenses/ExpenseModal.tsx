@@ -68,11 +68,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         )}
 
         <div>
-          <label className="font-semibold text-slate-700">Expense Category *</label>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Expense Category *</label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+            className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
           >
             <option value="HOTEL_BOOKING">Hotel Booking</option>
             <option value="TRANSPORT">Transport & Cab</option>
@@ -87,7 +87,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="font-semibold text-slate-700">Amount (₹) *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Amount (₹) *</label>
             <input
               type="number"
               min="1"
@@ -95,28 +95,28 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="e.g. 5000"
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-bold"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-bold"
             />
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700">Expense Date *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Expense Date *</label>
             <input
               type="date"
               required
               value={expenseDate}
               onChange={(e) => setExpenseDate(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
             />
           </div>
         </div>
 
         <div>
-          <label className="font-semibold text-slate-700">Related Booking (Optional)</label>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Related Booking (Optional)</label>
           <select
             value={bookingId}
             onChange={(e) => setBookingId(e.target.value)}
-            className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white"
+            className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
           >
             <option value="">-- General Operational Expense (No Booking) --</option>
             {bookings.map((b) => (
@@ -128,29 +128,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         </div>
 
         <div>
-          <label className="font-semibold text-slate-700">Description *</label>
+          <label className="font-semibold text-slate-700 dark:text-slate-300">Description *</label>
           <textarea
             rows={3}
             required
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="e.g. Paid cab chauffeur advance for 3 days Mysore trip..."
-            className="mt-1 w-full p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+            className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
           />
         </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100 rounded-lg"
+            className="px-4 py-2 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-4 py-2 font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm disabled:opacity-50"
+            className="px-4 py-2 font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm disabled:opacity-50 cursor-pointer"
           >
             {isSubmitting ? 'Saving...' : 'Add Expense'}
           </button>

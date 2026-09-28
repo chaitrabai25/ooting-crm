@@ -226,8 +226,8 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsNewCustomer(true)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                    isNewCustomer ? 'bg-[#C91F28] text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    isNewCustomer ? 'bg-[#C91F28] text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   + New Customer
@@ -235,8 +235,8 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsNewCustomer(false)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                    !isNewCustomer ? 'bg-[#C91F28] text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    !isNewCustomer ? 'bg-[#C91F28] text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   Existing Customer

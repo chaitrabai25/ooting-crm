@@ -154,17 +154,17 @@ export const UserList: React.FC = () => {
               setIsModalOpen(true);
             }}
             title="Edit User"
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded transition"
+            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition cursor-pointer"
           >
             <Edit className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleToggleStatus(u)}
             title={u.status === 'ACTIVE' ? 'Deactivate User' : 'Activate User'}
-            className={`p-1.5 rounded transition ${
+            className={`p-1.5 rounded transition cursor-pointer ${
               u.status === 'ACTIVE'
                 ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             {u.status === 'ACTIVE' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
@@ -173,7 +173,7 @@ export const UserList: React.FC = () => {
             <button
               onClick={() => setDeletingUser(u)}
               title="Delete Staff User"
-              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
             </button>

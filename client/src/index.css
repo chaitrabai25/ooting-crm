@@ -136,45 +136,83 @@ html.dark select:-webkit-autofill,
 }
 
 /* ==========================================================================
-   GLOBAL DARK THEME TEXT VISIBILITY SAFEGUARDS
-   Ensures all text across all CRM sections is razor-sharp and high-contrast
-   while strictly preserving printable white-paper documents
+   GLOBAL DARK THEME TEXT VISIBILITY & CURSOR-ENTER HOVER SAFEGUARDS
+   Ensures all text across all CRM sections is razor-sharp and high-contrast,
+   and prevents elements from disappearing or flashing when cursor enters (hover),
+   while strictly preserving printable white-paper documents.
    ========================================================================== */
+
+/* 1. Universal Heading Contrast */
 .dark h1:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
 .dark h2:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
 .dark h3:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
-.dark h4:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+.dark h4:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark h5:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark h6:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
   color: #f8fafc;
 }
 
-.dark p.text-slate-700,
-.dark span.text-slate-700,
-.dark div.text-slate-700 {
-  color: #cbd5e1;
+/* 2. Universal Base Text Contrast (without explicit dark:text-*) */
+.dark :is(p, span, div, a, button, th, td, li):is(.text-slate-900, .text-gray-900):not([class*="dark:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+  color: #f8fafc;
 }
 
-.dark p.text-slate-800,
-.dark span.text-slate-800,
-.dark div.text-slate-800 {
+.dark :is(p, span, div, a, button, th, td, li):is(.text-slate-800, .text-gray-800):not([class*="dark:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
   color: #e2e8f0;
 }
 
-.dark p.text-slate-900,
-.dark span.text-slate-900,
-.dark div.text-slate-900 {
-  color: #f8fafc;
+.dark :is(p, span, div, a, button, th, td, li):is(.text-slate-700, .text-gray-700):not([class*="dark:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+  color: #cbd5e1;
 }
 
-.dark p.text-slate-600,
-.dark span.text-slate-600,
-.dark div.text-slate-600 {
+.dark :is(p, span, div, a, button, th, td, li):is(.text-slate-600, .text-gray-600):not([class*="dark:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
   color: #94a3b8;
 }
 
-.dark label.text-slate-700,
-.dark label.text-slate-800,
-.dark label.text-slate-900 {
+.dark label:is(.text-slate-900, .text-slate-800, .text-slate-700, .text-gray-900, .text-gray-800, .text-gray-700):not([class*="dark:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
   color: #f1f5f9;
+}
+
+/* 3. CURSOR ENTER (HOVER) TEXT PROTECTION:
+   Prevents text from turning near-black on dark background when cursor enters */
+.dark [class*="hover:text-slate-900"]:hover:not([class*="dark:hover:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark [class*="hover:text-slate-800"]:hover:not([class*="dark:hover:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark [class*="hover:text-slate-700"]:hover:not([class*="dark:hover:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark [class*="hover:text-gray-900"]:hover:not([class*="dark:hover:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark [class*="hover:text-gray-800"]:hover:not([class*="dark:hover:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+  color: #ffffff !important;
+}
+
+.dark .group:hover [class*="group-hover:text-slate-900"]:not([class*="dark:group-hover:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark .group:hover [class*="group-hover:text-slate-800"]:not([class*="dark:group-hover:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark .group:hover [class*="group-hover:text-slate-700"]:not([class*="dark:group-hover:text-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+  color: #ffffff !important;
+}
+
+/* 4. CURSOR ENTER (HOVER) BACKGROUND PROTECTION:
+   Prevents buttons and rows from flashing light gray/white on hover in dark theme */
+.dark [class*="hover:bg-slate-50"]:hover:not([class*="dark:hover:bg-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark [class*="hover:bg-slate-100"]:hover:not([class*="dark:hover:bg-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark [class*="hover:bg-slate-200"]:hover:not([class*="dark:hover:bg-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark [class*="hover:bg-gray-50"]:hover:not([class*="dark:hover:bg-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark [class*="hover:bg-gray-100"]:hover:not([class*="dark:hover:bg-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark [class*="hover:bg-gray-200"]:hover:not([class*="dark:hover:bg-"]):not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+  background-color: #1e293b !important;
+}
+
+/* 5. Table Rows & Headers Hover and Contrast in Dark Theme */
+.dark table tbody tr:hover:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+  background-color: rgba(30, 41, 59, 0.7) !important;
+}
+
+.dark table thead th:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+  background-color: rgba(15, 23, 42, 0.75) !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+
+.dark table tbody td:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+  border-color: #1e293b !important;
 }
 
 /* Custom Scrollbar for professional CRM appearance */

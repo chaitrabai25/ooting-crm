@@ -59,10 +59,10 @@ export const AnalyticsPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="space-y-6 animate-pulse">
-        <div className="h-8 bg-slate-200 rounded w-48" />
+        <div className="h-8 bg-slate-200 dark:bg-slate-800 rounded w-48" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="h-72 bg-white rounded-xl border border-slate-200" />
-          <div className="h-72 bg-white rounded-xl border border-slate-200" />
+          <div className="h-72 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800" />
+          <div className="h-72 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800" />
         </div>
       </div>
     );
@@ -81,8 +81,8 @@ export const AnalyticsPage: React.FC = () => {
     <div className="space-y-7 pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">Advanced Business Analytics</h1>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Advanced Business Analytics</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Data-driven metrics computed strictly from database transactions, bookings, and receipts.
         </p>
       </div>
@@ -129,9 +129,9 @@ export const AnalyticsPage: React.FC = () => {
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 1. Monthly Financials (Booking Value vs Receipts vs Expenses) */}
-        <div className="crm-card-interactive bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-slate-900 mb-1">Monthly Financial Trajectory</h3>
-          <p className="text-xs text-slate-500 mb-4">Bookings value vs Collected cash vs Operating expenses</p>
+        <div className="crm-card-interactive bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Monthly Financial Trajectory</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Bookings value vs Collected cash vs Operating expenses</p>
 
           <div className="h-64 w-full">
             {salesTrend.every((s: any) => s.bookingValue === 0 && s.collected === 0 && s.expenses === 0) ? (
@@ -166,9 +166,9 @@ export const AnalyticsPage: React.FC = () => {
         </div>
 
         {/* 2. Destination Popularity & Revenue */}
-        <div className="crm-card-interactive bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-slate-900 mb-1">Top Destinations</h3>
-          <p className="text-xs text-slate-500 mb-4">Ranked by actual confirmed bookings and generated revenue</p>
+        <div className="crm-card-interactive bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Top Destinations</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Ranked by actual confirmed bookings and generated revenue</p>
 
           <div className="h-64 w-full">
             {destinationAnalytics.length === 0 ? (
@@ -207,12 +207,12 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* Sales Staff Performance Table */}
-      <div className="crm-card-interactive bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+      <div className="crm-card-interactive bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
         <div className="flex items-center gap-2 mb-1">
           <Award className="w-4 h-4 text-brand-600" />
-          <h3 className="text-sm font-bold text-slate-900">Sales Staff Performance & Conversion</h3>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Sales Staff Performance & Conversion</h3>
         </div>
-        <p className="text-xs text-slate-500 mb-4">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
           Individual conversion rates, bookings generated, revenue contribution, and completed client follow-ups.
         </p>
 
@@ -226,7 +226,7 @@ export const AnalyticsPage: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/75 text-slate-500">
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400">
                   <th className="py-2.5 px-3 font-semibold">Staff Member</th>
                   <th className="py-2.5 px-3 font-semibold">Role</th>
                   <th className="py-2.5 px-3 font-semibold">Leads Assigned</th>
@@ -237,25 +237,25 @@ export const AnalyticsPage: React.FC = () => {
                   <th className="py-2.5 px-3 font-semibold">Follow-ups Done</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {staffPerformance.map((s: any) => (
-                  <tr key={s.id} className="hover:bg-slate-50/60">
-                    <td className="py-3 px-3 font-bold text-slate-800">{s.name}</td>
-                    <td className="py-3 px-3 text-slate-500 uppercase text-[10px] font-semibold">
+                  <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-100">{s.name}</td>
+                    <td className="py-3 px-3 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-semibold">
                       {s.role}
                     </td>
-                    <td className="py-3 px-3 font-semibold text-slate-700">{s.leadsAssigned}</td>
-                    <td className="py-3 px-3 font-semibold text-emerald-600">{s.leadsConverted}</td>
-                    <td className="py-3 px-3 font-bold text-slate-900">
-                      <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                    <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-300">{s.leadsAssigned}</td>
+                    <td className="py-3 px-3 font-semibold text-emerald-600 dark:text-emerald-400">{s.leadsConverted}</td>
+                    <td className="py-3 px-3 font-bold text-slate-900 dark:text-slate-100">
+                      <span className="px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
                         {s.conversionRate}%
                       </span>
                     </td>
-                    <td className="py-3 px-3 font-semibold text-slate-800">{s.bookingsCount}</td>
-                    <td className="py-3 px-3 font-bold text-brand-600">
+                    <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200">{s.bookingsCount}</td>
+                    <td className="py-3 px-3 font-bold text-brand-600 dark:text-brand-400">
                       {formatCurrency(s.revenue)}
                     </td>
-                    <td className="py-3 px-3 font-semibold text-slate-700">
+                    <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-300">
                       {s.followUpsCompleted}
                     </td>
                   </tr>

@@ -657,13 +657,13 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
               {!imagePreview ? (
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#C91F28] bg-slate-50 dark:bg-slate-850 p-6 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-slate-100 min-h-[220px]"
+                  className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#C91F28] bg-slate-50 dark:bg-slate-850 p-6 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-800 min-h-[220px]"
                 >
                   <Upload className="w-8 h-8 text-slate-400 mb-2" />
                   <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
                     Upload Payment Screenshot
                   </span>
-                  <span className="text-[10px] text-slate-500 mt-1 max-w-[200px]">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 max-w-[200px]">
                     Supports PhonePe, Google Pay, Paytm, BHIM, Bank Transfer screenshots
                   </span>
                   <button

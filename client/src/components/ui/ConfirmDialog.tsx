@@ -34,7 +34,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <AlertTriangle className="w-6 h-6" />
         </div>
         <div>
-          <p className="text-sm text-slate-600 mt-1">{message}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{message}</p>
         </div>
       </div>
 
@@ -42,7 +42,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+          className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
         >
           {cancelLabel}
         </button>
