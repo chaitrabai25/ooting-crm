@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Booking } from '../../types/index.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
+import { printElement } from '../../utils/printDocument.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 interface BookingInvoiceModalProps {
@@ -123,19 +124,16 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
     ? 'PARTIALLY PAID'
     : 'UNPAID';
 
-  // Dedicated Print: Targets #invoice-document only with full A4 coverage
-  const handlePrint = () => {
-    document.body.classList.add('printing-dedicated');
-    const cleanup = () => {
-      document.body.classList.remove('printing-dedicated');
-      window.removeEventListener('afterprint', cleanup);
-    };
-    window.addEventListener('afterprint', cleanup);
-    window.print();
-    setTimeout(cleanup, 10000);
+  // Dedicated Print: Targets #invoice-document only with full A4 coverage via isolated print frame
+  const handlePrint = async () => {
+    const cleanGuest = (booking.customer?.fullName || 'Guest').replace(/[^a-zA-Z0-9]/g, '_');
+    const cleanBooking = (booking.bookingNumber || 'OOT').replace(/[^a-zA-Z0-9]/g, '_');
+    await printElement('invoice-document', {
+      title: `Invoice_${cleanBooking}_${cleanGuest}`,
+    });
   };
 
-  // Dedicated PDF Download: Targets #invoice-document only with guaranteed 1-page fit
+  // Dedicated PDF Download: Targets #invoice-document with native File System Save
   const handleDownloadPdf = async () => {
     try {
       setIsGeneratingPdf(true);
@@ -150,7 +148,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         onePageOnly: true,
         margin: 8,
       });
-      download();
+      await download();
     } catch (err) {
       console.error('Failed to generate invoice PDF:', err);
       alert('Failed to generate PDF. Please try again or use the Print button.');
@@ -376,12 +374,13 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center print:p-0 print:bg-white print:overflow-visible print:static print:block">
           <div
             id="invoice-document"
-            className="w-[794px] max-w-[794px] min-h-[1123px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-[210mm] print:max-w-[210mm] print:overflow-visible"
+            className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
             style={{
               width: '794px',
               maxWidth: '794px',
               minWidth: '794px',
-              minHeight: '1123px',
+              height: '1050px',
+              maxHeight: '1050px',
               boxSizing: 'border-box',
               backgroundColor: '#ffffff',
             }}

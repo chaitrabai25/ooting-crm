@@ -1,5 +1,8 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { savePdfToFileSystem } from './printDocument.js';
+
+export { savePdfToFileSystem };
 
 interface GeneratePdfOptions {
   elementId: string;
@@ -449,8 +452,8 @@ export async function generateA4Pdf({
   }
 
   const pdfBlob = pdf.output('blob');
-  const download = () => {
-    pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+  const download = async () => {
+    await savePdfToFileSystem(pdfBlob, filename);
   };
 
   return { pdfBlob, download };

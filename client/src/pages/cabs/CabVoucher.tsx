@@ -28,6 +28,8 @@ import {
 import { api } from '../../api/client.js';
 import { CabBooking } from '../../types/index.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
+import { printElement } from '../../utils/printDocument.js';
+import { BrandLoader } from '../../components/ui/BrandLoader.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 interface DutySlipTableRow {
@@ -73,19 +75,19 @@ const DutySlipDocumentBody: React.FC<{
       </div>
 
       {/* Letterhead Header Section */}
-      <div className="px-8 pt-6 pb-5 border-b border-slate-200">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+      <div className="px-7 pt-3 pb-2 border-b border-slate-200">
+        <div className="flex justify-between items-start gap-4">
           {/* LEFT SIDE: Logo & Company Name/Tagline */}
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3">
             <div
-              className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
-              style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px', minHeight: '56px', maxHeight: '56px', overflow: 'hidden' }}
+              className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
+              style={{ width: '48px', height: '48px', minWidth: '48px', maxWidth: '48px', minHeight: '48px', maxHeight: '48px', overflow: 'hidden' }}
             >
               <img
                 src={company.logoUrl || '/assets/ooting-logo.jpg'}
                 alt={company.name || 'Ooting'}
                 className="max-w-full max-h-full object-contain"
-                style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', objectFit: 'contain' }}
+                style={{ width: '100%', height: '100%', maxWidth: '48px', maxHeight: '48px', objectFit: 'contain' }}
                 crossOrigin="anonymous"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
@@ -93,91 +95,89 @@ const DutySlipDocumentBody: React.FC<{
               />
             </div>
             <div className="min-w-0">
-              <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+              <span className="text-base font-black tracking-tight text-slate-900 block leading-tight uppercase">
                 {(company.name || 'OOTING').toUpperCase()}
               </span>
-              <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+              <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
                 {company.tagline || 'Journeys Beyond Ordinary'}
               </span>
-              <span className="text-[10px] text-slate-500 block mt-0.5">
+              <span className="text-[9px] text-slate-500 block mt-0.5">
                 Tourist Cab & Travel Services
               </span>
             </div>
           </div>
 
           {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with document margin) */}
-          <div className="flex justify-end ml-auto shrink-0 translate-x-6 sm:translate-x-8">
-            <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
-              {company.website && (
-                <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                    <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                  </span>
-                  <span className="font-medium text-slate-800 tracking-tight break-all">{company.website}</span>
-                </div>
-              )}
-              {company.email && (
-                <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                    <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                  </span>
-                  <span className="font-medium text-slate-800 tracking-tight break-all">{company.email}</span>
-                </div>
-              )}
-              {company.phone && (
-                <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                    <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                  </span>
-                  <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
-                </div>
-              )}
+          <div className="w-fit ml-auto shrink-0 translate-x-6 sm:translate-x-8 flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
+            {company.website && (
               <div className="flex items-center gap-2">
-                <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                  <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
+                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                  <Globe className="w-3 h-3" />
                 </span>
-                <span className="font-mono font-bold text-slate-900 tracking-tight">
-                  GSTIN: {(() => {
-                    const g = (company?.gstin || '').trim().toUpperCase();
-                    return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
-                  })()}
-                </span>
+                <span className="font-medium text-[11px] text-slate-800 break-all">{company.website}</span>
               </div>
-              {company.address && (
-                <div className="flex items-start gap-2 pt-0.5">
-                  <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
-                    <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                  </span>
-                  <div className="text-slate-600 leading-snug">
-                    <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
-                    <div>Shivamogga, Karnataka, India</div>
-                  </div>
-                </div>
-              )}
+            )}
+            {company.email && (
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                  <Mail className="w-3 h-3" />
+                </span>
+                <span className="font-medium text-[11px] text-slate-800 break-all">{company.email}</span>
+              </div>
+            )}
+            {company.phone && (
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                  <Phone className="w-3 h-3" />
+                </span>
+                <span className="font-medium text-[11px] text-slate-800">{company.phone}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                <FileText className="w-3 h-3" />
+              </span>
+              <span className="font-mono font-bold text-[11px] text-slate-900">
+                GSTIN: {(() => {
+                  const g = (company?.gstin || '').trim().toUpperCase();
+                  return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
+                })()}
+              </span>
             </div>
+            {company.address && (
+              <div className="flex items-start gap-2 pt-0.5">
+                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                  <MapPin className="w-3 h-3" />
+                </span>
+                <div className="text-[10px] text-slate-600 leading-snug">
+                  <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
+                  <div>Shivamogga, Karnataka, India</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Document Title & Reference Banner */}
-      <div className="bg-slate-900 text-white px-8 py-3 flex items-center justify-between">
+      <div className="bg-slate-900 text-white px-7 py-2 flex items-center justify-between">
         <div>
-          <span className="text-[10px] tracking-widest uppercase text-amber-400 font-bold block">
+          <span className="text-[9px] tracking-widest uppercase text-amber-400 font-bold block">
             OFFICIAL TRAVEL VOUCHER
           </span>
-          <h1 className="text-base font-black tracking-wide">
+          <h1 className="text-xs font-black tracking-wide">
             CAB DUTY SLIP & PASSENGER MANIFEST
           </h1>
         </div>
         <div className="flex items-center gap-6 text-right">
           <div>
-            <span className="text-[10px] text-slate-400 block uppercase font-medium">Duty Slip #</span>
-            <span className="font-mono text-sm font-bold text-amber-300 tracking-wider">
+            <span className="text-[9px] text-slate-400 block uppercase font-medium">Duty Slip #</span>
+            <span className="font-mono text-xs font-bold text-amber-300 tracking-wider">
               {cab.bookingReference}
             </span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 block uppercase font-medium">Duty Date</span>
+            <span className="text-[9px] text-slate-400 block uppercase font-medium">Duty Date</span>
             <span className="text-xs font-bold text-white">
               {new Date(cab.pickupDate).toLocaleDateString('en-IN', {
                 day: '2-digit',
@@ -189,45 +189,45 @@ const DutySlipDocumentBody: React.FC<{
         </div>
       </div>
 
-      <div className="flex-1 p-8 space-y-5">
+      <div className="flex-1 px-7 py-2.5 flex flex-col justify-between space-y-2 text-xs">
         {/* Guest & Journey Overview Grid */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 gap-3">
           {/* Passenger / Guest Details */}
-          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
-            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 mb-3 flex items-center gap-1.5">
-              <User className="w-4 h-4 text-[#C91F28]" />
+          <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/60">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-1.5 flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-[#C91F28]" />
               Guest / Passenger Details
             </h3>
-            <div className="space-y-2 text-xs">
-              <div className="grid grid-cols-[130px_1fr] items-center">
-                <span className="text-slate-500 font-medium">Customer Name:</span>
+            <div className="space-y-1 text-xs">
+              <div className="grid grid-cols-[110px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Customer:</span>
                 <span className="font-bold text-slate-900">{cab.customerName}</span>
               </div>
-              <div className="grid grid-cols-[130px_1fr] items-center">
-                <span className="text-slate-500 font-medium">Phone Number:</span>
+              <div className="grid grid-cols-[110px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Phone:</span>
                 <span className="font-semibold text-slate-800">{cab.customerPhone}</span>
               </div>
               {cab.customerEmail && (
-                <div className="grid grid-cols-[130px_1fr] items-center">
+                <div className="grid grid-cols-[110px_1fr] items-center">
                   <span className="text-slate-500 font-medium">Email:</span>
                   <span className="text-slate-700">{cab.customerEmail}</span>
                 </div>
               )}
-              <div className="grid grid-cols-[130px_1fr] items-center">
-                <span className="text-slate-500 font-medium">No. of Guests:</span>
+              <div className="grid grid-cols-[110px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Guests:</span>
                 <span className="font-bold text-slate-900">{cab.passengerCount} Guest(s)</span>
               </div>
             </div>
           </div>
 
           {/* Reporting & Schedule Details */}
-          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
-            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 mb-3 flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-[#C91F28]" />
+          <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/60">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-1.5 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#C91F28]" />
               Schedule & Reporting Details
             </h3>
-            <div className="space-y-2 text-xs">
-              <div className="grid grid-cols-[130px_1fr] items-center">
+            <div className="space-y-1 text-xs">
+              <div className="grid grid-cols-[110px_1fr] items-center">
                 <span className="text-slate-500 font-medium">Reporting Date:</span>
                 <span className="font-bold text-slate-900">
                   {new Date(cab.pickupDate).toLocaleDateString('en-IN', {
@@ -238,16 +238,16 @@ const DutySlipDocumentBody: React.FC<{
                   })}
                 </span>
               </div>
-              <div className="grid grid-cols-[130px_1fr] items-center">
+              <div className="grid grid-cols-[110px_1fr] items-center">
                 <span className="text-slate-500 font-medium">Reporting Time:</span>
                 <span className="font-bold text-[#C91F28]">{cab.pickupTime}</span>
               </div>
-              <div className="grid grid-cols-[130px_1fr] items-center">
+              <div className="grid grid-cols-[110px_1fr] items-center">
                 <span className="text-slate-500 font-medium">Trip Category:</span>
                 <span className="font-semibold text-slate-800">{cab.tripType}</span>
               </div>
-              <div className="grid grid-cols-[130px_1fr] items-center">
-                <span className="text-slate-500 font-medium">Booking Status:</span>
+              <div className="grid grid-cols-[110px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Status:</span>
                 <span className="font-bold text-emerald-700">{cab.bookingStatus}</span>
               </div>
             </div>
@@ -255,86 +255,80 @@ const DutySlipDocumentBody: React.FC<{
         </div>
 
         {/* Route & Vehicle Assignment */}
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
-            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-              <MapPin className="w-4 h-4 text-[#C91F28]" />
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-[#C91F28]" />
               Journey Route & Vehicle Assignment
             </h3>
           </div>
-          <div className="p-4 grid grid-cols-2 gap-6 text-xs">
-            <div className="space-y-2.5 border-r border-slate-200 pr-4">
-              <div className="grid grid-cols-[120px_1fr] items-center">
+          <div className="p-2.5 grid grid-cols-2 gap-4 text-xs">
+            <div className="space-y-1.5 border-r border-slate-200 pr-3">
+              <div className="grid grid-cols-[105px_1fr] items-center">
                 <span className="text-slate-500 font-medium">Pickup Location:</span>
                 <span className="font-bold text-slate-900">{cab.pickupPlace}</span>
               </div>
-              <div className="grid grid-cols-[120px_1fr] items-center">
+              <div className="grid grid-cols-[105px_1fr] items-center">
                 <span className="text-slate-500 font-medium">Drop Location:</span>
                 <span className="font-bold text-slate-900">{cab.dropPlace}</span>
               </div>
               {cab.dutyRange && (
-                <div className="grid grid-cols-[120px_1fr] items-center">
+                <div className="grid grid-cols-[105px_1fr] items-center">
                   <span className="text-slate-500 font-medium">Duty Range:</span>
                   <span className="font-bold text-[#C91F28]">{cab.dutyRange}</span>
                 </div>
               )}
               {cab.travelRoute && (
-                <div className="grid grid-cols-[120px_1fr] items-start">
+                <div className="grid grid-cols-[105px_1fr] items-start">
                   <span className="text-slate-500 font-medium">Tour Route:</span>
                   <span className="text-slate-700 leading-snug">{cab.travelRoute}</span>
                 </div>
               )}
             </div>
 
-            <div className="space-y-2.5">
-              <div className="grid grid-cols-[120px_1fr] items-center">
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-[105px_1fr] items-center">
                 <span className="text-slate-500 font-medium">Vehicle Type:</span>
                 <span className="font-bold text-slate-900">
                   {cab.vehicleType}{' '}
                   <span className="font-normal text-slate-500">({cab.requiredCabType})</span>
                 </span>
               </div>
-              <div className="grid grid-cols-[120px_1fr] items-center">
+              <div className="grid grid-cols-[105px_1fr] items-center">
                 <span className="text-slate-500 font-medium">Vehicle Number:</span>
-                <span className="font-mono font-bold text-xs text-slate-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 inline-block w-fit">
+                <span className="font-mono font-bold text-xs text-slate-900 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 inline-block w-fit">
                   {cab.carNumber || 'To Be Assigned'}
                 </span>
               </div>
-              <div className="grid grid-cols-[120px_1fr] items-center">
+              <div className="grid grid-cols-[105px_1fr] items-center">
                 <span className="text-slate-500 font-medium">Driver Name:</span>
                 <span className="font-bold text-slate-900">
                   {cab.driverName || 'Will be notified via SMS'}
                 </span>
               </div>
-              <div className="grid grid-cols-[120px_1fr] items-center">
-                <span className="text-slate-500 font-medium">Driver Contact:</span>
+              <div className="grid grid-cols-[105px_1fr] items-center">
+                <span className="text-slate-500 font-medium">Driver Phone:</span>
                 <span className="font-bold text-slate-900">{cab.driverPhone || '—'}</span>
               </div>
-              {cab.assignedStaff?.name && (
-                <div className="grid grid-cols-[120px_1fr] items-center text-slate-500">
-                  <span className="font-medium">Coordinator:</span>
-                  <span className="font-semibold text-slate-700">{cab.assignedStaff.name}</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
         {/* Optional Additional Details / Duty Log Table */}
         {showCustomTable && (
-          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-            <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-[#C91F28]" />
-                Additional Duty Details & Log
+          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+            <div className="bg-slate-100 px-3 py-1 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                <Clock className="w-3 h-3 text-[#C91F28]" />
+                Duty Log & Readings
               </h3>
               {!isStaticPreview && onAddRow && (
                 <button
                   type="button"
                   onClick={onAddRow}
-                  className="print:hidden pdf-hide inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white px-2.5 py-1 rounded border border-slate-200 cursor-pointer"
+                  className="print:hidden pdf-hide inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 bg-white px-2 py-0.5 rounded border border-slate-200 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3 h-3" />
                   <span>Add Row</span>
                 </button>
               )}
@@ -342,18 +336,18 @@ const DutySlipDocumentBody: React.FC<{
 
             <table className="w-full text-xs text-center border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                  <th className="py-2.5 px-3 border-r border-slate-200 text-left">Reading / Description</th>
-                  <th className="py-2.5 px-3 border-r border-slate-200">Starting</th>
-                  <th className="py-2.5 px-3 border-r border-slate-200">Closing</th>
-                  <th className="py-2.5 px-3 border-r border-slate-200">Remarks / Total</th>
-                  {!isStaticPreview && <th className="py-2.5 px-2 print:hidden pdf-hide w-8"></th>}
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-[10px]">
+                  <th className="py-1 px-2.5 border-r border-slate-200 text-left">Reading / Description</th>
+                  <th className="py-1 px-2.5 border-r border-slate-200">Starting</th>
+                  <th className="py-1 px-2.5 border-r border-slate-200">Closing</th>
+                  <th className="py-1 px-2.5 border-r border-slate-200">Remarks / Total</th>
+                  {!isStaticPreview && <th className="py-1 px-1 print:hidden pdf-hide w-6"></th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-200 text-xs">
                 {customRows.map((row) => (
-                  <tr key={row.id} className="h-9">
-                    <td className="font-semibold text-slate-700 bg-slate-50/50 border-r border-slate-200 text-left px-3">
+                  <tr key={row.id} className="h-7">
+                    <td className="font-semibold text-slate-700 bg-slate-50/50 border-r border-slate-200 text-left px-2.5">
                       {isStaticPreview ? (
                         <span>{row.label}</span>
                       ) : (
@@ -429,10 +423,10 @@ const DutySlipDocumentBody: React.FC<{
                         <button
                           type="button"
                           onClick={() => onRemoveRow(row.id)}
-                          className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                          className="text-slate-400 hover:text-rose-600 transition-colors p-0.5"
                           title="Remove row"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </td>
                     )}
@@ -444,14 +438,14 @@ const DutySlipDocumentBody: React.FC<{
         )}
 
         {/* Tariff, Driver Allowance & Financial Summary */}
-        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/70">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-              <CreditCard className="w-4 h-4 text-[#C91F28]" />
+        <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/70">
+          <div className="flex items-center justify-between mb-1.5">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-[#C91F28]" />
               Fare & Driver Allowance Summary
             </h3>
             <span
-              className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+              className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                 cab.paymentStatus === 'PAID'
                   ? 'bg-emerald-100 text-emerald-800'
                   : 'bg-amber-100 text-amber-800'
@@ -466,81 +460,73 @@ const DutySlipDocumentBody: React.FC<{
               cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0
                 ? 'grid-cols-4'
                 : 'grid-cols-3'
-            } gap-3 pt-2 border-t border-slate-200 text-center`}
+            } gap-2 pt-1.5 border-t border-slate-200 text-center`}
           >
             <div>
-              <span className="text-[11px] uppercase font-bold text-slate-400 block">Total Agreed Fare</span>
-              <span className="text-base font-black text-slate-900">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Agreed Fare</span>
+              <span className="text-sm font-black text-slate-900">
                 ₹{Number(cab.cabAmount).toLocaleString('en-IN')}
               </span>
             </div>
 
             {cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0 && (
-              <div className="bg-amber-50/80 rounded-lg p-2 border border-amber-200/80">
-                <span className="text-[11px] uppercase font-bold text-amber-900 block">
-                  Driver Allowance / Driver Bata
+              <div className="bg-amber-50/80 rounded p-1 border border-amber-200/80">
+                <span className="text-[10px] uppercase font-bold text-amber-900 block">
+                  Driver Bata
                 </span>
-                <span className="text-base font-black text-amber-900">
+                <span className="text-sm font-black text-amber-900">
                   ₹{Number(cab.driverAllowanceTotal).toLocaleString('en-IN')}
                 </span>
-                {cab.driverAllowanceRate && cab.driverAllowanceDays ? (
-                  <span className="text-xs text-amber-800 block font-medium">
-                    {cab.driverAllowanceType === 'NIGHT_WISE'
-                      ? 'Night-wise'
-                      : cab.driverAllowanceType === 'CUSTOM'
-                      ? 'Custom'
-                      : 'Day-wise'}{' '}
-                    ₹{cab.driverAllowanceRate} × {cab.driverAllowanceDays}{' '}
-                    {cab.driverAllowanceType === 'NIGHT_WISE' ? 'nights' : 'days'}
-                  </span>
-                ) : null}
               </div>
             )}
 
             <div>
-              <span className="text-[11px] uppercase font-bold text-slate-400 block">Advance Received</span>
-              <span className="text-base font-black text-emerald-700">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Advance</span>
+              <span className="text-sm font-black text-emerald-700">
                 ₹{Number(cab.advanceAmount).toLocaleString('en-IN')}
               </span>
             </div>
 
             <div>
-              <span className="text-[11px] uppercase font-bold text-slate-400 block">Balance Payable</span>
-              <span className="text-base font-black text-[#C91F28]">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Balance Due</span>
+              <span className="text-sm font-black text-[#C91F28]">
                 ₹{Number(cab.balanceAmount).toLocaleString('en-IN')}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Terms & Important Travel Notes */}
-        <div className="border border-slate-200 rounded-xl p-3.5 text-xs text-slate-600 space-y-1 bg-amber-50/40">
-          <h4 className="font-black text-slate-900 uppercase tracking-wider text-xs flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-            Standard Tour & Cab Guidelines
-          </h4>
-          <p>
-            1. <strong>Air Conditioning:</strong> As per standard hill and mountain terrain vehicle norms, AC may be turned off during steep hairpin climbs for passenger and engine safety.
-          </p>
-          <p>
-            2. <strong>Tolls & Parking:</strong> State border taxes, tolls, entry tickets, and parking fees are extra as per actual receipts unless explicitly included in the package.
-          </p>
-          {cab.specialInstructions && (
-            <p className="text-slate-900 font-semibold pt-0.5">
-              Special Note: {cab.specialInstructions}
+        {/* Guidelines & Verification Grid (Side-by-side for compact 1-page fit) */}
+        <div className="grid grid-cols-2 gap-3 text-[10.5px]">
+          {/* Terms & Important Travel Notes */}
+          <div className="border border-slate-200 rounded-lg p-2 text-slate-600 space-y-0.5 bg-amber-50/40">
+            <h4 className="font-black text-slate-900 uppercase tracking-wider text-[10px] flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-amber-600" />
+              Standard Tour & Cab Guidelines
+            </h4>
+            <p className="leading-tight">
+              1. <strong>AC:</strong> Turned off during steep hairpin climbs for passenger & engine safety.
             </p>
-          )}
-        </div>
-
-        {/* Official Verification Notice (NO SIGNATURES) */}
-        <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/80 text-center space-y-0.5">
-          <div className="flex items-center justify-center gap-1.5 text-slate-900 font-bold text-xs uppercase tracking-wider">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28]" />
-            <span>Official Travel Duty Slip • {company.name || 'Ooting'}</span>
+            <p className="leading-tight">
+              2. <strong>Tolls & Parking:</strong> State taxes, tolls & parking extra as per actual receipts.
+            </p>
+            {cab.specialInstructions && (
+              <p className="text-slate-900 font-semibold pt-0.5">
+                Note: {cab.specialInstructions}
+              </p>
+            )}
           </div>
-          <p className="text-[10px] text-slate-500">
-            Computer-generated service document verified by {company.name || 'Ooting'} CRM. Valid for official travel coordination without physical signature.
-          </p>
+
+          {/* Official Verification Notice (NO SIGNATURES) */}
+          <div className="border border-slate-200 rounded-lg p-2 bg-slate-50/80 text-center space-y-1 flex flex-col justify-center">
+            <div className="flex items-center justify-center gap-1.5 text-slate-900 font-bold text-[10.5px] uppercase tracking-wider">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28]" />
+              <span>Official Travel Duty Slip • {company.name || 'Ooting'}</span>
+            </div>
+            <p className="text-[9.5px] text-slate-500 leading-tight">
+              Computer-generated service document verified by {company.name || 'Ooting'} CRM. Valid without physical signature.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -635,12 +621,11 @@ export const CabVoucher: React.FC = () => {
     }
   };
 
-  const handlePrint = () => {
-    document.body.classList.add('printing-dedicated');
-    window.print();
-    setTimeout(() => {
-      document.body.classList.remove('printing-dedicated');
-    }, 1000);
+  const handlePrint = async () => {
+    if (!cab) return;
+    await printElement('duty-slip-document', {
+      title: `DutySlip_${cab.bookingReference}`,
+    });
   };
 
   const handleDownloadPdf = async () => {
@@ -654,7 +639,7 @@ export const CabVoucher: React.FC = () => {
         onePageOnly: true,
         margin: 8,
       });
-      download();
+      await download();
     } catch (err) {
       console.error('Failed to generate Duty Slip PDF:', err);
       alert('Could not generate PDF. Please try the Print button.');
@@ -745,10 +730,7 @@ export const CabVoucher: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
-        <div className="flex items-center gap-3 text-slate-500 text-sm font-medium">
-          <Loader2 className="w-5 h-5 animate-spin text-brand-600" />
-          <span>Generating printable Cab Duty Slip...</span>
-        </div>
+        <BrandLoader size="lg" text="Loading Cab Duty Slip..." subtext="Retrieving travel voucher and driver details" />
       </div>
     );
   }
@@ -873,8 +855,16 @@ export const CabVoucher: React.FC = () => {
       {/* Main A4 Duty Slip Document (Container isolated for dedicated PDF and Print) */}
       <div
         id="duty-slip-document"
-        className="flex min-h-[1123px] w-[794px] max-w-full mx-auto flex-col bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none text-slate-800 font-sans print:m-0 border border-slate-200"
-        style={{ boxSizing: 'border-box' }}
+        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
+        style={{
+          width: '794px',
+          maxWidth: '794px',
+          minWidth: '794px',
+          height: '1050px',
+          maxHeight: '1050px',
+          boxSizing: 'border-box',
+          backgroundColor: '#ffffff',
+        }}
       >
         <DutySlipDocumentBody
           cab={cab}
@@ -926,7 +916,18 @@ export const CabVoucher: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center">
-              <div className="flex min-h-[1123px] w-[794px] max-w-full mx-auto flex-col bg-white rounded-2xl shadow-2xl overflow-hidden text-slate-800 font-sans border border-slate-200">
+              <div
+                className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-2xl rounded-2xl overflow-hidden border border-slate-200"
+                style={{
+                  width: '794px',
+                  maxWidth: '794px',
+                  minWidth: '794px',
+                  height: '1050px',
+                  maxHeight: '1050px',
+                  boxSizing: 'border-box',
+                  backgroundColor: '#ffffff',
+                }}
+              >
                 <DutySlipDocumentBody
                   cab={cab}
                   company={company}

@@ -28,6 +28,7 @@ import {
 import { Modal } from '../ui/Modal.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
+import { printElement } from '../../utils/printDocument.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { api } from '../../api/client.js';
 import { LocationSelector } from '../common/LocationSelector.js';
@@ -400,6 +401,13 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
     }
   };
 
+  // Dedicated Print handler via isolated iframe
+  const handlePrint = async () => {
+    await printElement('itinerary-document', {
+      title: tripTitle || 'Custom Tour Itinerary',
+    });
+  };
+
   // Dedicated PDF Download targeting ONLY #itinerary-document
   const handleDownloadPdf = async () => {
     try {
@@ -414,7 +422,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
         onePageOnly: false,
         margin: 8,
       });
-      download();
+      await download();
     } catch (err) {
       console.error('Failed to download itinerary PDF:', err);
       alert('PDF generation error. Please try again.');
@@ -465,19 +473,30 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
 
             <div className="flex items-center gap-2">
               {activeView === 'preview' && (
-                <button
-                  type="button"
-                  onClick={handleDownloadPdf}
-                  disabled={isGeneratingPdf}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 text-white rounded-xl font-bold shadow-xs hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  {isGeneratingPdf ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Download className="w-3.5 h-3.5 text-amber-400" />
-                  )}
-                  <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download Itinerary PDF'}</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-bold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-[#C91F28]" />
+                    <span>Print Itinerary</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadPdf}
+                    disabled={isGeneratingPdf}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 text-white rounded-xl font-bold shadow-xs hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    {isGeneratingPdf ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5 text-amber-400" />
+                    )}
+                    <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download Itinerary PDF'}</span>
+                  </button>
+                </>
               )}
 
               <button

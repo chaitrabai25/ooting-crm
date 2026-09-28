@@ -21,6 +21,8 @@ import { api } from '../../api/client.js';
 import { Package, ItineraryDay } from '../../types/index.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
+import { printElement } from '../../utils/printDocument.js';
+import { BrandLoader } from '../../components/ui/BrandLoader.js';
 
 export const ItineraryPdfView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -46,8 +48,12 @@ export const ItineraryPdfView: React.FC = () => {
     if (id) fetchPackage();
   }, [id]);
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!pkg) return;
+    const cleanTitle = (pkg.packageName || 'Itinerary').replace(/[^a-zA-Z0-9]/g, '_');
+    await printElement('itinerary-document', {
+      title: `Itinerary_${cleanTitle}`,
+    });
   };
 
   const handleDownloadPdf = async () => {
@@ -64,7 +70,7 @@ export const ItineraryPdfView: React.FC = () => {
         onePageOnly: false,
         margin: 8,
       });
-      download();
+      await download();
     } catch (err) {
       console.error('Failed to download itinerary PDF:', err);
       alert('PDF generation error. Please try the Print button.');
@@ -122,9 +128,7 @@ export const ItineraryPdfView: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100">
-        <div className="animate-pulse text-slate-500 text-sm font-medium">
-          Generating printable itinerary document...
-        </div>
+        <BrandLoader size="lg" text="Loading Tour Itinerary..." subtext="Retrieving day-by-day travel schedule" />
       </div>
     );
   }

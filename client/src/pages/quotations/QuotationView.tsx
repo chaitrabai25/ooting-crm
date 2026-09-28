@@ -18,6 +18,8 @@ import {
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
+import { printElement } from '../../utils/printDocument.js';
+import { BrandLoader } from '../../components/ui/BrandLoader.js';
 
 export const QuotationView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -45,12 +47,11 @@ export const QuotationView: React.FC = () => {
     if (id) fetchQuotation();
   }, [id]);
 
-  const handlePrint = () => {
-    document.body.classList.add('printing-dedicated');
-    window.print();
-    setTimeout(() => {
-      document.body.classList.remove('printing-dedicated');
-    }, 1000);
+  const handlePrint = async () => {
+    if (!quotation) return;
+    await printElement('quotation-document', {
+      title: `Quotation_${quotation.quotationNumber}`,
+    });
   };
 
   const handleDownloadPdf = async () => {
@@ -61,10 +62,10 @@ export const QuotationView: React.FC = () => {
         elementId: 'quotation-document',
         filename: `Quotation-${quotation.quotationNumber}.pdf`,
         title: `Travel Quotation — ${quotation.quotationNumber}`,
-        onePageOnly: false,
+        onePageOnly: true,
         margin: 8,
       });
-      download();
+      await download();
     } catch (err) {
       console.error('Failed to generate Quotation PDF:', err);
       alert('Could not generate PDF. Please try the Print button.');
@@ -136,9 +137,8 @@ export const QuotationView: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-pulse max-w-4xl mx-auto">
-        <div className="h-6 bg-slate-200 rounded w-40" />
-        <div className="h-96 bg-white rounded-xl border border-slate-200" />
+      <div className="flex items-center justify-center min-h-[60vh] max-w-4xl mx-auto">
+        <BrandLoader size="lg" text="Loading Quotation..." subtext="Retrieving official travel quotation" />
       </div>
     );
   }
@@ -243,15 +243,21 @@ export const QuotationView: React.FC = () => {
         </div>
       </div>
 
-      {/* Branded Official Quotation Document Canvas */}
+      {/* Branded Official Quotation Document Canvas (Guaranteed 1-Page A4 Fit) */}
       <div
         id="quotation-document"
-        className="bg-white rounded-2xl border border-slate-200/90 shadow-xl overflow-hidden print:border-none print:shadow-none print:rounded-none"
+        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
+        style={{
+          width: '794px',
+          maxWidth: '794px',
+          minWidth: '794px',
+          height: '1050px',
+          maxHeight: '1050px',
+          boxSizing: 'border-box',
+          backgroundColor: '#ffffff',
+        }}
       >
-        {/* Persistent Red Header Accent Line */}
-        <div className="w-full h-1.5 bg-[#C91F28]" />
-
-        {/* Authentic Header Wave Accent */}
+        {/* Top Header Wave Accent */}
         <div
           className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
           style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
@@ -259,421 +265,313 @@ export const QuotationView: React.FC = () => {
           <img
             src="/assets/ooting-header-wave.png"
             alt=""
-            className="w-full h-full object-cover opacity-80"
+            className="w-full h-full object-cover opacity-90"
             style={{ width: '100%', height: '8px', objectFit: 'cover' }}
           />
         </div>
 
-        <div className="p-6 sm:p-8 space-y-5 print:p-6 print:space-y-4">
-          {/* Header Row with Official Ooting Logo, Quotation Reference & Right-Aligned Company Details */}
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 pb-5 border-b border-slate-200">
-            {/* LEFT SIDE: Brand Logo, Company Title & Quotation Reference */}
-            <div className="flex items-start gap-4">
+        {/* Letterhead Header Section */}
+        <div className="px-7 pt-3 pb-2 border-b border-slate-200">
+          <div className="flex justify-between items-start gap-4">
+            {/* LEFT SIDE: Brand Logo, Company Identity & Quotation Meta */}
+            <div className="flex items-start gap-3">
               <div
-                className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
-                style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px', minHeight: '56px', maxHeight: '56px', overflow: 'hidden' }}
+                className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
+                style={{ width: '48px', height: '48px', minWidth: '48px', maxWidth: '48px', minHeight: '48px', maxHeight: '48px', overflow: 'hidden' }}
               >
                 <img
                   src={company?.logoUrl || '/assets/ooting-logo.jpg'}
                   alt={company?.name || 'Ooting'}
                   className="max-w-full max-h-full object-contain"
-                  style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', objectFit: 'contain' }}
+                  style={{ width: '100%', height: '100%', maxWidth: '48px', maxHeight: '48px', objectFit: 'contain' }}
                   crossOrigin="anonymous"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
                   }}
                 />
               </div>
-              <div className="space-y-1">
-                <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+              <div className="min-w-0">
+                <span className="text-base font-black tracking-tight text-slate-900 block leading-tight uppercase">
                   {(company?.name || 'OOTING').toUpperCase()}
                 </span>
-                <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block">
+                <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
                   {company?.tagline || 'Journeys Beyond Ordinary'}
                 </span>
-                
-                <div className="pt-2">
-                  <span className="inline-block px-2.5 py-0.5 bg-[#C91F28] text-white text-[10px] font-bold uppercase tracking-wider rounded-md mb-1">
-                    Official Travel Quotation
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="inline-block px-2 py-0.5 bg-[#C91F28] text-white text-[9px] font-bold uppercase tracking-wider rounded">
+                    Official Quotation
                   </span>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="font-mono text-sm font-bold text-slate-900">
-                      {quotation.quotationNumber}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-500 block mt-0.5">
-                    Date: {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  <span className="font-mono text-xs font-bold text-slate-900">
+                    {quotation.quotationNumber}
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    • Date: {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with document margin) */}
-            <div className="flex justify-end ml-auto shrink-0 translate-x-6 sm:translate-x-8">
-              <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
-                {company?.website && (
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                      <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                    </span>
-                    <span className="font-medium text-slate-800 tracking-tight break-all">{company.website}</span>
-                  </div>
-                )}
-                {company?.email && (
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                      <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                    </span>
-                    <span className="font-medium text-slate-800 tracking-tight break-all">{company.email}</span>
-                  </div>
-                )}
-                {company?.phone && (
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                      <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                    </span>
-                    <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
-                  </div>
-                )}
+            {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with right margin) */}
+            <div className="w-fit ml-auto shrink-0 translate-x-6 sm:translate-x-8 flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
+              {company?.website && (
                 <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                    <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
+                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                    <Globe className="w-3 h-3" />
                   </span>
-                  <span className="font-mono font-bold text-slate-900 tracking-tight">
-                    GSTIN: {(() => {
-                      const g = (company?.gstin || '').trim().toUpperCase();
-                      return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
-                    })()}
-                  </span>
+                  <span className="font-medium text-[11px] text-slate-800 break-all">{company.website}</span>
                 </div>
-                {company?.address && (
-                  <div className="flex items-start gap-2 pt-0.5">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
-                      <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                    </span>
-                    <div className="text-slate-600 leading-snug">
-                      <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
-                      <div>Shivamogga, Karnataka, India</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Client Details & Travel Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50/80 p-5 rounded-xl border border-slate-200/70 text-xs">
-            <div>
-              <span className="text-xs font-black uppercase tracking-wider text-slate-900 block mb-1.5">
-                Prepared For
-              </span>
-              <h3 className="text-sm font-bold text-slate-900">{quotation.customer?.fullName}</h3>
-              <p className="text-slate-600 mt-1">{quotation.customer?.phone}</p>
-              {quotation.customer?.email && <p className="text-slate-600">{quotation.customer.email}</p>}
-              {quotation.customer?.city && <p className="text-slate-600">{quotation.customer.city}</p>}
-            </div>
-
-            <div className="space-y-1">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-900 block mb-1.5">
-                Trip Details
-              </span>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Destination:</span>
-                <span className="font-semibold text-slate-800">{quotation.destination}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Package:</span>
-                <span className="font-semibold text-slate-800">
-                  {quotation.package?.packageName || 'Customized Holiday'}
+              )}
+              {company?.email && (
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                    <Mail className="w-3 h-3" />
+                  </span>
+                  <span className="font-medium text-[11px] text-slate-800 break-all">{company.email}</span>
+                </div>
+              )}
+              {company?.phone && (
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                    <Phone className="w-3 h-3" />
+                  </span>
+                  <span className="font-medium text-[11px] text-slate-800">{company.phone}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                  <FileText className="w-3 h-3" />
+                </span>
+                <span className="font-mono font-bold text-[11px] text-slate-900">
+                  GSTIN: {(() => {
+                    const g = (company?.gstin || '').trim().toUpperCase();
+                    return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
+                  })()}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Travellers:</span>
-                <span className="font-semibold text-slate-800">
-                  {quotation.adults} Adults {quotation.children > 0 ? `, ${quotation.children} Children` : ''}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Dates:</span>
-                <span className="font-semibold text-slate-800">
-                  {quotation.travelStartDate ? new Date(quotation.travelStartDate).toLocaleDateString() : 'TBD'} to{' '}
-                  {quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString() : 'TBD'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Inclusions & Highlights Breakdown */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70">
-              <span className="font-black text-slate-900 block mb-1 text-xs uppercase tracking-wider">
-                Accommodation
-              </span>
-              <p className="text-slate-600">{quotation.accommodation || 'Standard Double/Triple Occupancy'}</p>
-            </div>
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70">
-              <span className="font-black text-slate-900 block mb-1 text-xs uppercase tracking-wider">
-                Transport & Cab Details
-              </span>
-              <p className="text-slate-600">{quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle for transfers'}</p>
-            </div>
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70">
-              <span className="font-black text-slate-900 block mb-1 text-xs uppercase tracking-wider">
-                Activities
-              </span>
-              <p className="text-slate-600">{quotation.activities || 'Sightseeing & Excursions as per itinerary'}</p>
-            </div>
-          </div>
-
-          {/* Day-by-Day Itinerary if package attached */}
-          {quotation.package?.itineraries?.length > 0 && (
-            <div className="space-y-3 text-xs">
-              <h3 className="font-black text-slate-900 text-sm uppercase tracking-wider border-b border-slate-200 pb-2">
-                Planned Daily Schedule
-              </h3>
-              <div className="space-y-2.5">
-                {quotation.package.itineraries.map((day: any) => (
-                  <div key={day.id} className="p-3 bg-slate-50/50 rounded-lg border border-slate-200">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-brand-600">Day {day.dayNumber}:</span>
-                      <span className="font-semibold text-slate-900">{day.title}</span>
-                    </div>
-                    <p className="text-slate-600 mt-1 leading-relaxed">{day.description}</p>
-                    {day.places && (
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        <span className="font-medium">Sightseeing:</span> {day.places}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Inclusions & Exclusions */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
-            <div>
-              <h4 className="font-black text-emerald-900 uppercase tracking-wider mb-2 text-xs">
-                Inclusions
-              </h4>
-              <p className="text-slate-600 leading-relaxed whitespace-pre-line bg-emerald-50/40 p-3 rounded-xl border border-emerald-200/60">
-                {quotation.inclusions || 'Hotel stay, Breakfast, Transfers'}
-              </p>
-            </div>
-            <div>
-              <h4 className="font-black text-rose-900 uppercase tracking-wider mb-2 text-xs">
-                Exclusions
-              </h4>
-              <p className="text-slate-600 leading-relaxed whitespace-pre-line bg-rose-50/40 p-3 rounded-xl border border-rose-200/60">
-                {quotation.exclusions || 'Personal expenses, items not mentioned'}
-              </p>
-            </div>
-          </div>
-
-          {/* Transparent 4-Column Pricing Table */}
-          <div className="pt-4 border-t border-slate-200">
-            <span className="font-black text-slate-900 uppercase tracking-wider text-xs block mb-3">
-              Cost Calculation & Passenger Breakdown
-            </span>
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="py-2.5 px-3.5 font-bold text-slate-900">Category</th>
-                    <th className="py-2.5 px-3.5 font-bold text-slate-900">Price / Person</th>
-                    <th className="py-2.5 px-3.5 font-bold text-slate-900 text-center">Quantity</th>
-                    <th className="py-2.5 px-3.5 font-bold text-slate-900 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {/* Adults */}
-                  <tr>
-                    <td className="py-2.5 px-3.5 font-medium text-slate-800">
-                      <div className="font-semibold">Adults</div>
-                      <span className="text-[10px] text-slate-400">Base package rate per adult</span>
-                    </td>
-                    <td className="py-2.5 px-3.5 text-slate-600">
-                      ₹{Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice)).toLocaleString('en-IN')}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-center text-slate-700 font-semibold">{quotation.adults || 1}</td>
-                    <td className="py-2.5 px-3.5 text-right font-bold text-slate-900">
-                      ₹{((quotation.adults || 1) * Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice))).toLocaleString('en-IN')}
-                    </td>
-                  </tr>
-
-                  {/* Children */}
-                  {(Number(quotation.children || 0) > 0 || Number(quotation.childUnitPrice || 0) > 0) && (
-                    <tr>
-                      <td className="py-2.5 px-3.5 font-medium text-slate-800">
-                        <div className="font-semibold">Children</div>
-                        <span className="text-[10px] text-slate-400">Child rate per person</span>
-                      </td>
-                      <td className="py-2.5 px-3.5 text-slate-600">
-                        ₹{Number(quotation.childUnitPrice || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-center text-slate-700 font-semibold">{quotation.children || 0}</td>
-                      <td className="py-2.5 px-3.5 text-right font-bold text-slate-900">
-                        ₹{(Number(quotation.children || 0) * Number(quotation.childUnitPrice || 0)).toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  )}
-
-                  {/* Infants */}
-                  {(Number(quotation.infants || 0) > 0 || Number(quotation.infantUnitPrice || 0) > 0) && (
-                    <tr>
-                      <td className="py-2.5 px-3.5 font-medium text-slate-800">
-                        <div className="font-semibold">Infants</div>
-                        <span className="text-[10px] text-slate-400">Infant rate per person</span>
-                      </td>
-                      <td className="py-2.5 px-3.5 text-slate-600">
-                        ₹{Number(quotation.infantUnitPrice || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-center text-slate-700 font-semibold">{quotation.infants || 0}</td>
-                      <td className="py-2.5 px-3.5 text-right font-bold text-slate-900">
-                        ₹{(Number(quotation.infants || 0) * Number(quotation.infantUnitPrice || 0)).toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              {/* Subtotal, Discount, Tax, Addl, Grand Total Summary */}
-              <div className="bg-slate-50/80 p-4 border-t border-slate-200 text-xs space-y-2">
-                <div className="flex justify-between text-slate-600">
-                  <span className="font-medium">Subtotal (Base Total):</span>
-                  <span className="font-semibold text-slate-800">
-                    ₹{Number(quotation.basePrice).toLocaleString('en-IN')}
+              {company?.address && (
+                <div className="flex items-start gap-2 pt-0.5">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                    <MapPin className="w-3 h-3" />
                   </span>
-                </div>
-                {Number(quotation.discount || 0) > 0 && (
-                  <div className="flex justify-between text-emerald-700">
-                    <span>Special Discount:</span>
-                    <span className="font-semibold">- ₹{Number(quotation.discount).toLocaleString('en-IN')}</span>
+                  <div className="text-[10px] text-slate-600 leading-snug">
+                    <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
+                    <div>Shivamogga, Karnataka, India</div>
                   </div>
-                )}
-                {Number(quotation.tax || 0) > 0 && (
-                  <div className="flex justify-between text-slate-600">
-                    <span>GST / Taxes:</span>
-                    <span className="font-medium">+ ₹{Number(quotation.tax).toLocaleString('en-IN')}</span>
-                  </div>
-                )}
-                {Number(quotation.additionalCharges || 0) > 0 && (
-                  <div className="flex justify-between text-slate-600">
-                    <span>Additional Charges:</span>
-                    <span className="font-medium">+ ₹{Number(quotation.additionalCharges).toLocaleString('en-IN')}</span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 text-sm">
-                  <span className="font-bold text-slate-900">Net Total Amount:</span>
-                  <span className="font-extrabold text-brand-600 text-lg">
-                    ₹{Number(quotation.finalAmount).toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment & Cancellation Policies */}
-          {(quotation.paymentTerms || quotation.cancellationTerms) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-200 text-[11px] break-inside-avoid">
-              {quotation.paymentTerms && (
-                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
-                  <span className="font-black text-slate-900 uppercase tracking-wider block mb-1 text-xs">
-                    Payment Milestones
-                  </span>
-                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">{quotation.paymentTerms}</p>
-                </div>
-              )}
-              {quotation.cancellationTerms && (
-                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
-                  <span className="font-black text-slate-900 uppercase tracking-wider block mb-1 text-xs">
-                    Cancellation Policy
-                  </span>
-                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">{quotation.cancellationTerms}</p>
                 </div>
               )}
             </div>
-          )}
-
-          {/* Official Bank & Remittance Details from Settings (Auto-populated for Advance / Milestone Payments) */}
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5 break-inside-avoid page-break-avoid">
-            <span className="font-black text-slate-900 uppercase tracking-wider block text-xs">
-              Bank & Remittance Details (For Advance & Milestone Payments)
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px] text-slate-700">
-              <div>
-                <span className="text-slate-500 block text-[10px]">Beneficiary Name</span>
-                <span className="font-bold text-slate-900">{company?.accountHolderName || company?.name || 'Jeevan'}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[10px]">Bank Name</span>
-                <span className="font-semibold text-slate-800">{company?.bankName || 'Canara Bank'}</span>
-              </div>
-              {company?.accountNumber && (
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Account Number</span>
-                  <span className="font-mono font-bold text-slate-900">{company.accountNumber}</span>
-                </div>
-              )}
-              {company?.ifsc && (
-                <div>
-                  <span className="text-slate-500 block text-[10px]">IFSC Code</span>
-                  <span className="font-mono font-bold text-slate-900 uppercase">{company.ifsc}</span>
-                </div>
-              )}
-              {company?.branch && (
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Branch</span>
-                  <span className="font-medium text-slate-800">{company.branch}</span>
-                </div>
-              )}
-              {company?.accountType && (
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Account Type</span>
-                  <span className="font-medium text-slate-800">{company.accountType}</span>
-                </div>
-              )}
-              {company?.upiId && (
-                <div>
-                  <span className="text-slate-500 block text-[10px]">UPI ID / VPA</span>
-                  <span className="font-mono font-bold text-[#C91F28]">{company.upiId}</span>
-                </div>
-              )}
-            </div>
-            <p className="text-[10px] text-slate-500 pt-1 border-t border-slate-200/80">
-              {company?.paymentNotes || `Please quote Quotation Ref ${quotation.quotationNumber} during bank fund transfer.`}
-            </p>
-          </div>
-
-          {/* Terms & Conditions */}
-          {quotation.termsAndConditions && (
-            <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-500 space-y-1 break-inside-avoid page-break-avoid">
-              <span className="font-black text-slate-900 uppercase tracking-wider block text-xs">
-                Terms & Conditions
-              </span>
-              <p className="whitespace-pre-line leading-relaxed">{quotation.termsAndConditions}</p>
-            </div>
-          )}
-
-          {/* Professional Document Closure */}
-          <div className="pt-2 text-center text-[10px] text-slate-400 break-inside-avoid">
-            <p>Thank you for choosing {company?.name || 'Ooting'}. For reservations & inquiries, reach us at {company?.email || 'support@ooting.in'} or {company?.phone || '+91 8884845595'}.</p>
           </div>
         </div>
 
-        {/* Persistent Red Footer Line */}
-        <div className="w-full h-1 bg-[#C91F28]" />
+        {/* Main Body (Balanced for Strict 1-Page Height) */}
+        <div className="flex-1 px-7 py-2.5 flex flex-col justify-between space-y-2 text-xs">
+          {/* Row 1: Client & Journey Summary Grid */}
+          <div className="grid grid-cols-2 gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/80">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block mb-1">
+                Prepared For (Client Details)
+              </span>
+              <p className="font-bold text-slate-900 text-xs">{quotation.customer?.fullName}</p>
+              <div className="space-y-0.5 mt-0.5 text-[11px] text-slate-600">
+                {quotation.customer?.phone && <p>Phone: {quotation.customer.phone}</p>}
+                {quotation.customer?.email && <p>Email: {quotation.customer.email}</p>}
+                {quotation.customer?.city && (
+                  <p>Location: {quotation.customer.city}{quotation.customer?.state ? `, ${quotation.customer.state}` : ''}</p>
+                )}
+              </div>
+            </div>
 
-        {/* Authentic Footer Wave Accent */}
+            <div className="space-y-0.5 text-[11px]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block mb-1">
+                Tour & Package Overview
+              </span>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Destination:</span>
+                <span className="font-bold text-slate-900">{quotation.destination}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Package:</span>
+                <span className="font-semibold text-slate-800">{quotation.package?.packageName || 'Custom Holiday Itinerary'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Travellers:</span>
+                <span className="font-bold text-slate-900">
+                  {quotation.adults} Adults{quotation.children > 0 ? `, ${quotation.children} Children` : ''}{quotation.infants > 0 ? `, ${quotation.infants} Infants` : ''}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Travel Dates:</span>
+                <span className="font-semibold text-slate-900">
+                  {quotation.travelStartDate ? new Date(quotation.travelStartDate).toLocaleDateString('en-IN') : 'TBD'} to{' '}
+                  {quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Inclusions & Highlights Strip */}
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/80">
+              <span className="font-bold text-slate-900 block text-[10.5px] uppercase tracking-wide">
+                Accommodation
+              </span>
+              <p className="text-[10.5px] text-slate-600 mt-0.5 leading-snug">
+                {quotation.accommodation || 'Standard Double/Triple Occupancy Hotel/Resort'}
+              </p>
+            </div>
+            <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/80">
+              <span className="font-bold text-slate-900 block text-[10.5px] uppercase tracking-wide">
+                Vehicle & Transfers
+              </span>
+              <p className="text-[10.5px] text-slate-600 mt-0.5 leading-snug">
+                {quotation.cabDetails || quotation.transport || 'Dedicated AC Tourist Vehicle for all transfers'}
+              </p>
+            </div>
+            <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/80">
+              <span className="font-bold text-slate-900 block text-[10.5px] uppercase tracking-wide">
+                Activities & Sightseeing
+              </span>
+              <p className="text-[10.5px] text-slate-600 mt-0.5 leading-snug">
+                {quotation.activities || 'All key sightseeing & local excursions included'}
+              </p>
+            </div>
+          </div>
+
+          {/* Inclusions & Exclusions Split Banner */}
+          <div className="grid grid-cols-2 gap-2.5 text-[10.5px]">
+            <div className="bg-emerald-50/50 p-2 rounded-lg border border-emerald-200/70">
+              <span className="font-black text-emerald-950 uppercase tracking-wide block mb-0.5 text-[10px]">
+                Inclusions
+              </span>
+              <p className="text-slate-700 leading-snug whitespace-pre-line">
+                {quotation.inclusions || 'Hotel accommodation, Breakfast, Dedicated vehicle, Sightseeing arrangements, Tolls & driver charges.'}
+              </p>
+            </div>
+            <div className="bg-rose-50/40 p-2 rounded-lg border border-rose-200/60">
+              <span className="font-black text-rose-950 uppercase tracking-wide block mb-0.5 text-[10px]">
+                Exclusions
+              </span>
+              <p className="text-slate-700 leading-snug whitespace-pre-line">
+                {quotation.exclusions || 'Personal expenses, entry tickets/camera fees not specified, room service, items not listed in inclusions.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Row 3: Transparent Pricing & Passenger Cost Calculation */}
+          <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-700">
+                  <th className="py-1.5 px-3 text-[10px] font-black uppercase tracking-wider">Passenger Category</th>
+                  <th className="py-1.5 px-3 text-[10px] font-black uppercase tracking-wider text-center">Travellers / Qty</th>
+                  <th className="py-1.5 px-3 text-[10px] font-black uppercase tracking-wider text-right">Rate / Person (₹)</th>
+                  <th className="py-1.5 px-3 text-[10px] font-black uppercase tracking-wider text-right">Amount (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                <tr>
+                  <td className="py-1.5 px-3">
+                    <span className="font-bold text-slate-900 block">Adults</span>
+                    <span className="text-[10px] text-slate-400">Base package rate per adult</span>
+                  </td>
+                  <td className="py-1.5 px-3 text-center font-semibold text-slate-800">{quotation.adults || 1}</td>
+                  <td className="py-1.5 px-3 text-right text-slate-700">
+                    ₹{Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice)).toLocaleString('en-IN')}
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-bold text-slate-900">
+                    ₹{((quotation.adults || 1) * Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice))).toLocaleString('en-IN')}
+                  </td>
+                </tr>
+
+                {(Number(quotation.children || 0) > 0 || Number(quotation.childUnitPrice || 0) > 0) && (
+                  <tr>
+                    <td className="py-1 px-3">
+                      <span className="font-semibold text-slate-800">Children</span>
+                    </td>
+                    <td className="py-1 px-3 text-center text-slate-700">{quotation.children || 0}</td>
+                    <td className="py-1 px-3 text-right text-slate-600">₹{Number(quotation.childUnitPrice || 0).toLocaleString('en-IN')}</td>
+                    <td className="py-1 px-3 text-right font-bold text-slate-900">
+                      ₹{(Number(quotation.children || 0) * Number(quotation.childUnitPrice || 0)).toLocaleString('en-IN')}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            {/* Financial Summary & Net Total Banner */}
+            <div className="bg-slate-50/90 px-3 py-1.5 border-t border-slate-200 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-4 text-[11px] text-slate-600">
+                <span>Subtotal: <strong className="text-slate-900">₹{Number(quotation.basePrice).toLocaleString('en-IN')}</strong></span>
+                {Number(quotation.discount || 0) > 0 && (
+                  <span className="text-emerald-700">Discount: -₹{Number(quotation.discount).toLocaleString('en-IN')}</span>
+                )}
+                {Number(quotation.tax || 0) > 0 && (
+                  <span>Taxes: +₹{Number(quotation.tax).toLocaleString('en-IN')}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] uppercase font-bold text-slate-700">Total Net Amount:</span>
+                <span className="text-sm font-black text-[#C91F28]">
+                  ₹{Number(quotation.finalAmount).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 4: Bank Remittance Details (Left) & Payment Milestones / Policy (Right) */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Bank Details */}
+            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[10.5px] space-y-1">
+              <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider block">
+                Bank & Remittance Details (Official Account)
+              </span>
+              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-600">
+                <div><span className="text-slate-400">Beneficiary:</span> <strong className="text-slate-900">{company?.accountHolderName || company?.name || 'Jeevan'}</strong></div>
+                <div><span className="text-slate-400">Bank:</span> <strong className="text-slate-900">{company?.bankName || 'Canara Bank'}</strong></div>
+                <div><span className="text-slate-400">A/C No:</span> <span className="font-mono font-bold text-slate-900">{company?.accountNumber || '2891101013983'}</span></div>
+                <div><span className="text-slate-400">IFSC:</span> <span className="font-mono font-bold text-slate-900">{company?.ifsc || 'CNRB0005237'}</span></div>
+                <div><span className="text-slate-400">Type:</span> <span className="text-slate-800">{company?.accountType || 'Current Account'}</span></div>
+                {company?.upiId && (
+                  <div><span className="text-slate-400">UPI:</span> <strong className="text-[#C91F28] font-mono">{company.upiId}</strong></div>
+                )}
+              </div>
+              <p className="text-[9.5px] text-slate-500 pt-0.5 border-t border-slate-200/80">
+                Quote Quotation Ref <strong>{quotation.quotationNumber}</strong> during bank transfer.
+              </p>
+            </div>
+
+            {/* Payment Milestones & Verification Note */}
+            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[10.5px] flex flex-col justify-between space-y-1">
+              <div>
+                <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider block mb-0.5">
+                  Payment Milestones & Policy
+                </span>
+                <p className="text-slate-600 leading-tight">
+                  {quotation.paymentTerms || '50% advance for booking confirmation, balance payable prior to trip departure.'}
+                </p>
+                {quotation.cancellationTerms && (
+                  <p className="text-slate-500 text-[10px] mt-0.5 leading-tight">
+                    {quotation.cancellationTerms}
+                  </p>
+                )}
+              </div>
+              <div className="pt-1 border-t border-slate-200 text-center text-[9.5px] text-slate-500">
+                Official quotation generated by {company?.name || 'Ooting'} CRM. Valid without physical signature.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Footer Wave Accent */}
         <div
           className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
           style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
         >
           <img
-            src="/assets/ooting-footer-wave.png"
+            src="/assets/ooting-header-wave.png"
             alt=""
-            className="w-full h-full object-cover opacity-80"
-            style={{ width: '100%', height: '8px', objectFit: 'cover' }}
+            className="w-full h-full object-cover opacity-90 rotate-180"
+            style={{ width: '100%', height: '8px', objectFit: 'cover', transform: 'rotate(180deg)' }}
           />
         </div>
       </div>
