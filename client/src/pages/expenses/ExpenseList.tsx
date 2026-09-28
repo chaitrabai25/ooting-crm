@@ -1,3 +1,9 @@
+/**
+ * Expenses Management Directory
+ * Tracks operational business expenditures, hotel payments, transport,
+ * office operations, and supplier reimbursements.
+ * All expense records are persisted permanently in the database.
+ */
 import React, { useState, useEffect } from 'react';
 import { Plus, Receipt, FileSpreadsheet, Search, Filter, Trash2 } from 'lucide-react';
 import { api } from '../../api/client.js';
@@ -8,6 +14,7 @@ import { ExpenseModal } from './ExpenseModal.js';
 import { Expense } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 
 export const ExpenseList: React.FC = () => {
   const { can, isSuperAdmin } = useAuth();
@@ -45,15 +52,8 @@ export const ExpenseList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchExpenses();
-
-    // Multi-user 5-second live sync
-    const pollInterval = setInterval(() => {
-      fetchExpenses(true);
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, [page, selectedCategory]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(fetchExpenses, [page, selectedCategory], { intervalMs: 60000 });
 
   const handleExportExcel = async () => {
     const params = new URLSearchParams();

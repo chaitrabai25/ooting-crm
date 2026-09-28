@@ -18,10 +18,10 @@ export const config = {
   company: {
     name: process.env.COMPANY_NAME || 'Ooting',
     tagline: process.env.COMPANY_TAGLINE || 'Journeys Beyond Ordinary',
-    email: process.env.COMPANY_EMAIL || 'contact@ooting.com',
-    phone: process.env.COMPANY_PHONE || '+91 98765 43210',
-    address: process.env.COMPANY_ADDRESS || 'Ooting Holidays Private Limited, Bangalore, Karnataka, India',
+    email: process.env.COMPANY_EMAIL || 'support@ooting.in',
+    phone: process.env.COMPANY_PHONE || '+91 8884845595',
+    address: process.env.COMPANY_ADDRESS || 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India',
     website: process.env.COMPANY_WEBSITE || 'https://ooting.in',
-    gstin: process.env.COMPANY_GSTIN || '29AABCO1234F1Z5',
+    gstin: process.env.COMPANY_GSTIN || 'NIL',
   },
 };

@@ -53,6 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMobileMenu }) => {
 
   useEffect(() => {
     const fetchCounts = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       try {
         const res = await api.get('/followups/counts');
         setFollowUpCounts(res.data);
@@ -61,8 +62,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMobileMenu }) => {
       }
     };
     fetchCounts();
-    const interval = setInterval(fetchCounts, 5000); // refresh every 5 seconds for live multi-user sync
-    return () => clearInterval(interval);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchCounts();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+    const interval = setInterval(fetchCounts, 60000); // 60s relaxed interval for live multi-user sync
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
   }, []);
 
   // Live search debounced

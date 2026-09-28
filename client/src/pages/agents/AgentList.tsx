@@ -1,3 +1,9 @@
+/**
+ * B2B Travel Agents Directory
+ * Manages partner travel agencies, commission tiers, PAN verifications,
+ * agent bookings, and Google business profiles.
+ * All B2B agent data is persisted in the database.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -23,6 +29,7 @@ import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 import { AgentModal } from './AgentModal.js';
 import { AgentImportModal } from './AgentImportModal.js';
 import { Agent } from '../../types/index.js';
@@ -84,15 +91,8 @@ export const AgentList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchAgents();
-
-    // Multi-user 5-second live sync
-    const pollInterval = setInterval(() => {
-      fetchAgents(true);
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, [page, sortBy, sortOrder]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(fetchAgents, [page, sortBy, sortOrder], { intervalMs: 60000 });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

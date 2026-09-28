@@ -1,4 +1,15 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * @file FollowUpList.tsx
+ * @description Ooting CRM Follow-up Management Workspace.
+ * Features:
+ *  - Categorized queues: Today, Overdue, Upcoming, Custom Date, and All.
+ *  - Quick customer touchpoints: WhatsApp quick message modal, one-click calls, and email.
+ *  - Task lifecycle management: Reschedule, mark complete with resolution notes.
+ *  - Excel export of scheduled followups.
+ *  - Battery- & network-aware live sync (pauses when tab inactive; 60s background cycle).
+ */
+
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CalendarCheck,
@@ -25,6 +36,7 @@ import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
 import { Sparkles, UserCheck } from 'lucide-react';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 
 export const FollowUpList: React.FC = () => {
   const navigate = useNavigate();
@@ -91,15 +103,8 @@ export const FollowUpList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchFollowUps();
-
-    // Multi-user 5-second live sync
-    const pollInterval = setInterval(() => {
-      fetchFollowUps(true);
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, [activeTab, selectedDate, page]);
+  // Battery- & tab-aware live synchronization (60s background cycle, instant on tab focus)
+  useLiveSync(fetchFollowUps, [activeTab, selectedDate, page]);
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;

@@ -1,3 +1,14 @@
+/**
+ * @file AnalyticsPage.tsx
+ * @description Ooting CRM Advanced Analytics & Performance Intelligence.
+ * Features:
+ *  - Conversion rate analytics and pipeline health metrics.
+ *  - Monthly financial trajectory: Trip value vs. Cash collected vs. Operating expenses.
+ *  - Destination popularity analysis based on confirmed bookings.
+ *  - Sales staff performance scorecard (conversion rates, revenue contribution, follow-ups).
+ *  - GPU-accelerated interactive chart containers.
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   BarChart,
@@ -118,7 +129,7 @@ export const AnalyticsPage: React.FC = () => {
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 1. Monthly Financials (Booking Value vs Receipts vs Expenses) */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+        <div className="crm-card-interactive bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
           <h3 className="text-sm font-bold text-slate-900 mb-1">Monthly Financial Trajectory</h3>
           <p className="text-xs text-slate-500 mb-4">Bookings value vs Collected cash vs Operating expenses</p>
 
@@ -155,7 +166,7 @@ export const AnalyticsPage: React.FC = () => {
         </div>
 
         {/* 2. Destination Popularity & Revenue */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+        <div className="crm-card-interactive bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
           <h3 className="text-sm font-bold text-slate-900 mb-1">Top Destinations</h3>
           <p className="text-xs text-slate-500 mb-4">Ranked by actual confirmed bookings and generated revenue</p>
 
@@ -196,7 +207,7 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* Sales Staff Performance Table */}
-      <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+      <div className="crm-card-interactive bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
         <div className="flex items-center gap-2 mb-1">
           <Award className="w-4 h-4 text-brand-600" />
           <h3 className="text-sm font-bold text-slate-900">Sales Staff Performance & Conversion</h3>

@@ -1,3 +1,9 @@
+/**
+ * Leads & Enquiries Directory
+ * Manages incoming traveler enquiries, qualification stages, priority routing,
+ * and conversions into quotations and confirmed bookings.
+ * All lead and customer data is persisted permanently in the database.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -23,6 +29,7 @@ import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { LeadModal } from './LeadModal.js';
@@ -137,15 +144,8 @@ export const LeadList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchLeads();
-
-    // Silent background auto-refresh every 5 seconds for multi-user sync
-    const pollInterval = setInterval(() => {
-      fetchLeads(true);
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, [page, activeTab, selectedStatus, selectedPriority]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(fetchLeads, [page, activeTab, selectedStatus, selectedPriority], { intervalMs: 60000 });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

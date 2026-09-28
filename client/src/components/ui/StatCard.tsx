@@ -33,12 +33,12 @@ export const StatCard: React.FC<StatCardProps> = ({
   const targetNum = typeof numericValue === 'number' ? numericValue : (typeof value === 'number' ? value : 0);
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs hover:shadow-md transition-all">
+    <div className="crm-card-interactive bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs hover:border-brand-500/40">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
           {title}
         </span>
-        <div className={`p-2.5 rounded-lg ${iconBg} ${iconColor}`}>
+        <div className={`crm-card-icon p-2.5 rounded-lg ${iconBg} ${iconColor}`}>
           <Icon className="w-5 h-5" />
         </div>
       </div>

@@ -124,10 +124,47 @@ export function getISTDateRange(
   return {};
 }
 
+// In-memory 10s TTL cache to prevent TiDB Cloud query stampedes on rapid navigation
+interface CacheEntry {
+  data: any;
+  expiresAt: number;
+}
+const analyticsCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 10 * 1000;
+
+export function invalidateAnalyticsCache(): void {
+  analyticsCache.clear();
+}
+
+function getCached(key: string): any | null {
+  const entry = analyticsCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    analyticsCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCached(key: string, data: any): void {
+  if (analyticsCache.size > 100) {
+    const now = Date.now();
+    for (const [k, v] of analyticsCache.entries()) {
+      if (v.expiresAt <= now) analyticsCache.delete(k);
+    }
+  }
+  analyticsCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+}
 
 // Main Dashboard KPIs & Today's Tasks
 router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
   try {
+    const cacheKey = `dashboard:${req.originalUrl || req.url}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const range = (req.query.range as string || '').toLowerCase().trim();
     const startDateQuery = (req.query.startDate as string || '').trim();
     const endDateQuery = (req.query.endDate as string || '').trim();
@@ -354,7 +391,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
       ? Number(((wonLeads / qualifiedPoolCount) * 100).toFixed(1))
       : 0;
 
-    res.json({
+    const dashboardPayload = {
       cards: {
         // 16 Critical Metrics
         totalLeads,
@@ -387,7 +424,10 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
       },
       recentEnquiries,
       recentBookings,
-    });
+    };
+
+    setCached(cacheKey, dashboardPayload);
+    res.json(dashboardPayload);
   } catch (error) {
     next(error);
   }
@@ -396,6 +436,11 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
 // Detailed Analytics: Trends, Funnel, Destinations, Staff Rankings, Quotations, Cabs
 router.get('/charts', async (req: AuthRequest, res: Response, next) => {
   try {
+    const cacheKey = `charts:${req.originalUrl || req.url}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
     const range = (req.query.range as string || '').toLowerCase().trim();
     const startDateQuery = (req.query.startDate as string || '').trim();
     const endDateQuery = (req.query.endDate as string || '').trim();
@@ -647,7 +692,7 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
       count: leadSourceMap[source],
     })).sort((a, b) => b.count - a.count);
 
-    res.json({
+    const chartsPayload = {
       salesTrend,
       leadFunnel,
       bookingAnalytics,
@@ -657,7 +702,10 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
       destinationAnalytics,
       staffPerformance,
       expenseBreakdown,
-    });
+    };
+
+    setCached(cacheKey, chartsPayload);
+    res.json(chartsPayload);
   } catch (error) {
     next(error);
   }

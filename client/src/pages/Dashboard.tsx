@@ -1,3 +1,9 @@
+/**
+ * Dashboard Page
+ * Displays live executive CRM statistics, business KPIs, recent activities,
+ * upcoming departures, tourist cab schedules, and payment metrics.
+ * All metrics and activities are loaded directly from the database with real-time sync.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -25,6 +31,7 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   Search,
+  RefreshCw,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -44,6 +51,7 @@ import { useAuth } from '../context/AuthContext.js';
 import { AnimatedCounter } from '../components/ui/AnimatedCounter.js';
 import { Badge } from '../components/ui/Badge.js';
 import { EmptyState } from '../components/ui/EmptyState.js';
+import { useLiveSync } from '../utils/useLiveSync.js';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -60,13 +68,17 @@ export const Dashboard: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [chartData, setChartData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Today's Tasks Active Tab
   const [activeTaskTab, setActiveTaskTab] = useState<'followUps' | 'overdue' | 'departures' | 'cabs' | 'quotations'>('followUps');
 
   const fetchDashboard = async (silent = false) => {
     try {
-      if (!silent) setIsLoading(true);
+      if (!silent) {
+        if (!dashboardData) setIsLoading(true);
+        setIsRefreshing(true);
+      }
       const params = new URLSearchParams();
       params.append('range', selectedView);
       if (selectedView === 'month') {
@@ -93,19 +105,19 @@ export const Dashboard: React.FC = () => {
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
-      if (!silent) setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
-  useEffect(() => {
-    fetchDashboard();
-
-    // 5-second automatic multi-user live synchronization
-    const syncTimer = setInterval(() => {
-      fetchDashboard(true);
-    }, 5000);
-    return () => clearInterval(syncTimer);
-  }, [selectedView, selectedMonth, selectedYear, customStartDate, customEndDate, searchTerm]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(
+    fetchDashboard,
+    [selectedView, selectedMonth, selectedYear, customStartDate, customEndDate, searchTerm],
+    { intervalMs: 60000 }
+  );
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -162,8 +174,18 @@ export const Dashboard: React.FC = () => {
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
+            onClick={() => fetchDashboard(false)}
+            disabled={isRefreshing}
+            className="crm-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs"
+            title="Refresh dashboard metrics from database"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-brand-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+          </button>
+
+          <button
             onClick={() => navigate('/quotations/new')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors"
+            className="crm-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs"
           >
             <Plus className="w-3.5 h-3.5 text-purple-600" />
             <span>New Quotation</span>
@@ -171,7 +193,7 @@ export const Dashboard: React.FC = () => {
 
           <button
             onClick={() => navigate('/cabs?action=create')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors"
+            className="crm-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs"
           >
             <Plus className="w-3.5 h-3.5 text-[#C91F28]" />
             <span>New Cab Booking</span>
@@ -348,10 +370,10 @@ export const Dashboard: React.FC = () => {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3.5">
           {/* 1. Total Leads */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Leads</span>
-              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
                 <Sparkles className="w-4 h-4" />
               </div>
             </div>
@@ -364,10 +386,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 2. Active / In-Progress Leads */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Active Leads</span>
-              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
@@ -380,10 +402,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 3. Won Leads */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Won Leads</span>
-              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
                 <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
@@ -396,10 +418,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 4. Total Quotations */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Quotations</span>
-              <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600">
                 <FileText className="w-4 h-4" />
               </div>
             </div>
@@ -412,10 +434,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 5. Confirmed Tour Bookings */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Confirmed Bookings</span>
-              <div className="p-2 rounded-xl bg-brand-50 dark:bg-brand-950/50 text-brand-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-brand-50 dark:bg-brand-950/50 text-brand-600">
                 <BookmarkCheck className="w-4 h-4" />
               </div>
             </div>
@@ -428,10 +450,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 6. Total Customers */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Customers</span>
-              <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
                 <Users className="w-4 h-4" />
               </div>
             </div>
@@ -444,10 +466,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 7. Total Cab Bookings */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Cabs</span>
-              <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600">
                 <Car className="w-4 h-4" />
               </div>
             </div>
@@ -460,10 +482,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 8. Today's Tour Departures */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Departures Today</span>
-              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
                 <Plane className="w-4 h-4" />
               </div>
             </div>
@@ -476,10 +498,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 9. Today's Cab Pickups */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Cabs Today</span>
-              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
+              <div className="crm-card-icon p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
                 <Car className="w-4 h-4" />
               </div>
             </div>
@@ -492,10 +514,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 10. Today's Follow-ups */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Calls Today</span>
-              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
                 <CalendarCheck className="w-4 h-4" />
               </div>
             </div>
@@ -508,10 +530,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 11. Overdue Calls */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Overdue Follow-ups</span>
-              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600">
                 <Clock className="w-4 h-4" />
               </div>
             </div>
@@ -524,10 +546,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 12. Expiring Quotations */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Open Quotes</span>
-              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
                 <FileText className="w-4 h-4" />
               </div>
             </div>
@@ -540,10 +562,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 13. Total Revenue (₹) */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Revenue</span>
-              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
                 <DollarSign className="w-4 h-4" />
               </div>
             </div>
@@ -556,10 +578,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 14. Advance Collected (₹) */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Advance Collected</span>
-              <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
                 <CreditCard className="w-4 h-4" />
               </div>
             </div>
@@ -572,10 +594,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 15. Balance Due (₹) */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Balance Pending</span>
-              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
+              <div className="crm-card-icon p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
                 <Clock className="w-4 h-4" />
               </div>
             </div>
@@ -588,10 +610,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 16. Active B2B Agents */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 transition-all">
+          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">B2B Agent Network</span>
-              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
+              <div className="crm-card-icon p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
                 <Briefcase className="w-4 h-4" />
               </div>
             </div>

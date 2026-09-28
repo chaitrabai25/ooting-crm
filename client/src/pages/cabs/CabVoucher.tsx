@@ -70,7 +70,7 @@ const DutySlipDocumentBody: React.FC<{
 
       {/* Letterhead Header Section */}
       <div className="px-8 pt-6 pb-5 border-b border-slate-200">
-        <div className="grid grid-cols-2 gap-8 items-start">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
           {/* LEFT SIDE: Logo & Company Name/Tagline */}
           <div className="flex items-start gap-4">
             <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
@@ -96,9 +96,9 @@ const DutySlipDocumentBody: React.FC<{
             </div>
           </div>
 
-          {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons) */}
-          <div className="flex justify-end ml-auto shrink-0">
-            <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[260px] max-w-[340px]">
+          {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons, shifted right to align properly) */}
+          <div className="flex justify-end ml-auto shrink-0 sm:translate-x-3">
+            <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[250px] max-w-[340px]">
               {company.website && (
                 <div className="flex items-center gap-2.5">
                   <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
@@ -128,7 +128,10 @@ const DutySlipDocumentBody: React.FC<{
                   <FileText className="w-3.5 h-3.5" />
                 </span>
                 <span className="font-mono font-bold text-slate-900 tracking-tight">
-                  GSTIN: {company?.gstin?.trim() ? company.gstin.trim().toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
+                  GSTIN: {(() => {
+                    const g = (company?.gstin || '').trim().toUpperCase();
+                    return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
+                  })()}
                 </span>
               </div>
               {company.address && (

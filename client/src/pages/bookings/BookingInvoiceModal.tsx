@@ -424,8 +424,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons) */}
-                <div className="text-left text-xs space-y-2 text-slate-700 min-w-[260px] max-w-[340px] ml-auto shrink-0">
+                {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons, shifted right to align properly) */}
+                <div className="text-left text-xs space-y-2 text-slate-700 min-w-[250px] max-w-[340px] ml-auto shrink-0 sm:translate-x-3">
                   {company.website && (
                     <div className="flex items-center gap-2.5">
                       <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
@@ -455,7 +455,10 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                       <FileText className="w-3.5 h-3.5" />
                     </span>
                     <span className="font-mono font-bold text-[11px] text-slate-900 leading-normal">
-                      GSTIN: {company?.gstin?.trim() ? company.gstin.trim().toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
+                      GSTIN: {(() => {
+                        const g = (company?.gstin || '').trim().toUpperCase();
+                        return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
+                      })()}
                     </span>
                   </div>
                   {company.address && (

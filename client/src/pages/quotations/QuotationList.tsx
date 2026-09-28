@@ -1,4 +1,15 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * @file QuotationList.tsx
+ * @description Ooting CRM Quotation Management Workspace.
+ * Features:
+ *  - Filterable directory of all customer and B2B travel quotations.
+ *  - Status tracking (DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED).
+ *  - Actions: PDF print/generation, duplicate quote, edit, and soft delete.
+ *  - Multi-condition search (customer, destination, status, date bounds).
+ *  - Battery- & network-aware live sync (pauses when tab inactive; 60s background cycle).
+ */
+
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -18,6 +29,7 @@ import { downloadExcel } from '../../utils/exportHelper.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Quotation } from '../../types/index.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 
 export const QuotationList: React.FC = () => {
   const navigate = useNavigate();
@@ -64,15 +76,8 @@ export const QuotationList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchQuotations();
-
-    // Multi-user 5-second live sync
-    const pollInterval = setInterval(() => {
-      fetchQuotations(true);
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, [page, selectedStatus, startDate, endDate]);
+  // Battery- & tab-aware live synchronization (60s background cycle, instant on tab focus)
+  useLiveSync(fetchQuotations, [page, selectedStatus, startDate, endDate]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

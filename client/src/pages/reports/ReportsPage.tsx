@@ -1,3 +1,13 @@
+/**
+ * @file ReportsPage.tsx
+ * @description Ooting CRM Business Intelligence & Financial Reporting Center.
+ * Features:
+ *  - Multidimensional operational reports: Bookings, Leads, Payments, and Gross Revenue.
+ *  - Date-bounded filtering with status classification.
+ *  - Multi-format data export (Excel .xlsx and CSV).
+ *  - Revenue breakdown: collected, pending, operational expenses, and net profit margins.
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Download,

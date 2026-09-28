@@ -292,3 +292,102 @@ html.dark select:-webkit-autofill,
   }
 }
 
+/* ==========================================================================
+   PROFESSIONAL CRM CARD & BUTTON HOVER INTERACTIONS (Hardware-Accelerated)
+   ========================================================================== */
+
+/* Dashboard & Metric Interactive Cards */
+.crm-card-interactive {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  will-change: transform, box-shadow;
+  position: relative;
+  overflow: hidden;
+}
+
+.crm-card-interactive:hover {
+  transform: translateY(-2px) scale(1.008);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+}
+
+.dark .crm-card-interactive:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+}
+
+/* Micro-animation on icons inside hovered card */
+.crm-card-interactive .crm-card-icon {
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.crm-card-interactive:hover .crm-card-icon {
+  transform: scale(1.08) translateY(-1px);
+}
+
+/* Interactive Buttons */
+.crm-btn-primary {
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  cursor: pointer;
+}
+
+.crm-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(201, 31, 40, 0.25);
+}
+
+.crm-btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 4px rgba(201, 31, 40, 0.2);
+}
+
+.crm-btn-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #C91F28;
+}
+
+.dark .crm-btn-primary:focus-visible {
+  box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #C91F28;
+}
+
+.crm-btn-secondary {
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+
+.crm-btn-secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.dark .crm-btn-secondary:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.crm-btn-secondary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.crm-btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #94a3b8;
+}
+
+.dark .crm-btn-secondary:focus-visible {
+  box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #64748b;
+}
+
+/* Accessibility: Respect Reduced-Motion Preference */
+@media (prefers-reduced-motion: reduce) {
+  .crm-card-interactive,
+  .crm-card-interactive:hover,
+  .crm-card-interactive .crm-card-icon,
+  .crm-card-interactive:hover .crm-card-icon,
+  .crm-btn-primary,
+  .crm-btn-primary:hover,
+  .crm-btn-primary:active,
+  .crm-btn-secondary,
+  .crm-btn-secondary:hover,
+  .crm-btn-secondary:active {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+

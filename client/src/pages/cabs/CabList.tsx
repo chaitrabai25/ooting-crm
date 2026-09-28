@@ -1,3 +1,8 @@
+/**
+ * Tourist Cabs & Duty Slips Directory
+ * Manages tourist vehicle bookings, driver assignments, duty slips,
+ * trip statuses, and cab revenue. All cab operations are persisted in the database.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -23,6 +28,7 @@ import {
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
@@ -131,16 +137,12 @@ export const CabList: React.FC = () => {
     fetchStats();
   }, []);
 
-  useEffect(() => {
-    fetchCabs();
+  const syncCabsAndStats = async (isSilent = false) => {
+    await Promise.all([fetchCabs(isSilent), fetchStats()]);
+  };
 
-    // Multi-user 5-second live sync
-    const pollTimer = setInterval(() => {
-      fetchCabs(true);
-      fetchStats();
-    }, 5000);
-    return () => clearInterval(pollTimer);
-  }, [page, selectedStatus, selectedVehicleType, selectedTripType, startDate, endDate]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(syncCabsAndStats, [page, selectedStatus, selectedVehicleType, selectedTripType, startDate, endDate], { intervalMs: 60000 });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

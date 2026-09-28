@@ -1,3 +1,13 @@
+/**
+ * @file SettingsPage.tsx
+ * @description Ooting CRM Organization Configuration & Master Data Control Center.
+ * Features:
+ *  - Company profile management: legal name, branding tagline, support email, phone, physical address.
+ *  - Official banking credentials: bank name, beneficiary name, account number, IFSC, branch, UPI.
+ *  - Master data dictionary view (statuses, categories, payment methods).
+ *  - Database backup snapshot generation & export.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard } from 'lucide-react';
 import { api } from '../../api/client.js';
@@ -21,18 +31,18 @@ export const SettingsPage: React.FC = () => {
   const [company, setCompany] = useState<CompanySettings>({
     name: 'Ooting',
     tagline: 'Journeys Beyond Ordinary',
-    email: 'contact@ooting.com',
-    phone: '+91 98765 43210',
-    address: 'Ooting Holidays Private Limited, Bangalore, Karnataka, India',
+    email: 'support@ooting.in',
+    phone: '+91 8884845595',
+    address: 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India',
     website: 'https://ooting.in',
     gstin: 'NIL',
     logoUrl: '/assets/ooting-logo.jpg',
-    bankName: '',
-    accountHolderName: '',
-    accountNumber: '',
+    bankName: 'canara',
+    accountHolderName: 'Jeevan',
+    accountNumber: '2891101013983',
     accountType: 'Current Account',
-    ifsc: '',
-    branch: '',
+    ifsc: 'CNRB0005237',
+    branch: 'Shivmogga',
     upiId: '',
     paymentNotes: '',
   });

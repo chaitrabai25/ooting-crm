@@ -1,8 +1,18 @@
+/**
+ * @file QuotationBuilder.tsx
+ * @description Ooting CRM Itinerary & Dynamic Pricing Quotation Generator.
+ * Features:
+ *  - Real-time quote creation, duplication, and modification.
+ *  - Lead and customer binding with automatic autofill.
+ *  - Multi-destination itinerary builder with day-by-day itemization.
+ *  - Dynamic cost calculation: base price, vehicle tariff, taxes, markups, and discounts.
+ *  - One-click PDF quotation generation and draft autosaving.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Sparkles, User, MapPin, Calendar, Clock, Car } from 'lucide-react';
 import { api } from '../../api/client.js';
-import { LocationSelector } from '../../components/common/LocationSelector.js';
 
 export const QuotationBuilder: React.FC = () => {
   const navigate = useNavigate();
@@ -16,9 +26,6 @@ export const QuotationBuilder: React.FC = () => {
   const [customerId, setCustomerId] = useState('');
   const [packageId, setPackageId] = useState('');
   const [destination, setDestination] = useState('');
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [pickerState, setPickerState] = useState('Karnataka');
-  const [pickerDistrict, setPickerDistrict] = useState('Mysuru');
   const [travelStartDate, setTravelStartDate] = useState('');
   const [travelEndDate, setTravelEndDate] = useState('');
   const [adults, setAdults] = useState(2);
@@ -305,23 +312,14 @@ export const QuotationBuilder: React.FC = () => {
         {/* Destination & Dates */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <div className="flex items-center justify-between">
-              <label className="font-semibold text-slate-700 dark:text-slate-200">Destination *</label>
-              <button
-                type="button"
-                onClick={() => setShowLocationPicker(!showLocationPicker)}
-                className="text-[10px] text-brand-600 hover:text-brand-700 font-semibold cursor-pointer"
-              >
-                {showLocationPicker ? 'Hide Picker' : '⚡ Location Dropdown'}
-              </button>
-            </div>
+            <label className="font-semibold text-slate-700 dark:text-slate-200 block mb-1">Destination *</label>
             <input
               type="text"
               required
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
               placeholder="e.g. Ooty, Mysore, Coorg"
-              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              className="w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -343,28 +341,6 @@ export const QuotationBuilder: React.FC = () => {
             />
           </div>
         </div>
-
-        {/* Optional Hierarchical Location Selector Bar */}
-        {showLocationPicker && (
-          <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
-              Quick State ➔ District ➔ Place Picker (Autofills Destination)
-            </span>
-            <LocationSelector
-              selectedState={pickerState}
-              selectedDistrict={pickerDistrict}
-              onStateChange={(st) => setPickerState(st)}
-              onDistrictChange={(dist) => {
-                setPickerDistrict(dist);
-                setDestination(dist);
-              }}
-              onPlaceChange={(plc) => {
-                if (plc) setDestination(`${plc}, ${pickerDistrict}`);
-              }}
-              showPlace={true}
-            />
-          </div>
-        )}
 
         {/* Travellers count & Status */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

@@ -40,7 +40,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
   stateLabel = 'State',
   districtLabel = 'District',
   placeLabel = 'Place / Tourist Attraction',
-  statePlaceholder = 'Select Indian State / UT...',
+  statePlaceholder = 'Select State...',
   districtPlaceholder = 'Select District...',
   placePlaceholder = 'Search or select place...',
   required = false,
@@ -170,7 +170,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
             value={selectedState}
             onChange={handleStateSelect}
             placeholder={statePlaceholder}
-            searchPlaceholder="Type 'K' or state name..."
+            searchPlaceholder="Select state name..."
             disabled={disabled}
             allowClear
           />

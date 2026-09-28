@@ -1,3 +1,8 @@
+/**
+ * Customer Directory Page
+ * Manages 360-degree customer records, contact details, booking histories,
+ * and communication preferences. All customer data is persisted in the database.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -23,6 +28,7 @@ import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { CustomerModal } from './CustomerModal.js';
 import { CustomerImportModal } from './CustomerImportModal.js';
@@ -100,15 +106,8 @@ export const CustomerList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchCustomers();
-
-    // Auto-refresh every 5 seconds for multi-user sync
-    const pollTimer = setInterval(() => {
-      fetchCustomers(true);
-    }, 5000);
-    return () => clearInterval(pollTimer);
-  }, [page, selectedSource, selectedStatus]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(fetchCustomers, [page, selectedSource, selectedStatus], { intervalMs: 60000 });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

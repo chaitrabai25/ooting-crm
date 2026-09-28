@@ -96,7 +96,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   };
 
   const isLinkActive = (item: NavLinkItem): boolean => {
-    const itemUrl = new URL(item.path, 'http://dummy.com');
+    const base = typeof window !== 'undefined' && window.location ? window.location.origin : 'https://crm.ooting.com';
+    const itemUrl = new URL(item.path, base);
     const itemPath = itemUrl.pathname;
 
     if (item.path === '/') {

@@ -1,4 +1,14 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * @file UserList.tsx
+ * @description Ooting CRM Team & RBAC User Management.
+ * Features:
+ *  - Super Admin & Admin management of staff accounts, roles, and status (ACTIVE / INACTIVE).
+ *  - Role-based access control filters (SUPER_ADMIN, ADMIN, SALES, OPS, ACCOUNTS).
+ *  - Modal user onboarding, credential generation, and profile editing.
+ *  - Battery- & network-aware live sync (pauses when tab inactive; 60s background cycle).
+ */
+
+import React, { useState } from 'react';
 import { Plus, Search, Shield, Phone, Mail, Edit, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
@@ -7,6 +17,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { UserModal } from './UserModal.js';
 import { User, Role } from '../../types/index.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 
 export const UserList: React.FC = () => {
   const { user: currentUser, isSuperAdmin } = useAuth();
@@ -46,15 +57,8 @@ export const UserList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchUsers();
-
-    // Multi-user 5-second live sync
-    const pollInterval = setInterval(() => {
-      fetchUsers(true);
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, [page, roleFilter, statusFilter]);
+  // Battery- & tab-aware live synchronization (60s background cycle, instant on tab focus)
+  useLiveSync(fetchUsers, [page, roleFilter, statusFilter]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

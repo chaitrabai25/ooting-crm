@@ -1,3 +1,8 @@
+/**
+ * Travel Packages & Master Itineraries Directory
+ * Catalogs curated travel packages, day-wise itineraries, inclusions,
+ * pricing, and custom itinerary generation. All package data is persisted in the database.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -21,6 +26,7 @@ import { CustomItineraryModal } from '../../components/packages/CustomItineraryM
 import { Package } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 
 export const PackageList: React.FC = () => {
   const navigate = useNavigate();
@@ -55,15 +61,8 @@ export const PackageList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchPackages();
-
-    // Multi-user 5-second live sync
-    const pollInterval = setInterval(() => {
-      fetchPackages(true);
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, [selectedType, selectedStatus]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(fetchPackages, [selectedType, selectedStatus], { intervalMs: 60000 });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

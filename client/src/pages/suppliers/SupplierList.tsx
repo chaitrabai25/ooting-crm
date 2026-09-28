@@ -1,3 +1,8 @@
+/**
+ * B2B Service Providers & Suppliers Directory
+ * Manages verified hoteliers, tourist fleet operators, local guides,
+ * and travel vendors. All supplier data is persisted in the database.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -23,6 +28,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
@@ -174,16 +180,12 @@ export const SupplierList: React.FC = () => {
     fetchStats();
   }, []);
 
-  useEffect(() => {
-    fetchSuppliers();
+  const syncSuppliersAndStats = async (isSilent = false) => {
+    await Promise.all([fetchSuppliers(isSilent), fetchStats()]);
+  };
 
-    // Multi-user 5-second live sync
-    const pollInterval = setInterval(() => {
-      fetchSuppliers(true);
-      fetchStats();
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, [page, typeFilter, tierFilter, stateFilter, statusFilter, sortBy, sortOrder]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(syncSuppliersAndStats, [page, typeFilter, tierFilter, stateFilter, statusFilter, sortBy, sortOrder], { intervalMs: 60000 });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

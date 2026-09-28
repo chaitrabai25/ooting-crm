@@ -243,7 +243,6 @@ export const QuotationView: React.FC = () => {
                     <span className="font-mono text-sm font-bold text-slate-900">
                       {quotation.quotationNumber}
                     </span>
-                    <Badge status={quotation.status} />
                   </div>
                   <span className="text-[11px] text-slate-500 block mt-0.5">
                     Date: {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -252,9 +251,9 @@ export const QuotationView: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons) */}
-            <div className="flex justify-end ml-auto shrink-0">
-              <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[260px] max-w-[340px]">
+            {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons, shifted right to align with page margin) */}
+            <div className="flex justify-end ml-auto shrink-0 sm:translate-x-3">
+              <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[250px] max-w-[340px]">
                 {company?.website && (
                   <div className="flex items-center gap-2.5">
                     <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
@@ -284,7 +283,10 @@ export const QuotationView: React.FC = () => {
                     <FileText className="w-3.5 h-3.5" />
                   </span>
                   <span className="font-mono font-bold text-slate-900 tracking-tight">
-                    GSTIN: {company?.gstin?.trim() ? company.gstin.trim().toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
+                    GSTIN: {(() => {
+                      const g = (company?.gstin || '').trim().toUpperCase();
+                      return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
+                    })()}
                   </span>
                 </div>
                 {company?.address && (

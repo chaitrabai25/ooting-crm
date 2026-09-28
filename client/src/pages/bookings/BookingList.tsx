@@ -1,3 +1,9 @@
+/**
+ * Tour Bookings Directory
+ * Handles creation, management, payment tracking, passenger manifests,
+ * and service coordination for holiday bookings.
+ * All booking financial and operational data is persisted in the database.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -23,6 +29,7 @@ import { Badge } from '../../components/ui/Badge.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 import { BookingModal } from './BookingModal.js';
 import { BookingImportModal } from './BookingImportModal.js';
 import { BookingInvoiceModal } from './BookingInvoiceModal.js';
@@ -112,15 +119,8 @@ export const BookingList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchBookings();
-
-    // Silent background auto-refresh every 5 seconds for multi-user sync
-    const pollTimer = setInterval(() => {
-      fetchBookings(true);
-    }, 5000);
-    return () => clearInterval(pollTimer);
-  }, [page, selectedStatus, selectedPackageId, sortBy, sortOrder]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(fetchBookings, [page, selectedStatus, selectedPackageId, sortBy, sortOrder], { intervalMs: 60000 });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

@@ -21,7 +21,8 @@ export const ModuleSubNav: React.FC<ModuleSubNavProps> = ({ items, className = '
   const searchParams = new URLSearchParams(location.search);
 
   const isItemActive = (item: SubNavItem): boolean => {
-    const itemUrl = new URL(item.path, 'http://dummy.com');
+    const base = typeof window !== 'undefined' && window.location ? window.location.origin : 'https://crm.ooting.com';
+    const itemUrl = new URL(item.path, base);
     const itemPath = itemUrl.pathname;
     const itemParams = itemUrl.searchParams;
 

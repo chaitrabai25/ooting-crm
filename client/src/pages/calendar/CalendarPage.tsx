@@ -1,4 +1,15 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * @file CalendarPage.tsx
+ * @description Ooting CRM Operations & Dispatch Schedule Calendar.
+ * Features:
+ *  - Multi-view scheduling: Month, Week, Day, and 30-day forward Agenda.
+ *  - Event types: Lead follow-ups, tour start/end dates, cab dispatches, and staff tasks.
+ *  - Team workload & staff availability tracker.
+ *  - Modal dispatch creation, updates, and cancellations.
+ *  - Battery- & network-aware live sync (pauses when tab inactive; 60s background cycle).
+ */
+
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
@@ -23,6 +34,7 @@ import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { CalendarEvent, StaffWorkload } from '../../types/index.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 
 type CalendarViewMode = 'month' | 'week' | 'day' | 'agenda';
 
@@ -123,20 +135,11 @@ export const CalendarPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchEvents();
-
-    // Multi-user 5-second live sync
-    const pollInterval = setInterval(() => {
-      fetchEvents(true);
-      fetchStaffAvailability();
-    }, 5000);
-    return () => clearInterval(pollInterval);
+  // Battery- & tab-aware live synchronization (60s background cycle, instant on tab focus)
+  useLiveSync(async (silent) => {
+    await fetchEvents(silent);
+    await fetchStaffAvailability();
   }, [currentDate, viewMode, selectedEventType, selectedStaffId]);
-
-  useEffect(() => {
-    fetchStaffAvailability();
-  }, []);
 
   const handlePrev = () => {
     const d = new Date(currentDate);

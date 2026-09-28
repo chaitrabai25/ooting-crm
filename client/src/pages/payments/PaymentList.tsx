@@ -1,3 +1,9 @@
+/**
+ * Payments & Financial Receipts Directory
+ * Handles incoming customer and B2B payments, UTR verification,
+ * OCR transaction receipt processing, and payment receipts.
+ * All payment records and UTR identifiers are permanently persisted in the database.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, CreditCard, FileSpreadsheet, CheckCircle2, ArrowRight, Plus } from 'lucide-react';
@@ -8,6 +14,7 @@ import { Modal } from '../../components/ui/Modal.js';
 import { PaymentOcrModal } from '../../components/payments/PaymentOcrModal.js';
 import { Payment } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { useLiveSync } from '../../utils/useLiveSync.js';
 
 export const PaymentList: React.FC = () => {
   const navigate = useNavigate();
@@ -52,15 +59,8 @@ export const PaymentList: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchPayments();
-
-    // Multi-user 5-second live sync
-    const pollInterval = setInterval(() => {
-      fetchPayments(true);
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, [page, selectedMethod, selectedStatus]);
+  // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
+  useLiveSync(fetchPayments, [page, selectedMethod, selectedStatus], { intervalMs: 60000 });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
