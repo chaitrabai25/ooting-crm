@@ -395,7 +395,7 @@ export const PassengerList: React.FC = () => {
       </div>
 
       {/* Roster Table: Optimized 6 columns fit 100% desktop zoom with clean mobile scroll */}
-      <div className="w-full overflow-hidden rounded-xl">
+      <div className="w-full max-w-full overflow-x-auto rounded-xl">
         <DataTable<PassengerItem>
           columns={columns}
           data={passengers}

@@ -60,12 +60,60 @@ export const ItineraryPdfView: React.FC = () => {
       const { download } = await generateA4Pdf({
         elementId: 'itinerary-document',
         filename,
+        title: pkg.packageName || 'Official Tour Itinerary',
         onePageOnly: false,
+        margin: 8,
       });
       download();
     } catch (err) {
       console.error('Failed to download itinerary PDF:', err);
       alert('PDF generation error. Please try the Print button.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleShareWhatsApp = async () => {
+    if (!pkg) return;
+    try {
+      setIsGeneratingPdf(true);
+      const cleanTitle = (pkg.packageName || 'Itinerary').replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `Itinerary_${cleanTitle}.pdf`;
+
+      const { download, pdfBlob } = await generateA4Pdf({
+        elementId: 'itinerary-document',
+        filename,
+        title: pkg.packageName || 'Official Tour Itinerary',
+        onePageOnly: false,
+        margin: 8,
+      });
+
+      const messageText =
+        `*${(company.name || 'OOTING').toUpperCase()} - TOUR ITINERARY*\n\n` +
+        `Here is the official travel itinerary for *${pkg.packageName}* (${pkg.destination})!\n\n` +
+        `• Duration: ${pkg.duration}\n` +
+        `• Starting Price: ₹${Number(pkg.price).toLocaleString('en-IN')} Per Person\n` +
+        `• Inclusions: ${pkg.inclusions || 'Standard holiday package inclusions'}\n\n` +
+        `Have a look at the attached official PDF document for the complete day-by-day schedule.\n\n` +
+        `Warm regards,\n*Ooting Team*`;
+
+      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          files: [pdfFile],
+          title: `Tour Itinerary - ${pkg.packageName}`,
+          text: messageText,
+        });
+      } else {
+        download();
+        const text = encodeURIComponent(
+          messageText +
+          `\n\n📄 Note: The official Tour Itinerary PDF has been downloaded to your device. Please attach it here to send.`
+        );
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+      }
+    } catch (err) {
+      console.error('WhatsApp itinerary share error:', err);
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -113,6 +161,17 @@ export const ItineraryPdfView: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onClick={handleShareWhatsApp}
+            disabled={isGeneratingPdf}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer"
+            title="Send official PDF itinerary on WhatsApp"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>WhatsApp PDF</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf}
             className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer"
@@ -143,11 +202,15 @@ export const ItineraryPdfView: React.FC = () => {
       >
         
         {/* Top Header Wave Asset */}
-        <div className="w-full h-4 bg-[#C91F28] overflow-hidden relative">
+        <div
+          className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
+          style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+        >
           <img
             src="/assets/ooting-header-wave.png"
             alt=""
             className="w-full h-full object-cover opacity-90"
+            style={{ width: '100%', height: '8px', objectFit: 'cover' }}
           />
         </div>
 
@@ -156,11 +219,16 @@ export const ItineraryPdfView: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
             {/* LEFT SIDE: Logo & Company Name/Tagline */}
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
+              <div
+                className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
+                style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px', minHeight: '56px', maxHeight: '56px', overflow: 'hidden' }}
+              >
                 <img
                   src={company.logoUrl || '/assets/ooting-logo.jpg'}
                   alt={company.name || 'Ooting'}
-                  className="w-full h-full object-contain"
+                  className="max-w-full max-h-full object-contain"
+                  style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', objectFit: 'contain' }}
+                  crossOrigin="anonymous"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
                   }}
@@ -179,36 +247,36 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details (Shifted 2 tab spaces rightwards to align flush with right margin) */}
-            <div className="flex justify-end ml-auto shrink-0 translate-x-4 sm:translate-x-7">
+            {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with document margin) */}
+            <div className="flex justify-end ml-auto shrink-0 translate-x-6 sm:translate-x-8">
               <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                 {company.website && (
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                      <Globe className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-medium text-slate-800 tracking-tight break-all">{company.website}</span>
                   </div>
                 )}
                 {company.email && (
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                      <Mail className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-medium text-slate-800 tracking-tight break-all">{company.email}</span>
                   </div>
                 )}
                 {company.phone && (
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                      <Phone className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2.5">
-                  <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                    <FileText className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                    <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                   </span>
                   <span className="font-mono font-bold text-slate-900 tracking-tight">
                     GSTIN: {(() => {
@@ -218,13 +286,14 @@ export const ItineraryPdfView: React.FC = () => {
                   </span>
                 </div>
                 {company.address && (
-                  <div className="flex items-start gap-2.5 pt-0.5">
-                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
-                      <MapPin className="w-3.5 h-3.5" />
+                  <div className="flex items-start gap-2 pt-0.5">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                      <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
-                    <span className="text-slate-600 leading-snug break-words">
-                      {company.address}
-                    </span>
+                    <div className="text-slate-600 leading-snug">
+                      <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
+                      <div>Shivamogga, Karnataka, India</div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -341,7 +410,7 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Day Photo(s) - Intelligent aspect-ratio scaling with Place Name label */}
+                  {/* Day Photo(s) - Disciplined Aspect Ratio & Height with Place Name Label */}
                   {(() => {
                     let photoItems: { url: string; label?: string }[] = [];
                     if ((day as any).images) {
@@ -350,22 +419,25 @@ export const ItineraryPdfView: React.FC = () => {
                         if (Array.isArray(parsed) && parsed.length > 0) {
                           photoItems = parsed
                             .map((item: any) => {
-                              if (typeof item === 'string') return { url: item };
-                              return { url: item.url || item.imageUrl, label: item.label || item.name || item.placeName };
+                              if (typeof item === 'string') return { url: item.trim() };
+                              return {
+                                url: (item.url || item.imageUrl || '').trim(),
+                                label: item.label || item.name || item.placeName,
+                              };
                             })
-                            .filter((item) => Boolean(item.url));
+                            .filter((item) => Boolean(item.url) && item.url !== 'undefined' && item.url !== 'null' && item.url !== '""');
                         }
                       } catch {
                         if (typeof (day as any).images === 'string' && (day as any).images.includes(',')) {
                           photoItems = (day as any).images
                             .split(',')
                             .map((s: string) => ({ url: s.trim() }))
-                            .filter((item: any) => Boolean(item.url));
+                            .filter((item: any) => Boolean(item.url) && item.url !== 'undefined' && item.url !== 'null');
                         }
                       }
                     }
-                    if (photoItems.length === 0 && day.imageUrl) {
-                      photoItems = [{ url: day.imageUrl }];
+                    if (photoItems.length === 0 && day.imageUrl && day.imageUrl.trim()) {
+                      photoItems = [{ url: day.imageUrl.trim() }];
                     }
 
                     if (photoItems.length === 0) return null;
@@ -376,24 +448,28 @@ export const ItineraryPdfView: React.FC = () => {
 
                     if (photoItems.length === 1) {
                       const item = photoItems[0];
-                      const placeLabel = item.label || (placesList.length > 0 ? placesList.join(' • ') : day.title);
+                      const placeLabel = item.label || (placesList.length > 0 ? placesList.join(' • ') : '');
                       return (
-                        <div className="pt-2">
+                        <div className="pt-2 day-photo-card">
                           <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                            <div className="relative w-full bg-slate-900/5 flex items-center justify-center aspect-[16/10] max-h-[420px] overflow-hidden">
+                            <div
+                              className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
+                              style={{ width: '100%', height: '170px', maxHeight: '170px', minHeight: '170px' }}
+                            >
                               <img
                                 src={item.url}
-                                alt={placeLabel}
+                                alt={placeLabel || day.title}
                                 className="w-full h-full object-cover"
+                                style={{ width: '100%', height: '170px', maxHeight: '170px', objectFit: 'cover' }}
+                                crossOrigin="anonymous"
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).src =
-                                    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
+                                  (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');
                                 }}
                               />
                             </div>
                             {placeLabel && (
-                              <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-xs text-slate-800 font-medium">
-                                <MapPin className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
+                              <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-xs text-slate-800 font-medium">
+                                <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" style={{ width: '14px', height: '14px' }} />
                                 <span className="font-semibold text-slate-900">{placeLabel}</span>
                               </div>
                             )}
@@ -404,29 +480,32 @@ export const ItineraryPdfView: React.FC = () => {
 
                     return (
                       <div className="pt-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                           {photoItems.map((item, pIdx) => {
-                            const placeLabel =
-                              item.label || placesList[pIdx] || placesList[0] || `${day.title} - View ${pIdx + 1}`;
+                            const placeLabel = item.label || placesList[pIdx] || '';
                             return (
                               <div
                                 key={pIdx}
-                                className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
+                                className="day-photo-card flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
                               >
-                                <div className="relative w-full bg-slate-900/5 flex items-center justify-center aspect-[16/10] overflow-hidden">
+                                <div
+                                  className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
+                                  style={{ width: '100%', height: '115px', maxHeight: '115px', minHeight: '115px' }}
+                                >
                                   <img
                                     src={item.url}
-                                    alt={placeLabel}
+                                    alt={placeLabel || ''}
                                     className="w-full h-full object-cover"
+                                    style={{ width: '100%', height: '115px', maxHeight: '115px', objectFit: 'cover' }}
+                                    crossOrigin="anonymous"
                                     onError={(e) => {
-                                      (e.target as HTMLImageElement).src =
-                                        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
+                                      (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');
                                     }}
                                   />
                                 </div>
                                 {placeLabel && (
-                                  <div className="px-2.5 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-[11px] text-slate-800 font-medium">
-                                    <MapPin className="w-3 h-3 text-[#C91F28] flex-shrink-0" />
+                                  <div className="px-2 py-1 bg-slate-50 border-t border-slate-200 flex items-center gap-1 text-[10px] text-slate-800 font-medium">
+                                    <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" style={{ width: '12px', height: '12px' }} />
                                     <span className="truncate font-semibold text-slate-800">{placeLabel}</span>
                                   </div>
                                 )}
@@ -505,11 +584,15 @@ export const ItineraryPdfView: React.FC = () => {
         </div>
 
         {/* Footer Wave Asset */}
-        <div className="w-full h-4 bg-[#C91F28] overflow-hidden relative">
+        <div
+          className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
+          style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+        >
           <img
             src="/assets/ooting-footer-wave.png"
             alt=""
             className="w-full h-full object-cover opacity-90"
+            style={{ width: '100%', height: '8px', objectFit: 'cover' }}
           />
         </div>
       </div>

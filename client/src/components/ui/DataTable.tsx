@@ -71,7 +71,7 @@ export function DataTable<T extends { id?: string | number }>({
                 const isCurrentSort = !!key && sortField === key;
 
                 return (
-                  <th key={idx} className={`px-5 py-3.5 text-slate-800 dark:text-slate-100 font-bold ${col.className || ''}`}>
+                  <th key={idx} className={`px-4 py-3 sm:px-5 sm:py-3.5 text-slate-800 dark:text-slate-100 font-bold ${col.className || ''}`}>
                     {key && onSort ? (
                       <button
                         type="button"
@@ -123,7 +123,7 @@ export function DataTable<T extends { id?: string | number }>({
                   }
 
                   return (
-                    <td key={colIdx} className={`px-5 py-3.5 text-slate-700 dark:text-slate-300 ${col.className || ''}`}>
+                    <td key={colIdx} className={`px-4 py-3 sm:px-5 sm:py-3.5 text-slate-700 dark:text-slate-300 ${col.className || ''}`}>
                       {cellContent}
                     </td>
                   );

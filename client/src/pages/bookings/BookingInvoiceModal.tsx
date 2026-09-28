@@ -146,7 +146,9 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
       const { download } = await generateA4Pdf({
         elementId: 'invoice-document',
         filename,
+        title: `Tax Invoice — ${invoiceNumber}`,
         onePageOnly: true,
+        margin: 8,
       });
       download();
     } catch (err) {
@@ -165,39 +167,47 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
       const cleanBooking = (booking.bookingNumber || 'OOT').replace(/[^a-zA-Z0-9]/g, '_');
       const filename = `Invoice_${cleanBooking}_${cleanGuest}.pdf`;
 
-      // Trigger PDF download
-      const { download } = await generateA4Pdf({
+      // Generate PDF Blob
+      const { download, pdfBlob } = await generateA4Pdf({
         elementId: 'invoice-document',
         filename,
+        title: `Tax Invoice — ${invoiceNumber}`,
         onePageOnly: true,
+        margin: 8,
       });
-      download();
 
       const phone = (booking.customer?.phone || '').replace(/[^0-9]/g, '');
       const paymentSummaryText = isFullyPaid
         ? `• *Payment Status: Payment Completed / Fully Paid* (Balance: ₹0)\n`
         : `• *Balance Due: ₹${balanceDue.toLocaleString('en-IN')}*\n• *Payment Due Date: ${formattedDueDate}*\n• Status: ${paymentStatus}\n`;
 
-      const text = encodeURIComponent(
+      const messageText =
         `*${(company.name || 'OOTING').toUpperCase()} - OFFICIAL TAX INVOICE*\n\n` +
         `Dear ${booking.customer?.fullName || 'Guest'},\n` +
-        `Your Tax Invoice *${invoiceNumber}* for Booking *${booking.bookingNumber}* is generated.\n\n` +
+        `Your Tax Invoice *${invoiceNumber}* for Booking *${booking.bookingNumber}* is attached.\n\n` +
         `• Tour: ${booking.package?.packageName || 'Custom Holiday Itinerary'}\n` +
         `• Travel Dates: ${travelStartDate} to ${travelEndDate}\n` +
-        `• Subtotal: ₹${rawTotal.toLocaleString('en-IN')}\n` +
-        (discount > 0 ? `• Promotional Discount: - ₹${discount.toLocaleString('en-IN')}\n` : '') +
-        `• Amount: ₹${subtotal.toLocaleString('en-IN')}\n` +
-        `• CGST (${cgstPercent}%): ₹${cgstAmount.toLocaleString('en-IN')}\n` +
-        `• SGST (${sgstPercent}%): ₹${sgstAmount.toLocaleString('en-IN')}\n` +
         `• Grand Total: ₹${grandTotal.toLocaleString('en-IN')}\n` +
         `• Amount Paid: ₹${amountPaid.toLocaleString('en-IN')}\n` +
         paymentSummaryText + '\n' +
-        `📄 The official A4 Tax Invoice PDF has been downloaded to attach as a document.\n\n` +
-        `Thank you for choosing ${company.name || 'Ooting'}!`
-      );
+        `Thank you for choosing ${company.name || 'Ooting'}!`;
 
-      const waUrl = `https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${text}`;
-      window.open(waUrl, '_blank');
+      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          files: [pdfFile],
+          title: `Tax Invoice - ${invoiceNumber}`,
+          text: messageText,
+        });
+      } else {
+        download();
+        const text = encodeURIComponent(
+          messageText +
+          `\n\n📄 Note: The official A4 Tax Invoice PDF has been downloaded to your device. Please attach it here to send.`
+        );
+        const waUrl = `https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${text}`;
+        window.open(waUrl, '_blank');
+      }
     } catch (err) {
       console.error('WhatsApp invoice share error:', err);
     } finally {
@@ -424,8 +434,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Contact Details (Shifted 2 tab spaces rightwards to align flush with right margin) */}
-                <div className="w-fit ml-auto shrink-0 translate-x-4 sm:translate-x-7 flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
+                {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with right margin) */}
+                <div className="w-fit ml-auto shrink-0 translate-x-6 sm:translate-x-8 flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                   {company.website && (
                     <div className="flex items-center gap-2.5">
                       <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
@@ -466,7 +476,10 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                       <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
                         <MapPin className="w-3.5 h-3.5" />
                       </span>
-                      <span className="text-[10.5px] text-slate-600 leading-snug break-words flex-1">{company.address}</span>
+                      <div className="text-[10.5px] text-slate-600 leading-snug flex-1">
+                        <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
+                        <div>Shivamogga, Karnataka, India</div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -610,34 +623,28 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                     <div className="space-y-1 text-[10.5px] text-slate-600">
                       <div className="flex justify-between">
                         <span className="text-slate-500">Beneficiary:</span>
-                        <span className="font-bold text-slate-900">{company.accountHolderName || company.name || 'Ooting Holidays Private Limited'}</span>
+                        <span className="font-bold text-slate-900">{company.accountHolderName || company.name || 'Jeevan'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">Bank Name:</span>
-                        <span className="font-semibold text-slate-800">{company.bankName || 'HDFC Bank'}</span>
+                        <span className="font-semibold text-slate-800">{company.bankName || 'Canara Bank'}</span>
                       </div>
-                      {company.accountNumber && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Account No:</span>
-                          <span className="font-mono font-bold text-slate-900">{company.accountNumber}</span>
-                        </div>
-                      )}
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Account No:</span>
+                        <span className="font-mono font-bold text-slate-900">{company.accountNumber || '2891101013983'}</span>
+                      </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">Account Type:</span>
                         <span className="font-medium text-slate-800">{company.accountType || 'Current Account'}</span>
                       </div>
-                      {company.ifsc && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">IFSC Code:</span>
-                          <span className="font-mono font-bold text-slate-900 uppercase">{company.ifsc}</span>
-                        </div>
-                      )}
-                      {company.branch && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Branch:</span>
-                          <span className="font-medium text-slate-800">{company.branch}</span>
-                        </div>
-                      )}
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">IFSC Code:</span>
+                        <span className="font-mono font-bold text-slate-900 uppercase">{company.ifsc || 'CNRB0005237'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Branch:</span>
+                        <span className="font-medium text-slate-800">{company.branch || 'Shivmogga'}</span>
+                      </div>
                       {company.upiId && (
                         <div className="flex justify-between">
                           <span className="text-slate-500">UPI ID / VPA:</span>

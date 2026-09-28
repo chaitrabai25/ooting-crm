@@ -410,7 +410,9 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
       const { download } = await generateA4Pdf({
         elementId: 'itinerary-document',
         filename,
+        title: tripTitle || 'Custom Tour Itinerary',
         onePageOnly: false,
+        margin: 8,
       });
       download();
     } catch (err) {
@@ -889,24 +891,33 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                 style={{ minHeight: '1050px' }}
               >
                 {/* Header Wave Accent */}
-                <div className="w-full h-3 bg-[#C91F28] overflow-hidden relative mb-5 rounded-t-lg">
+                <div
+                  className="w-full bg-[#C91F28] overflow-hidden relative mb-5 rounded-t-lg shrink-0"
+                  style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+                >
                   <img
                     src="/assets/ooting-header-wave.png"
                     alt=""
                     className="w-full h-full object-cover opacity-90"
+                    style={{ width: '100%', height: '8px', objectFit: 'cover' }}
                   />
                 </div>
 
                 {/* Letterhead Header Section */}
                 <div className="px-1 pt-1 pb-5 border-b border-slate-200">
-                  <div className="grid grid-cols-2 gap-8 items-start">
+                  <div className="flex items-start justify-between gap-6">
                     {/* LEFT SIDE: Logo & Company Name/Tagline */}
                     <div className="flex items-start gap-4">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-xs flex-shrink-0">
+                      <div
+                        className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
+                        style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px', minHeight: '56px', maxHeight: '56px', overflow: 'hidden' }}
+                      >
                         <img
                           src={company.logoUrl || '/assets/ooting-logo.jpg'}
                           alt={company.name || 'Ooting'}
-                          className="w-full h-full object-contain"
+                          className="max-w-full max-h-full object-contain"
+                          style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', objectFit: 'contain' }}
+                          crossOrigin="anonymous"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
                           }}
@@ -925,49 +936,50 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       </div>
                     </div>
 
-                    {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons) */}
-                    <div className="flex justify-end ml-auto shrink-0">
-                      <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[260px] max-w-[340px]">
+                    {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with document margin) */}
+                    <div className="flex justify-end ml-auto shrink-0 translate-x-6 sm:translate-x-8">
+                      <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                         {company.website && (
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                              <Globe className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                              <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                             </span>
                             <span className="font-medium text-slate-800 tracking-tight break-all">{company.website}</span>
                           </div>
                         )}
                         {company.email && (
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                              <Mail className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                              <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                             </span>
                             <span className="font-medium text-slate-800 tracking-tight break-all">{company.email}</span>
                           </div>
                         )}
                         {company.phone && (
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                              <Phone className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                              <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                             </span>
                             <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
                           </div>
                         )}
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                            <FileText className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2">
+                          <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                            <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                           </span>
                           <span className="font-mono font-bold text-slate-900 tracking-tight">
                             GSTIN: {company?.gstin?.trim() ? company.gstin.trim().toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
                           </span>
                         </div>
                         {company.address && (
-                          <div className="flex items-start gap-2.5 pt-0.5">
-                            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
-                              <MapPin className="w-3.5 h-3.5" />
+                          <div className="flex items-start gap-2 pt-0.5">
+                            <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                              <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                             </span>
-                            <span className="text-slate-600 leading-snug break-words">
-                              {company.address}
-                            </span>
+                            <div className="text-slate-600 leading-snug">
+                              <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
+                              <div>Shivamogga, Karnataka, India</div>
+                            </div>
                           </div>
                         )}
                       </div>

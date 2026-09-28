@@ -60,12 +60,66 @@ export const QuotationView: React.FC = () => {
       const { download } = await generateA4Pdf({
         elementId: 'quotation-document',
         filename: `Quotation-${quotation.quotationNumber}.pdf`,
+        title: `Travel Quotation — ${quotation.quotationNumber}`,
         onePageOnly: false,
+        margin: 8,
       });
       download();
     } catch (err) {
       console.error('Failed to generate Quotation PDF:', err);
       alert('Could not generate PDF. Please try the Print button.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleShareWhatsApp = async () => {
+    if (!quotation) return;
+    try {
+      setIsGeneratingPdf(true);
+      const filename = `Quotation-${quotation.quotationNumber}.pdf`;
+      const { download, pdfBlob } = await generateA4Pdf({
+        elementId: 'quotation-document',
+        filename,
+        title: `Travel Quotation — ${quotation.quotationNumber}`,
+        onePageOnly: false,
+        margin: 8,
+      });
+
+      const phoneDigits = quotation.customer?.phone?.replace(/\D/g, '') || '';
+      const dates = quotation.travelStartDate
+        ? `${new Date(quotation.travelStartDate).toLocaleDateString('en-IN')} to ${quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}`
+        : 'TBD';
+
+      const messageText =
+        `Hello *${quotation.customer?.fullName || 'Valued Client'}*,\n\n` +
+        `Here is your travel quotation from *Ooting - Journeys Beyond Ordinary*:\n\n` +
+        `📋 *Quotation #:* ${quotation.quotationNumber}\n` +
+        `📍 *Destination:* ${quotation.destination}\n` +
+        `🗓 *Travel Dates:* ${dates}\n` +
+        `👥 *Guests:* ${quotation.adults} Adults${quotation.children > 0 ? `, ${quotation.children} Children` : ''}\n` +
+        `🚗 *Cab / Transport:* ${quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle'}\n` +
+        `💰 *Total Amount:* ₹${Number(quotation.finalAmount).toLocaleString('en-IN')}\n\n` +
+        `Please review the attached official Quotation PDF and let us know if you would like to confirm your booking.\n\n` +
+        `Warm regards,\n*Ooting Team*`;
+
+      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          files: [pdfFile],
+          title: `Travel Quotation - ${quotation.quotationNumber}`,
+          text: messageText,
+        });
+      } else {
+        download();
+        const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(
+          messageText +
+          `\n\n📄 Note: The official Travel Quotation PDF has been downloaded to your device. Please attach it here to send.`
+        )}`;
+        window.open(url, '_blank');
+      }
+    } catch (err) {
+      console.error('WhatsApp quotation share error:', err);
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -150,19 +204,13 @@ export const QuotationView: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => {
-              const phoneDigits = quotation.customer?.phone?.replace(/\D/g, '') || '';
-              const dates = quotation.travelStartDate
-                ? `${new Date(quotation.travelStartDate).toLocaleDateString('en-IN')} to ${quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}`
-                : 'TBD';
-              const text = `Hello *${quotation.customer?.fullName || 'Valued Client'}*,\n\nHere is your travel quotation from *Ooting - Journeys Beyond Ordinary*:\n\n📋 *Quotation #:* ${quotation.quotationNumber}\n📍 *Destination:* ${quotation.destination}\n🗓 *Travel Dates:* ${dates}\n👥 *Guests:* ${quotation.adults} Adults${quotation.children > 0 ? `, ${quotation.children} Children` : ''}\n🚗 *Cab / Transport:* ${quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle'}\n💰 *Total Amount:* ₹${Number(quotation.finalAmount).toLocaleString('en-IN')}\n\nPlease review the details and let us know if you would like to confirm your booking.\n\nWarm regards,\n*Ooting Team*`;
-              const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`;
-              window.open(url, '_blank');
-            }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors"
+            onClick={handleShareWhatsApp}
+            disabled={isGeneratingPdf}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+            title="Send quotation PDF document directly to customer via WhatsApp"
           >
             <Share2 className="w-3.5 h-3.5" />
-            <span>Send on WhatsApp</span>
+            <span>WhatsApp PDF</span>
           </button>
 
           <button
@@ -204,11 +252,15 @@ export const QuotationView: React.FC = () => {
         <div className="w-full h-1.5 bg-[#C91F28]" />
 
         {/* Authentic Header Wave Accent */}
-        <div className="w-full h-6 overflow-hidden bg-brand-600 relative">
+        <div
+          className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
+          style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+        >
           <img
             src="/assets/ooting-header-wave.png"
             alt=""
             className="w-full h-full object-cover opacity-80"
+            style={{ width: '100%', height: '8px', objectFit: 'cover' }}
           />
         </div>
 
@@ -217,11 +269,16 @@ export const QuotationView: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 pb-5 border-b border-slate-200">
             {/* LEFT SIDE: Brand Logo, Company Title & Quotation Reference */}
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0">
+              <div
+                className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
+                style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px', minHeight: '56px', maxHeight: '56px', overflow: 'hidden' }}
+              >
                 <img
                   src={company?.logoUrl || '/assets/ooting-logo.jpg'}
                   alt={company?.name || 'Ooting'}
-                  className="w-full h-full object-contain"
+                  className="max-w-full max-h-full object-contain"
+                  style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', objectFit: 'contain' }}
+                  crossOrigin="anonymous"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
                   }}
@@ -251,36 +308,36 @@ export const QuotationView: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details (Shifted 2 tab spaces rightwards to align flush with right margin) */}
-            <div className="flex justify-end ml-auto shrink-0 translate-x-4 sm:translate-x-7">
+            {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with document margin) */}
+            <div className="flex justify-end ml-auto shrink-0 translate-x-6 sm:translate-x-8">
               <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                 {company?.website && (
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                      <Globe className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-medium text-slate-800 tracking-tight break-all">{company.website}</span>
                   </div>
                 )}
                 {company?.email && (
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                      <Mail className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-medium text-slate-800 tracking-tight break-all">{company.email}</span>
                   </div>
                 )}
                 {company?.phone && (
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                      <Phone className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2.5">
-                  <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
-                    <FileText className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                    <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                   </span>
                   <span className="font-mono font-bold text-slate-900 tracking-tight">
                     GSTIN: {(() => {
@@ -290,13 +347,14 @@ export const QuotationView: React.FC = () => {
                   </span>
                 </div>
                 {company?.address && (
-                  <div className="flex items-start gap-2.5 pt-0.5">
-                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
-                      <MapPin className="w-3.5 h-3.5" />
+                  <div className="flex items-start gap-2 pt-0.5">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                      <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
-                    <span className="text-slate-600 leading-snug break-words">
-                      {company.address}
-                    </span>
+                    <div className="text-slate-600 leading-snug">
+                      <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
+                      <div>Shivamogga, Karnataka, India</div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -537,9 +595,59 @@ export const QuotationView: React.FC = () => {
             </div>
           )}
 
+          {/* Official Bank & Remittance Details from Settings (Auto-populated for Advance / Milestone Payments) */}
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5 break-inside-avoid page-break-avoid">
+            <span className="font-black text-slate-900 uppercase tracking-wider block text-xs">
+              Bank & Remittance Details (For Advance & Milestone Payments)
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px] text-slate-700">
+              <div>
+                <span className="text-slate-500 block text-[10px]">Beneficiary Name</span>
+                <span className="font-bold text-slate-900">{company?.accountHolderName || company?.name || 'Jeevan'}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px]">Bank Name</span>
+                <span className="font-semibold text-slate-800">{company?.bankName || 'Canara Bank'}</span>
+              </div>
+              {company?.accountNumber && (
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Account Number</span>
+                  <span className="font-mono font-bold text-slate-900">{company.accountNumber}</span>
+                </div>
+              )}
+              {company?.ifsc && (
+                <div>
+                  <span className="text-slate-500 block text-[10px]">IFSC Code</span>
+                  <span className="font-mono font-bold text-slate-900 uppercase">{company.ifsc}</span>
+                </div>
+              )}
+              {company?.branch && (
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Branch</span>
+                  <span className="font-medium text-slate-800">{company.branch}</span>
+                </div>
+              )}
+              {company?.accountType && (
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Account Type</span>
+                  <span className="font-medium text-slate-800">{company.accountType}</span>
+                </div>
+              )}
+              {company?.upiId && (
+                <div>
+                  <span className="text-slate-500 block text-[10px]">UPI ID / VPA</span>
+                  <span className="font-mono font-bold text-[#C91F28]">{company.upiId}</span>
+                </div>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-500 pt-1 border-t border-slate-200/80">
+              {company?.paymentNotes || `Please quote Quotation Ref ${quotation.quotationNumber} during bank fund transfer.`}
+            </p>
+          </div>
+
           {/* Terms & Conditions */}
           {quotation.termsAndConditions && (
-            <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-500 space-y-1 break-inside-avoid">
+            <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-500 space-y-1 break-inside-avoid page-break-avoid">
               <span className="font-black text-slate-900 uppercase tracking-wider block text-xs">
                 Terms & Conditions
               </span>
@@ -549,7 +657,7 @@ export const QuotationView: React.FC = () => {
 
           {/* Professional Document Closure */}
           <div className="pt-2 text-center text-[10px] text-slate-400 break-inside-avoid">
-            <p>Thank you for choosing {company?.name || 'Ooting'}. For reservations & inquiries, reach us at {company?.email || 'contact@ooting.com'} or {company?.phone || '+91 98765 43210'}.</p>
+            <p>Thank you for choosing {company?.name || 'Ooting'}. For reservations & inquiries, reach us at {company?.email || 'support@ooting.in'} or {company?.phone || '+91 8884845595'}.</p>
           </div>
         </div>
 
@@ -557,11 +665,15 @@ export const QuotationView: React.FC = () => {
         <div className="w-full h-1 bg-[#C91F28]" />
 
         {/* Authentic Footer Wave Accent */}
-        <div className="w-full h-5 overflow-hidden bg-brand-600 relative">
+        <div
+          className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
+          style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+        >
           <img
             src="/assets/ooting-footer-wave.png"
             alt=""
             className="w-full h-full object-cover opacity-80"
+            style={{ width: '100%', height: '8px', objectFit: 'cover' }}
           />
         </div>
       </div>

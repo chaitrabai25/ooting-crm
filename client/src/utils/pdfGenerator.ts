@@ -16,6 +16,7 @@ interface GeneratePdfOptions {
 export async function generateA4Pdf({
   elementId,
   filename,
+  title,
   onePageOnly = true,
   margin,
 }: GeneratePdfOptions): Promise<{ pdfBlob: Blob; download: () => void }> {
@@ -61,13 +62,87 @@ export async function generateA4Pdf({
     targetEl.style.borderRadius = '0';
     targetEl.style.border = 'none';
 
-    // Fix icon alignment and eliminate html2canvas SVG vertical shifts
+    // 1. Deterministic SVG Icon Normalization (Fixes html2canvas icon shift/drop bug)
     const svgs = targetEl.querySelectorAll<SVGElement>('svg');
     svgs.forEach((svg) => {
-      svg.style.transform = 'none';
-      svg.style.verticalAlign = 'middle';
+      // Determine intended size from class list, attributes, or default to 14px
+      const cls = svg.getAttribute('class') || '';
+      let pxSize = 14;
+      if (cls.includes('w-3 ') || cls.includes('w-3.5') || cls.includes('h-3.5')) pxSize = 14;
+      else if (cls.includes('w-4') || cls.includes('h-4')) pxSize = 16;
+      else if (cls.includes('w-5') || cls.includes('h-5')) pxSize = 20;
+      else if (cls.includes('w-6') || cls.includes('h-6')) pxSize = 24;
+      else if (cls.includes('w-3') || cls.includes('h-3')) pxSize = 12;
+
+      svg.setAttribute('width', String(pxSize));
+      svg.setAttribute('height', String(pxSize));
+      if (!svg.getAttribute('viewBox')) {
+        svg.setAttribute('viewBox', '0 0 24 24');
+      }
+      svg.style.width = `${pxSize}px`;
+      svg.style.height = `${pxSize}px`;
+      svg.style.minWidth = `${pxSize}px`;
+      svg.style.minHeight = `${pxSize}px`;
+      svg.style.maxWidth = `${pxSize}px`;
+      svg.style.maxHeight = `${pxSize}px`;
       svg.style.display = 'inline-block';
+      svg.style.verticalAlign = 'middle';
+      svg.style.transform = 'none';
       svg.style.flexShrink = '0';
+      svg.style.overflow = 'visible';
+
+      const parent = svg.parentElement;
+      if (parent && (parent.classList.contains('flex') || parent.classList.contains('inline-flex'))) {
+        parent.style.display = 'inline-flex';
+        parent.style.alignItems = 'center';
+        parent.style.justifyContent = 'center';
+        parent.style.flexShrink = '0';
+      }
+    });
+
+    // 2. Strict Image Dimension & Object-Fit Enforcement (Prevents blown-up or empty images)
+    const imgs = targetEl.querySelectorAll<HTMLImageElement>('img');
+    imgs.forEach((img) => {
+      const src = img.getAttribute('src') || '';
+      if (!src || src === 'null' || src === 'undefined' || src.trim() === '') {
+        const photoCard = img.closest('.day-photo-card, .photo-item') as HTMLElement;
+        if (photoCard) photoCard.style.display = 'none';
+        else img.style.display = 'none';
+        return;
+      }
+
+      if (src.includes('logo') || img.classList.contains('object-contain')) {
+        img.style.maxWidth = '56px';
+        img.style.maxHeight = '56px';
+        img.style.width = '56px';
+        img.style.height = '56px';
+        img.style.objectFit = 'contain';
+        if (img.parentElement) {
+          img.parentElement.style.width = '56px';
+          img.parentElement.style.height = '56px';
+          img.parentElement.style.maxWidth = '56px';
+          img.parentElement.style.maxHeight = '56px';
+          img.parentElement.style.overflow = 'hidden';
+          img.parentElement.style.flexShrink = '0';
+        }
+      } else if (src.includes('wave')) {
+        img.style.height = '8px';
+        img.style.maxHeight = '8px';
+        img.style.objectFit = 'cover';
+        if (img.parentElement) {
+          img.parentElement.style.height = '8px';
+          img.parentElement.style.maxHeight = '8px';
+          img.parentElement.style.overflow = 'hidden';
+        }
+      } else {
+        // Day photos / general pictures
+        img.style.maxHeight = '180px';
+        img.style.objectFit = 'cover';
+        if (img.parentElement && !img.parentElement.style.maxHeight) {
+          img.parentElement.style.maxHeight = '180px';
+          img.parentElement.style.overflow = 'hidden';
+        }
+      }
     });
 
     // Ensure all input and textarea values are captured in canvas
@@ -135,7 +210,9 @@ export async function generateA4Pdf({
       pdf.addImage(pageImgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
     }
   } else {
-    // Single container fallback (e.g. duty-slip or single-page quotation)
+    // Single container fallback (e.g. duty-slip or single-page quotation or dynamic itinerary)
+    let clonedTargetEl: HTMLElement | null = null;
+
     const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
@@ -148,6 +225,7 @@ export async function generateA4Pdf({
       onclone: (clonedDoc) => {
         const el = clonedDoc.getElementById(elementId);
         if (el) {
+          clonedTargetEl = el;
           el.style.width = `${a4StandardPxWidth}px`;
           el.style.maxWidth = `${a4StandardPxWidth}px`;
           el.style.minWidth = `${a4StandardPxWidth}px`;
@@ -164,50 +242,210 @@ export async function generateA4Pdf({
       },
     });
 
-    const imgData = canvas.toDataURL('image/png', 1.0);
-
-    const effectiveMargin =
-      margin !== undefined
-        ? margin
-        : elementId === 'invoice-document' ||
-          elementId === 'duty-slip-document' ||
-          elementId === 'cab-voucher-document' ||
-          elementId === 'quotation-document' ||
-          elementId === 'itinerary-document'
-        ? 0
-        : 6;
-
+    const effectiveMargin = margin !== undefined ? margin : 8; // Standard 8mm A4 margin on all sides
     const marginX = effectiveMargin;
-    const marginY = effectiveMargin;
-    const printableWidth = pageWidth - marginX * 2;
-    const printableHeight = pageHeight - marginY * 2;
+    const marginTop = effectiveMargin;
+    const marginBottom = 12; // 12mm bottom margin for running footer with page count
+    const printableWidth = pageWidth - marginX * 2; // 194mm printable width
+    const printableHeight = pageHeight - marginTop - marginBottom; // 277mm printable height
 
-    const contentHeightMm = (canvas.height * printableWidth) / canvas.width;
+    const a4Aspect = printableHeight / printableWidth;
+    const pageCanvasHeight = Math.floor(canvas.width * a4Aspect);
 
-    // Guaranteed single-page fitting if onePageOnly or fits within 1 page (up to 1.15x content gracefully scaled)
-    if (onePageOnly || contentHeightMm <= printableHeight * 1.15) {
-      const scale = Math.min(1, printableHeight / contentHeightMm);
+    // Guaranteed single-page fitting if onePageOnly or fits cleanly on 1 page (up to 1.10x scaled)
+    if (onePageOnly || canvas.height <= pageCanvasHeight * 1.10) {
+      const scale = Math.min(1, pageCanvasHeight / canvas.height);
       const finalWidth = printableWidth * scale;
-      const finalHeight = contentHeightMm * scale;
+      const finalHeight = (canvas.height * printableWidth * scale) / canvas.width;
       const offsetX = marginX + (printableWidth - finalWidth) / 2;
-      const offsetY = marginY + (printableHeight - finalHeight) / 2;
+      const offsetY = marginTop + (printableHeight - finalHeight) / 2;
+      const imgData = canvas.toDataURL('image/png', 1.0);
 
       pdf.addImage(imgData, 'PNG', offsetX, offsetY, finalWidth, finalHeight, undefined, 'FAST');
     } else {
-      // Multi-page document handling
-      let heightLeft = contentHeightMm;
-      let position = marginY;
+      // Smart Element-Aware Multi-Page Slicing:
+      // Keep sections, day cards and table rows intact.
+      // NOTE: h2 and h3 are intentionally excluded so section headers stay with their card bodies.
+      const targetRect = (clonedTargetEl as HTMLElement | null)?.getBoundingClientRect() || {
+        height: canvas.height / 2,
+        top: 0,
+      };
+      const scaleRatio = canvas.height / (targetRect.height || (canvas.height / 2));
 
-      pdf.addImage(imgData, 'PNG', marginX, position, printableWidth, contentHeightMm, undefined, 'FAST');
-      heightLeft -= printableHeight;
+      const breakNodes = clonedTargetEl
+        ? Array.from(
+            (clonedTargetEl as HTMLElement).querySelectorAll<HTMLElement>(
+              '.page-break-avoid, [break-inside-avoid], section, .itinerary-day-card, tr'
+            )
+          )
+        : [];
 
-      while (heightLeft > 0) {
-        position = heightLeft - contentHeightMm + marginY;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', marginX, position, printableWidth, contentHeightMm, undefined, 'FAST');
-        heightLeft -= printableHeight;
+      const avoidSplits = breakNodes
+        .map((node) => {
+          const rect = node.getBoundingClientRect();
+          const top = (rect.top - targetRect.top) * scaleRatio;
+          const bottom = (rect.bottom - targetRect.top) * scaleRatio;
+          const height = bottom - top;
+          return { top, bottom, height };
+        })
+        .filter((item) => item.height > 10 && item.height < pageCanvasHeight * 0.95);
+
+      let currentY = 0;
+      let pageIndex = 0;
+
+      while (currentY < canvas.height - 4) {
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+
+        // On Page 2+, account for the top running header (14mm height)
+        const topOffset = pageIndex === 0 ? marginTop : 14;
+        const availableHeightMm = pageHeight - topOffset - marginBottom;
+        const effectiveCanvasHeight = Math.floor(canvas.width * (availableHeightMm / printableWidth));
+
+        const remainingHeight = canvas.height - currentY;
+        let sliceHeight = Math.min(effectiveCanvasHeight, remainingHeight);
+
+        // If slice doesn't reach the document bottom, calculate an intelligent boundary
+        if (currentY + sliceHeight < canvas.height) {
+          const targetCut = currentY + sliceHeight;
+
+          // Find if targetCut conflicts with any avoid-split element
+          const conflicting = avoidSplits.find(
+            (item) => item.top < targetCut && item.bottom > targetCut
+          );
+
+          if (conflicting && conflicting.top > currentY + effectiveCanvasHeight * 0.50) {
+            // Break cleanly right before the conflicting card/section
+            sliceHeight = Math.floor(conflicting.top - currentY);
+          } else {
+            // Scan canvas rows near the bottom of this slice to find a white horizontal gap
+            const searchStart = Math.floor(currentY + sliceHeight - effectiveCanvasHeight * 0.12);
+            const searchEnd = Math.floor(currentY + sliceHeight);
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              try {
+                const sampleWidth = Math.min(100, canvas.width);
+                const imgDataSample = ctx.getImageData(
+                  Math.floor((canvas.width - sampleWidth) / 2),
+                  searchStart,
+                  sampleWidth,
+                  searchEnd - searchStart
+                ).data;
+
+                for (let y = searchEnd; y >= searchStart; y--) {
+                  const relY = y - searchStart;
+                  let isWhite = true;
+                  for (let x = 0; x < sampleWidth; x += 4) {
+                    const idx = (relY * sampleWidth + x) * 4;
+                    if (
+                      imgDataSample[idx] < 240 ||
+                      imgDataSample[idx + 1] < 240 ||
+                      imgDataSample[idx + 2] < 240
+                    ) {
+                      isWhite = false;
+                      break;
+                    }
+                  }
+                  if (isWhite) {
+                    sliceHeight = y - currentY;
+                    break;
+                  }
+                }
+              } catch {
+                // Ignore canvas security errors if any
+              }
+            }
+          }
+        }
+
+        // Guarantee forward progress of at least 150px
+        sliceHeight = Math.max(150, Math.min(sliceHeight, remainingHeight));
+
+        // Create high-res cropped slice canvas
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeight;
+        const pageCtx = pageCanvas.getContext('2d');
+        if (pageCtx) {
+          pageCtx.fillStyle = '#ffffff';
+          pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          pageCtx.drawImage(
+            canvas,
+            0,
+            currentY,
+            canvas.width,
+            sliceHeight,
+            0,
+            0,
+            canvas.width,
+            sliceHeight
+          );
+        }
+
+        const pageImg = pageCanvas.toDataURL('image/png', 1.0);
+        const sliceHeightMm = (sliceHeight * printableWidth) / canvas.width;
+        pdf.addImage(pageImg, 'PNG', marginX, topOffset, printableWidth, sliceHeightMm, undefined, 'FAST');
+
+        currentY += sliceHeight;
+        pageIndex++;
       }
     }
+  }
+
+  // Draw Uniform Running Headers (Page 2+) & Running Footers with Page Numbers on All Pages
+  const totalPages = pdf.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    pdf.setPage(p);
+
+    const marginX = margin !== undefined ? margin : 8;
+    const printableWidth = pageWidth - marginX * 2;
+
+    // Running Header on subsequent pages (Page 2+)
+    if (totalPages > 1 && p > 1) {
+      // Red top brand accent bar (0.8mm)
+      pdf.setFillColor(201, 31, 40); // #C91F28
+      pdf.rect(marginX, 4.5, printableWidth, 0.8, 'F');
+
+      // Left brand & document title
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(8);
+      pdf.setTextColor(15, 23, 42); // slate-900
+      pdf.text('OOTING', marginX, 9.5);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(100, 116, 139); // slate-500
+      const headerTitle = title ? `  |  ${title}` : '  |  Tour Itinerary — Official Travel Document';
+      pdf.text(headerTitle, marginX + 13, 9.5);
+
+      // Right contact info
+      pdf.text('support@ooting.in  •  +91 8884845595', pageWidth - marginX, 9.5, { align: 'right' });
+
+      // Subtle dividing line
+      pdf.setDrawColor(226, 232, 240); // slate-200
+      pdf.setLineWidth(0.2);
+      pdf.line(marginX, 12, pageWidth - marginX, 12);
+    }
+
+    // Running Footer on ALL pages (p = 1..totalPages)
+    pdf.setDrawColor(226, 232, 240); // slate-200
+    pdf.setLineWidth(0.2);
+    pdf.line(marginX, 289, pageWidth - marginX, 289);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7);
+    pdf.setTextColor(100, 116, 139); // slate-500
+    pdf.text(
+      'Ooting — Journeys Beyond Ordinary  •  Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India',
+      marginX,
+      293
+    );
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(71, 85, 105); // slate-600
+    pdf.text(`Page ${p} of ${totalPages}`, pageWidth - marginX, 293, { align: 'right' });
   }
 
   const pdfBlob = pdf.output('blob');
