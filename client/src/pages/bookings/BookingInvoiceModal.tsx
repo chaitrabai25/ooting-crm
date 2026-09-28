@@ -424,8 +424,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons, shifted right to align properly) */}
-                <div className="text-left text-xs space-y-2 text-slate-700 min-w-[250px] max-w-[340px] ml-auto shrink-0 sm:translate-x-3">
+                {/* RIGHT SIDE: Company Contact Details (Shifted 2 tab spaces rightwards to align flush with right margin) */}
+                <div className="w-fit ml-auto shrink-0 translate-x-4 sm:translate-x-7 flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                   {company.website && (
                     <div className="flex items-center gap-2.5">
                       <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
@@ -517,7 +517,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               <div className="grid grid-cols-2 gap-3 py-1 border-b border-slate-200 text-xs">
                 {/* Billed To Customer */}
                 <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
-                  <span className="text-[9px] font-bold text-[#C91F28] uppercase tracking-wider block mb-0.5">
+                  <span className="text-xs font-black text-slate-900 uppercase tracking-wider block mb-1">
                     Billed To (Customer Details)
                   </span>
                   <p className="font-bold text-slate-900 text-xs">{booking.customer?.fullName || 'Guest Customer'}</p>
@@ -543,7 +543,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
 
                 {/* Booking & Journey Information */}
                 <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
-                  <span className="text-[9px] font-bold text-[#C91F28] uppercase tracking-wider block mb-0.5">
+                  <span className="text-xs font-black text-slate-900 uppercase tracking-wider block mb-1">
                     Booking & Journey Overview
                   </span>
                   <p className="font-bold text-slate-900 text-xs">
@@ -569,10 +569,10 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-700 bg-slate-50 font-bold">
-                      <th className="py-1.5 px-2.5 text-[10px]">Service Description</th>
-                      <th className="py-1.5 px-2.5 w-28 text-center text-[10px]">Travellers / Qty</th>
-                      <th className="py-1.5 px-2.5 w-32 text-right text-[10px]">Rate (₹)</th>
-                      <th className="py-1.5 px-2.5 w-32 text-right text-[10px]">Amount (₹)</th>
+                      <th className="py-1.5 px-2.5 text-[10px] font-black text-slate-900 uppercase tracking-wider">Service Description</th>
+                      <th className="py-1.5 px-2.5 w-28 text-center text-[10px] font-black text-slate-900 uppercase tracking-wider">Travellers / Qty</th>
+                      <th className="py-1.5 px-2.5 w-32 text-right text-[10px] font-black text-slate-900 uppercase tracking-wider">Rate (₹)</th>
+                      <th className="py-1.5 px-2.5 w-32 text-right text-[10px] font-black text-slate-900 uppercase tracking-wider">Amount (₹)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -604,7 +604,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 {/* Left: Banking / Remittance Details & Policy Notes */}
                 <div className="space-y-2 text-xs">
                   <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
-                    <span className="text-[9px] font-bold text-[#C91F28] uppercase tracking-wider block">
+                    <span className="text-xs font-black text-slate-900 uppercase tracking-wider block mb-1">
                       Bank & Remittance Details
                     </span>
                     <div className="space-y-1 text-[10.5px] text-slate-600">
@@ -653,7 +653,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
 
                   <div className="p-2 rounded-lg bg-amber-50/50 border border-amber-200/60 text-[9.5px] text-amber-950 space-y-0.5">
-                    <span className="font-bold text-amber-900 block text-[9px] uppercase tracking-wider">
+                    <span className="font-black text-slate-900 block text-xs uppercase tracking-wider mb-1">
                       Payment Terms & Cancellation Policy
                     </span>
                     <p className="text-slate-600 leading-tight">

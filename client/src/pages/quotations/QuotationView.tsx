@@ -251,9 +251,9 @@ export const QuotationView: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons, shifted right to align with page margin) */}
-            <div className="flex justify-end ml-auto shrink-0 sm:translate-x-3">
-              <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[250px] max-w-[340px]">
+            {/* RIGHT SIDE: Company Contact Details (Shifted 2 tab spaces rightwards to align flush with right margin) */}
+            <div className="flex justify-end ml-auto shrink-0 translate-x-4 sm:translate-x-7">
+              <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                 {company?.website && (
                   <div className="flex items-center gap-2.5">
                     <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
@@ -306,7 +306,7 @@ export const QuotationView: React.FC = () => {
           {/* Client Details & Travel Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50/80 p-5 rounded-xl border border-slate-200/70 text-xs">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 block mb-1.5">
                 Prepared For
               </span>
               <h3 className="text-sm font-bold text-slate-900">{quotation.customer?.fullName}</h3>
@@ -316,7 +316,7 @@ export const QuotationView: React.FC = () => {
             </div>
 
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 block mb-1.5">
                 Trip Details
               </span>
               <div className="flex justify-between">
@@ -348,19 +348,19 @@ export const QuotationView: React.FC = () => {
           {/* Inclusions & Highlights Breakdown */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70">
-              <span className="font-bold text-slate-800 block mb-1 text-[11px] uppercase tracking-wide">
+              <span className="font-black text-slate-900 block mb-1 text-xs uppercase tracking-wider">
                 Accommodation
               </span>
               <p className="text-slate-600">{quotation.accommodation || 'Standard Double/Triple Occupancy'}</p>
             </div>
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70">
-              <span className="font-bold text-slate-800 block mb-1 text-[11px] uppercase tracking-wide">
+              <span className="font-black text-slate-900 block mb-1 text-xs uppercase tracking-wider">
                 Transport & Cab Details
               </span>
               <p className="text-slate-600">{quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle for transfers'}</p>
             </div>
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70">
-              <span className="font-bold text-slate-800 block mb-1 text-[11px] uppercase tracking-wide">
+              <span className="font-black text-slate-900 block mb-1 text-xs uppercase tracking-wider">
                 Activities
               </span>
               <p className="text-slate-600">{quotation.activities || 'Sightseeing & Excursions as per itinerary'}</p>
@@ -370,7 +370,7 @@ export const QuotationView: React.FC = () => {
           {/* Day-by-Day Itinerary if package attached */}
           {quotation.package?.itineraries?.length > 0 && (
             <div className="space-y-3 text-xs">
-              <h3 className="font-bold text-slate-900 text-sm border-b border-slate-200 pb-2">
+              <h3 className="font-black text-slate-900 text-sm uppercase tracking-wider border-b border-slate-200 pb-2">
                 Planned Daily Schedule
               </h3>
               <div className="space-y-2.5">
@@ -395,7 +395,7 @@ export const QuotationView: React.FC = () => {
           {/* Inclusions & Exclusions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
             <div>
-              <h4 className="font-bold text-emerald-800 uppercase tracking-wider mb-2 text-[11px]">
+              <h4 className="font-black text-emerald-900 uppercase tracking-wider mb-2 text-xs">
                 Inclusions
               </h4>
               <p className="text-slate-600 leading-relaxed whitespace-pre-line bg-emerald-50/40 p-3 rounded-xl border border-emerald-200/60">
@@ -403,7 +403,7 @@ export const QuotationView: React.FC = () => {
               </p>
             </div>
             <div>
-              <h4 className="font-bold text-rose-800 uppercase tracking-wider mb-2 text-[11px]">
+              <h4 className="font-black text-rose-900 uppercase tracking-wider mb-2 text-xs">
                 Exclusions
               </h4>
               <p className="text-slate-600 leading-relaxed whitespace-pre-line bg-rose-50/40 p-3 rounded-xl border border-rose-200/60">
@@ -414,17 +414,17 @@ export const QuotationView: React.FC = () => {
 
           {/* Transparent 4-Column Pricing Table */}
           <div className="pt-4 border-t border-slate-200">
-            <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block mb-3">
+            <span className="font-black text-slate-900 uppercase tracking-wider text-xs block mb-3">
               Cost Calculation & Passenger Breakdown
             </span>
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="py-2.5 px-3.5 font-semibold text-slate-700">Category</th>
-                    <th className="py-2.5 px-3.5 font-semibold text-slate-700">Price / Person</th>
-                    <th className="py-2.5 px-3.5 font-semibold text-slate-700 text-center">Quantity</th>
-                    <th className="py-2.5 px-3.5 font-semibold text-slate-700 text-right">Total</th>
+                    <th className="py-2.5 px-3.5 font-bold text-slate-900">Category</th>
+                    <th className="py-2.5 px-3.5 font-bold text-slate-900">Price / Person</th>
+                    <th className="py-2.5 px-3.5 font-bold text-slate-900 text-center">Quantity</th>
+                    <th className="py-2.5 px-3.5 font-bold text-slate-900 text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -520,7 +520,7 @@ export const QuotationView: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-200 text-[11px] break-inside-avoid">
               {quotation.paymentTerms && (
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
-                  <span className="font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  <span className="font-black text-slate-900 uppercase tracking-wider block mb-1 text-xs">
                     Payment Milestones
                   </span>
                   <p className="text-slate-600 leading-relaxed whitespace-pre-line">{quotation.paymentTerms}</p>
@@ -528,7 +528,7 @@ export const QuotationView: React.FC = () => {
               )}
               {quotation.cancellationTerms && (
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
-                  <span className="font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  <span className="font-black text-slate-900 uppercase tracking-wider block mb-1 text-xs">
                     Cancellation Policy
                   </span>
                   <p className="text-slate-600 leading-relaxed whitespace-pre-line">{quotation.cancellationTerms}</p>
@@ -540,7 +540,7 @@ export const QuotationView: React.FC = () => {
           {/* Terms & Conditions */}
           {quotation.termsAndConditions && (
             <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-500 space-y-1 break-inside-avoid">
-              <span className="font-bold text-slate-700 uppercase tracking-wider block">
+              <span className="font-black text-slate-900 uppercase tracking-wider block text-xs">
                 Terms & Conditions
               </span>
               <p className="whitespace-pre-line leading-relaxed">{quotation.termsAndConditions}</p>

@@ -169,7 +169,11 @@ export async function generateA4Pdf({
     const effectiveMargin =
       margin !== undefined
         ? margin
-        : elementId === 'invoice-document' || elementId === 'duty-slip-document' || elementId === 'quotation-document'
+        : elementId === 'invoice-document' ||
+          elementId === 'duty-slip-document' ||
+          elementId === 'cab-voucher-document' ||
+          elementId === 'quotation-document' ||
+          elementId === 'itinerary-document'
         ? 0
         : 6;
 

@@ -96,9 +96,9 @@ const DutySlipDocumentBody: React.FC<{
             </div>
           </div>
 
-          {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons, shifted right to align properly) */}
-          <div className="flex justify-end ml-auto shrink-0 sm:translate-x-3">
-            <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[250px] max-w-[340px]">
+          {/* RIGHT SIDE: Company Contact Details (Shifted 2 tab spaces rightwards to align flush with right margin) */}
+          <div className="flex justify-end ml-auto shrink-0 translate-x-4 sm:translate-x-7">
+            <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
               {company.website && (
                 <div className="flex items-center gap-2.5">
                   <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
@@ -184,8 +184,8 @@ const DutySlipDocumentBody: React.FC<{
         <div className="grid grid-cols-2 gap-6">
           {/* Passenger / Guest Details */}
           <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#C91F28] mb-3 flex items-center gap-1.5">
-              <User className="w-4 h-4" />
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 mb-3 flex items-center gap-1.5">
+              <User className="w-4 h-4 text-[#C91F28]" />
               Guest / Passenger Details
             </h3>
             <div className="space-y-2 text-xs">
@@ -212,8 +212,8 @@ const DutySlipDocumentBody: React.FC<{
 
           {/* Reporting & Schedule Details */}
           <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#C91F28] mb-3 flex items-center gap-1.5">
-              <Calendar className="w-4 h-4" />
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 mb-3 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-[#C91F28]" />
               Schedule & Reporting Details
             </h3>
             <div className="space-y-2 text-xs">
@@ -247,7 +247,7 @@ const DutySlipDocumentBody: React.FC<{
         {/* Route & Vehicle Assignment */}
         <div className="border border-slate-200 rounded-xl overflow-hidden">
           <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-[#C91F28]" />
               Journey Route & Vehicle Assignment
             </h3>
@@ -314,7 +314,7 @@ const DutySlipDocumentBody: React.FC<{
         {showCustomTable && (
           <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
             <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-[#C91F28]" />
                 Additional Duty Details & Log
               </h3>
@@ -436,7 +436,7 @@ const DutySlipDocumentBody: React.FC<{
         {/* Tariff, Driver Allowance & Financial Summary */}
         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/70">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
               <CreditCard className="w-4 h-4 text-[#C91F28]" />
               Fare & Driver Allowance Summary
             </h3>
@@ -505,7 +505,7 @@ const DutySlipDocumentBody: React.FC<{
 
         {/* Terms & Important Travel Notes */}
         <div className="border border-slate-200 rounded-xl p-3.5 text-xs text-slate-600 space-y-1 bg-amber-50/40">
-          <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
+          <h4 className="font-black text-slate-900 uppercase tracking-wider text-xs flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
             Standard Tour & Cab Guidelines
           </h4>

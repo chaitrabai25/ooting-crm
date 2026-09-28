@@ -173,7 +173,10 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
         }];
       }
 
+      const primaryTraveller = travellers.find((t: any) => t.isPrimary) || travellers[0];
+
       return {
+        id: primaryTraveller?.id || `pass-${b.id}`,
         bookingId: b.id,
         bookingNumber: b.bookingNumber,
         bookingDate: b.bookingDate,
@@ -184,10 +187,17 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
         packageName: b.package?.packageName || 'Custom Itinerary',
         destination: b.package?.destination || 'Custom Destination',
         customerId: b.customer?.id,
-        customerName: b.customer?.fullName,
-        customerPhone: b.customer?.phone,
+        customerName: b.customer?.fullName || 'Primary Customer',
+        customerPhone: b.customer?.phone || '',
         customerEmail: b.customer?.email,
         customerCity: b.customer?.city,
+        // Guaranteed Top-Level Passenger Details
+        name: primaryTraveller?.name || b.customer?.fullName || 'Primary Traveller',
+        age: primaryTraveller?.age ?? null,
+        gender: primaryTraveller?.gender ?? null,
+        phone: primaryTraveller?.phone || b.customer?.phone || null,
+        email: primaryTraveller?.email || b.customer?.email || null,
+        isPrimary: primaryTraveller?.isPrimary ?? true,
         travellersCount: b.travellers,
         travellersList: travellers,
         totalAmount: b.totalAmount,

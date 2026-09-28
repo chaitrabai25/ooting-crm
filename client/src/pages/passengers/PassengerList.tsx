@@ -76,9 +76,51 @@ export const PassengerList: React.FC = () => {
       if (sortOrder) params.append('sortOrder', sortOrder);
 
       const res = await api.get('/bookings/passengers?' + params.toString());
-      setPassengers(res.data.data || []);
-      setTotal(res.data.pagination.total || 0);
-      setTotalPages(res.data.pagination.totalPages || 1);
+      const rawData = res.data.data || [];
+      const flattened: PassengerItem[] = [];
+
+      rawData.forEach((b: any) => {
+        const travellers = (b.travellersList && b.travellersList.length > 0)
+          ? b.travellersList
+          : [{
+              name: b.name || b.customerName || 'Primary Traveller',
+              isPrimary: true,
+              phone: b.phone || b.customerPhone || null,
+              age: b.age ?? null,
+              gender: b.gender ?? null,
+            }];
+
+        travellers.forEach((t: any, idx: number) => {
+          flattened.push({
+            id: t.id || `${b.bookingId || b.id}-${idx}`,
+            bookingId: b.bookingId || b.id,
+            bookingNumber: b.bookingNumber,
+            packageId: b.packageId,
+            packageName: b.packageName || 'Custom Package',
+            bookingDate: b.bookingDate,
+            travelStartDate: b.travelStartDate,
+            travelEndDate: b.travelEndDate,
+            bookingStatus: b.bookingStatus,
+            paymentStatus: b.paymentStatus,
+            totalAmount: b.totalAmount || b.finalAmount || 0,
+            amountPaid: b.amountPaid || 0,
+            balanceDue: b.balanceDue || 0,
+            customerName: b.customerName || 'Primary Customer',
+            customerPhone: b.customerPhone || '',
+            customerEmail: b.customerEmail || null,
+            // Guaranteed Passenger Name and Details
+            name: t.name || b.name || b.customerName || 'Primary Traveller',
+            age: t.age ?? b.age ?? null,
+            gender: t.gender ?? b.gender ?? null,
+            phone: t.phone || b.phone || b.customerPhone || null,
+            isPrimary: t.isPrimary !== undefined ? t.isPrimary : (idx === 0),
+          });
+        });
+      });
+
+      setPassengers(flattened);
+      setTotal(res.data.pagination?.total || flattened.length);
+      setTotalPages(res.data.pagination?.totalPages || 1);
     } catch (err) {
       console.error('Failed to fetch passengers:', err);
     } finally {
@@ -119,64 +161,58 @@ export const PassengerList: React.FC = () => {
 
   const columns: Column<PassengerItem>[] = [
     {
-      header: 'Traveler Name',
+      header: 'Traveler Details',
       sortKey: 'name',
-      render: (p) => (
-        <span className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm block">
-          {p.name}
-        </span>
-      ),
-    },
-    {
-      header: 'Category',
-      render: (p) => (
-        <span
-          className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full border shadow-2xs ${
-            p.isPrimary
-              ? 'bg-red-50 text-[#C91F28] border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60'
-              : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-          }`}
-        >
-          {p.isPrimary ? 'Primary' : 'Guest'}
-        </span>
-      ),
-    },
-    {
-      header: 'Age & Gender',
-      render: (p) => (
-        <div className="text-xs text-slate-700 dark:text-slate-300">
-          <span>{p.age ? `${p.age} yrs` : '—'}</span>
-          <span className="text-slate-400 mx-1">•</span>
-          <span className="capitalize">{p.gender ? p.gender.toLowerCase() : '—'}</span>
-        </div>
-      ),
-    },
-    {
-      header: 'Contact',
       render: (p) => {
         const phone = p.phone || p.customerPhone;
-        return phone ? (
-          <div className="flex items-center gap-1 text-xs text-slate-700 dark:text-slate-300">
-            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-            <span>{phone}</span>
-            <CopyButton text={phone} title="Copy phone" />
+        return (
+          <div className="space-y-1 py-0.5">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm block">
+                {p.name}
+              </span>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 text-[9.5px] font-bold rounded-full border shadow-2xs ${
+                  p.isPrimary
+                    ? 'bg-red-50 text-[#C91F28] border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60'
+                    : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                }`}
+              >
+                {p.isPrimary ? 'Primary' : 'Guest'}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              {(p.age || p.gender) && (
+                <span>
+                  {p.age ? `${p.age} yrs` : ''}
+                  {p.age && p.gender ? ' • ' : ''}
+                  <span className="capitalize">{p.gender ? p.gender.toLowerCase() : ''}</span>
+                </span>
+              )}
+              {phone && (
+                <span className="inline-flex items-center gap-1 text-slate-700 dark:text-slate-300">
+                  <Phone className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                  <span>{phone}</span>
+                  <CopyButton text={phone} title="Copy phone" />
+                </span>
+              )}
+            </div>
           </div>
-        ) : (
-          <span className="text-xs text-slate-400">—</span>
         );
       },
     },
     {
-      header: 'Package Name',
+      header: 'Package & Schedule',
       sortKey: 'packageName',
       render: (p) => (
-        <div>
+        <div className="space-y-0.5 max-w-[220px]">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
-            <PackageIcon className="w-3.5 h-3.5 text-[#C91F28] flex-shrink-0" />
-            <span className="truncate max-w-[200px]">{p.packageName}</span>
+            <PackageIcon className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+            <span className="truncate">{p.packageName}</span>
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-            <Calendar className="w-3 h-3 text-slate-400" />
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
             <span>
               {new Date(p.travelStartDate).toLocaleDateString()} – {new Date(p.travelEndDate).toLocaleDateString()}
             </span>
@@ -185,51 +221,39 @@ export const PassengerList: React.FC = () => {
       ),
     },
     {
-      header: 'Booking Ref',
+      header: 'Booking & Customer',
       sortKey: 'bookingNumber',
       render: (p) => (
-        <div>
+        <div className="space-y-0.5">
           <button
             type="button"
             onClick={() => navigate('/bookings/' + p.bookingId)}
-            className="font-mono font-semibold text-xs text-[#C91F28] hover:underline block text-left"
+            className="font-mono font-bold text-xs text-[#C91F28] hover:underline block text-left"
           >
             {p.bookingNumber}
           </button>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">
-            Booked: {new Date(p.bookingDate).toLocaleDateString()}
-          </span>
+          <div className="text-[11px] text-slate-600 dark:text-slate-400">
+            <span>Customer: <strong className="text-slate-800 dark:text-slate-200">{p.customerName}</strong></span>
+          </div>
         </div>
       ),
     },
     {
-      header: 'Primary Customer',
-      render: (p) => (
-        <div className="text-xs">
-          <span className="font-medium text-slate-900 dark:text-slate-100 block">{p.customerName}</span>
-          <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <Phone className="w-3 h-3 text-slate-400" /> {p.customerPhone}
-            {p.customerPhone && <CopyButton text={p.customerPhone} title="Copy primary phone" />}
-          </span>
-        </div>
-      ),
-    },
-    {
-      header: 'Booking Status',
+      header: 'Status',
       sortKey: 'bookingStatus',
       render: (p) => <Badge status={p.bookingStatus} />,
     },
     {
-      header: 'Payment Status',
+      header: 'Payment',
       render: (p) => (
         <div className="text-xs">
-          <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(p.totalAmount)}</span>
+          <span className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(p.totalAmount)}</span>
           <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
             <span>Paid: {formatCurrency(p.amountPaid)}</span>
             {p.balanceDue > 0 ? (
-              <span className="text-amber-600 font-medium">(Due: {formatCurrency(p.balanceDue)})</span>
+              <span className="text-amber-600 dark:text-amber-400 font-medium">(Due: {formatCurrency(p.balanceDue)})</span>
             ) : (
-              <span className="text-emerald-600 font-medium">(Paid)</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">(Paid)</span>
             )}
           </div>
         </div>
@@ -241,7 +265,7 @@ export const PassengerList: React.FC = () => {
       render: (p) => {
         const phone = p.phone || p.customerPhone;
         return (
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex items-center justify-end gap-1.5">
             {phone && (
               <button
                 type="button"
@@ -254,7 +278,7 @@ export const PassengerList: React.FC = () => {
                   })
                 }
                 title="Send WhatsApp Message"
-                className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
+                className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4" />
               </button>
@@ -262,7 +286,7 @@ export const PassengerList: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/bookings/' + p.bookingId)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#C91F28] hover:border-red-200 dark:hover:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors inline-flex items-center gap-1 text-xs font-medium"
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#C91F28] hover:border-red-200 dark:hover:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors inline-flex items-center gap-1 text-xs font-medium cursor-pointer"
               title="View Booking"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -321,7 +345,7 @@ export const PassengerList: React.FC = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         <form onSubmit={handleSearch} className="relative flex-1 w-full md:max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -329,20 +353,20 @@ export const PassengerList: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by passenger, customer name, phone, or booking #..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100/70 focus:bg-white dark:focus:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#C91F28] focus:border-transparent outline-none transition-all"
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100/70 focus:bg-white dark:focus:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#C91F28] focus:border-transparent outline-none transition-all"
           />
         </form>
 
-        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-          <div className="flex items-center gap-1.5">
-            <PackageIcon className="w-4 h-4 text-slate-400" />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+            <PackageIcon className="w-4 h-4 text-slate-400 shrink-0" />
             <select
               value={selectedPackageId}
               onChange={(e) => {
                 setSelectedPackageId(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#C91F28]"
+              className="w-full sm:w-auto px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#C91F28]"
             >
               <option value="">All Travel Packages</option>
               {packages.map((pkg) => (
@@ -359,7 +383,7 @@ export const PassengerList: React.FC = () => {
               setSelectedStatus(e.target.value);
               setPage(1);
             }}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#C91F28]"
+            className="w-full sm:w-auto px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#C91F28]"
           >
             <option value="">All Statuses</option>
             <option value="CONFIRMED">Confirmed</option>
@@ -370,24 +394,26 @@ export const PassengerList: React.FC = () => {
         </div>
       </div>
 
-      {/* Roster Table */}
-      <DataTable<PassengerItem>
-        columns={columns}
-        data={passengers}
-        isLoading={isLoading}
-        sortField={sortBy}
-        sortOrder={sortOrder}
-        onSort={handleSort}
-        emptyTitle="No passengers found"
-        emptyDescription="No traveller records match the selected package or search criteria."
-        pagination={{
-          page,
-          limit,
-          total,
-          totalPages,
-          onPageChange: (newPage) => setPage(newPage),
-        }}
-      />
+      {/* Roster Table: Optimized 6 columns fit 100% desktop zoom with clean mobile scroll */}
+      <div className="w-full overflow-hidden rounded-xl">
+        <DataTable<PassengerItem>
+          columns={columns}
+          data={passengers}
+          isLoading={isLoading}
+          sortField={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+          emptyTitle="No passengers found"
+          emptyDescription="No traveller records match the selected package or search criteria."
+          pagination={{
+            page,
+            limit,
+            total,
+            totalPages,
+            onPageChange: (newPage) => setPage(newPage),
+          }}
+        />
+      </div>
 
       {/* WhatsApp Modal */}
       <WhatsAppModal

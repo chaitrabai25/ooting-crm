@@ -179,9 +179,9 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details (Neat Right-Aligned Container with Fixed-Width Red Icons, shifted right to align properly) */}
-            <div className="flex justify-end ml-auto shrink-0 sm:translate-x-3">
-              <div className="flex flex-col space-y-2 text-xs text-slate-700 min-w-[250px] max-w-[340px]">
+            {/* RIGHT SIDE: Company Contact Details (Shifted 2 tab spaces rightwards to align flush with right margin) */}
+            <div className="flex justify-end ml-auto shrink-0 translate-x-4 sm:translate-x-7">
+              <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                 {company.website && (
                   <div className="flex items-center gap-2.5">
                     <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
@@ -267,7 +267,7 @@ export const ItineraryPdfView: React.FC = () => {
 
         {/* Tour Overview */}
         <div className="px-8 py-5 border-b border-slate-100">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#C91F28] mb-2">
+          <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 mb-2">
             Tour Overview & Highlights
           </h3>
           <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
@@ -278,7 +278,7 @@ export const ItineraryPdfView: React.FC = () => {
         {/* Day-by-Day Itinerary Section */}
         <div className="px-8 py-6 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+            <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
               Detailed Day-by-Day Travel Schedule
             </h2>
             <span className="text-xs font-semibold text-[#C91F28]">
@@ -468,7 +468,7 @@ export const ItineraryPdfView: React.FC = () => {
 
         {/* Inclusions & Exclusions */}
         <div className="px-8 py-6 bg-slate-50/70 border-t border-slate-200 page-break-avoid">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-4">
+          <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 mb-4">
             Package Inclusions & Exclusions
           </h3>
 

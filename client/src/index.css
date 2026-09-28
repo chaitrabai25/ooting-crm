@@ -135,6 +135,48 @@ html.dark select:-webkit-autofill,
   -webkit-text-fill-color: #94a3b8 !important;
 }
 
+/* ==========================================================================
+   GLOBAL DARK THEME TEXT VISIBILITY SAFEGUARDS
+   Ensures all text across all CRM sections is razor-sharp and high-contrast
+   while strictly preserving printable white-paper documents
+   ========================================================================== */
+.dark h1:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark h2:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark h3:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *),
+.dark h4:not(#invoice-document *):not(#duty-slip-document *):not(#itinerary-document *):not(#quotation-document *) {
+  color: #f8fafc;
+}
+
+.dark p.text-slate-700,
+.dark span.text-slate-700,
+.dark div.text-slate-700 {
+  color: #cbd5e1;
+}
+
+.dark p.text-slate-800,
+.dark span.text-slate-800,
+.dark div.text-slate-800 {
+  color: #e2e8f0;
+}
+
+.dark p.text-slate-900,
+.dark span.text-slate-900,
+.dark div.text-slate-900 {
+  color: #f8fafc;
+}
+
+.dark p.text-slate-600,
+.dark span.text-slate-600,
+.dark div.text-slate-600 {
+  color: #94a3b8;
+}
+
+.dark label.text-slate-700,
+.dark label.text-slate-800,
+.dark label.text-slate-900 {
+  color: #f1f5f9;
+}
+
 /* Custom Scrollbar for professional CRM appearance */
 ::-webkit-scrollbar {
   width: 6px;
@@ -298,28 +340,58 @@ html.dark select:-webkit-autofill,
 
 /* Dashboard & Metric Interactive Cards */
 .crm-card-interactive {
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 200ms ease,
+              background-color 200ms ease;
   will-change: transform, box-shadow;
   position: relative;
   overflow: hidden;
 }
 
+.crm-card-interactive::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #C91F28 0%, #e53e3e 50%, #f97316 100%);
+  opacity: 0;
+  transform: scaleX(0.3);
+  transition: opacity 220ms ease, transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 10;
+}
+
 .crm-card-interactive:hover {
-  transform: translateY(-2px) scale(1.008);
-  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  transform: translateY(-3px) scale(1.012);
+  box-shadow: 0 14px 28px -6px rgba(201, 31, 40, 0.12), 0 8px 12px -4px rgba(15, 23, 42, 0.05);
+  border-color: rgba(201, 31, 40, 0.35) !important;
+  background-color: #fff9f9 !important; /* Elegant subtle warm tint on light theme */
+}
+
+.crm-card-interactive:hover::before {
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 .dark .crm-card-interactive:hover {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 14px 30px -6px rgba(0, 0, 0, 0.6), 0 0 16px 1px rgba(201, 31, 40, 0.18);
+  border-color: rgba(201, 31, 40, 0.5) !important;
+  background-color: #1a2234 !important; /* Deep luminous slate tint on dark theme */
 }
 
 /* Micro-animation on icons inside hovered card */
 .crm-card-interactive .crm-card-icon {
-  transition: transform 180ms ease, background-color 180ms ease;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), 
+              background-color 200ms ease,
+              filter 200ms ease;
 }
 
 .crm-card-interactive:hover .crm-card-icon {
-  transform: scale(1.08) translateY(-1px);
+  transform: scale(1.12) translateY(-2px);
+  filter: drop-shadow(0 4px 6px rgba(201, 31, 40, 0.2));
 }
 
 /* Interactive Buttons */
