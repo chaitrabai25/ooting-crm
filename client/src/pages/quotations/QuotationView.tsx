@@ -261,7 +261,7 @@ export const QuotationView: React.FC = () => {
       {/* Branded Official Quotation Document Canvas (Guaranteed 1-Page A4 Fit) */}
       <div
         id="quotation-document"
-        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col text-slate-800 font-serif shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
+        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans antialiased shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
         style={{
           width: '794px',
           maxWidth: '794px',
@@ -270,6 +270,7 @@ export const QuotationView: React.FC = () => {
           maxHeight: '1050px',
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         }}
       >
         {/* Top Header Wave Accent */}
@@ -286,10 +287,10 @@ export const QuotationView: React.FC = () => {
         </div>
 
         {/* Letterhead Header Section */}
-        <div className="px-8 pt-3.5 pb-2.5 border-b border-slate-200">
+        <div className="px-8 pt-3 pb-2 border-b border-slate-200 shrink-0">
           <div className="flex justify-between items-start gap-4">
-            {/* LEFT SIDE: Brand Logo, Company Identity & Quotation Meta */}
-            <div className="flex items-start gap-3">
+            {/* LEFT SIDE: Brand Logo & Company Identity */}
+            <div className="flex items-center gap-3">
               <div
                 className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
                 style={{ width: '48px', height: '48px', minWidth: '48px', maxWidth: '48px', minHeight: '48px', maxHeight: '48px', overflow: 'hidden' }}
@@ -309,25 +310,17 @@ export const QuotationView: React.FC = () => {
                 <span className="text-base font-black tracking-tight text-slate-900 block leading-tight uppercase">
                   {(company?.name || 'OOTING').toUpperCase()}
                 </span>
-                <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider block mt-0.5">
                   {company?.tagline || 'Journeys Beyond Ordinary'}
                 </span>
-                <span className="text-[9px] text-slate-500 block mt-0.5">
+                <span className="text-[9.5px] text-slate-500 block mt-0.5">
                   Licensed Tour Operator & Destination Specialist
                 </span>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="inline-block px-2 py-0.5 bg-[#C91F28] text-white text-[9px] font-bold uppercase tracking-wider rounded">
-                    Quotation
-                  </span>
-                  <span className="font-bold text-xs text-slate-900 font-mono tracking-wide">
-                    {quotation.quotationNumber}
-                  </span>
-                </div>
               </div>
             </div>
 
             {/* RIGHT SIDE: Company Contact Details with clean sheet margin */}
-            <div className="w-fit ml-auto shrink-0 flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
+            <div className="w-fit ml-auto shrink-0 flex flex-col space-y-0.5 text-xs text-slate-700 max-w-[320px]">
               {company?.website && (
                 <div className="flex items-center gap-2">
                   <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
@@ -368,7 +361,7 @@ export const QuotationView: React.FC = () => {
                   <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
                     <MapPin className="w-3 h-3" />
                   </span>
-                  <div className="text-[10px] text-slate-600 leading-snug">
+                  <div className="text-[9.5px] text-slate-600 leading-snug">
                     <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
                     <div>Shivamogga, Karnataka, India</div>
                   </div>
@@ -380,28 +373,33 @@ export const QuotationView: React.FC = () => {
 
         {/* Official Document Meta Banner */}
         <div className="bg-slate-900 text-white px-8 py-2 flex items-center justify-between shrink-0">
-          <div>
-            <span className="text-[9px] uppercase font-bold text-amber-400 block tracking-widest leading-tight">
-              COMMERCIAL PROPOSAL & TOUR ESTIMATE
+          <div className="flex items-center gap-3">
+            <span className="inline-block px-2.5 py-0.5 bg-[#C91F28] text-white text-[10px] font-black uppercase tracking-wider rounded">
+              QUOTATION
             </span>
-            <h2 className="text-xs font-black tracking-wide leading-tight">
-              HOLIDAY TRAVEL QUOTATION
-            </h2>
+            <span className="font-mono text-xs font-bold text-amber-300 tracking-wide">
+              {quotation.quotationNumber}
+            </span>
           </div>
+
           <div className="flex items-center gap-6">
-            <div className="text-right">
-              <span className="text-[9px] text-slate-400 block uppercase font-semibold tracking-wider">Quotation #</span>
-              <span className="font-mono text-[11px] font-bold text-amber-300 leading-tight block">{quotation.quotationNumber}</span>
-            </div>
-            <div className="text-right">
-              <span className="text-[9px] text-slate-400 block uppercase font-semibold tracking-wider">Issue Date</span>
-              <span className="text-[11px] font-bold text-white leading-tight block">
+            <div className="flex items-center gap-1.5 text-xs">
+              <Calendar className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[10px] text-slate-400">Date:</span>
+              <span className="text-[11px] font-bold text-white">
                 {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             </div>
-            <div className="text-center min-w-[85px]">
-              <span className="text-[9px] text-slate-400 block uppercase font-semibold tracking-wider mb-0.5">Status</span>
-              <span className="inline-flex items-center justify-center px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md border leading-none bg-amber-400/20 text-amber-300 border-amber-400/50">
+
+            <div className="flex items-center gap-1.5 text-xs">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[10px] text-slate-400">Validity:</span>
+              <span className="text-[11px] font-bold text-white">15 Days</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400">Status:</span>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded border leading-none bg-amber-400/20 text-amber-300 border-amber-400/50">
                 {quotation.status || 'PROPOSAL'}
               </span>
             </div>
@@ -411,26 +409,26 @@ export const QuotationView: React.FC = () => {
         {/* Main Body (Strict 1-Page A4 Height, Perfectly Balanced & Formal) */}
         <div className="flex-1 px-8 py-2.5 flex flex-col justify-between space-y-2 text-xs">
           {/* Row 1: Client & Journey Summary Grid */}
-          <div className="grid grid-cols-2 gap-3 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200">
+          <div className="grid grid-cols-2 gap-3.5 p-3 bg-slate-50/90 rounded-lg border border-slate-200">
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block pb-1 mb-1.5 border-b border-slate-200">
                 Prepared For (Client Details)
               </span>
-              <p className="font-bold text-slate-900 text-xs mb-1">{quotation.customer?.fullName || 'Guest Customer'}</p>
-              <div className="space-y-1 text-[10.5px] text-slate-600">
+              <p className="font-bold text-slate-900 text-xs mb-1.5">{quotation.customer?.fullName || 'Valued Client'}</p>
+              <div className="space-y-1 text-[11px] text-slate-600">
                 {quotation.customer?.phone && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <Phone className="w-3 h-3 text-[#C91F28] shrink-0" />
                     <span className="font-mono text-slate-800 font-medium">{quotation.customer.phone}</span>
                   </div>
                 )}
                 {quotation.customer?.email && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <Mail className="w-3 h-3 text-[#C91F28] shrink-0" />
-                    <span className="text-slate-800">{quotation.customer.email}</span>
+                    <span className="text-slate-800 break-all">{quotation.customer.email}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
                   <span className="text-slate-800">
                     {quotation.customer?.city || 'India'}{quotation.customer?.state ? `, ${quotation.customer.state}` : ''}
@@ -439,37 +437,37 @@ export const QuotationView: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-1 text-[10.5px]">
+            <div className="space-y-1 text-[11px]">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block pb-1 mb-1.5 border-b border-slate-200">
                 Tour & Package Specifications
               </span>
               <div className="flex justify-between pb-0.5 border-b border-slate-200/60">
                 <span className="text-slate-500 font-medium">Holiday Package:</span>
-                <span className="font-bold text-slate-900">{quotation.package?.packageName || 'Custom Holiday Itinerary'}</span>
+                <span className="font-bold text-slate-900 text-right">{quotation.package?.packageName || 'Custom Holiday Itinerary'}</span>
               </div>
               <div className="flex justify-between pb-0.5 border-b border-slate-200/60">
                 <span className="text-slate-500 font-medium">Travel Dates:</span>
-                <span className="font-semibold text-slate-900 font-mono">
+                <span className="font-semibold text-slate-900 font-mono text-right">
                   {quotation.travelStartDate ? new Date(quotation.travelStartDate).toLocaleDateString('en-IN') : 'TBD'} to{' '}
                   {quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}
                 </span>
               </div>
               <div className="flex justify-between pb-0.5 border-b border-slate-200/60">
                 <span className="text-slate-500 font-medium">Guests / Travelers:</span>
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-slate-900 text-right">
                   {quotation.adults} Adults{quotation.children > 0 ? `, ${quotation.children} Children` : ''}{quotation.infants > 0 ? `, ${quotation.infants} Infants` : ''}
                 </span>
               </div>
               <div className="pt-0.5">
-                <span className="text-slate-500 font-medium block text-[9.5px]">Itinerary Routing:</span>
-                <span className="font-semibold text-slate-800 text-[10px] leading-tight block mt-0.5">
+                <span className="text-slate-500 font-medium block text-[10px]">Itinerary Routing:</span>
+                <div className="mt-0.5 p-1 bg-white rounded border border-slate-200 text-[10px] font-semibold text-slate-800 leading-tight">
                   {quotation.destination}
-                </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Row 2: Inclusions & Highlights Strip */}
+          {/* Row 2: Key Trip Arrangements Strip */}
           <div className="grid grid-cols-3 gap-2.5">
             <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
               <div className="flex items-center gap-1.5 text-[#C91F28] mb-0.5">
@@ -478,7 +476,7 @@ export const QuotationView: React.FC = () => {
                   Accommodation
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 leading-snug">
+              <p className="text-[10px] text-slate-700 leading-snug line-clamp-2">
                 {quotation.accommodation || '3-Star / 4-Star Premium Resorts with Breakfast'}
               </p>
             </div>
@@ -489,7 +487,7 @@ export const QuotationView: React.FC = () => {
                   Vehicle & Transfers
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 leading-snug">
+              <p className="text-[10px] text-slate-700 leading-snug line-clamp-2">
                 {quotation.cabDetails || quotation.transport || 'Dedicated AC Tourist Vehicle for all transfers'}
               </p>
             </div>
@@ -500,112 +498,63 @@ export const QuotationView: React.FC = () => {
                   Sightseeing & Activities
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 leading-snug">
+              <p className="text-[10px] text-slate-700 leading-snug line-clamp-2">
                 {quotation.activities || 'All key sightseeing & scenic viewpoint excursions'}
               </p>
             </div>
           </div>
 
-          {/* Row 3: Inclusions & Exclusions Split Cards */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-2 rounded-lg bg-emerald-50/40 border border-emerald-200/70">
-              <div className="flex items-center gap-1.5 pb-1 mb-1 border-b border-emerald-200/60">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                <span className="font-black text-[10px] uppercase tracking-wider text-emerald-950">
-                  Inclusions & Arrangements
-                </span>
-              </div>
-              <ul className="space-y-0.5">
-                {parseListItems(quotation.inclusions, [
-                  'Hotel accommodation as per selected category',
-                  'Daily breakfast at resort/hotel',
-                  'Dedicated AC vehicle for all sightseeing & transfers',
-                  'All toll taxes, parking fees, fuel & driver allowances',
-                  'Detailed sightseeing itinerary as agreed',
-                ]).slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-1.5 text-[10px] text-slate-800 leading-tight">
-                    <span className="text-emerald-600 font-bold shrink-0 mt-0.5">✓</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="p-2 rounded-lg bg-rose-50/30 border border-rose-200/60">
-              <div className="flex items-center gap-1.5 pb-1 mb-1 border-b border-rose-200/50">
-                <XCircle className="w-3.5 h-3.5 text-rose-700 shrink-0" />
-                <span className="font-black text-[10px] uppercase tracking-wider text-rose-950">
-                  Exclusions & Extra Charges
-                </span>
-              </div>
-              <ul className="space-y-0.5">
-                {parseListItems(quotation.exclusions, [
-                  'Airfare / Train tickets unless explicitly included',
-                  'Personal shopping, laundry, phone calls & room service',
-                  'Monument entry tickets, camera fees & activities',
-                  'Meals other than specified in inclusions',
-                  'Any item not explicitly stated under inclusions',
-                ]).slice(0, 5).map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-1.5 text-[10px] text-slate-800 leading-tight">
-                    <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Row 4: Transparent Pricing Table */}
-          <div className="rounded-lg border border-slate-300 overflow-hidden bg-white shadow-2xs">
+          {/* Row 3: Commercial Package Cost Breakdown (Pricing Table) */}
+          <div className="rounded-lg border border-slate-200 overflow-hidden bg-white shadow-2xs">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-900 text-white">
-                  <th className="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider">
+                  <th className="py-2 px-3 text-[10px] font-bold uppercase tracking-wider">
                     Package Description / Passenger Category
                   </th>
-                  <th className="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-center w-28">
+                  <th className="py-2 px-3 text-[10px] font-bold uppercase tracking-wider text-center w-28">
                     Guests / Qty
                   </th>
-                  <th className="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-right w-32">
+                  <th className="py-2 px-3 text-[10px] font-bold uppercase tracking-wider text-right w-32">
                     Rate / Person (₹)
                   </th>
-                  <th className="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-right w-32">
+                  <th className="py-2 px-3 text-[10px] font-bold uppercase tracking-wider text-right w-32">
                     Amount (₹)
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 text-xs">
-                <tr className="bg-slate-50/50">
-                  <td className="py-1.5 px-3">
+              <tbody className="divide-y divide-slate-100 text-xs">
+                <tr className="bg-slate-50/40">
+                  <td className="py-2 px-3">
                     <span className="font-bold text-slate-900 text-xs block">Adult Package Arrangements</span>
-                    <span className="text-[9.5px] text-slate-500">
+                    <span className="text-[10px] text-slate-500">
                       Resort stay, dedicated vehicle & customized tour logistics
                     </span>
                   </td>
-                  <td className="py-1.5 px-3 text-center font-bold text-slate-800 text-xs">
+                  <td className="py-2 px-3 text-center font-bold text-slate-800 text-xs">
                     {quotation.adults || 1}
                   </td>
-                  <td className="py-1.5 px-3 text-right font-medium text-slate-700 text-xs tabular-nums font-mono">
+                  <td className="py-2 px-3 text-right font-medium text-slate-700 text-xs tabular-nums font-mono">
                     ₹{Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice)).toLocaleString('en-IN')}
                   </td>
-                  <td className="py-1.5 px-3 text-right font-bold text-slate-900 text-xs tabular-nums font-mono">
+                  <td className="py-2 px-3 text-right font-bold text-slate-900 text-xs tabular-nums font-mono">
                     ₹{((quotation.adults || 1) * Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice))).toLocaleString('en-IN')}
                   </td>
                 </tr>
 
                 {(Number(quotation.children || 0) > 0 || Number(quotation.childUnitPrice || 0) > 0) && (
                   <tr>
-                    <td className="py-1 px-3">
+                    <td className="py-1.5 px-3">
                       <span className="font-semibold text-slate-800 text-xs block">Child Package Arrangements</span>
-                      <span className="text-[9.5px] text-slate-500">Child with bed/sharing as requested</span>
+                      <span className="text-[10px] text-slate-500">Child with bed/sharing as requested</span>
                     </td>
-                    <td className="py-1 px-3 text-center font-semibold text-slate-700 text-xs">
+                    <td className="py-1.5 px-3 text-center font-semibold text-slate-700 text-xs">
                       {quotation.children || 0}
                     </td>
-                    <td className="py-1 px-3 text-right text-slate-700 text-xs tabular-nums font-mono">
+                    <td className="py-1.5 px-3 text-right text-slate-700 text-xs tabular-nums font-mono">
                       ₹{Number(quotation.childUnitPrice || 0).toLocaleString('en-IN')}
                     </td>
-                    <td className="py-1 px-3 text-right font-bold text-slate-900 text-xs tabular-nums font-mono">
+                    <td className="py-1.5 px-3 text-right font-bold text-slate-900 text-xs tabular-nums font-mono">
                       ₹{(Number(quotation.children || 0) * Number(quotation.childUnitPrice || 0)).toLocaleString('en-IN')}
                     </td>
                   </tr>
@@ -614,8 +563,8 @@ export const QuotationView: React.FC = () => {
             </table>
 
             {/* Financial Summary Strip */}
-            <div className="bg-slate-100 px-3 py-1.5 border-t border-slate-300 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-4 text-[10.5px] text-slate-600">
+            <div className="bg-slate-50 px-3.5 py-2 border-t border-slate-200 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-4 text-[11px] text-slate-600">
                 <span>Subtotal: <strong className="text-slate-900 font-mono">₹{Number(quotation.basePrice).toLocaleString('en-IN')}</strong></span>
                 {Number(quotation.discount || 0) > 0 && (
                   <span className="text-emerald-700 font-semibold font-mono">Discount: -₹{Number(quotation.discount).toLocaleString('en-IN')}</span>
@@ -624,25 +573,76 @@ export const QuotationView: React.FC = () => {
                   <span className="font-mono">Taxes/GST: +₹{Number(quotation.tax).toLocaleString('en-IN')}</span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span className="text-[11px] uppercase font-black text-slate-800 tracking-wider">
                   Total Net Amount:
                 </span>
-                <span className="text-sm font-black text-[#C91F28] font-mono tabular-nums">
+                <span className="text-base font-black text-[#C91F28] font-mono tabular-nums">
                   ₹{Number(quotation.finalAmount).toLocaleString('en-IN')}
                 </span>
               </div>
             </div>
           </div>
 
+          {/* Row 4: Package Inclusions & Exclusions (Placed Below Pricing Table) */}
+          <div className="grid grid-cols-2 gap-3.5">
+            {/* Inclusions */}
+            <div className="p-2.5 rounded-lg bg-emerald-50/50 border border-emerald-200/80">
+              <div className="flex items-center gap-1.5 pb-1 mb-1 border-b border-emerald-200/60">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span className="font-black text-[10px] uppercase tracking-wider text-emerald-950">
+                  Inclusions & Arrangements
+                </span>
+              </div>
+              <ul className="space-y-1">
+                {parseListItems(quotation.inclusions, [
+                  'Hotel accommodation as per selected category',
+                  'Daily breakfast at resort/hotel',
+                  'Dedicated AC vehicle for all sightseeing & transfers',
+                  'All toll taxes, parking fees, fuel & driver allowances',
+                  'Detailed sightseeing itinerary as agreed',
+                ]).slice(0, 5).map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5 text-[10.5px] text-slate-800 leading-tight">
+                    <span className="text-emerald-600 font-bold shrink-0 mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Exclusions */}
+            <div className="p-2.5 rounded-lg bg-rose-50/40 border border-rose-200/70">
+              <div className="flex items-center gap-1.5 pb-1 mb-1 border-b border-rose-200/50">
+                <XCircle className="w-3.5 h-3.5 text-rose-700 shrink-0" />
+                <span className="font-black text-[10px] uppercase tracking-wider text-rose-950">
+                  Exclusions & Extra Charges
+                </span>
+              </div>
+              <ul className="space-y-1">
+                {parseListItems(quotation.exclusions, [
+                  'Airfare / Train tickets unless explicitly included',
+                  'Personal shopping, laundry, phone calls & room service',
+                  'Monument entry tickets, camera fees & activities',
+                  'Meals other than specified in inclusions',
+                  'Any item not explicitly stated under inclusions',
+                ]).slice(0, 5).map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5 text-[10.5px] text-slate-800 leading-tight">
+                    <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
           {/* Row 5: Bank Remittance Details (Left) & Payment Milestones / Policy (Right) */}
-          <div className="grid grid-cols-2 gap-3 text-[10px]">
+          <div className="grid grid-cols-2 gap-3.5 text-[10px]">
             {/* Bank Details */}
-            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/90 space-y-1">
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
               <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider block border-b border-slate-200 pb-0.5 mb-1">
                 Bank & Remittance Details (Official Account)
               </span>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-600">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-600 text-[10.5px]">
                 <div><span className="text-slate-500">Beneficiary:</span> <strong className="text-slate-900">{company?.accountHolderName || company?.name || 'Jeevan'}</strong></div>
                 <div><span className="text-slate-500">Bank Name:</span> <strong className="text-slate-900">{company?.bankName || 'Canara Bank'}</strong></div>
                 <div><span className="text-slate-500">Account No:</span> <span className="font-mono font-bold text-slate-900">{company?.accountNumber || '2891101013983'}</span></div>
@@ -652,29 +652,32 @@ export const QuotationView: React.FC = () => {
                   <div><span className="text-slate-500">UPI ID:</span> <strong className="font-mono text-[#C91F28]">{company.upiId}</strong></div>
                 )}
               </div>
-              <p className="text-[9px] text-slate-500 pt-0.5 border-t border-slate-200/80">
+              <p className="text-[9.5px] text-slate-500 pt-0.5 border-t border-slate-200">
                 Please quote Quotation Ref <strong>{quotation.quotationNumber}</strong> during bank fund transfer.
               </p>
             </div>
 
             {/* Payment Milestones & Verification Note */}
-            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/90 flex flex-col justify-between space-y-1">
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex flex-col justify-between space-y-1">
               <div>
                 <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider block border-b border-slate-200 pb-0.5 mb-1">
                   Payment Terms & Cancellation Policy
                 </span>
-                <p className="text-slate-700 leading-snug text-[10px]">
+                <p className="text-slate-700 leading-snug text-[10.5px]">
                   {quotation.paymentTerms || '50% advance for booking confirmation, balance payable prior to trip departure.'}
                 </p>
                 {quotation.cancellationTerms && (
-                  <p className="text-slate-600 text-[9px] mt-0.5 leading-tight">
+                  <p className="text-slate-600 text-[9.5px] mt-0.5 leading-tight">
                     {quotation.cancellationTerms}
                   </p>
                 )}
               </div>
-              <div className="pt-1 border-t border-slate-200 flex items-center justify-center gap-1.5 text-[9px] text-slate-600">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
-                <span>Computer-generated commercial quotation verified by {company?.name || 'Ooting'} CRM. Valid without physical signature.</span>
+              <div className="pt-1 border-t border-slate-200 flex items-center justify-between text-[9px] text-slate-600">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                  <span>Computer-generated commercial quotation verified by {company?.name || 'Ooting'} CRM.</span>
+                </div>
+                <span className="font-bold text-slate-800 uppercase tracking-wider">Authorized Signatory</span>
               </div>
             </div>
           </div>
