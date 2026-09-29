@@ -65,10 +65,11 @@ export async function generateA4Pdf({
     targetEl.style.borderRadius = '0';
     targetEl.style.border = 'none';
 
-    // 1. Deterministic SVG Icon Normalization (Fixes html2canvas icon shift/drop bug)
-    const svgs = targetEl.querySelectorAll<SVGElement>('svg');
+    // 1. Deterministic SVG Icon Normalization:
+    // Convert inline SVGs into data-URI <img> elements so html2canvas renders them
+    // natively via drawImage() with 100% position accuracy and zero baseline/flex shift.
+    const svgs = Array.from(targetEl.querySelectorAll<SVGElement>('svg'));
     svgs.forEach((svg) => {
-      // Determine intended size from class list, attributes, or default to 14px
       const cls = svg.getAttribute('class') || '';
       let pxSize = 14;
       if (cls.includes('w-3 ') || cls.includes('w-3.5') || cls.includes('h-3.5')) pxSize = 14;
@@ -82,28 +83,34 @@ export async function generateA4Pdf({
       if (!svg.getAttribute('viewBox')) {
         svg.setAttribute('viewBox', '0 0 24 24');
       }
-      svg.style.width = `${pxSize}px`;
-      svg.style.height = `${pxSize}px`;
-      svg.style.minWidth = `${pxSize}px`;
-      svg.style.minHeight = `${pxSize}px`;
-      svg.style.maxWidth = `${pxSize}px`;
-      svg.style.maxHeight = `${pxSize}px`;
-      svg.style.display = 'inline-block';
-      svg.style.verticalAlign = 'middle';
-      svg.style.transform = 'none';
-      svg.style.flexShrink = '0';
-      svg.style.overflow = 'visible';
 
-      const parent = svg.parentElement;
-      if (parent && (parent.classList.contains('flex') || parent.classList.contains('inline-flex'))) {
-        parent.style.display = 'inline-flex';
-        parent.style.alignItems = 'center';
-        parent.style.justifyContent = 'center';
-        parent.style.flexShrink = '0';
+      try {
+        const svgXml = new XMLSerializer().serializeToString(svg);
+        const img = clonedDoc.createElement('img');
+        img.setAttribute('src', 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgXml));
+        img.setAttribute('width', String(pxSize));
+        img.setAttribute('height', String(pxSize));
+        img.style.width = `${pxSize}px`;
+        img.style.height = `${pxSize}px`;
+        img.style.minWidth = `${pxSize}px`;
+        img.style.minHeight = `${pxSize}px`;
+        img.style.maxWidth = `${pxSize}px`;
+        img.style.maxHeight = `${pxSize}px`;
+        img.style.display = 'inline-block';
+        img.style.verticalAlign = '-0.15em';
+        img.style.flexShrink = '0';
+        img.style.margin = '0';
+        img.style.padding = '0';
+        svg.parentNode?.replaceChild(img, svg);
+      } catch {
+        svg.style.width = `${pxSize}px`;
+        svg.style.height = `${pxSize}px`;
+        svg.style.display = 'inline-block';
+        svg.style.verticalAlign = 'middle';
       }
     });
 
-    // 2. Strict Image Dimension & Object-Fit Enforcement (Prevents blown-up or empty images)
+    // 2. Strict Image Dimension & Natural Aspect-Ratio Enforcement (Prevents squashed logos or blown-up photos)
     const imgs = targetEl.querySelectorAll<HTMLImageElement>('img');
     imgs.forEach((img) => {
       const src = img.getAttribute('src') || '';
@@ -115,22 +122,18 @@ export async function generateA4Pdf({
       }
 
       if (src.includes('logo') || img.classList.contains('object-contain')) {
-        img.style.maxWidth = '56px';
-        img.style.maxHeight = '56px';
-        img.style.width = '56px';
-        img.style.height = '56px';
+        // Allow logo to preserve natural aspect ratio without horizontal squishing
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '100%';
+        img.style.width = 'auto';
+        img.style.height = 'auto';
         img.style.objectFit = 'contain';
-        if (img.parentElement) {
-          img.parentElement.style.width = '56px';
-          img.parentElement.style.height = '56px';
-          img.parentElement.style.maxWidth = '56px';
-          img.parentElement.style.maxHeight = '56px';
-          img.parentElement.style.overflow = 'hidden';
-          img.parentElement.style.flexShrink = '0';
-        }
+        img.style.display = 'block';
+        img.style.margin = 'auto';
       } else if (src.includes('wave')) {
         img.style.height = '8px';
         img.style.maxHeight = '8px';
+        img.style.width = '100%';
         img.style.objectFit = 'cover';
         if (img.parentElement) {
           img.parentElement.style.height = '8px';
@@ -139,10 +142,10 @@ export async function generateA4Pdf({
         }
       } else {
         // Day photos / general pictures
-        img.style.maxHeight = '180px';
+        img.style.maxHeight = '210px';
         img.style.objectFit = 'cover';
         if (img.parentElement && !img.parentElement.style.maxHeight) {
-          img.parentElement.style.maxHeight = '180px';
+          img.parentElement.style.maxHeight = '210px';
           img.parentElement.style.overflow = 'hidden';
         }
       }
@@ -191,7 +194,7 @@ export async function generateA4Pdf({
         allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: 1200,
+        windowWidth: a4StandardPxWidth,
         scrollY: 0,
         scrollX: 0,
         onclone: (clonedDoc) => {
@@ -222,7 +225,7 @@ export async function generateA4Pdf({
       allowTaint: true,
       logging: false,
       backgroundColor: '#ffffff',
-      windowWidth: 1200,
+      windowWidth: a4StandardPxWidth,
       scrollY: 0,
       scrollX: 0,
       onclone: (clonedDoc) => {

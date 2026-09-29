@@ -927,14 +927,14 @@ export const PackageDetail: React.FC = () => {
             </div>
 
             {/* Recommended Image Size Banner */}
-            <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
+            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2.5">
               <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <span className="font-bold block">Recommended Photo Resolution & Sizing:</span>
-                <p className="text-blue-800 dark:text-blue-300">
-                  • <strong>Single Photo:</strong> <strong>1600 × 1000 px</strong> (Ratio <strong>16:10</strong>) or <strong>1920 × 1080 px</strong> (Ratio <strong>16:9</strong>) — seamlessly fills 100% full width with zero side margins.<br />
-                  • <strong>Multiple Photos (Grid):</strong> <strong>1600 × 1000 px</strong> (Landscape 16:10) or <strong>1200 × 1600 px</strong> (Portrait 3:4).<br />
-                  • <strong>Formats & Size:</strong> JPG, PNG, WebP (Max 15MB each). Proportional edge-to-edge fitting is enabled.
+              <div className="space-y-1">
+                <span className="font-bold block text-xs">Recommended Formal Photo Resolution & Sizing:</span>
+                <p className="text-blue-800 dark:text-blue-300 leading-relaxed">
+                  • <strong>Single Photo (Full Width):</strong> <strong>1200 × 750 px</strong> (Ratio <strong>16:10</strong>) or <strong>1280 × 720 px</strong> (Ratio <strong>16:9</strong>) — fits the A4 PDF page width with high clarity.<br />
+                  • <strong>Multiple Photos (2-3 Grid):</strong> <strong>800 × 600 px</strong> (Ratio <strong>4:3</strong>) or <strong>1200 × 800 px</strong> (Ratio <strong>3:2</strong>).<br />
+                  • <strong>Recommended File Size:</strong> Under <strong>5 MB</strong> per photo (JPG, PNG, WebP) for fast PDF generation and print sharpness.
                 </p>
               </div>
             </div>

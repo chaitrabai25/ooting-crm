@@ -87,7 +87,7 @@ const DutySlipDocumentBody: React.FC<{
                 src={company.logoUrl || '/assets/ooting-logo.jpg'}
                 alt={company.name || 'Ooting'}
                 className="max-w-full max-h-full object-contain"
-                style={{ width: '100%', height: '100%', maxWidth: '48px', maxHeight: '48px', objectFit: 'contain' }}
+                style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                 crossOrigin="anonymous"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
@@ -107,8 +107,8 @@ const DutySlipDocumentBody: React.FC<{
             </div>
           </div>
 
-          {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with document margin) */}
-          <div className="w-fit ml-auto shrink-0 translate-x-6 sm:translate-x-8 flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
+          {/* RIGHT SIDE: Company Contact Details with clean right margin */}
+          <div className="w-fit ml-auto shrink-0 flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
             {company.website && (
               <div className="flex items-center gap-2">
                 <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
@@ -160,7 +160,7 @@ const DutySlipDocumentBody: React.FC<{
       </div>
 
       {/* Document Title & Reference Banner */}
-      <div className="bg-slate-900 text-white px-7 py-2 flex items-center justify-between">
+      <div className="bg-slate-900 text-white px-8 py-2 flex items-center justify-between">
         <div>
           <span className="text-[9px] tracking-widest uppercase text-amber-400 font-bold block">
             OFFICIAL TRAVEL VOUCHER
@@ -172,7 +172,7 @@ const DutySlipDocumentBody: React.FC<{
         <div className="flex items-center gap-6 text-right">
           <div>
             <span className="text-[9px] text-slate-400 block uppercase font-medium">Duty Slip #</span>
-            <span className="font-mono text-xs font-bold text-amber-300 tracking-wider">
+            <span className="font-bold text-xs text-amber-300 tracking-wider">
               {cab.bookingReference}
             </span>
           </div>
@@ -189,7 +189,7 @@ const DutySlipDocumentBody: React.FC<{
         </div>
       </div>
 
-      <div className="flex-1 px-7 py-2.5 flex flex-col justify-between space-y-2 text-xs">
+      <div className="flex-1 px-8 py-3.5 flex flex-col justify-start space-y-3.5 text-xs">
         {/* Guest & Journey Overview Grid */}
         <div className="grid grid-cols-2 gap-3">
           {/* Passenger / Guest Details */}
@@ -855,7 +855,7 @@ export const CabVoucher: React.FC = () => {
       {/* Main A4 Duty Slip Document (Container isolated for dedicated PDF and Print) */}
       <div
         id="duty-slip-document"
-        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
+        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col text-slate-800 font-serif shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
         style={{
           width: '794px',
           maxWidth: '794px',
@@ -917,7 +917,7 @@ export const CabVoucher: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center">
               <div
-                className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-2xl rounded-2xl overflow-hidden border border-slate-200"
+                className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col text-slate-800 font-serif shadow-2xl rounded-2xl overflow-hidden border border-slate-200"
                 style={{
                   width: '794px',
                   maxWidth: '794px',

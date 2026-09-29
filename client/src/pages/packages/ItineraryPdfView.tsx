@@ -16,6 +16,7 @@ import {
   FileText,
   Download,
   Loader2,
+  Compass,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Package, ItineraryDay } from '../../types/index.js';
@@ -202,7 +203,7 @@ export const ItineraryPdfView: React.FC = () => {
       {/* Main A4 Printable Document Paper */}
       <div
         id="itinerary-document"
-        className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-sans print:m-0"
+        className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-serif print:m-0"
       >
         
         {/* Top Header Wave Asset */}
@@ -231,7 +232,7 @@ export const ItineraryPdfView: React.FC = () => {
                   src={company.logoUrl || '/assets/ooting-logo.jpg'}
                   alt={company.name || 'Ooting'}
                   className="max-w-full max-h-full object-contain"
-                  style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', objectFit: 'contain' }}
+                  style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                   crossOrigin="anonymous"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
@@ -251,8 +252,8 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with document margin) */}
-            <div className="flex justify-end ml-auto shrink-0 translate-x-6 sm:translate-x-8">
+            {/* RIGHT SIDE: Company Contact Details with proper margin */}
+            <div className="flex justify-end ml-auto shrink-0">
               <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                 {company.website && (
                   <div className="flex items-center gap-2">
@@ -315,16 +316,20 @@ export const ItineraryPdfView: React.FC = () => {
               <h1 className="text-2xl font-extrabold text-slate-950 tracking-tight">
                 {pkg.packageName}
               </h1>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 mt-1.5 font-medium">
-                <span className="inline-flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-[#C91F28]" /> {pkg.destination}
+              {/* Clean Icon Badges without raw bullets */}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700 mt-2 font-medium">
+                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+                  <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                  <span>{pkg.destination}</span>
                 </span>
-                <span>•</span>
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-[#C91F28]" /> {pkg.duration}
+                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+                  <Clock className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                  <span>{pkg.duration}</span>
                 </span>
-                <span>•</span>
-                <span className="capitalize font-semibold text-slate-800">{pkg.packageType.toLowerCase()} Package</span>
+                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+                  <Compass className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                  <span className="capitalize">{pkg.packageType.toLowerCase()} Package</span>
+                </span>
               </div>
             </div>
 
@@ -458,13 +463,13 @@ export const ItineraryPdfView: React.FC = () => {
                           <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                             <div
                               className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                              style={{ width: '100%', height: '170px', maxHeight: '170px', minHeight: '170px' }}
+                              style={{ width: '100%', height: '210px', maxHeight: '210px', minHeight: '210px' }}
                             >
                               <img
                                 src={item.url}
                                 alt={placeLabel || day.title}
                                 className="w-full h-full object-cover"
-                                style={{ width: '100%', height: '170px', maxHeight: '170px', objectFit: 'cover' }}
+                                style={{ width: '100%', height: '210px', maxHeight: '210px', objectFit: 'cover' }}
                                 crossOrigin="anonymous"
                                 onError={(e) => {
                                   (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');
@@ -494,13 +499,13 @@ export const ItineraryPdfView: React.FC = () => {
                               >
                                 <div
                                   className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                                  style={{ width: '100%', height: '115px', maxHeight: '115px', minHeight: '115px' }}
+                                  style={{ width: '100%', height: '135px', maxHeight: '135px', minHeight: '135px' }}
                                 >
                                   <img
                                     src={item.url}
                                     alt={placeLabel || ''}
                                     className="w-full h-full object-cover"
-                                    style={{ width: '100%', height: '115px', maxHeight: '115px', objectFit: 'cover' }}
+                                    style={{ width: '100%', height: '135px', maxHeight: '135px', objectFit: 'cover' }}
                                     crossOrigin="anonymous"
                                     onError={(e) => {
                                       (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');

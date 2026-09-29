@@ -240,6 +240,28 @@ html.dark select:-webkit-autofill,
   background: #475569;
 }
 
+/* ==========================================================================
+   FORMAL TYPOGRAPHY FOR OFFICIAL DOWNLOADABLE & PRINTABLE DOCUMENTS
+   Times New Roman applied across Invoice, Quotation, Duty Slip, and Itinerary
+   ========================================================================== */
+#invoice-document,
+#duty-slip-document,
+#quotation-document,
+#itinerary-document,
+.printable-document {
+  font-family: 'Times New Roman', Times, serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#invoice-document *,
+#duty-slip-document *,
+#quotation-document *,
+#itinerary-document *,
+.printable-document * {
+  font-family: 'Times New Roman', Times, serif !important;
+}
+
 /* Print layout optimizations for quotations & official CRM documents */
 @media print {
   @page {

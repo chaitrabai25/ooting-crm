@@ -246,7 +246,7 @@ export const QuotationView: React.FC = () => {
       {/* Branded Official Quotation Document Canvas (Guaranteed 1-Page A4 Fit) */}
       <div
         id="quotation-document"
-        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
+        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col text-slate-800 font-serif shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
         style={{
           width: '794px',
           maxWidth: '794px',
@@ -271,7 +271,7 @@ export const QuotationView: React.FC = () => {
         </div>
 
         {/* Letterhead Header Section */}
-        <div className="px-7 pt-3 pb-2 border-b border-slate-200">
+        <div className="px-8 pt-3.5 pb-2.5 border-b border-slate-200">
           <div className="flex justify-between items-start gap-4">
             {/* LEFT SIDE: Brand Logo, Company Identity & Quotation Meta */}
             <div className="flex items-start gap-3">
@@ -283,7 +283,7 @@ export const QuotationView: React.FC = () => {
                   src={company?.logoUrl || '/assets/ooting-logo.jpg'}
                   alt={company?.name || 'Ooting'}
                   className="max-w-full max-h-full object-contain"
-                  style={{ width: '100%', height: '100%', maxWidth: '48px', maxHeight: '48px', objectFit: 'contain' }}
+                  style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                   crossOrigin="anonymous"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
@@ -301,7 +301,7 @@ export const QuotationView: React.FC = () => {
                   <span className="inline-block px-2 py-0.5 bg-[#C91F28] text-white text-[9px] font-bold uppercase tracking-wider rounded">
                     Official Quotation
                   </span>
-                  <span className="font-mono text-xs font-bold text-slate-900">
+                  <span className="font-bold text-xs text-slate-900">
                     {quotation.quotationNumber}
                   </span>
                   <span className="text-[10px] text-slate-500">
@@ -311,8 +311,8 @@ export const QuotationView: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with right margin) */}
-            <div className="w-fit ml-auto shrink-0 translate-x-6 sm:translate-x-8 flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
+            {/* RIGHT SIDE: Company Contact Details with clean sheet margin */}
+            <div className="w-fit ml-auto shrink-0 flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
               {company?.website && (
                 <div className="flex items-center gap-2">
                   <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
@@ -341,7 +341,7 @@ export const QuotationView: React.FC = () => {
                 <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
                   <FileText className="w-3 h-3" />
                 </span>
-                <span className="font-mono font-bold text-[11px] text-slate-900">
+                <span className="font-bold text-[11px] text-slate-900">
                   GSTIN: {(() => {
                     const g = (company?.gstin || '').trim().toUpperCase();
                     return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
@@ -363,10 +363,10 @@ export const QuotationView: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Body (Balanced for Strict 1-Page Height) */}
-        <div className="flex-1 px-7 py-2.5 flex flex-col justify-between space-y-2 text-xs">
+        {/* Main Body (Balanced for Strict 1-Page Height without huge empty gaps) */}
+        <div className="flex-1 px-8 py-3.5 flex flex-col justify-start space-y-3.5 text-xs">
           {/* Row 1: Client & Journey Summary Grid */}
-          <div className="grid grid-cols-2 gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/80">
+          <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50/80 rounded-lg border border-slate-200/80">
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block mb-1">
                 Prepared For (Client Details)
@@ -519,43 +519,43 @@ export const QuotationView: React.FC = () => {
           </div>
 
           {/* Row 4: Bank Remittance Details (Left) & Payment Milestones / Policy (Right) */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3.5">
             {/* Bank Details */}
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[10.5px] space-y-1">
-              <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider block">
+            <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200 text-[10.5px] space-y-1.5 shadow-2xs">
+              <span className="text-[10.5px] font-black text-slate-900 uppercase tracking-wider block">
                 Bank & Remittance Details (Official Account)
               </span>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-600">
-                <div><span className="text-slate-400">Beneficiary:</span> <strong className="text-slate-900">{company?.accountHolderName || company?.name || 'Jeevan'}</strong></div>
-                <div><span className="text-slate-400">Bank:</span> <strong className="text-slate-900">{company?.bankName || 'Canara Bank'}</strong></div>
-                <div><span className="text-slate-400">A/C No:</span> <span className="font-mono font-bold text-slate-900">{company?.accountNumber || '2891101013983'}</span></div>
-                <div><span className="text-slate-400">IFSC:</span> <span className="font-mono font-bold text-slate-900">{company?.ifsc || 'CNRB0005237'}</span></div>
-                <div><span className="text-slate-400">Type:</span> <span className="text-slate-800">{company?.accountType || 'Current Account'}</span></div>
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-slate-600">
+                <div><span className="text-slate-500">Beneficiary:</span> <strong className="text-slate-900">{company?.accountHolderName || company?.name || 'Jeevan'}</strong></div>
+                <div><span className="text-slate-500">Bank:</span> <strong className="text-slate-900">{company?.bankName || 'Canara Bank'}</strong></div>
+                <div><span className="text-slate-500">A/C No:</span> <span className="font-bold text-slate-900">{company?.accountNumber || '2891101013983'}</span></div>
+                <div><span className="text-slate-500">IFSC:</span> <span className="font-bold text-slate-900">{company?.ifsc || 'CNRB0005237'}</span></div>
+                <div><span className="text-slate-500">Type:</span> <span className="text-slate-800">{company?.accountType || 'Current Account'}</span></div>
                 {company?.upiId && (
-                  <div><span className="text-slate-400">UPI:</span> <strong className="text-[#C91F28] font-mono">{company.upiId}</strong></div>
+                  <div><span className="text-slate-500">UPI:</span> <strong className="text-[#C91F28]">{company.upiId}</strong></div>
                 )}
               </div>
-              <p className="text-[9.5px] text-slate-500 pt-0.5 border-t border-slate-200/80">
+              <p className="text-[9.5px] text-slate-500 pt-1 border-t border-slate-200">
                 Quote Quotation Ref <strong>{quotation.quotationNumber}</strong> during bank transfer.
               </p>
             </div>
 
             {/* Payment Milestones & Verification Note */}
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[10.5px] flex flex-col justify-between space-y-1">
+            <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200 text-[10.5px] flex flex-col justify-between space-y-1.5 shadow-2xs">
               <div>
-                <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider block mb-0.5">
+                <span className="text-[10.5px] font-black text-slate-900 uppercase tracking-wider block mb-1">
                   Payment Milestones & Policy
                 </span>
-                <p className="text-slate-600 leading-tight">
+                <p className="text-slate-700 leading-snug">
                   {quotation.paymentTerms || '50% advance for booking confirmation, balance payable prior to trip departure.'}
                 </p>
                 {quotation.cancellationTerms && (
-                  <p className="text-slate-500 text-[10px] mt-0.5 leading-tight">
+                  <p className="text-slate-600 text-[10px] mt-1 leading-snug">
                     {quotation.cancellationTerms}
                   </p>
                 )}
               </div>
-              <div className="pt-1 border-t border-slate-200 text-center text-[9.5px] text-slate-500">
+              <div className="pt-1.5 border-t border-slate-200 text-center text-[9.5px] text-slate-500">
                 Official quotation generated by {company?.name || 'Ooting'} CRM. Valid without physical signature.
               </div>
             </div>

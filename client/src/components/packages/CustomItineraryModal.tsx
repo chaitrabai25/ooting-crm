@@ -906,7 +906,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
             <div className="overflow-y-auto max-h-[70vh] p-4 bg-slate-100 dark:bg-slate-950 flex justify-center">
               <div
                 id="itinerary-document"
-                className="w-full max-w-[800px] bg-white text-slate-800 font-sans p-8 sm:p-10 shadow-xl border border-slate-200"
+                className="w-full max-w-[800px] bg-white text-slate-800 font-serif p-8 sm:p-10 shadow-xl border border-slate-200"
                 style={{ minHeight: '1050px' }}
               >
                 {/* Header Wave Accent */}
@@ -935,7 +935,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           src={company.logoUrl || '/assets/ooting-logo.jpg'}
                           alt={company.name || 'Ooting'}
                           className="max-w-full max-h-full object-contain"
-                          style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', objectFit: 'contain' }}
+                          style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                           crossOrigin="anonymous"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
@@ -955,8 +955,8 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       </div>
                     </div>
 
-                    {/* RIGHT SIDE: Company Contact Details (Shifted right 2 tab spaces to align flush with document margin) */}
-                    <div className="flex justify-end ml-auto shrink-0 translate-x-6 sm:translate-x-8">
+                    {/* RIGHT SIDE: Company Contact Details with clean document margin */}
+                    <div className="flex justify-end ml-auto shrink-0">
                       <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                         {company.website && (
                           <div className="flex items-center gap-2">
