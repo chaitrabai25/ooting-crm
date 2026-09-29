@@ -24,9 +24,10 @@ async function runTests() {
   }
 
   try {
-    // -------------------------------------------------------------
-    // BASELINE: Verify Zero Data Loss from Migration
-    // -------------------------------------------------------------
+    // Clean up any leftover test customer from an aborted previous run
+    await prisma.customer.deleteMany({ where: { phone: '9999999999' } });
+    await prisma.lead.deleteMany({ where: { destination: 'Test Destination' } });
+
     console.log('--- 1. Baseline Data Integrity Check ---');
     const userCount = await prisma.user.count();
     const pkgCount = await prisma.package.count();
@@ -248,7 +249,7 @@ async function runTests() {
         },
         include: { travellersList: true },
       });
-    });
+    }, { maxWait: 15000, timeout: 20000 });
 
     assert(!!testBooking.id, 'Test G.1: Booking created in transaction', `Booking: ${testBooking.bookingNumber}`);
     assert(testBooking.travellersList.length === 2, 'Test G.2: Associated travellers created in same transaction');

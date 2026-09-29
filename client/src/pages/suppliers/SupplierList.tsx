@@ -25,6 +25,12 @@ import {
   CreditCard,
   Award,
   Sparkles,
+  Compass,
+  Mountain,
+  Utensils,
+  Ticket,
+  Plane,
+  Ship,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
@@ -85,6 +91,51 @@ const getCategoryBadgeClass = (category: string) => {
       return 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800';
     default:
       return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+  }
+};
+
+const getSupplierTypeIcon = (type: string) => {
+  switch (type) {
+    case 'HOTEL':
+      return <Hotel className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />;
+    case 'CAB_VENDOR':
+      return <Car className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />;
+    case 'TRANSPORT':
+      return <Bus className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />;
+    case 'ACTIVITY_PROVIDER':
+      return <Mountain className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+    case 'TOUR_GUIDE':
+      return <Compass className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />;
+    case 'HOUSEBOAT':
+    case 'CRUISE':
+      return <Ship className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />;
+    case 'VISA_AGENT':
+      return <CreditCard className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />;
+    default:
+      return <Building2 className="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0" />;
+  }
+};
+
+const getCategoryIcon = (category: string) => {
+  switch (category) {
+    case 'Hotel':
+      return <Hotel className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />;
+    case 'Bus':
+      return <Bus className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />;
+    case 'Cab':
+      return <Car className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />;
+    case 'Flight':
+      return <Plane className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />;
+    case 'Guide':
+      return <Compass className="w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0" />;
+    case 'Adventure Activity':
+      return <Mountain className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+    case 'Entry Ticket':
+      return <Ticket className="w-3 h-3 text-rose-600 dark:text-rose-400 shrink-0" />;
+    case 'Food/Restaurant':
+      return <Utensils className="w-3 h-3 text-orange-600 dark:text-orange-400 shrink-0" />;
+    default:
+      return <Sparkles className="w-3 h-3 text-slate-600 dark:text-slate-400 shrink-0" />;
   }
 };
 
@@ -251,11 +302,46 @@ export const SupplierList: React.FC = () => {
     {
       header: 'S.No.',
       accessor: 'sNo',
-      className: 'w-16 text-center text-xs text-slate-500 dark:text-slate-400',
+      className: 'w-14 text-center text-xs text-slate-500 dark:text-slate-400',
     },
     {
       header: 'Supplier / Company',
       sortKey: 'name',
+      className: 'min-w-[210px]',
+      render: (s) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0">
+            {getSupplierTypeIcon(s.supplierType)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <span
+              onClick={() => navigate(`/suppliers/${s.id}`)}
+              className="font-bold text-slate-900 dark:text-slate-100 hover:text-[#C91F28] dark:hover:text-brand-400 cursor-pointer block text-xs sm:text-sm truncate"
+              title={s.name}
+            >
+              {s.name}
+            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
+                  SUPPLIER_TYPE_BADGES[s.supplierType] || SUPPLIER_TYPE_BADGES.OTHER
+                }`}
+              >
+                {SUPPLIER_TYPE_LABELS[s.supplierType] || s.supplierType}
+              </span>
+              {s.panNumber && (
+                <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-mono">
+                  PAN: {s.panNumber}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Services Provided',
+      className: 'min-w-[190px]',
       render: (s) => {
         let cats: string[] = [];
         if (Array.isArray(s.serviceCategories)) {
@@ -267,36 +353,33 @@ export const SupplierList: React.FC = () => {
             cats = [s.serviceCategories];
           }
         }
+        if (!cats || cats.length === 0) {
+          return <span className="text-xs text-slate-400 italic">None specified</span>;
+        }
+
+        const maxVisible = 2;
+        const visibleCats = cats.slice(0, maxVisible);
+        const remainingCats = cats.slice(maxVisible);
+
         return (
-          <div>
-            <span
-              onClick={() => navigate(`/suppliers/${s.id}`)}
-              className="font-bold text-slate-900 dark:text-slate-100 hover:text-[#C91F28] dark:hover:text-brand-400 cursor-pointer block text-xs sm:text-sm"
-            >
-              {s.name}
-            </span>
-            <div className="flex flex-wrap items-center gap-1 mt-1">
+          <div className="flex flex-wrap items-center gap-1.5 max-w-[210px]">
+            {visibleCats.map((c) => (
               <span
-                className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
-                  SUPPLIER_TYPE_BADGES[s.supplierType] || SUPPLIER_TYPE_BADGES.OTHER
-                }`}
+                key={c}
+                className={`inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded-md border font-medium ${getCategoryBadgeClass(c)}`}
               >
-                {SUPPLIER_TYPE_LABELS[s.supplierType] || s.supplierType}
+                {getCategoryIcon(c)}
+                <span>{c}</span>
               </span>
-              {cats.length > 0 && cats.map((c) => (
-                <span
-                  key={c}
-                  className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${getCategoryBadgeClass(c)}`}
-                >
-                  {c}
-                </span>
-              ))}
-              {s.panNumber && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
-                  PAN: {s.panNumber}
-                </span>
-              )}
-            </div>
+            ))}
+            {remainingCats.length > 0 && (
+              <span
+                title={remainingCats.join(', ')}
+                className="inline-flex items-center px-1.5 py-0.5 text-[9.5px] font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 cursor-help"
+              >
+                +{remainingCats.length} more
+              </span>
+            )}
           </div>
         );
       },
@@ -304,12 +387,12 @@ export const SupplierList: React.FC = () => {
     {
       header: 'Tier',
       sortKey: 'tier',
-      className: 'w-28 text-center',
+      className: 'w-24 text-center',
       render: (s) => {
         const tier = s.tier || 'Silver';
         return (
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-full border shadow-sm ${
+            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-full border shadow-xs ${
               tier === 'Diamond'
                 ? 'bg-cyan-50 text-cyan-700 border-cyan-300 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800'
                 : tier === 'Gold'
@@ -327,16 +410,17 @@ export const SupplierList: React.FC = () => {
     {
       header: 'Contact Person & Info',
       sortKey: 'contactPerson',
+      className: 'min-w-[170px]',
       render: (s) => (
         <div className="text-xs space-y-1">
           {s.contactPerson && (
-            <span className="font-medium text-slate-800 dark:text-slate-200 block">
+            <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate max-w-[160px]">
               {s.contactPerson}
             </span>
           )}
           <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
             <Phone className="w-3 h-3 text-slate-400" />
-            <span>{s.phone}</span>
+            <span className="font-mono text-[11px]">{s.phone}</span>
             <CopyButton text={s.phone} title="Copy phone" />
             <button
               type="button"
@@ -348,15 +432,15 @@ export const SupplierList: React.FC = () => {
                 })
               }
               title="Chat on WhatsApp"
-              className="p-1 rounded bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-600 dark:text-emerald-400 transition-colors"
+              className="p-1 rounded bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer"
             >
               <MessageSquare className="w-3 h-3" />
             </button>
           </div>
           {s.email && (
             <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11px]">
-              <Mail className="w-3 h-3 text-slate-400" />
-              <span className="truncate max-w-[140px]">{s.email}</span>
+              <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+              <span className="truncate max-w-[130px]">{s.email}</span>
               <CopyButton text={s.email} title="Copy email" />
             </div>
           )}
@@ -366,20 +450,21 @@ export const SupplierList: React.FC = () => {
     {
       header: 'Location & Coverage',
       sortKey: 'city',
+      className: 'min-w-[180px]',
       render: (s) => (
-        <div className="text-xs text-slate-700 dark:text-slate-300">
+        <div className="text-xs text-slate-700 dark:text-slate-300 space-y-0.5">
           <div className="flex items-center gap-1">
-            <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
-            <span className="font-semibold">{s.city || '—'}</span>
-            {s.district && <span className="text-slate-600 dark:text-slate-300">({s.district})</span>}
+            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span className="font-semibold text-slate-800 dark:text-slate-200">{s.city || '—'}</span>
+            {s.district && <span className="text-slate-500 dark:text-slate-400">({s.district})</span>}
           </div>
           {s.state && (
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 pl-4">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 pl-4.5">
               {s.state} {s.pincode ? `• ${s.pincode}` : ''}
             </div>
           )}
           {s.destinationsCovered && (
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5 pl-4">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1 pl-4.5" title={s.destinationsCovered}>
               {s.destinationsCovered}
             </p>
           )}
@@ -388,14 +473,15 @@ export const SupplierList: React.FC = () => {
     },
     {
       header: 'Terms & Credit',
+      className: 'min-w-[130px]',
       render: (s) => (
-        <div className="text-xs">
+        <div className="text-xs space-y-0.5">
           <div className="flex items-center gap-1 font-semibold text-slate-800 dark:text-slate-200">
-            <CreditCard className="w-3 h-3 text-slate-400" />
+            <CreditCard className="w-3.5 h-3.5 text-slate-400" />
             <span>{formatCurrency(s.creditLimit || 0)}</span>
           </div>
           {s.paymentTerms && (
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 block pl-4.5">
               {s.paymentTerms.replace('_', ' ')}
             </span>
           )}
@@ -405,14 +491,16 @@ export const SupplierList: React.FC = () => {
     {
       header: 'Status',
       sortKey: 'status',
+      className: 'w-24 text-center',
       render: (s) => <Badge status={s.status} />,
     },
     {
       header: 'Assigned Staff',
+      className: 'min-w-[130px]',
       render: (s) => (
         <div className="text-xs text-slate-700 dark:text-slate-300">
           {s.assignedUser ? (
-            <span className="font-medium">{s.assignedUser.name}</span>
+            <span className="font-medium text-slate-800 dark:text-slate-200">{s.assignedUser.name}</span>
           ) : (
             <span className="text-slate-400 italic">Unassigned</span>
           )}
@@ -421,12 +509,12 @@ export const SupplierList: React.FC = () => {
     },
     {
       header: 'Actions',
-      className: 'w-28 text-right',
+      className: 'w-24 text-right',
       render: (s) => (
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex items-center justify-end gap-1">
           <button
             onClick={() => navigate(`/suppliers/${s.id}`)}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             title="View Details"
           >
             <Eye className="w-4 h-4" />
@@ -437,7 +525,7 @@ export const SupplierList: React.FC = () => {
                 setEditingSupplier(s);
                 setIsModalOpen(true);
               }}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
               title="Edit Supplier"
             >
               <Edit2 className="w-4 h-4" />
@@ -446,7 +534,7 @@ export const SupplierList: React.FC = () => {
           {(isSuperAdmin || can('suppliers', 'delete')) && (
             <button
               onClick={() => setDeleteTarget(s)}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 dark:text-slate-400 dark:hover:text-red-400 dark:hover:bg-red-950/40 transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:text-slate-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
               title="Delete Supplier"
             >
               <Trash2 className="w-4 h-4" />
