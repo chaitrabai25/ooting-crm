@@ -9,9 +9,9 @@ const router = Router();
 router.use(authenticate);
 
 export function normalizeGstin(val?: string | null): string {
-  if (!val) return 'NIL';
+  if (!val || val === 'NULL') return 'NILL';
   const clean = String(val).trim();
-  if (!clean) return 'NIL';
+  if (!clean) return 'NILL';
   return clean.toUpperCase();
 }
 

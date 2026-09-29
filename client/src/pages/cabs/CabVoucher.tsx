@@ -137,11 +137,8 @@ const DutySlipDocumentBody: React.FC<{
               <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
                 <FileText className="w-3 h-3" />
               </span>
-              <span className="font-mono font-bold text-[11px] text-slate-900">
-                GSTIN: {(() => {
-                  const g = (company?.gstin || '').trim().toUpperCase();
-                  return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
-                })()}
+              <span className="font-medium text-[11px] text-slate-800">
+                GSTIN: {company?.gstin && company.gstin !== 'NULL' ? company.gstin.replace(/^GSTIN:\s*/i, '') : 'NILL'}
               </span>
             </div>
             {company.address && (

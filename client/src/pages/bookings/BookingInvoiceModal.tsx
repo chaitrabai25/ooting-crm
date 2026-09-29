@@ -463,11 +463,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                     <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
                       <FileText className="w-3.5 h-3.5" />
                     </span>
-                    <span className="font-mono font-bold text-[11px] text-slate-900 leading-normal">
-                      GSTIN: {(() => {
-                        const g = (company?.gstin || '').trim().toUpperCase();
-                        return g && g !== 'NULL' && g !== 'NIL' ? g.replace(/^GSTIN:\s*/i, '') : 'NIL';
-                      })()}
+                    <span className="font-medium text-[11px] text-slate-800 leading-normal">
+                      GSTIN: {company?.gstin && company.gstin !== 'NULL' ? company.gstin.replace(/^GSTIN:\s*/i, '') : 'NILL'}
                     </span>
                   </div>
                   {company.address && (

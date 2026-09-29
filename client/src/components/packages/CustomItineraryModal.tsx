@@ -986,8 +986,8 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
                             <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                           </span>
-                          <span className="font-mono font-bold text-slate-900 tracking-tight">
-                            GSTIN: {company?.gstin?.trim() ? company.gstin.trim().toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NIL'}
+                          <span className="font-medium text-slate-800 tracking-tight">
+                            GSTIN: {company?.gstin?.trim() ? company.gstin.trim().toUpperCase().replace(/^GSTIN:\s*/i, '') : 'NILL'}
                           </span>
                         </div>
                         {company.address && (
