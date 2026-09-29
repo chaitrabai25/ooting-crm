@@ -14,12 +14,27 @@ import {
   Loader2,
   Globe,
   FileText,
+  Building2,
+  Car,
+  Compass,
+  ShieldCheck,
+  XCircle,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
+
+const parseListItems = (text: string | undefined | null, fallback: string[]): string[] => {
+  if (!text || !text.trim()) return fallback;
+  if (text.includes('\n')) {
+    const lines = text.split('\n').map(s => s.replace(/^[-•*✓✕x\s]+/, '').trim()).filter(Boolean);
+    if (lines.length > 0) return lines;
+  }
+  const items = text.split(',').map(s => s.trim()).filter(Boolean);
+  return items.length > 0 ? items : fallback;
+};
 
 export const QuotationView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -297,21 +312,16 @@ export const QuotationView: React.FC = () => {
                 <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
                   {company?.tagline || 'Journeys Beyond Ordinary'}
                 </span>
-                <div className="mt-1 flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block px-2 py-0.5 bg-[#C91F28] text-white text-[9px] font-bold uppercase tracking-wider rounded">
-                      Quotation
-                    </span>
-                    <span className="font-bold text-xs text-slate-900 font-mono tracking-wide">
-                      {quotation.quotationNumber}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[10.5px] text-slate-600 pl-0.5">
-                    <Calendar className="w-3 h-3 text-[#C91F28] shrink-0" />
-                    <span className="font-medium text-slate-700">
-                      Date: {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
-                  </div>
+                <span className="text-[9px] text-slate-500 block mt-0.5">
+                  Licensed Tour Operator & Destination Specialist
+                </span>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="inline-block px-2 py-0.5 bg-[#C91F28] text-white text-[9px] font-bold uppercase tracking-wider rounded">
+                    Quotation
+                  </span>
+                  <span className="font-bold text-xs text-slate-900 font-mono tracking-wide">
+                    {quotation.quotationNumber}
+                  </span>
                 </div>
               </div>
             </div>
@@ -368,47 +378,92 @@ export const QuotationView: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Body (Balanced for Strict 1-Page Height without huge empty gaps) */}
-        <div className="flex-1 px-8 py-3.5 flex flex-col justify-start space-y-3.5 text-xs">
+        {/* Official Document Meta Banner */}
+        <div className="bg-slate-900 text-white px-8 py-2 flex items-center justify-between shrink-0">
+          <div>
+            <span className="text-[9px] uppercase font-bold text-amber-400 block tracking-widest leading-tight">
+              COMMERCIAL PROPOSAL & TOUR ESTIMATE
+            </span>
+            <h2 className="text-xs font-black tracking-wide leading-tight">
+              HOLIDAY TRAVEL QUOTATION
+            </h2>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <span className="text-[9px] text-slate-400 block uppercase font-semibold tracking-wider">Quotation #</span>
+              <span className="font-mono text-[11px] font-bold text-amber-300 leading-tight block">{quotation.quotationNumber}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-[9px] text-slate-400 block uppercase font-semibold tracking-wider">Issue Date</span>
+              <span className="text-[11px] font-bold text-white leading-tight block">
+                {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+            </div>
+            <div className="text-center min-w-[85px]">
+              <span className="text-[9px] text-slate-400 block uppercase font-semibold tracking-wider mb-0.5">Status</span>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md border leading-none bg-amber-400/20 text-amber-300 border-amber-400/50">
+                {quotation.status || 'PROPOSAL'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Body (Strict 1-Page A4 Height, Perfectly Balanced & Formal) */}
+        <div className="flex-1 px-8 py-2.5 flex flex-col justify-between space-y-2 text-xs">
           {/* Row 1: Client & Journey Summary Grid */}
-          <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50/80 rounded-lg border border-slate-200/80">
+          <div className="grid grid-cols-2 gap-3 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block mb-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block pb-1 mb-1.5 border-b border-slate-200">
                 Prepared For (Client Details)
               </span>
-              <p className="font-bold text-slate-900 text-xs">{quotation.customer?.fullName}</p>
-              <div className="space-y-0.5 mt-0.5 text-[11px] text-slate-600">
-                {quotation.customer?.phone && <p>Phone: {quotation.customer.phone}</p>}
-                {quotation.customer?.email && <p>Email: {quotation.customer.email}</p>}
-                {quotation.customer?.city && (
-                  <p>Location: {quotation.customer.city}{quotation.customer?.state ? `, ${quotation.customer.state}` : ''}</p>
+              <p className="font-bold text-slate-900 text-xs mb-1">{quotation.customer?.fullName || 'Guest Customer'}</p>
+              <div className="space-y-1 text-[10.5px] text-slate-600">
+                {quotation.customer?.phone && (
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="w-3 h-3 text-[#C91F28] shrink-0" />
+                    <span className="font-mono text-slate-800 font-medium">{quotation.customer.phone}</span>
+                  </div>
                 )}
+                {quotation.customer?.email && (
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="w-3 h-3 text-[#C91F28] shrink-0" />
+                    <span className="text-slate-800">{quotation.customer.email}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
+                  <span className="text-slate-800">
+                    {quotation.customer?.city || 'India'}{quotation.customer?.state ? `, ${quotation.customer.state}` : ''}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-0.5 text-[11px]">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block mb-1">
-                Tour & Package Overview
+            <div className="space-y-1 text-[10.5px]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block pb-1 mb-1.5 border-b border-slate-200">
+                Tour & Package Specifications
               </span>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Destination:</span>
-                <span className="font-bold text-slate-900">{quotation.destination}</span>
+              <div className="flex justify-between pb-0.5 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Holiday Package:</span>
+                <span className="font-bold text-slate-900">{quotation.package?.packageName || 'Custom Holiday Itinerary'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Package:</span>
-                <span className="font-semibold text-slate-800">{quotation.package?.packageName || 'Custom Holiday Itinerary'}</span>
+              <div className="flex justify-between pb-0.5 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Travel Dates:</span>
+                <span className="font-semibold text-slate-900 font-mono">
+                  {quotation.travelStartDate ? new Date(quotation.travelStartDate).toLocaleDateString('en-IN') : 'TBD'} to{' '}
+                  {quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Travellers:</span>
+              <div className="flex justify-between pb-0.5 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Guests / Travelers:</span>
                 <span className="font-bold text-slate-900">
                   {quotation.adults} Adults{quotation.children > 0 ? `, ${quotation.children} Children` : ''}{quotation.infants > 0 ? `, ${quotation.infants} Infants` : ''}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Travel Dates:</span>
-                <span className="font-semibold text-slate-900">
-                  {quotation.travelStartDate ? new Date(quotation.travelStartDate).toLocaleDateString('en-IN') : 'TBD'} to{' '}
-                  {quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}
+              <div className="pt-0.5">
+                <span className="text-slate-500 font-medium block text-[9.5px]">Itinerary Routing:</span>
+                <span className="font-semibold text-slate-800 text-[10px] leading-tight block mt-0.5">
+                  {quotation.destination}
                 </span>
               </div>
             </div>
@@ -416,74 +471,124 @@ export const QuotationView: React.FC = () => {
 
           {/* Row 2: Inclusions & Highlights Strip */}
           <div className="grid grid-cols-3 gap-2.5">
-            <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/80">
-              <span className="font-bold text-slate-900 block text-[10.5px] uppercase tracking-wide">
-                Accommodation
-              </span>
-              <p className="text-[10.5px] text-slate-600 mt-0.5 leading-snug">
-                {quotation.accommodation || 'Standard Double/Triple Occupancy Hotel/Resort'}
+            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-1.5 text-[#C91F28] mb-0.5">
+                <Building2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-bold text-[10px] uppercase tracking-wider text-slate-900">
+                  Accommodation
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-700 leading-snug">
+                {quotation.accommodation || '3-Star / 4-Star Premium Resorts with Breakfast'}
               </p>
             </div>
-            <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/80">
-              <span className="font-bold text-slate-900 block text-[10.5px] uppercase tracking-wide">
-                Vehicle & Transfers
-              </span>
-              <p className="text-[10.5px] text-slate-600 mt-0.5 leading-snug">
+            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-1.5 text-[#C91F28] mb-0.5">
+                <Car className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-bold text-[10px] uppercase tracking-wider text-slate-900">
+                  Vehicle & Transfers
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-700 leading-snug">
                 {quotation.cabDetails || quotation.transport || 'Dedicated AC Tourist Vehicle for all transfers'}
               </p>
             </div>
-            <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/80">
-              <span className="font-bold text-slate-900 block text-[10.5px] uppercase tracking-wide">
-                Activities & Sightseeing
-              </span>
-              <p className="text-[10.5px] text-slate-600 mt-0.5 leading-snug">
-                {quotation.activities || 'All key sightseeing & local excursions included'}
+            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-1.5 text-[#C91F28] mb-0.5">
+                <Compass className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-bold text-[10px] uppercase tracking-wider text-slate-900">
+                  Sightseeing & Activities
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-700 leading-snug">
+                {quotation.activities || 'All key sightseeing & scenic viewpoint excursions'}
               </p>
             </div>
           </div>
 
-          {/* Inclusions & Exclusions Split Banner */}
-          <div className="grid grid-cols-2 gap-2.5 text-[10.5px]">
-            <div className="bg-emerald-50/50 p-2 rounded-lg border border-emerald-200/70">
-              <span className="font-black text-emerald-950 uppercase tracking-wide block mb-0.5 text-[10px]">
-                Inclusions
-              </span>
-              <p className="text-slate-700 leading-snug whitespace-pre-line">
-                {quotation.inclusions || 'Hotel accommodation, Breakfast, Dedicated vehicle, Sightseeing arrangements, Tolls & driver charges.'}
-              </p>
+          {/* Row 3: Inclusions & Exclusions Split Cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-2 rounded-lg bg-emerald-50/40 border border-emerald-200/70">
+              <div className="flex items-center gap-1.5 pb-1 mb-1 border-b border-emerald-200/60">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span className="font-black text-[10px] uppercase tracking-wider text-emerald-950">
+                  Inclusions & Arrangements
+                </span>
+              </div>
+              <ul className="space-y-0.5">
+                {parseListItems(quotation.inclusions, [
+                  'Hotel accommodation as per selected category',
+                  'Daily breakfast at resort/hotel',
+                  'Dedicated AC vehicle for all sightseeing & transfers',
+                  'All toll taxes, parking fees, fuel & driver allowances',
+                  'Detailed sightseeing itinerary as agreed',
+                ]).slice(0, 5).map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5 text-[10px] text-slate-800 leading-tight">
+                    <span className="text-emerald-600 font-bold shrink-0 mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="bg-rose-50/40 p-2 rounded-lg border border-rose-200/60">
-              <span className="font-black text-rose-950 uppercase tracking-wide block mb-0.5 text-[10px]">
-                Exclusions
-              </span>
-              <p className="text-slate-700 leading-snug whitespace-pre-line">
-                {quotation.exclusions || 'Personal expenses, entry tickets/camera fees not specified, room service, items not listed in inclusions.'}
-              </p>
+
+            <div className="p-2 rounded-lg bg-rose-50/30 border border-rose-200/60">
+              <div className="flex items-center gap-1.5 pb-1 mb-1 border-b border-rose-200/50">
+                <XCircle className="w-3.5 h-3.5 text-rose-700 shrink-0" />
+                <span className="font-black text-[10px] uppercase tracking-wider text-rose-950">
+                  Exclusions & Extra Charges
+                </span>
+              </div>
+              <ul className="space-y-0.5">
+                {parseListItems(quotation.exclusions, [
+                  'Airfare / Train tickets unless explicitly included',
+                  'Personal shopping, laundry, phone calls & room service',
+                  'Monument entry tickets, camera fees & activities',
+                  'Meals other than specified in inclusions',
+                  'Any item not explicitly stated under inclusions',
+                ]).slice(0, 5).map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5 text-[10px] text-slate-800 leading-tight">
+                    <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
-          {/* Row 3: Transparent Pricing & Passenger Cost Calculation */}
-          <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
+          {/* Row 4: Transparent Pricing Table */}
+          <div className="rounded-lg border border-slate-300 overflow-hidden bg-white shadow-2xs">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-700">
-                  <th className="py-1.5 px-3 text-[10px] font-black uppercase tracking-wider">Passenger Category</th>
-                  <th className="py-1.5 px-3 text-[10px] font-black uppercase tracking-wider text-center">Travellers / Qty</th>
-                  <th className="py-1.5 px-3 text-[10px] font-black uppercase tracking-wider text-right">Rate / Person (₹)</th>
-                  <th className="py-1.5 px-3 text-[10px] font-black uppercase tracking-wider text-right">Amount (₹)</th>
+                <tr className="bg-slate-900 text-white">
+                  <th className="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider">
+                    Package Description / Passenger Category
+                  </th>
+                  <th className="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-center w-28">
+                    Guests / Qty
+                  </th>
+                  <th className="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-right w-32">
+                    Rate / Person (₹)
+                  </th>
+                  <th className="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-right w-32">
+                    Amount (₹)
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                <tr>
+              <tbody className="divide-y divide-slate-200 text-xs">
+                <tr className="bg-slate-50/50">
                   <td className="py-1.5 px-3">
-                    <span className="font-bold text-slate-900 block">Adults</span>
-                    <span className="text-[10px] text-slate-400">Base package rate per adult</span>
+                    <span className="font-bold text-slate-900 text-xs block">Adult Package Arrangements</span>
+                    <span className="text-[9.5px] text-slate-500">
+                      Resort stay, dedicated vehicle & customized tour logistics
+                    </span>
                   </td>
-                  <td className="py-1.5 px-3 text-center font-semibold text-slate-800">{quotation.adults || 1}</td>
-                  <td className="py-1.5 px-3 text-right text-slate-700">
+                  <td className="py-1.5 px-3 text-center font-bold text-slate-800 text-xs">
+                    {quotation.adults || 1}
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-medium text-slate-700 text-xs tabular-nums font-mono">
                     ₹{Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice)).toLocaleString('en-IN')}
                   </td>
-                  <td className="py-1.5 px-3 text-right font-bold text-slate-900">
+                  <td className="py-1.5 px-3 text-right font-bold text-slate-900 text-xs tabular-nums font-mono">
                     ₹{((quotation.adults || 1) * Number(quotation.adultUnitPrice || (quotation.adults ? Math.round(quotation.basePrice / quotation.adults) : quotation.basePrice))).toLocaleString('en-IN')}
                   </td>
                 </tr>
@@ -491,11 +596,16 @@ export const QuotationView: React.FC = () => {
                 {(Number(quotation.children || 0) > 0 || Number(quotation.childUnitPrice || 0) > 0) && (
                   <tr>
                     <td className="py-1 px-3">
-                      <span className="font-semibold text-slate-800">Children</span>
+                      <span className="font-semibold text-slate-800 text-xs block">Child Package Arrangements</span>
+                      <span className="text-[9.5px] text-slate-500">Child with bed/sharing as requested</span>
                     </td>
-                    <td className="py-1 px-3 text-center text-slate-700">{quotation.children || 0}</td>
-                    <td className="py-1 px-3 text-right text-slate-600">₹{Number(quotation.childUnitPrice || 0).toLocaleString('en-IN')}</td>
-                    <td className="py-1 px-3 text-right font-bold text-slate-900">
+                    <td className="py-1 px-3 text-center font-semibold text-slate-700 text-xs">
+                      {quotation.children || 0}
+                    </td>
+                    <td className="py-1 px-3 text-right text-slate-700 text-xs tabular-nums font-mono">
+                      ₹{Number(quotation.childUnitPrice || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-1 px-3 text-right font-bold text-slate-900 text-xs tabular-nums font-mono">
                       ₹{(Number(quotation.children || 0) * Number(quotation.childUnitPrice || 0)).toLocaleString('en-IN')}
                     </td>
                   </tr>
@@ -503,65 +613,68 @@ export const QuotationView: React.FC = () => {
               </tbody>
             </table>
 
-            {/* Financial Summary & Net Total Banner */}
-            <div className="bg-slate-50/90 px-3 py-1.5 border-t border-slate-200 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-4 text-[11px] text-slate-600">
-                <span>Subtotal: <strong className="text-slate-900">₹{Number(quotation.basePrice).toLocaleString('en-IN')}</strong></span>
+            {/* Financial Summary Strip */}
+            <div className="bg-slate-100 px-3 py-1.5 border-t border-slate-300 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-4 text-[10.5px] text-slate-600">
+                <span>Subtotal: <strong className="text-slate-900 font-mono">₹{Number(quotation.basePrice).toLocaleString('en-IN')}</strong></span>
                 {Number(quotation.discount || 0) > 0 && (
-                  <span className="text-emerald-700">Discount: -₹{Number(quotation.discount).toLocaleString('en-IN')}</span>
+                  <span className="text-emerald-700 font-semibold font-mono">Discount: -₹{Number(quotation.discount).toLocaleString('en-IN')}</span>
                 )}
                 {Number(quotation.tax || 0) > 0 && (
-                  <span>Taxes: +₹{Number(quotation.tax).toLocaleString('en-IN')}</span>
+                  <span className="font-mono">Taxes/GST: +₹{Number(quotation.tax).toLocaleString('en-IN')}</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] uppercase font-bold text-slate-700">Total Net Amount:</span>
-                <span className="text-sm font-black text-[#C91F28]">
+                <span className="text-[11px] uppercase font-black text-slate-800 tracking-wider">
+                  Total Net Amount:
+                </span>
+                <span className="text-sm font-black text-[#C91F28] font-mono tabular-nums">
                   ₹{Number(quotation.finalAmount).toLocaleString('en-IN')}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Row 4: Bank Remittance Details (Left) & Payment Milestones / Policy (Right) */}
-          <div className="grid grid-cols-2 gap-3.5">
+          {/* Row 5: Bank Remittance Details (Left) & Payment Milestones / Policy (Right) */}
+          <div className="grid grid-cols-2 gap-3 text-[10px]">
             {/* Bank Details */}
-            <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200 text-[10.5px] space-y-1.5 shadow-2xs">
-              <span className="text-[10.5px] font-black text-slate-900 uppercase tracking-wider block">
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/90 space-y-1">
+              <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider block border-b border-slate-200 pb-0.5 mb-1">
                 Bank & Remittance Details (Official Account)
               </span>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-slate-600">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-600">
                 <div><span className="text-slate-500">Beneficiary:</span> <strong className="text-slate-900">{company?.accountHolderName || company?.name || 'Jeevan'}</strong></div>
-                <div><span className="text-slate-500">Bank:</span> <strong className="text-slate-900">{company?.bankName || 'Canara Bank'}</strong></div>
-                <div><span className="text-slate-500">A/C No:</span> <span className="font-bold text-slate-900">{company?.accountNumber || '2891101013983'}</span></div>
-                <div><span className="text-slate-500">IFSC:</span> <span className="font-bold text-slate-900">{company?.ifsc || 'CNRB0005237'}</span></div>
-                <div><span className="text-slate-500">Type:</span> <span className="text-slate-800">{company?.accountType || 'Current Account'}</span></div>
+                <div><span className="text-slate-500">Bank Name:</span> <strong className="text-slate-900">{company?.bankName || 'Canara Bank'}</strong></div>
+                <div><span className="text-slate-500">Account No:</span> <span className="font-mono font-bold text-slate-900">{company?.accountNumber || '2891101013983'}</span></div>
+                <div><span className="text-slate-500">IFSC Code:</span> <span className="font-mono font-bold text-slate-900 uppercase">{company?.ifsc || 'CNRB0005237'}</span></div>
+                <div><span className="text-slate-500">Account Type:</span> <span className="text-slate-800">{company?.accountType || 'Current Account'}</span></div>
                 {company?.upiId && (
-                  <div><span className="text-slate-500">UPI:</span> <strong className="text-[#C91F28]">{company.upiId}</strong></div>
+                  <div><span className="text-slate-500">UPI ID:</span> <strong className="font-mono text-[#C91F28]">{company.upiId}</strong></div>
                 )}
               </div>
-              <p className="text-[9.5px] text-slate-500 pt-1 border-t border-slate-200">
-                Quote Quotation Ref <strong>{quotation.quotationNumber}</strong> during bank transfer.
+              <p className="text-[9px] text-slate-500 pt-0.5 border-t border-slate-200/80">
+                Please quote Quotation Ref <strong>{quotation.quotationNumber}</strong> during bank fund transfer.
               </p>
             </div>
 
             {/* Payment Milestones & Verification Note */}
-            <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200 text-[10.5px] flex flex-col justify-between space-y-1.5 shadow-2xs">
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/90 flex flex-col justify-between space-y-1">
               <div>
-                <span className="text-[10.5px] font-black text-slate-900 uppercase tracking-wider block mb-1">
-                  Payment Milestones & Policy
+                <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider block border-b border-slate-200 pb-0.5 mb-1">
+                  Payment Terms & Cancellation Policy
                 </span>
-                <p className="text-slate-700 leading-snug">
+                <p className="text-slate-700 leading-snug text-[10px]">
                   {quotation.paymentTerms || '50% advance for booking confirmation, balance payable prior to trip departure.'}
                 </p>
                 {quotation.cancellationTerms && (
-                  <p className="text-slate-600 text-[10px] mt-1 leading-snug">
+                  <p className="text-slate-600 text-[9px] mt-0.5 leading-tight">
                     {quotation.cancellationTerms}
                   </p>
                 )}
               </div>
-              <div className="pt-1.5 border-t border-slate-200 text-center text-[9.5px] text-slate-500">
-                Quotation generated by {company?.name || 'Ooting'} CRM. Valid without physical signature.
+              <div className="pt-1 border-t border-slate-200 flex items-center justify-center gap-1.5 text-[9px] text-slate-600">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                <span>Computer-generated commercial quotation verified by {company?.name || 'Ooting'} CRM. Valid without physical signature.</span>
               </div>
             </div>
           </div>
