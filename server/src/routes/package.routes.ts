@@ -190,11 +190,12 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const updatePayload: any = { ...data };
     delete updatePayload.itineraries;
 
-    if (data.itineraries && Array.isArray(data.itineraries)) {
-      await prisma.$transaction([
-        prisma.itineraryDay.deleteMany({ where: { packageId: id } }),
-        prisma.itineraryDay.createMany({
-          data: data.itineraries.map((d: any, index: number) => {
+    const incomingItineraries = data.itineraries;
+    if (incomingItineraries && Array.isArray(incomingItineraries)) {
+      await prisma.$transaction(async (tx) => {
+        await tx.itineraryDay.deleteMany({ where: { packageId: id } });
+        await tx.itineraryDay.createMany({
+          data: incomingItineraries.map((d: any, index: number) => {
             let imagesStr: string | null = null;
             if (d.images) {
               imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
@@ -215,8 +216,11 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
               endTime: d.endTime ? String(d.endTime).trim() : null,
             };
           }),
-        }),
-      ]);
+        });
+      }, {
+        timeout: 30000,
+        maxWait: 10000,
+      });
     }
 
     const updated = await prisma.package.update({
@@ -285,10 +289,15 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
     });
 
     // Delete existing days and insert updated days inside a transaction
-    await prisma.$transaction([
-      prisma.itineraryDay.deleteMany({ where: { packageId: id } }),
-      ...(sanitizedData.length > 0 ? [prisma.itineraryDay.createMany({ data: sanitizedData })] : []),
-    ]);
+    await prisma.$transaction(async (tx) => {
+      await tx.itineraryDay.deleteMany({ where: { packageId: id } });
+      if (sanitizedData.length > 0) {
+        await tx.itineraryDay.createMany({ data: sanitizedData });
+      }
+    }, {
+      timeout: 30000,
+      maxWait: 10000,
+    });
 
     const updatedPackage = await prisma.package.findUnique({
       where: { id },
@@ -309,8 +318,168 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
 
     res.json(updatedPackage);
   } catch (error: any) {
-    console.error('Failed to save package itineraries:', error);
+    console.error('Failed to save package itineraries:', error?.stack || error);
     res.status(500).json({ message: error?.message || 'Failed to save itinerary changes to database.' });
+  }
+});
+
+// Save / Upsert a single itinerary day (lightweight, completely prevents 413 Payload Too Large on Vercel)
+router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = String(req.params.id);
+    const { day } = req.body;
+
+    if (!day) {
+      res.status(400).json({ message: 'Day data is required.' });
+      return;
+    }
+
+    const targetPackage = await prisma.package.findUnique({
+      where: { id },
+      include: { itineraries: true },
+    });
+
+    if (!targetPackage) {
+      res.status(404).json({ message: 'Travel package not found.' });
+      return;
+    }
+
+    let imagesStr: string | null = null;
+    if (day.images) {
+      imagesStr = typeof day.images === 'string' ? day.images : JSON.stringify(day.images);
+    }
+
+    const targetDayNumber = parseInt(String(day.dayNumber), 10) || 1;
+    const sanitizedDayData = {
+      packageId: id,
+      dayNumber: targetDayNumber,
+      title: String(day.title || `Day ${targetDayNumber}`).trim(),
+      description: String(day.description || '').trim(),
+      activities: day.activities ? String(day.activities).trim() : null,
+      places: day.places ? String(day.places).trim() : null,
+      date: day.date ? String(day.date).trim() : null,
+      highlights: day.highlights ? String(day.highlights).trim() : null,
+      travelDetails: day.travelDetails ? String(day.travelDetails).trim() : null,
+      imageUrl: day.imageUrl ? String(day.imageUrl).trim() : null,
+      images: imagesStr,
+      startTime: day.startTime ? String(day.startTime).trim() : null,
+      endTime: day.endTime ? String(day.endTime).trim() : null,
+    };
+
+    await prisma.$transaction(async (tx) => {
+      let existingDay = null;
+      if (day.id) {
+        existingDay = await tx.itineraryDay.findFirst({
+          where: { id: day.id, packageId: id },
+        });
+      }
+      if (!existingDay) {
+        existingDay = await tx.itineraryDay.findFirst({
+          where: { packageId: id, dayNumber: targetDayNumber },
+        });
+      }
+
+      if (existingDay) {
+        await tx.itineraryDay.update({
+          where: { id: existingDay.id },
+          data: sanitizedDayData,
+        });
+      } else {
+        await tx.itineraryDay.create({
+          data: sanitizedDayData,
+        });
+      }
+    }, {
+      timeout: 30000,
+      maxWait: 10000,
+    });
+
+    const updatedPackage = await prisma.package.findUnique({
+      where: { id },
+      include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
+    });
+
+    if (req.user?.id) {
+      await logAudit({
+        userId: req.user.id,
+        userName: req.user.name,
+        action: 'UPDATE',
+        entity: 'PACKAGE',
+        entityId: id,
+        details: `Saved Day ${targetDayNumber} itinerary for package "${targetPackage.packageName}"`,
+        ipAddress: req.ip,
+      });
+    }
+
+    res.json(updatedPackage);
+  } catch (error: any) {
+    console.error('Failed to save itinerary day:', error?.stack || error);
+    res.status(500).json({ message: error?.message || 'Failed to save itinerary day changes.' });
+  }
+});
+
+// Delete a single itinerary day (lightweight, zero body payload)
+router.delete('/:id/itineraries/day/:dayIdentifier', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = String(req.params.id);
+    const dayIdentifier = String(req.params.dayIdentifier);
+
+    const targetPackage = await prisma.package.findUnique({
+      where: { id },
+      include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
+    });
+
+    if (!targetPackage) {
+      res.status(404).json({ message: 'Travel package not found.' });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const dayNum = parseInt(dayIdentifier, 10);
+      const dayToDelete = await tx.itineraryDay.findFirst({
+        where: {
+          packageId: id,
+          OR: [
+            { id: dayIdentifier },
+            ...(isNaN(dayNum) ? [] : [{ dayNumber: dayNum }]),
+          ],
+        },
+      });
+
+      if (dayToDelete) {
+        await tx.itineraryDay.delete({
+          where: { id: dayToDelete.id },
+        });
+
+        // Re-number remaining days sequentially
+        const remaining = await tx.itineraryDay.findMany({
+          where: { packageId: id },
+          orderBy: { dayNumber: 'asc' },
+        });
+
+        for (let i = 0; i < remaining.length; i++) {
+          if (remaining[i].dayNumber !== i + 1) {
+            await tx.itineraryDay.update({
+              where: { id: remaining[i].id },
+              data: { dayNumber: i + 1 },
+            });
+          }
+        }
+      }
+    }, {
+      timeout: 30000,
+      maxWait: 10000,
+    });
+
+    const updatedPackage = await prisma.package.findUnique({
+      where: { id },
+      include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
+    });
+
+    res.json(updatedPackage);
+  } catch (error: any) {
+    console.error('Failed to delete itinerary day:', error?.stack || error);
+    res.status(500).json({ message: error?.message || 'Failed to delete itinerary day.' });
   }
 });
 

@@ -165,6 +165,54 @@ export const PackageDetail: React.FC = () => {
     setIsDayModalOpen(true);
   };
 
+  const compressImage = (file: File): Promise<{ blob: Blob; dataUrl: string }> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1200;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+            canvas.toBlob(
+              (blob) => {
+                resolve({ blob: blob || file, dataUrl });
+              },
+              'image/jpeg',
+              0.75
+            );
+          } else {
+            const raw = reader.result as string;
+            resolve({ blob: file, dataUrl: raw });
+          }
+        };
+        img.onerror = () => {
+          const raw = reader.result as string;
+          resolve({ blob: file, dataUrl: raw });
+        };
+        img.src = reader.result as string;
+      };
+      reader.onerror = () => resolve({ blob: file, dataUrl: '' });
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleMultipleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -174,59 +222,29 @@ export const PackageDetail: React.FC = () => {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (file.size > 15 * 1024 * 1024) {
-        alert(`File "${file.name}" exceeds 15 MB and was skipped.`);
+      if (file.size > 20 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds 20 MB and was skipped.`);
         continue;
       }
 
+      const { blob, dataUrl } = await compressImage(file);
       let uploadedUrl = '';
+
       try {
         const formData = new FormData();
-        formData.append('image', file);
-        const res = await api.post('/upload/image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const safeFileName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') + '.jpg';
+        formData.append('image', blob, safeFileName);
+        formData.append('folder', 'itineraries');
+        const res = await api.post('/upload/image?folder=itineraries', formData);
         if (res.data?.url) {
           uploadedUrl = res.data.url;
         }
       } catch (err) {
-        console.warn('Server upload not reachable, using client compression...', err);
+        console.warn('Server upload fallback to compressed image:', err);
       }
 
       if (!uploadedUrl) {
-        uploadedUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const maxDim = 1200;
-              let w = img.width;
-              let h = img.height;
-              if (w > maxDim || h > maxDim) {
-                if (w > h) {
-                  h = Math.round((h * maxDim) / w);
-                  w = maxDim;
-                } else {
-                  w = Math.round((w * maxDim) / h);
-                  h = maxDim;
-                }
-              }
-              canvas.width = w;
-              canvas.height = h;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.drawImage(img, 0, 0, w, h);
-                resolve(canvas.toDataURL('image/jpeg', 0.8));
-              } else {
-                resolve(reader.result as string);
-              }
-            };
-            img.onerror = () => resolve(reader.result as string);
-            img.src = reader.result as string;
-          };
-          reader.readAsDataURL(file);
-        });
+        uploadedUrl = dataUrl;
       }
 
       if (uploadedUrl) {
@@ -294,6 +312,7 @@ export const PackageDetail: React.FC = () => {
       const imagesJson = dayImages.length > 0 ? JSON.stringify(dayImages) : null;
 
       const newDay: ItineraryDay | any = {
+        ...(dayIndex !== null && itineraries[dayIndex]?.id ? { id: itineraries[dayIndex].id } : {}),
         dayNumber: Number(dayNumber) || 1,
         title: dayTitle.trim() || `Day ${dayNumber}`,
         description: dayDescription.trim(),
@@ -308,37 +327,19 @@ export const PackageDetail: React.FC = () => {
         images: imagesJson,
       };
 
-      let updated = [...itineraries];
-      if (dayIndex !== null) {
-        updated[dayIndex] = newDay;
-      } else {
-        updated.push(newDay);
-      }
-      // Re-sort by dayNumber
-      updated.sort((a, b) => Number(a.dayNumber) - Number(b.dayNumber));
-
-      // Sanitize days payload for database
-      const sanitizedDays = updated.map((d: any, idx) => ({
-        dayNumber: Number(d.dayNumber) || (idx + 1),
-        title: (d.title || `Day ${idx + 1}`).trim(),
-        description: (d.description || '').trim(),
-        places: d.places?.trim() || null,
-        activities: d.activities?.trim() || null,
-        date: d.date?.trim() || null,
-        highlights: d.highlights?.trim() || null,
-        travelDetails: d.travelDetails?.trim() || null,
-        startTime: d.startTime?.trim() || null,
-        endTime: d.endTime?.trim() || null,
-        imageUrl: d.imageUrl?.trim() || null,
-        images: d.images ? (typeof d.images === 'string' ? d.images : JSON.stringify(d.images)) : null,
-      }));
-
-      // Directly persist to database so changes are never lost!
-      const res = await api.post('/packages/' + id + '/itineraries', { days: sanitizedDays });
+      // Persist the specific day directly to avoid 413 (Content Too Large) payload limit on serverless
+      const res = await api.post('/packages/' + id + '/itineraries/day', { day: newDay });
       if (res.data?.itineraries) {
         setItineraries(res.data.itineraries);
         setPkg((prev: any) => prev ? { ...prev, itineraries: res.data.itineraries } : prev);
       } else {
+        let updated = [...itineraries];
+        if (dayIndex !== null) {
+          updated[dayIndex] = newDay;
+        } else {
+          updated.push(newDay);
+        }
+        updated.sort((a, b) => Number(a.dayNumber) - Number(b.dayNumber));
         setItineraries(updated);
       }
 
@@ -358,30 +359,16 @@ export const PackageDetail: React.FC = () => {
     const confirmMsg = `Are you sure you want to delete ${targetDay?.title || `Day ${targetDay?.dayNumber || index + 1}`} from the itinerary?`;
     if (!window.confirm(confirmMsg)) return;
 
-    const updated = itineraries.filter((_, i) => i !== index);
-    setItineraries(updated);
     setIsSaving(true);
-
     try {
-      const sanitizedDays = updated.map((d: any, idx) => ({
-        dayNumber: Number(d.dayNumber) || (idx + 1),
-        title: (d.title || `Day ${idx + 1}`).trim(),
-        description: (d.description || '').trim(),
-        places: d.places?.trim() || null,
-        activities: d.activities?.trim() || null,
-        date: d.date?.trim() || null,
-        highlights: d.highlights?.trim() || null,
-        travelDetails: d.travelDetails?.trim() || null,
-        startTime: d.startTime?.trim() || null,
-        endTime: d.endTime?.trim() || null,
-        imageUrl: d.imageUrl?.trim() || null,
-        images: d.images ? (typeof d.images === 'string' ? d.images : JSON.stringify(d.images)) : null,
-      }));
-
-      const res = await api.post('/packages/' + id + '/itineraries', { days: sanitizedDays });
+      const dayIdentifier = targetDay?.id || targetDay?.dayNumber || (index + 1);
+      const res = await api.delete('/packages/' + id + '/itineraries/day/' + dayIdentifier);
       if (res.data?.itineraries) {
         setItineraries(res.data.itineraries);
         setPkg((prev: any) => prev ? { ...prev, itineraries: res.data.itineraries } : prev);
+      } else {
+        const updated = itineraries.filter((_, i) => i !== index);
+        setItineraries(updated);
       }
       setHasUnsavedChanges(false);
       showToast('Itinerary day removed and updated in database!');
@@ -397,26 +384,32 @@ export const PackageDetail: React.FC = () => {
   const handlePersistItineraries = async () => {
     setIsSaving(true);
     try {
-      const sanitizedDays = itineraries.map((d: any, idx) => ({
-        dayNumber: Number(d.dayNumber) || (idx + 1),
-        title: (d.title || `Day ${idx + 1}`).trim(),
-        description: (d.description || '').trim(),
-        places: d.places?.trim() || null,
-        activities: d.activities?.trim() || null,
-        date: d.date?.trim() || null,
-        highlights: d.highlights?.trim() || null,
-        travelDetails: d.travelDetails?.trim() || null,
-        startTime: d.startTime?.trim() || null,
-        endTime: d.endTime?.trim() || null,
-        imageUrl: d.imageUrl?.trim() || null,
-        images: d.images ? (typeof d.images === 'string' ? d.images : JSON.stringify(d.images)) : null,
-      }));
-
-      const res = await api.post('/packages/' + id + '/itineraries', { days: sanitizedDays });
-      if (res.data?.itineraries) {
-        setItineraries(res.data.itineraries);
-        setPkg((prev: any) => prev ? { ...prev, itineraries: res.data.itineraries } : prev);
+      let latestItineraries = itineraries;
+      for (let idx = 0; idx < itineraries.length; idx++) {
+        const d = itineraries[idx] as any;
+        const dayPayload = {
+          id: d.id,
+          dayNumber: Number(d.dayNumber) || (idx + 1),
+          title: (d.title || `Day ${idx + 1}`).trim(),
+          description: (d.description || '').trim(),
+          places: d.places?.trim() || null,
+          activities: d.activities?.trim() || null,
+          date: d.date?.trim() || null,
+          highlights: d.highlights?.trim() || null,
+          travelDetails: d.travelDetails?.trim() || null,
+          startTime: d.startTime?.trim() || null,
+          endTime: d.endTime?.trim() || null,
+          imageUrl: d.imageUrl?.trim() || null,
+          images: d.images ? (typeof d.images === 'string' ? d.images : JSON.stringify(d.images)) : null,
+        };
+        const res = await api.post('/packages/' + id + '/itineraries/day', { day: dayPayload });
+        if (res.data?.itineraries) {
+          latestItineraries = res.data.itineraries;
+        }
       }
+
+      setItineraries(latestItineraries);
+      setPkg((prev: any) => prev ? { ...prev, itineraries: latestItineraries } : prev);
       setHasUnsavedChanges(false);
       showToast('Itinerary changes saved successfully to database!');
     } catch (err: any) {
