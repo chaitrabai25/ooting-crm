@@ -6,195 +6,6 @@ import { authenticate, AuthRequest } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticate);
 
-// Curated verified catalog for popular travel destinations in India
-const CURATED_SEED_PLACES = [
-  // THE NILGIRIS (OOTY / COONOOR)
-  {
-    name: 'Ooty Lake & Boathouse',
-    state: 'Tamil Nadu',
-    district: 'The Nilgiris (Ooty)',
-    category: 'Sightseeing',
-    famousReason: 'Iconic artificial lake built in 1824 with scenic eucalyptus tree surroundings and pedal/motor boating.',
-    suggestedDuration: '2 - 3 Hours',
-    distanceFromCenter: '1.5 km from Ooty Town',
-    imageUrl: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=800&auto=format&fit=crop&q=80',
-    activities: 'Speed & Pedal Boating, Mini Toy Train Ride, Lakeside Photography',
-  },
-  {
-    name: 'Government Botanical Garden',
-    state: 'Tamil Nadu',
-    district: 'The Nilgiris (Ooty)',
-    category: 'Nature',
-    famousReason: 'Sprawling 55-acre garden established in 1848 with over 1,000 species of exotic flora and a 20-million-year-old fossilized tree.',
-    suggestedDuration: '2 Hours',
-    distanceFromCenter: '2.5 km from Town Center',
-    imageUrl: 'https://images.unsplash.com/photo-1596178065887-1198b6148b2b?w=800&auto=format&fit=crop&q=80',
-    activities: 'Guided Botanical Walk, Fossil Tree Viewing, Glasshouse Tour',
-  },
-  {
-    name: 'Doddabetta Peak',
-    state: 'Tamil Nadu',
-    district: 'The Nilgiris (Ooty)',
-    category: 'Viewpoint',
-    famousReason: 'Highest peak in the Nilgiri hills at 2,637m with sweeping 360-degree vistas across Tamil Nadu and Karnataka.',
-    suggestedDuration: '1.5 - 2 Hours',
-    distanceFromCenter: '9 km from Ooty Town',
-    imageUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
-    activities: 'Telescope House Panorama, Mountain Ridge Walk, Tea Tasting',
-  },
-  {
-    name: 'Pykara Waterfalls & Lake',
-    state: 'Tamil Nadu',
-    district: 'The Nilgiris (Ooty)',
-    category: 'Nature',
-    famousReason: 'Sacred river plunging through stepped waterfalls and pristine lake surrounded by shola forests.',
-    suggestedDuration: '2.5 - 3 Hours',
-    distanceFromCenter: '21 km from Ooty Town',
-    imageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&auto=format&fit=crop&q=80',
-    activities: 'Speed Boating, Stepped Waterfalls Walk, Shola Forest Trail',
-  },
-  {
-    name: "Sim's Park & Botanical Haven",
-    state: 'Tamil Nadu',
-    district: 'The Nilgiris (Ooty)',
-    category: 'Nature',
-    famousReason: 'Unique natural ravine garden in Coonoor with over 1,200 species of rare sub-tropical and temperate plants.',
-    suggestedDuration: '1.5 Hours',
-    distanceFromCenter: '18 km from Ooty (Coonoor)',
-    imageUrl: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=800&auto=format&fit=crop&q=80',
-    activities: 'Rare Flora Exploration, Rose Garden Stroll, Boating in Pond',
-  },
-  {
-    name: "Dolphin's Nose Viewpoint",
-    state: 'Tamil Nadu',
-    district: 'The Nilgiris (Ooty)',
-    category: 'Viewpoint',
-    famousReason: 'Enormous cliff rock resembling a dolphin nose with dramatic views of Catherine Falls plunging 250ft.',
-    suggestedDuration: '1 - 2 Hours',
-    distanceFromCenter: '28 km from Ooty (Coonoor)',
-    imageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop&q=80',
-    activities: 'Panoramic Gorge Viewing, Catherine Falls Vista, Tea Estate Drive',
-  },
-
-  // KARNATAKA - MYSURU (MYSORE)
-  {
-    name: 'Mysore Palace (Amba Vilas)',
-    state: 'Karnataka',
-    district: 'Mysuru (Mysore)',
-    category: 'Heritage',
-    famousReason: 'World-famous Indo-Saracenic royal residence with 100,000 bulbs weekend illumination and golden throne.',
-    suggestedDuration: '2 - 3 Hours',
-    distanceFromCenter: 'Central Mysuru',
-    imageUrl: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=800&auto=format&fit=crop&q=80',
-    activities: 'Royal Durbar Hall Tour, Sound & Light Show, Photography',
-  },
-  {
-    name: 'Chamundi Hills & Sri Chamundeshwari Temple',
-    state: 'Karnataka',
-    district: 'Mysuru (Mysore)',
-    category: 'Temple',
-    famousReason: 'Ancient hilltop temple perched at 1,000m featuring panoramic views of Mysuru city and giant monolithic Nandi statue.',
-    suggestedDuration: '2 Hours',
-    distanceFromCenter: '13 km from City Center',
-    imageUrl: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=800&auto=format&fit=crop&q=80',
-    activities: 'Temple Darshan, Monolithic Nandi Visit, City Viewpoint',
-  },
-  {
-    name: 'Brindavan Gardens & Musical Fountain',
-    state: 'Karnataka',
-    district: 'Mysuru (Mysore)',
-    category: 'Sightseeing',
-    famousReason: 'Terraced Mughal-style garden laid out adjacent to the Krishnarajasagara (KRS) dam with synchronised dancing fountains.',
-    suggestedDuration: '2 - 3 Hours (Evening)',
-    distanceFromCenter: '18 km from Mysuru',
-    imageUrl: 'https://images.unsplash.com/photo-1584810359583-96fc3448beaa?w=800&auto=format&fit=crop&q=80',
-    activities: 'Musical Fountain Show, Illuminated Terraced Walk, KRS Dam View',
-  },
-
-  // KARNATAKA - KODAGU (COORG)
-  {
-    name: 'Abbey Falls',
-    state: 'Karnataka',
-    district: 'Kodagu (Coorg)',
-    category: 'Nature',
-    famousReason: 'Spectacular cascade roaring between private coffee plantations and spice estates, viewed from hanging suspension bridge.',
-    suggestedDuration: '1.5 Hours',
-    distanceFromCenter: '8 km from Madikeri',
-    imageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&auto=format&fit=crop&q=80',
-    activities: 'Hanging Bridge Viewing, Spice Plantation Walk, Nature Photography',
-  },
-  {
-    name: 'Raja’s Seat',
-    state: 'Karnataka',
-    district: 'Kodagu (Coorg)',
-    category: 'Viewpoint',
-    famousReason: 'Historic seasonal garden pavilion where the Kings of Kodagu watched breathtaking sunset over misty mountain valleys.',
-    suggestedDuration: '1.5 Hours (Sunset)',
-    distanceFromCenter: '1 km from Madikeri Bus Station',
-    imageUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
-    activities: 'Sunset Viewing, Toy Train Ride for Children, Musical Fountain',
-  },
-  {
-    name: 'Dubare Elephant Camp & Kaveri River',
-    state: 'Karnataka',
-    district: 'Kodagu (Coorg)',
-    category: 'Wildlife',
-    famousReason: 'Historic ecotourism camp on Kaveri riverbanks where visitors interact with elephants through river bathing and feeding.',
-    suggestedDuration: '3 Hours',
-    distanceFromCenter: '28 km from Madikeri',
-    imageUrl: 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=800&auto=format&fit=crop&q=80',
-    activities: 'Elephant River Bathing, Stillwater Kaveri Rafting, Nature Trail',
-  },
-
-  // KARNATAKA - SHIVAMOGGA (SHIMOGA)
-  {
-    name: 'Jog Falls (Gerosoppa Falls)',
-    state: 'Karnataka',
-    district: 'Shivamogga (Shimoga)',
-    category: 'Nature',
-    famousReason: 'Second-highest plunge waterfall in India where the Sharavathi River drops 253m across four cascades: Raja, Roarer, Rocket, and Rani.',
-    suggestedDuration: '3 - 4 Hours',
-    distanceFromCenter: '100 km from Shivamogga Town',
-    imageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&auto=format&fit=crop&q=80',
-    activities: 'Valley Viewpoint, 1400 Steps Bottom Trek, Laser Light Show',
-  },
-  {
-    name: 'Sakrebyle Elephant Camp',
-    state: 'Karnataka',
-    district: 'Shivamogga (Shimoga)',
-    category: 'Wildlife',
-    famousReason: 'Eco-camp along River Tunga where wild and rescued elephants are bathed and fed every morning by trained Mahouts.',
-    suggestedDuration: '2 Hours (Morning)',
-    distanceFromCenter: '14 km from Shivamogga',
-    imageUrl: 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=800&auto=format&fit=crop&q=80',
-    activities: 'Tunga River Elephant Bathing, Feeding Interaction, Photography',
-  },
-
-  // KERALA - IDUKKI (MUNNAR)
-  {
-    name: 'Eravikulam National Park (Rajamalai)',
-    state: 'Kerala',
-    district: 'Idukki (Munnar)',
-    category: 'Wildlife',
-    famousReason: 'Sanctuary of the endangered Nilgiri Tahr and home to the highest peak in South India, Anamudi (2,695m).',
-    suggestedDuration: '3 Hours',
-    distanceFromCenter: '12 km from Munnar Town',
-    imageUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
-    activities: 'Nilgiri Tahr Spotting, Forest Safari Bus Ride, Mountain Trek',
-  },
-  {
-    name: 'Mattupetty Dam & Eco Point',
-    state: 'Kerala',
-    district: 'Idukki (Munnar)',
-    category: 'Sightseeing',
-    famousReason: 'Concrete gravity dam nestled among undulating tea plantations offering speedboating and natural acoustic echo phenomenon.',
-    suggestedDuration: '2 Hours',
-    distanceFromCenter: '13 km from Munnar',
-    imageUrl: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=800&auto=format&fit=crop&q=80',
-    activities: 'Speedboat Cruise, Voice Echo Calling, Horse Riding by Lake',
-  },
-];
-
 // GET /api/places/export/excel: Export places to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
@@ -203,7 +14,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
       orderBy: [{ state: 'asc' }, { district: 'asc' }, { name: 'asc' }],
     });
 
-    const rows = (places.length > 0 ? places : CURATED_SEED_PLACES).map((p, idx) => ({
+    const rows = places.map((p, idx) => ({
       'S.No': idx + 1,
       'Place Name': p.name,
       'State': p.state,
@@ -230,19 +41,19 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// GET /api/places: Search and list places
+// GET /api/places: Search and list places directly from database
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const state = (req.query.state as string || '').trim();
     const district = (req.query.district as string || '').trim();
     const search = (req.query.search as string || '').trim();
 
-    // Query permanent database places
+    // Query permanent database places (zero dummy data)
     const where: any = { isDeleted: false };
-    if (state) {
+    if (state && state.toLowerCase() !== 'all' && state.toLowerCase() !== 'all states') {
       where.state = { equals: state };
     }
-    if (district) {
+    if (district && district.toLowerCase() !== 'all' && district.toLowerCase() !== 'all districts') {
       where.district = { equals: district };
     }
     if (search) {
@@ -251,55 +62,22 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         { district: { contains: search } },
         { state: { contains: search } },
         { activities: { contains: search } },
+        { category: { contains: search } },
       ];
     }
 
-    const dbPlaces = await prisma.place.findMany({
+    const places = await prisma.place.findMany({
       where,
-      orderBy: { name: 'asc' },
+      orderBy: [{ state: 'asc' }, { district: 'asc' }, { name: 'asc' }],
     });
 
-    // Check if we should merge curated catalog items for the district
-    const map = new Map<string, any>();
-    // First add DB places
-    dbPlaces.forEach((p) => {
-      map.set(p.name.trim().toLowerCase(), p);
-    });
-
-    // Then fill in curated seed places if they match filter and aren't in DB yet
-    CURATED_SEED_PLACES.forEach((p) => {
-      const key = p.name.trim().toLowerCase();
-      if (!map.has(key)) {
-        let matches = true;
-        if (state && p.state.toLowerCase() !== state.toLowerCase()) matches = false;
-        if (district && !p.district.toLowerCase().includes(district.toLowerCase())) matches = false;
-        if (search) {
-          const s = search.toLowerCase();
-          const matchSearch =
-            p.name.toLowerCase().includes(s) ||
-            p.district.toLowerCase().includes(s) ||
-            p.state.toLowerCase().includes(s) ||
-            p.famousReason.toLowerCase().includes(s);
-          if (!matchSearch) matches = false;
-        }
-        if (matches) {
-          map.set(key, {
-            id: `curated_${p.name.replace(/\s+/g, '_').toLowerCase()}`,
-            ...p,
-            isCurated: true,
-          });
-        }
-      }
-    });
-
-    const places = Array.from(map.values());
     res.json({ places, total: places.length });
   } catch (error) {
     next(error);
   }
 });
 
-// POST /api/places: Create a new place permanently in the database
+// POST /api/places: Create a new place permanently in the database (or reuse existing)
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const {
@@ -336,7 +114,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const cleanState = state.trim();
     const cleanDistrict = district.trim();
 
-    // Check for existing duplicate in DB
+    // Check for existing duplicate in DB - reuse seamlessly
     const existing = await prisma.place.findFirst({
       where: {
         name: cleanName,
@@ -347,9 +125,10 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     });
 
     if (existing) {
-      res.status(409).json({
-        message: `Place "${cleanName}" already exists in ${cleanDistrict}, ${cleanState}.`,
+      res.status(200).json({
+        message: `Place "${cleanName}" already exists in ${cleanDistrict}, ${cleanState}. Reusing library place.`,
         place: existing,
+        reused: true,
       });
       return;
     }

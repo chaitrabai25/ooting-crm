@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest, requirePermission } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
+import { generateUniqueBookingNumber } from './booking.routes.js';
 
 const router = Router();
 router.use(authenticate);
@@ -463,10 +464,44 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
       return;
     }
 
-    // Generate unique booking number: OOT-BK-YYYYMM-XXXX
-    const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
-    const bookingCount = await prisma.booking.count();
-    const bookingNumber = `OOT-BK-${dateStr}-${String(bookingCount + 1).padStart(4, '0')}`;
+    // Guarantee valid Customer ID so Prisma relation never fails
+    let finalCustomerId = lead.customerId || lead.customer?.id;
+    if (!finalCustomerId) {
+      const anyLead = lead as any;
+      const leadPhone = anyLead.customer?.phone || anyLead.phone;
+      const leadEmail = anyLead.customer?.email || anyLead.email;
+      let customer = await prisma.customer.findFirst({
+        where: {
+          OR: [
+            ...(leadPhone ? [{ phone: leadPhone.trim() }] : []),
+            ...(leadEmail ? [{ email: leadEmail.trim() }] : []),
+          ],
+        },
+      });
+
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            fullName: anyLead.customer?.fullName || anyLead.customerName?.trim() || 'Valued Customer',
+            phone: leadPhone?.trim() || 'N/A',
+            email: leadEmail?.trim() || null,
+            city: anyLead.customer?.city?.trim() || anyLead.city?.trim() || null,
+            state: anyLead.customer?.state?.trim() || anyLead.state?.trim() || null,
+            createdById: req.user?.id || null,
+            updatedById: req.user?.id || null,
+          },
+        });
+      }
+
+      finalCustomerId = customer.id;
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: { customerId: finalCustomerId },
+      });
+    }
+
+    // Generate guaranteed unique, collision-free booking number: OOT-BK-YYYYMM-XXXX
+    const bookingNumber = await generateUniqueBookingNumber(prisma);
 
     const gross = Number(totalAmount || lead.budget || lead.package?.price || 0);
     const disc = Number(discount || 0);
@@ -475,7 +510,7 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
     const booking = await prisma.booking.create({
       data: {
         bookingNumber,
-        customerId: lead.customerId,
+        customerId: finalCustomerId,
         leadId: lead.id,
         packageId: lead.packageId || null,
         assignedUserId: lead.assignedUserId || req.user!.id,
@@ -513,7 +548,11 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
       ipAddress: req.ip,
     });
 
-    res.status(201).json(booking);
+    res.status(201).json({
+      ...booking,
+      booking,
+      message: `Booking ${booking.bookingNumber} created successfully.`,
+    });
   } catch (error) {
     next(error);
   }

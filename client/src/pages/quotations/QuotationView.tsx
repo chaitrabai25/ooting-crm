@@ -141,6 +141,41 @@ export const QuotationView: React.FC = () => {
     }
   };
 
+  const [isApproving, setIsApproving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleApprove = async () => {
+    if (!quotation) return;
+    if (!window.confirm(`Are you sure you want to approve Quotation #${quotation.quotationNumber} and create a confirmed booking?`)) {
+      return;
+    }
+
+    try {
+      setIsApproving(true);
+      const res = await api.post(`/quotations/${id}/approve`);
+      showToast(res.data.message || 'Quotation approved and booking created successfully!');
+
+      const bookingId = res.data.booking?.id;
+      if (bookingId) {
+        setTimeout(() => {
+          navigate(`/bookings/${bookingId}`);
+        }, 1200);
+      } else {
+        fetchQuotation();
+      }
+    } catch (err: any) {
+      console.error('Failed to approve quotation:', err);
+      showToast(err.response?.data?.message || 'Failed to approve quotation.', 'error');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   const handleStatusUpdate = async (status: string) => {
     try {
       await api.patch(`/quotations/${id}/status`, { status });
@@ -174,6 +209,24 @@ export const QuotationView: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-16 max-w-4xl mx-auto print:max-w-none print:w-full print:p-0 print:m-0 print:space-y-0 print:pb-0">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          className={`no-print fixed top-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg border flex items-center gap-2.5 text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-200 ${
+            toastMessage.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-100 dark:border-emerald-800'
+              : 'bg-rose-50 text-rose-900 border-rose-300 dark:bg-rose-950 dark:text-rose-100 dark:border-rose-800'
+          }`}
+        >
+          {toastMessage.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+          ) : (
+            <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0" />
+          )}
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
+
       {/* Non-Printable Action Header */}
       <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-3">
@@ -197,23 +250,35 @@ export const QuotationView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {quotation.status !== 'ACCEPTED' ? (
+            <button
+              type="button"
+              onClick={handleApprove}
+              disabled={isApproving}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              title="Approve quotation and create confirmed booking"
+            >
+              {isApproving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              )}
+              <span>{isApproving ? 'Approving...' : 'Approve & Confirm Booking'}</span>
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Booking Confirmed</span>
+            </span>
+          )}
+
           {quotation.status === 'DRAFT' && (
             <button
               type="button"
               onClick={() => handleStatusUpdate('SENT')}
-              className="px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200"
+              className="px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 cursor-pointer"
             >
               Mark Sent
-            </button>
-          )}
-
-          {quotation.status === 'SENT' && (
-            <button
-              type="button"
-              onClick={() => handleStatusUpdate('ACCEPTED')}
-              className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200"
-            >
-              Mark Accepted
             </button>
           )}
 

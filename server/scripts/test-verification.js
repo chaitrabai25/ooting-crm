@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import sharp from 'sharp';
+import { ensureColumns } from '../dist/db/migrations.js';
 
 const prisma = new PrismaClient();
 
@@ -10,6 +11,11 @@ async function runVerification() {
   console.log('========================================\n');
 
   try {
+    // 0. Ensure database columns and migrations
+    console.log('[0/6] Ensuring Database Schema & Columns...');
+    await ensureColumns();
+    console.log('  ✓ Schema migrations verified and applied.\n');
+
     // 1. Verify Database Connection & Row Counts
     console.log('[1/6] Checking Database Connection & Row Counts...');
     const userCount = await prisma.user.count();

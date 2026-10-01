@@ -86,13 +86,21 @@ export async function processAndSaveImage(
 
   const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
 
-  // Write optimized WebP to disk
-  fs.writeFileSync(targetPath, data);
+  let url = `/uploads/${folder}/${filename}`;
 
-  const relativeUrl = `/uploads/${folder}/${filename}`;
+  // Try writing to disk; on read-only serverless environments (e.g. Vercel), fallback cleanly to base64 WebP data URL
+  try {
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    fs.writeFileSync(targetPath, data);
+  } catch (fsErr: any) {
+    console.warn(`[ImageService] Disk write unavailable (${fsErr?.message || fsErr}). Using optimized WebP base64 data URL.`);
+    url = `data:image/webp;base64,${data.toString('base64')}`;
+  }
 
   return {
-    url: relativeUrl,
+    url,
     filename,
     originalName,
     size: info.size,
@@ -101,3 +109,4 @@ export async function processAndSaveImage(
     format: 'webp',
   };
 }
+

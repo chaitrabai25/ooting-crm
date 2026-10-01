@@ -226,7 +226,7 @@ model ItineraryDay {
   hotelId     String?  @db.VarChar(36)
   hotelName   String?  @db.VarChar(191)
   hotelStarCategory String? @db.VarChar(50)
-  hotelImageUrl String? @db.Text
+  hotelImageUrl String? @db.LongText
   hotelLocation String? @db.VarChar(191)
   hotelDetails String? @db.Text
   mealPlan    String?  @db.VarChar(100)
@@ -695,8 +695,8 @@ model Place {
   bestTime           String?   @db.VarChar(100)
   suggestedDuration  String?   @db.VarChar(100)
   distanceFromCenter String?   @db.VarChar(100)
-  imageUrl           String?   @db.Text
-  gallery            String?   @db.Text
+  imageUrl           String?   @db.LongText
+  gallery            String?   @db.LongText
   activities         String?   @db.Text
   notes              String?   @db.Text
   createdById        String?   @db.VarChar(36)
@@ -722,8 +722,9 @@ model Hotel {
   starCategory       String?   @default("3 Star") @db.VarChar(50)
   address            String?   @db.Text
   description        String?   @db.Text
-  imageUrl           String?   @db.Text
-  gallery            String?   @db.Text
+  imageUrl           String?   @db.LongText
+  gallery            String?   @db.LongText
+  websiteUrls        String?   @db.Text
   contactPhone       String?   @db.VarChar(50)
   contactEmail       String?   @db.VarChar(191)
   checkInTime        String?   @default("12:00 PM") @db.VarChar(50)

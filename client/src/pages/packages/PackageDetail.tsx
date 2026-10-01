@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -28,6 +28,7 @@ import {
   Utensils,
   ChevronDown,
   ChevronUp,
+  Search,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -88,12 +89,16 @@ export const PackageDetail: React.FC = () => {
 
   // Master Data Selection inside Day Modal
   const [daySelectedState, setDaySelectedState] = useState('Tamil Nadu');
-  const [daySelectedDistrict, setDaySelectedDistrict] = useState('The Nilgiris (Ooty)');
+  const [daySelectedDistrict, setDaySelectedDistrict] = useState('');
   const [dayAvailableDistricts, setDayAvailableDistricts] = useState<string[]>([]);
   const [masterPlaces, setMasterPlaces] = useState<Place[]>([]);
   const [masterHotels, setMasterHotels] = useState<Hotel[]>([]);
   const [selectedPlaceChips, setSelectedPlaceChips] = useState<string[]>([]);
   const [isLoadingMasterData, setIsLoadingMasterData] = useState(false);
+  const [dayPlaceSearch, setDayPlaceSearch] = useState('');
+  const [dayHotelSearch, setDayHotelSearch] = useState('');
+  const [isHotelPickerOpen, setIsHotelPickerOpen] = useState(false);
+  const masterDataCache = useRef(new Map<string, { places: Place[]; hotels: Hotel[] }>());
 
   // Quick Modals from within day editor
   const [isQuickPlaceOpen, setIsQuickPlaceOpen] = useState(false);
@@ -139,29 +144,52 @@ export const PackageDetail: React.FC = () => {
     if (id) fetchPackage();
   }, [id]);
 
-  // Sync available districts for day modal
+  // Sync available districts for day modal (reset district on state change so all state places show immediately)
   useEffect(() => {
     const found = INDIA_STATES_AND_DISTRICTS.find((s) => s.state === daySelectedState);
     if (found) {
       setDayAvailableDistricts(found.districts);
-      if (!found.districts.includes(daySelectedDistrict)) {
-        setDaySelectedDistrict(found.districts[0] || '');
+      if (daySelectedDistrict && !found.districts.includes(daySelectedDistrict)) {
+        setDaySelectedDistrict('');
       }
     } else {
       setDayAvailableDistricts([]);
+      setDaySelectedDistrict('');
     }
   }, [daySelectedState]);
 
-  // Load master places and hotels for selected district
+  // Load master places and hotels with in-memory caching and optional district filter
   const loadMasterDataForDay = async (stateName: string, districtName: string) => {
+    if (!stateName) return;
+    const isAll = !districtName || districtName === 'All Districts';
+    const cacheKey = `${stateName}::${isAll ? 'ALL' : districtName}`;
+
+    if (masterDataCache.current.has(cacheKey)) {
+      const cached = masterDataCache.current.get(cacheKey)!;
+      setMasterPlaces(cached.places);
+      setMasterHotels(cached.hotels);
+      return;
+    }
+
     setIsLoadingMasterData(true);
     try {
+      let placesUrl = `/places?state=${encodeURIComponent(stateName)}`;
+      let hotelsUrl = `/hotels?state=${encodeURIComponent(stateName)}`;
+      if (!isAll) {
+        placesUrl += `&district=${encodeURIComponent(districtName)}`;
+        hotelsUrl += `&district=${encodeURIComponent(districtName)}`;
+      }
+
       const [placesRes, hotelsRes] = await Promise.all([
-        api.get(`/places?state=${encodeURIComponent(stateName)}&district=${encodeURIComponent(districtName)}`),
-        api.get(`/hotels?state=${encodeURIComponent(stateName)}&district=${encodeURIComponent(districtName)}`),
+        api.get(placesUrl),
+        api.get(hotelsUrl),
       ]);
-      setMasterPlaces(placesRes.data?.places || []);
-      setMasterHotels(hotelsRes.data?.hotels || []);
+      const places = placesRes.data?.places || [];
+      const hotels = hotelsRes.data?.hotels || [];
+
+      masterDataCache.current.set(cacheKey, { places, hotels });
+      setMasterPlaces(places);
+      setMasterHotels(hotels);
     } catch (err) {
       console.error('Failed to load places/hotels master data:', err);
     } finally {
@@ -170,7 +198,7 @@ export const PackageDetail: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isDayModalOpen && daySelectedState && daySelectedDistrict) {
+    if (isDayModalOpen && daySelectedState) {
       loadMasterDataForDay(daySelectedState, daySelectedDistrict);
     }
   }, [isDayModalOpen, daySelectedState, daySelectedDistrict]);
@@ -1252,23 +1280,29 @@ export const PackageDetail: React.FC = () => {
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsQuickPlaceOpen(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#C91F28] bg-red-50 dark:bg-red-950/40 hover:bg-red-100 rounded-lg border border-red-200 dark:border-red-900/50 transition-colors cursor-pointer self-start sm:self-auto"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Place to Library</span>
-              </button>
+              <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickPlaceOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-600 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Place</span>
+                </button>
+              </div>
             </div>
 
             {/* State & District selectors for Place filtering */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Filter State</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">State</span>
                 <select
                   value={daySelectedState}
-                  onChange={(e) => setDaySelectedState(e.target.value)}
+                  onChange={(e) => {
+                    const newState = e.target.value;
+                    setDaySelectedState(newState);
+                    setDaySelectedDistrict('');
+                  }}
                   className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                 >
                   {INDIA_STATES_AND_DISTRICTS.map((s) => (
@@ -1280,12 +1314,13 @@ export const PackageDetail: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Filter District</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">District (Optional)</span>
                 <select
                   value={daySelectedDistrict}
                   onChange={(e) => setDaySelectedDistrict(e.target.value)}
                   className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                 >
+                  <option value="">All Districts ({daySelectedState})</option>
                   {dayAvailableDistricts.map((d) => (
                     <option key={d} value={d}>
                       {d}
@@ -1293,42 +1328,81 @@ export const PackageDetail: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Search Place</span>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={dayPlaceSearch}
+                    onChange={(e) => setDayPlaceSearch(e.target.value)}
+                    placeholder="Filter by name..."
+                    className="w-full p-2 pl-7 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-xs"
+                  />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-2.5" />
+                </div>
+              </div>
             </div>
 
             {/* Quick Pick from Master Places */}
             <div>
               <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between mb-1.5">
-                <span>Places in {daySelectedDistrict}:</span>
+                <span>Add Place from Library ({daySelectedDistrict ? daySelectedDistrict : daySelectedState}):</span>
                 {isLoadingMasterData && <span className="text-[10px] text-slate-400">Loading catalog...</span>}
               </span>
 
-              {masterPlaces.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                  {masterPlaces.map((mp) => {
-                    const isSelected = selectedPlaceChips.includes(mp.name);
-                    return (
-                      <button
-                        type="button"
-                        key={mp.id}
-                        onClick={() => handleSelectMasterPlace(mp)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-red-50 text-[#C91F28] border border-red-300 dark:bg-red-950/40 dark:border-red-800'
-                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
-                        }`}
-                      >
-                        <MapPin className="w-3 h-3 text-[#C91F28]" />
-                        <span>{mp.name}</span>
-                        {isSelected ? <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-0.5" /> : <Plus className="w-3 h-3 text-slate-400 ml-0.5" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-2 text-center text-[11px] text-slate-400 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                  No places found for {daySelectedDistrict}. Click "+ Add Place to Library" above to add one.
-                </div>
-              )}
+              {(() => {
+                const filtered = masterPlaces.filter((mp) => {
+                  if (!dayPlaceSearch.trim()) return true;
+                  const q = dayPlaceSearch.toLowerCase();
+                  return (
+                    mp.name.toLowerCase().includes(q) ||
+                    mp.district.toLowerCase().includes(q) ||
+                    mp.category?.toLowerCase().includes(q) ||
+                    mp.activities?.toLowerCase().includes(q)
+                  );
+                });
+
+                if (filtered.length > 0) {
+                  return (
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                      {filtered.map((mp) => {
+                        const isSelected = selectedPlaceChips.includes(mp.name);
+                        return (
+                          <button
+                            type="button"
+                            key={mp.id}
+                            onClick={() => handleSelectMasterPlace(mp)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-red-50 text-[#C91F28] border border-red-300 dark:bg-red-950/40 dark:border-red-800'
+                                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
+                            }`}
+                          >
+                            <MapPin className="w-3 h-3 text-[#C91F28]" />
+                            <span>{mp.name}</span>
+                            {isSelected ? <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-0.5" /> : <Plus className="w-3 h-3 text-slate-400 ml-0.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="p-3 text-center text-[11px] text-slate-500 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1.5">
+                    <span>No places found for {daySelectedDistrict ? daySelectedDistrict : daySelectedState}.</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsQuickPlaceOpen(true)}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#C91F28] hover:underline cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Create and add new place to library</span>
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Selected Places Ordered Chips */}
@@ -1428,7 +1502,7 @@ export const PackageDetail: React.FC = () => {
                   <span>Hotel Accommodation for Night {dayNumber}</span>
                 </label>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                  Auto-suggested hotels in {daySelectedDistrict} based on itinerary location
+                  Choose from existing hotel library or add a new hotel
                 </span>
               </div>
 
@@ -1444,59 +1518,85 @@ export const PackageDetail: React.FC = () => {
                 )}
                 <button
                   type="button"
-                  onClick={() => setIsQuickHotelOpen(true)}
+                  onClick={() => setIsHotelPickerOpen(true)}
                   className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-amber-700 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-colors cursor-pointer"
                 >
+                  <Building className="w-3.5 h-3.5" />
+                  <span>Add Hotel from Library</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsQuickHotelOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-600 transition-colors cursor-pointer"
+                >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Add Hotel to Library</span>
+                  <span>New Hotel</span>
                 </button>
               </div>
             </div>
 
-            {/* Quick Pick from Master Hotels in District */}
-            {masterHotels.length > 0 && (
-              <div>
-                <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Hotels in {daySelectedDistrict}:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                  {masterHotels.map((h) => {
-                    const isCurrent = dayHotelId === h.id || dayHotelName === h.name;
-                    return (
-                      <button
-                        type="button"
-                        key={h.id}
-                        onClick={() => handleSelectMasterHotel(h)}
-                        className={`p-2 rounded-lg text-left transition-all border flex items-center gap-2 cursor-pointer ${
-                          isCurrent
-                            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 ring-1 ring-amber-400'
-                            : 'bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 border-slate-200 dark:border-slate-700'
-                        }`}
-                      >
-                        {h.imageUrl ? (
-                          <img src={h.imageUrl} alt={h.name} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
-                        ) : (
-                          <span className="w-10 h-10 rounded-md bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0 text-amber-700">
-                            <Building className="w-4 h-4" />
-                          </span>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block text-xs">
-                            {h.name}
-                          </span>
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400 block">
-                            {h.starCategory || '3 Star'}
-                          </span>
-                        </div>
-                        {isCurrent && <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
-                      </button>
-                    );
-                  })}
+            {/* Currently Selected Hotel Card */}
+            {dayHotelName ? (
+              <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-300 dark:border-amber-800 shadow-2xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {dayHotelImageUrl ? (
+                    <img
+                      src={dayHotelImageUrl}
+                      alt={dayHotelName}
+                      className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-slate-200"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center flex-shrink-0 text-amber-700">
+                      <Building className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                        {dayHotelName}
+                      </span>
+                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
+                        {dayHotelStarCategory || '3 Star'}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
+                      {dayHotelLocation || 'Location specified in itinerary'} • {dayMealPlan}
+                    </span>
+                  </div>
                 </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsHotelPickerOpen(true)}
+                    className="px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 cursor-pointer"
+                  >
+                    Change
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearHotel}
+                    className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                    title="Remove hotel from this day"
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center">
+                <span className="text-xs text-slate-500 block">No hotel selected for Night {dayNumber} yet.</span>
+                <button
+                  type="button"
+                  onClick={() => setIsHotelPickerOpen(true)}
+                  className="mt-1 text-xs font-semibold text-[#C91F28] hover:underline cursor-pointer"
+                >
+                  Click "Add Hotel from Library" to choose an existing hotel
+                </button>
               </div>
             )}
 
-            {/* Selected Hotel Display and Details */}
+            {/* Hotel Form Fields for fine-tuning */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
                 <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
@@ -1823,9 +1923,10 @@ export const PackageDetail: React.FC = () => {
         defaultState={daySelectedState}
         defaultDistrict={daySelectedDistrict}
         onSuccess={(savedPlace) => {
+          masterDataCache.current.clear();
           loadMasterDataForDay(daySelectedState, daySelectedDistrict);
           handleSelectMasterPlace(savedPlace);
-          showToast(`Place "${savedPlace.name}" added to Place Master and selected for this day.`);
+          showToast(`Place "${savedPlace.name}" added to Place Library and selected for Day ${dayNumber}!`);
         }}
       />
 
@@ -1836,11 +1937,202 @@ export const PackageDetail: React.FC = () => {
         defaultState={daySelectedState}
         defaultDistrict={daySelectedDistrict}
         onSuccess={(savedHotel) => {
+          masterDataCache.current.clear();
           loadMasterDataForDay(daySelectedState, daySelectedDistrict);
           handleSelectMasterHotel(savedHotel);
-          showToast(`Hotel "${savedHotel.name}" added to Hotel Master and selected for this day.`);
+          showToast(`Hotel "${savedHotel.name}" added to Hotel Library and selected for Day ${dayNumber}!`);
         }}
       />
+
+      {/* Hotel Library Selector Modal */}
+      <Modal
+        isOpen={isHotelPickerOpen}
+        onClose={() => setIsHotelPickerOpen(false)}
+        title={`Hotel Library — Select Hotel for Day ${dayNumber}`}
+        subtitle="Pick an existing hotel from your verified database in 1 click without recreating"
+        maxWidth="4xl"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <div className="sm:col-span-2 relative">
+              <input
+                type="text"
+                value={dayHotelSearch}
+                onChange={(e) => setDayHotelSearch(e.target.value)}
+                placeholder="Search hotel name, city, amenities..."
+                className="w-full p-2 pl-7 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            </div>
+
+            <div>
+              <select
+                value={daySelectedState}
+                onChange={(e) => {
+                  const newState = e.target.value;
+                  setDaySelectedState(newState);
+                  setDaySelectedDistrict('');
+                }}
+                className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl text-xs"
+              >
+                {INDIA_STATES_AND_DISTRICTS.map((s) => (
+                  <option key={s.state} value={s.state}>
+                    {s.state}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <select
+                value={daySelectedDistrict}
+                onChange={(e) => setDaySelectedDistrict(e.target.value)}
+                className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl text-xs"
+              >
+                <option value="">All Districts ({daySelectedState})</option>
+                {dayAvailableDistricts.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center px-1">
+            <span className="font-semibold text-slate-600 dark:text-slate-400 text-[11px]">
+              Available Hotels in {daySelectedDistrict ? daySelectedDistrict : daySelectedState}:
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setIsHotelPickerOpen(false);
+                setIsQuickHotelOpen(true);
+              }}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#C91F28] hover:underline cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Not in library? Create New Hotel</span>
+            </button>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+            {isLoadingMasterData ? (
+              <div className="p-8 text-center text-slate-400 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-[#C91F28]" />
+                <span>Loading hotels from database library...</span>
+              </div>
+            ) : (() => {
+              const q = dayHotelSearch.toLowerCase().trim();
+              const filtered = masterHotels.filter((h) => {
+                if (!q) return true;
+                return (
+                  h.name.toLowerCase().includes(q) ||
+                  h.city?.toLowerCase().includes(q) ||
+                  h.district.toLowerCase().includes(q) ||
+                  h.starCategory?.toLowerCase().includes(q) ||
+                  h.amenities?.toLowerCase().includes(q)
+                );
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                    <Building className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                    <p className="font-semibold text-xs text-slate-700 dark:text-slate-300">
+                      No hotels found in {daySelectedDistrict || daySelectedState}.
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Click "+ Create New Hotel" to add one permanently to the library.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsHotelPickerOpen(false);
+                        setIsQuickHotelOpen(true);
+                      }}
+                      className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create New Hotel</span>
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {filtered.map((h) => {
+                    const isCurrent = dayHotelId === h.id || dayHotelName === h.name;
+                    return (
+                      <div
+                        key={h.id}
+                        className={`p-3 rounded-xl border transition-all flex items-start gap-3 ${
+                          isCurrent
+                            ? 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 shadow-xs'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                        }`}
+                      >
+                        {h.imageUrl ? (
+                          <img
+                            src={h.imageUrl}
+                            alt={h.name}
+                            className="w-14 h-14 rounded-lg object-cover flex-shrink-0 border border-slate-200"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 flex items-center justify-center flex-shrink-0 text-amber-700">
+                            <Building className="w-6 h-6" />
+                          </div>
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-1">
+                            <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                              {h.name}
+                            </h4>
+                            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded shrink-0">
+                              {h.starCategory || '3 Star'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
+                            <span className="truncate">{h.city ? `${h.city}, ` : ''}{h.district}</span>
+                          </div>
+
+                          {h.address && (
+                            <p className="text-[10.5px] text-slate-500 truncate mt-0.5">
+                              {h.address}
+                            </p>
+                          )}
+
+                          <div className="mt-2.5 flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleSelectMasterHotel(h);
+                                setIsHotelPickerOpen(false);
+                                showToast(`Hotel "${h.name}" selected for Day ${dayNumber}!`);
+                              }}
+                              className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                                isCurrent
+                                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                  : 'bg-slate-900 hover:bg-slate-800 text-white'
+                              }`}
+                            >
+                              {isCurrent ? '✓ Selected' : 'Select Hotel'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

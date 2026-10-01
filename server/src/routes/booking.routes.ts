@@ -20,6 +20,41 @@ const ALLOWED_SORT_FIELDS = [
   'createdAt',
 ];
 
+/**
+ * Safely generates a unique, sequential, collision-free booking number: OOT-BK-YYYYMM-XXXX
+ */
+export async function generateUniqueBookingNumber(txOrPrisma: any): Promise<string> {
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prefix = `OOT-BK-${dateStr}-`;
+
+  const lastBooking = await txOrPrisma.booking.findFirst({
+    where: { bookingNumber: { startsWith: prefix } },
+    orderBy: { bookingNumber: 'desc' },
+    select: { bookingNumber: true },
+  });
+
+  let nextSeq = 1;
+  if (lastBooking?.bookingNumber) {
+    const parts = lastBooking.bookingNumber.split('-');
+    const lastNum = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(lastNum)) {
+      nextSeq = lastNum + 1;
+    }
+  }
+
+  let candidate = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+  let exists = await txOrPrisma.booking.findUnique({ where: { bookingNumber: candidate } });
+  while (exists) {
+    nextSeq++;
+    candidate = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+    exists = await txOrPrisma.booking.findUnique({ where: { bookingNumber: candidate } });
+  }
+
+  return candidate;
+}
+
+
 // List bookings with calculated balances, package filter, and sorting
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
@@ -321,12 +356,9 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 
     const finalAmount = Math.max(0, data.totalAmount - data.discount);
 
-    // Generate unique Booking Number: OOT-BK-YYYYMM-XXXX
-    const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
-    const count = await prisma.booking.count();
-    const bookingNumber = `OOT-BK-${dateStr}-${String(count + 1).padStart(4, '0')}`;
-
     const booking = await prisma.$transaction(async (tx) => {
+      // Generate unique Booking Number: OOT-BK-YYYYMM-XXXX
+      const bookingNumber = await generateUniqueBookingNumber(tx);
       // Resolve Customer ID (find existing, create on-the-fly, or use provided)
       let finalCustomerId = data.customerId;
       if (!finalCustomerId) {
@@ -1027,11 +1059,8 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
         }
       }
 
-      // Generate booking number
-      const now = new Date();
-      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const count = await prisma.booking.count();
-      const bookingNumber = `OOT-BK-${dateStr}-${String(count + 1 + i).padStart(4, '0')}`;
+      // Generate guaranteed unique booking number
+      const bookingNumber = await generateUniqueBookingNumber(prisma);
 
       const booking = await prisma.booking.create({
         data: {

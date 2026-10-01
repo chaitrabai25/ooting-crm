@@ -161,8 +161,13 @@ export async function ensureColumns() {
       `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelStarCategory\` VARCHAR(50) NULL`,
       `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelImageUrl\` TEXT NULL`,
       `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelLocation\` VARCHAR(191) NULL`,
-      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelDetails\` TEXT NULL`,
       `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`mealPlan\` VARCHAR(100) NULL`,
+      `ALTER TABLE \`Hotel\` ADD COLUMN \`websiteUrls\` TEXT NULL`,
+      `ALTER TABLE \`Hotel\` MODIFY COLUMN \`imageUrl\` LONGTEXT NULL`,
+      `ALTER TABLE \`Hotel\` MODIFY COLUMN \`gallery\` LONGTEXT NULL`,
+      `ALTER TABLE \`Place\` MODIFY COLUMN \`imageUrl\` LONGTEXT NULL`,
+      `ALTER TABLE \`Place\` MODIFY COLUMN \`gallery\` LONGTEXT NULL`,
+      `ALTER TABLE \`ItineraryDay\` MODIFY COLUMN \`hotelImageUrl\` LONGTEXT NULL`,
     ];
 
     for (const sql of mysqlMigrations) {

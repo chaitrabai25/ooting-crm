@@ -515,6 +515,7 @@ export interface Hotel {
   description?: string | null;
   imageUrl?: string | null;
   gallery?: string | null;
+  websiteUrls?: string | null;
   contactPhone?: string | null;
   contactEmail?: string | null;
   checkInTime?: string | null;

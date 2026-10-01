@@ -14,6 +14,9 @@ import {
   CheckCircle2,
   Coffee,
   Wifi,
+  Plus,
+  Trash2,
+  Globe,
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal.js';
 import { Hotel } from '../../types/index.js';
@@ -76,6 +79,9 @@ export const HotelModal: React.FC<HotelModalProps> = ({
   const [checkOutTime, setCheckOutTime] = useState('11:00 AM');
   const [amenities, setAmenities] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [manualImageUrl, setManualImageUrl] = useState('');
+  const [websiteUrls, setWebsiteUrls] = useState<string[]>(['']);
 
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,7 +102,6 @@ export const HotelModal: React.FC<HotelModalProps> = ({
       setContactEmail(hotel.contactEmail || '');
       setCheckInTime(hotel.checkInTime || '12:00 PM');
       setCheckOutTime(hotel.checkOutTime || '11:00 AM');
-      setImageUrl(hotel.imageUrl || '');
       if (hotel.amenities) {
         setAmenities(
           hotel.amenities
@@ -107,6 +112,35 @@ export const HotelModal: React.FC<HotelModalProps> = ({
       } else {
         setAmenities([]);
       }
+
+      // Parse images and gallery
+      let parsedImages: string[] = [];
+      if (hotel.gallery) {
+        try {
+          const parsed = JSON.parse(hotel.gallery);
+          if (Array.isArray(parsed)) parsedImages = parsed.filter(Boolean);
+        } catch {
+          parsedImages = hotel.gallery.split(',').map((s) => s.trim()).filter(Boolean);
+        }
+      }
+      if (hotel.imageUrl && !parsedImages.includes(hotel.imageUrl)) {
+        parsedImages = [hotel.imageUrl, ...parsedImages];
+      }
+      setImages(parsedImages);
+      setImageUrl(parsedImages[0] || hotel.imageUrl || '');
+      setManualImageUrl('');
+
+      // Parse multiple website URLs
+      let parsedUrls: string[] = [];
+      if (hotel.websiteUrls) {
+        try {
+          const p = JSON.parse(hotel.websiteUrls);
+          if (Array.isArray(p)) parsedUrls = p.filter(Boolean);
+        } catch {
+          parsedUrls = hotel.websiteUrls.split('\n').map((u) => u.trim()).filter(Boolean);
+        }
+      }
+      setWebsiteUrls(parsedUrls.length > 0 ? parsedUrls : ['']);
     } else {
       setName('');
       setStarCategory('3 Star Comfort');
@@ -120,6 +154,9 @@ export const HotelModal: React.FC<HotelModalProps> = ({
       setCheckInTime('12:00 PM');
       setCheckOutTime('11:00 AM');
       setImageUrl('');
+      setImages([]);
+      setManualImageUrl('');
+      setWebsiteUrls(['']);
       setAmenities(['Free High-Speed Wi-Fi', 'Complimentary Breakfast', 'Multi-cuisine Restaurant']);
     }
     setError(null);
@@ -145,27 +182,78 @@ export const HotelModal: React.FC<HotelModalProps> = ({
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsUploading(true);
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
+      const uploaded: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('image', file);
 
-      const res = await api.post('/upload/image?folder=hotels', formData);
-      if (res.data?.url) {
-        setImageUrl(res.data.url);
+        const res = await api.post('/upload/image?folder=hotels', formData);
+        if (res.data?.url) {
+          uploaded.push(res.data.url);
+        }
+      }
+
+      if (uploaded.length > 0) {
+        setImages((prev) => {
+          const combined = [...prev, ...uploaded];
+          setImageUrl(combined[0] || '');
+          return combined;
+        });
       }
     } catch (err: any) {
-      console.error('Hotel image upload failed:', err);
-      setError(err.response?.data?.message || 'Failed to upload and optimize hotel photo.');
+      console.error('Hotel images upload failed:', err);
+      setError(err.response?.data?.message || 'Failed to upload and optimize hotel photo(s).');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleAddManualImage = () => {
+    const trimmed = manualImageUrl.trim();
+    if (!trimmed) return;
+    setImages((prev) => {
+      if (prev.includes(trimmed)) return prev;
+      const next = [...prev, trimmed];
+      if (!imageUrl) setImageUrl(next[0]);
+      return next;
+    });
+    setManualImageUrl('');
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setImages((prev) => {
+      const next = prev.filter((_, idx) => idx !== indexToRemove);
+      setImageUrl(next[0] || '');
+      return next;
+    });
+  };
+
+  const handleAddUrl = () => {
+    setWebsiteUrls((prev) => [...prev, '']);
+  };
+
+  const handleUrlChange = (index: number, val: string) => {
+    setWebsiteUrls((prev) => {
+      const copy = [...prev];
+      copy[index] = val;
+      return copy;
+    });
+  };
+
+  const handleRemoveUrl = (index: number) => {
+    setWebsiteUrls((prev) => {
+      const copy = prev.filter((_, i) => i !== index);
+      return copy.length === 0 ? [''] : copy;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,6 +270,9 @@ export const HotelModal: React.FC<HotelModalProps> = ({
     setIsSubmitting(true);
     setError(null);
 
+    const cleanUrls = websiteUrls.map((u) => u.trim()).filter(Boolean);
+    const primaryImage = images[0] || imageUrl.trim() || null;
+
     const payload = {
       name: name.trim(),
       starCategory: starCategory.trim(),
@@ -195,7 +286,9 @@ export const HotelModal: React.FC<HotelModalProps> = ({
       checkInTime: checkInTime.trim() || '12:00 PM',
       checkOutTime: checkOutTime.trim() || '11:00 AM',
       amenities: amenities.length > 0 ? amenities.join(', ') : null,
-      imageUrl: imageUrl.trim() || null,
+      imageUrl: primaryImage,
+      gallery: images.length > 0 ? JSON.stringify(images) : null,
+      websiteUrls: cleanUrls.length > 0 ? JSON.stringify(cleanUrls) : null,
     };
 
     try {
@@ -413,71 +506,159 @@ export const HotelModal: React.FC<HotelModalProps> = ({
           </div>
         </div>
 
-        {/* Hotel Photo Upload (WebP) */}
+        {/* Hotel Multiple Website / Booking URLs */}
         <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-          <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between">
+            <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-[#C91F28]" />
+              Hotel Website & External Booking URLs
+            </label>
+            <button
+              type="button"
+              onClick={handleAddUrl}
+              className="text-[11px] font-semibold text-[#C91F28] hover:text-[#a81920] flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+              Add URL
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Add multiple links such as official hotel website, Booking.com, Agoda, or PDF brochure links.
+          </p>
+
+          <div className="space-y-2">
+            {websiteUrls.map((url, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-2.5 top-2.5 text-[10px] font-bold text-slate-400">
+                    URL {idx + 1}
+                  </span>
+                  <input
+                    type="url"
+                    placeholder="https://www.hotelwebsite.com or OTA link"
+                    value={url}
+                    onChange={(e) => handleUrlChange(idx, e.target.value)}
+                    className="w-full pl-14 pr-2.5 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                  />
+                </div>
+                {websiteUrls.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveUrl(idx)}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                    title="Remove URL"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Hotel Photos Upload (WebP) & Multi-Image Gallery */}
+        <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <Camera className="w-3.5 h-3.5 text-[#C91F28]" />
-              Hotel Feature Photo (Auto-optimized to WebP)
-            </span>
-            {imageUrl && (
+              Hotel Photos & Gallery (Auto-optimized to WebP)
+            </label>
+            {images.length > 0 && (
+              <span className="text-[11px] text-slate-500 font-medium">
+                {images.length} photo{images.length > 1 ? 's' : ''} added
+              </span>
+            )}
+          </div>
+
+          {/* Photo Previews Grid */}
+          {images.length > 0 ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 pt-1 pb-1">
+              {images.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="relative group rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 aspect-video bg-slate-100 dark:bg-slate-900 shadow-2xs"
+                >
+                  <img
+                    src={img}
+                    alt={`Hotel photo ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  {idx === 0 && (
+                    <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1 py-0.5 rounded font-medium">
+                      Cover
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    className="absolute top-1 right-1 p-0.5 bg-rose-600/90 text-white rounded-full opacity-90 group-hover:opacity-100 hover:bg-rose-700 transition-opacity cursor-pointer shadow-xs"
+                    title="Remove Photo"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-4 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center text-slate-400 text-xs">
+              <Building2 className="w-6 h-6 mb-1 text-slate-400" />
+              <span>No photos uploaded yet (support JPG, PNG, WebP)</span>
+            </div>
+          )}
+
+          {/* Upload and URL Inputs */}
+          <div className="space-y-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                multiple
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
               <button
                 type="button"
-                onClick={() => setImageUrl('')}
-                className="text-[11px] text-rose-600 hover:underline flex items-center gap-0.5"
+                disabled={isUploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-650 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
               >
-                <X className="w-3 h-3" /> Clear Image
+                {isUploading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C91F28]" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5 text-[#C91F28]" />
+                )}
+                <span>{isUploading ? 'Optimizing WebP...' : 'Upload Photos (Select Multiple)'}</span>
               </button>
-            )}
-          </label>
+              <span className="text-[11px] text-slate-400">or add photo URL below</span>
+            </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            {imageUrl ? (
-              <div className="w-28 h-20 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 flex-shrink-0 bg-slate-100">
-                <img src={imageUrl} alt="Hotel Preview" className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <div className="w-28 h-20 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-slate-400 text-[10px] flex-shrink-0">
-                <Building2 className="w-5 h-5 mb-0.5" />
-                No Photo
-              </div>
-            )}
-
-            <div className="flex-1 w-full space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  disabled={isUploading}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-650 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-                >
-                  {isUploading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C91F28]" />
-                  ) : (
-                    <Upload className="w-3.5 h-3.5 text-[#C91F28]" />
-                  )}
-                  <span>{isUploading ? 'Optimizing WebP...' : 'Upload Hotel Photo'}</span>
-                </button>
-                <span className="text-[11px] text-slate-400">or enter image URL below</span>
-              </div>
-
-              <div className="relative">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
                 <LinkIcon className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
                 <input
                   type="url"
-                  placeholder="https://... or /uploads/..."
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://... photo link"
+                  value={manualImageUrl}
+                  onChange={(e) => setManualImageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddManualImage();
+                    }
+                  }}
                   className="w-full pl-8 pr-2.5 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                 />
               </div>
+              <button
+                type="button"
+                onClick={handleAddManualImage}
+                disabled={!manualImageUrl.trim()}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-40"
+              >
+                <Plus className="w-3 h-3" />
+                Add Photo
+              </button>
             </div>
           </div>
         </div>

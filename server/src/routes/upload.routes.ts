@@ -6,11 +6,21 @@ import { processAndSaveImage } from '../services/image.service.js';
 const router = Router();
 router.use(authenticate);
 
-router.post('/image', upload.single('image'), async (req: AuthRequest, res: Response): Promise<void> => {
-  if (!req.file) {
-    res.status(400).json({ message: 'No image file uploaded.' });
-    return;
-  }
+router.post(
+  '/image',
+  (req: AuthRequest, res: Response, next) => {
+    upload.single('image')(req, res, (err: any) => {
+      if (err) {
+        return res.status(400).json({ message: err.message || 'Image upload error.' });
+      }
+      next();
+    });
+  },
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ message: 'No image file uploaded.' });
+      return;
+    }
 
   try {
     const rawFolder = (req.query?.folder as string) || (req.body?.folder as string) || '';

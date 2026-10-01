@@ -6,6 +6,7 @@ import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { config } from '../config/index.js';
 import { getCompanySettings } from './setting.routes.js';
+import { generateUniqueBookingNumber } from './booking.routes.js';
 
 const router = Router();
 router.use(authenticate);
@@ -528,6 +529,115 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
     });
 
     res.json({ message: `Quotation ${existing.quotationNumber} deleted successfully.` });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/quotations/:id/approve: Approve quotation and automatically generate confirmed booking in database
+router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const quotation = await prisma.quotation.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        package: true,
+      },
+    });
+
+    if (!quotation || quotation.isDeleted) {
+      res.status(404).json({ message: 'Quotation not found.' });
+      return;
+    }
+
+    // Check if a booking already exists for this quotation
+    const existingBooking = await prisma.booking.findFirst({
+      where: {
+        OR: [
+          { notes: { contains: quotation.quotationNumber } },
+          ...(quotation.leadId ? [{ leadId: quotation.leadId }] : []),
+        ],
+        isDeleted: false,
+      },
+      include: { customer: true, package: true },
+    });
+
+    if (existingBooking) {
+      await prisma.quotation.update({
+        where: { id: quotation.id },
+        data: { status: 'ACCEPTED', updatedById: req.user?.id || null },
+      });
+      res.json({
+        message: `Quotation is already approved. Booking #${existingBooking.bookingNumber} confirmed.`,
+        booking: existingBooking,
+        quotation,
+      });
+      return;
+    }
+
+    // Generate collision-free booking number
+    const bookingNumber = await generateUniqueBookingNumber(prisma);
+
+    const travelStart = quotation.travelStartDate || new Date();
+    const travelEnd = quotation.travelEndDate || new Date(Date.now() + 86400000 * 3);
+    const travellers = (quotation.adults || 2) + (quotation.children || 0);
+
+    const booking = await prisma.booking.create({
+      data: {
+        bookingNumber,
+        customerId: quotation.customerId,
+        leadId: quotation.leadId || null,
+        packageId: quotation.packageId || null,
+        assignedUserId: req.user!.id,
+        travelStartDate: travelStart,
+        travelEndDate: travelEnd,
+        travellers,
+        totalAmount: quotation.basePrice + (quotation.additionalCharges || 0) + quotation.tax,
+        discount: quotation.discount || 0,
+        finalAmount: quotation.finalAmount,
+        bookingStatus: 'CONFIRMED',
+        notes: `Confirmed from Quotation ${quotation.quotationNumber}.${quotation.notes ? ` ${quotation.notes}` : ''}`,
+        createdById: req.user?.id || null,
+        updatedById: req.user?.id || null,
+      },
+      include: {
+        customer: true,
+        package: true,
+      },
+    });
+
+    // Mark quotation as ACCEPTED
+    const updatedQuotation = await prisma.quotation.update({
+      where: { id: quotation.id },
+      data: { status: 'ACCEPTED', updatedById: req.user?.id || null },
+      include: { customer: true },
+    });
+
+    // If linked to a lead, mark lead as WON
+    if (quotation.leadId) {
+      await prisma.lead.update({
+        where: { id: quotation.leadId },
+        data: { enquiryStatus: 'WON', updatedById: req.user?.id || null },
+      });
+    }
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      action: 'STATUS_CHANGE',
+      entity: 'QUOTATION',
+      entityId: id,
+      details: `Approved quotation ${quotation.quotationNumber} and generated Booking #${booking.bookingNumber}`,
+      newValue: JSON.stringify({ status: 'ACCEPTED', bookingId: booking.id, bookingNumber: booking.bookingNumber }),
+      ipAddress: req.ip,
+    });
+
+    res.status(201).json({
+      message: `Quotation ${quotation.quotationNumber} approved and Booking #${booking.bookingNumber} created successfully!`,
+      booking,
+      quotation: updatedQuotation,
+    });
   } catch (error) {
     next(error);
   }

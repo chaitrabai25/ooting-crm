@@ -321,7 +321,7 @@ export async function generateA4Pdf({
             (item) => item.top < targetCut && item.bottom > targetCut
           );
 
-          if (conflicting && conflicting.top > currentY + effectiveCanvasHeight * 0.50) {
+          if (conflicting && conflicting.top > currentY + effectiveCanvasHeight * 0.20) {
             // Break cleanly right before the conflicting card/section
             sliceHeight = Math.floor(conflicting.top - currentY);
           } else {

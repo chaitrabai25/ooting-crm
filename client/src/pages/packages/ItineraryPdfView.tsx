@@ -17,6 +17,9 @@ import {
   Download,
   Loader2,
   Compass,
+  Building2,
+  Star,
+  Coffee,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Package, ItineraryDay } from '../../types/index.js';
@@ -365,7 +368,7 @@ export const ItineraryPdfView: React.FC = () => {
             {itineraries.map((day, idx) => (
               <div
                 key={day.id || idx}
-                className="page-break-avoid border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white"
+                className="itinerary-day-card page-break-avoid border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white"
               >
                 {/* Day Header Bar */}
                 <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -545,6 +548,67 @@ export const ItineraryPdfView: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Hotel Accommodation Card (Rendered only if hotel is assigned to this day) */}
+                  {day.hotelName && day.hotelName.trim() && (
+                    <div className="mt-3 p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80 shadow-2xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                          <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
+                          Overnight Stay / Hotel
+                        </span>
+                        {day.mealPlan && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-amber-200 text-[10px] font-semibold text-amber-800">
+                            <Coffee className="w-3 h-3 text-amber-600" />
+                            {day.mealPlan}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        {day.hotelImageUrl && (
+                          <div className="w-24 h-16 rounded-lg overflow-hidden border border-amber-200/90 shrink-0 bg-white">
+                            <img
+                              src={day.hotelImageUrl}
+                              alt={day.hotelName}
+                              className="w-full h-full object-cover"
+                              crossOrigin="anonymous"
+                              onError={(e) => {
+                                (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-bold text-xs text-slate-900">
+                              {day.hotelName}
+                            </h4>
+                            {day.hotelStarCategory && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium">
+                                <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                {day.hotelStarCategory}
+                              </span>
+                            )}
+                          </div>
+
+                          {day.hotelLocation && (
+                            <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                              <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
+                              <span>{day.hotelLocation}</span>
+                            </div>
+                          )}
+
+                          {day.hotelDetails && (
+                            <p className="text-[10px] text-slate-500 leading-tight">
+                              {day.hotelDetails}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

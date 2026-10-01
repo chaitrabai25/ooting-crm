@@ -57,8 +57,12 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const limit = Math.max(1, parseInt(req.query.limit as string || '50', 10));
 
     const where: any = { isDeleted: false };
-    if (state) where.state = { equals: state };
-    if (district) where.district = { equals: district };
+    if (state && state.toLowerCase() !== 'all' && state.toLowerCase() !== 'all states') {
+      where.state = { equals: state };
+    }
+    if (district && district.toLowerCase() !== 'all' && district.toLowerCase() !== 'all districts') {
+      where.district = { equals: district };
+    }
     if (city) where.city = { contains: city };
     if (starCategory) where.starCategory = { equals: starCategory };
 
@@ -116,7 +120,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// POST /api/hotels: Add hotel permanently to database
+// POST /api/hotels: Add hotel permanently to database (or reuse existing)
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const {
@@ -129,6 +133,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       description,
       imageUrl,
       gallery,
+      websiteUrls,
       contactPhone,
       contactEmail,
       checkInTime,
@@ -153,7 +158,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const cleanState = state.trim();
     const cleanDistrict = district.trim();
 
-    // Check duplicate
+    // Check duplicate - reuse seamlessly
     const existing = await (prisma as any).hotel.findFirst({
       where: {
         name: cleanName,
@@ -164,14 +169,16 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     });
 
     if (existing) {
-      res.status(409).json({
-        message: `Hotel "${cleanName}" already exists in ${cleanDistrict}, ${cleanState}.`,
+      res.status(200).json({
+        message: `Hotel "${cleanName}" already exists in ${cleanDistrict}, ${cleanState}. Reusing library hotel.`,
         hotel: existing,
+        reused: true,
       });
       return;
     }
 
     const galleryJson = typeof gallery === 'string' ? gallery : (gallery ? JSON.stringify(gallery) : null);
+    const websiteUrlsJson = typeof websiteUrls === 'string' ? websiteUrls : (websiteUrls ? JSON.stringify(websiteUrls) : null);
 
     const hotel = await (prisma as any).hotel.create({
       data: {
@@ -184,6 +191,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         description: description?.trim() || null,
         imageUrl: imageUrl?.trim() || null,
         gallery: galleryJson,
+        websiteUrls: websiteUrlsJson,
         contactPhone: contactPhone?.trim() || null,
         contactEmail: contactEmail?.trim() || null,
         checkInTime: checkInTime?.trim() || '12:00 PM',
@@ -228,6 +236,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       description,
       imageUrl,
       gallery,
+      websiteUrls,
       contactPhone,
       contactEmail,
       checkInTime,
@@ -248,6 +257,10 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       ? (typeof gallery === 'string' ? gallery : (gallery ? JSON.stringify(gallery) : null))
       : existing.gallery;
 
+    const websiteUrlsJson = websiteUrls !== undefined
+      ? (typeof websiteUrls === 'string' ? websiteUrls : (websiteUrls ? JSON.stringify(websiteUrls) : null))
+      : existing.websiteUrls;
+
     const updated = await (prisma as any).hotel.update({
       where: { id },
       data: {
@@ -260,6 +273,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
         ...(description !== undefined ? { description: description?.trim() || null } : {}),
         ...(imageUrl !== undefined ? { imageUrl: imageUrl?.trim() || null } : {}),
         ...(gallery !== undefined ? { gallery: galleryJson } : {}),
+        ...(websiteUrls !== undefined ? { websiteUrls: websiteUrlsJson } : {}),
         ...(contactPhone !== undefined ? { contactPhone: contactPhone?.trim() || null } : {}),
         ...(contactEmail !== undefined ? { contactEmail: contactEmail?.trim() || null } : {}),
         ...(checkInTime !== undefined ? { checkInTime: checkInTime?.trim() || '12:00 PM' } : {}),
