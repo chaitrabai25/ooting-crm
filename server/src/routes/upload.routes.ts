@@ -1,34 +1,52 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
+import { processAndSaveImage } from '../services/image.service.js';
 
 const router = Router();
 router.use(authenticate);
 
-router.post('/image', upload.single('image'), (req: AuthRequest, res: Response): void => {
+router.post('/image', upload.single('image'), async (req: AuthRequest, res: Response): Promise<void> => {
   if (!req.file) {
     res.status(400).json({ message: 'No image file uploaded.' });
     return;
   }
 
-  const folderParam = (req.query?.folder as string) || (req.body?.folder as string) || '';
-  const isItinerary = req.originalUrl.includes('itinerary') || folderParam.includes('itinerar');
-  const isCompany = req.originalUrl.includes('company') || folderParam.includes('company');
-  const folder = isItinerary ? 'itineraries' : (isCompany ? 'company' : 'packages');
+  try {
+    const rawFolder = (req.query?.folder as string) || (req.body?.folder as string) || '';
+    let folder = 'packages';
+    if (rawFolder.includes('place')) {
+      folder = 'places';
+    } else if (rawFolder.includes('hotel')) {
+      folder = 'hotels';
+    } else if (rawFolder.includes('itinerar') || req.originalUrl.includes('itinerary')) {
+      folder = 'itineraries';
+    } else if (rawFolder.includes('company') || req.originalUrl.includes('company')) {
+      folder = 'company';
+    } else if (rawFolder) {
+      folder = rawFolder.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    }
 
-  let fileUrl = '';
-  if (req.file.filename) {
-    fileUrl = `/uploads/${folder}/${req.file.filename}`;
-  } else if ((req.file as any).buffer) {
-    fileUrl = `data:${req.file.mimetype};base64,${(req.file as any).buffer.toString('base64')}`;
+    const processed = await processAndSaveImage(req.file.buffer, req.file.originalname, {
+      folder,
+      maxDimension: 1600,
+      quality: 82,
+    });
+
+    res.json({
+      url: processed.url,
+      filename: processed.filename,
+      originalName: processed.originalName,
+      size: processed.size,
+      width: processed.width,
+      height: processed.height,
+      format: processed.format,
+      message: 'Image optimized and converted to WebP successfully.',
+    });
+  } catch (error: any) {
+    console.error('Image optimization failed:', error);
+    res.status(500).json({ message: 'Image upload failed. Please try again.' });
   }
-
-  res.json({
-    url: fileUrl,
-    filename: req.file.filename || req.file.originalname,
-    size: req.file.size,
-    mimetype: req.file.mimetype,
-  });
 });
 
 export default router;

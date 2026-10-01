@@ -24,6 +24,7 @@ import {
   Globe,
   Mail,
   Phone,
+  Copy,
 } from 'lucide-react';
 import { Modal } from '../ui/Modal.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
@@ -347,6 +348,30 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
     }));
     setDays(renumbered);
     setActiveDayIndex(targetIndex);
+  };
+
+  const handleCopyDay = (index: number) => {
+    const dayToCopy = days[index];
+    if (!dayToCopy) return;
+    const copiedDay: ItineraryDayPlan = {
+      ...dayToCopy,
+      dayNumber: index + 2,
+      title: dayToCopy.title.startsWith('Day ')
+        ? `Day ${index + 2}: ${dayToCopy.title.split(':').slice(1).join(':').trim()} (Copy)`
+        : `${dayToCopy.title} (Copy)`,
+      imageUrls: dayToCopy.imageUrls ? [...dayToCopy.imageUrls] : (dayToCopy.imageUrl ? [dayToCopy.imageUrl] : []),
+    };
+    const updated = [...days];
+    updated.splice(index + 1, 0, copiedDay);
+    const renumbered = updated.map((d, i) => ({
+      ...d,
+      dayNumber: i + 1,
+      title: d.title.startsWith('Day ')
+        ? `Day ${i + 1}: ${d.title.split(':').slice(1).join(':').trim()}`
+        : d.title,
+    }));
+    setDays(renumbered);
+    setActiveDayIndex(index + 1);
   };
 
   // Save to CRM Database as Package
@@ -780,6 +805,14 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           title="Move Day Down"
                         >
                           <ChevronDown className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyDay(activeDayIndex)}
+                          className="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 cursor-pointer"
+                          title="Copy / Duplicate Day"
+                        >
+                          <Copy className="w-4 h-4" />
                         </button>
                         <button
                           type="button"

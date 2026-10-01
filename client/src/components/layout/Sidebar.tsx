@@ -29,6 +29,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
+  MapPin,
+  Hotel,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
@@ -218,6 +220,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       title: 'Travel Products',
       items: [
         { type: 'link', name: 'Packages & Itinerary', path: '/packages', icon: Compass, module: 'packages' },
+      ],
+    },
+    {
+      title: 'Master Data',
+      items: [
+        { type: 'link', name: 'Places Master', path: '/places', icon: MapPin, module: 'packages' },
+        { type: 'link', name: 'Hotels Master', path: '/hotels', icon: Hotel, module: 'packages' },
       ],
     },
     {

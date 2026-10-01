@@ -86,8 +86,8 @@ const createUserSchema = z.object({
   permissions: z.string().optional().nullable(),
 });
 
-// Create new user (ADMIN or SUPER_ADMIN)
-router.post('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Create new user (Strictly SUPER_ADMIN)
+router.post('/', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = createUserSchema.parse(req.body);
 
@@ -149,8 +149,8 @@ const updateUserSchema = z.object({
   permissions: z.string().optional().nullable(),
 });
 
-// Update user (ADMIN or SUPER_ADMIN)
-router.put('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Update user (Strictly SUPER_ADMIN)
+router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const data = updateUserSchema.parse(req.body);
@@ -193,8 +193,8 @@ router.put('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response, n
   }
 });
 
-// Delete user safely with full protection safeguards (ADMIN or SUPER_ADMIN)
-router.delete('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Delete user safely with full protection safeguards (Strictly SUPER_ADMIN)
+router.delete('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
 

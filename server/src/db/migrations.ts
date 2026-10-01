@@ -121,6 +121,48 @@ export async function ensureColumns() {
         INDEX \`Place_name_idx\` (\`name\`),
         INDEX \`Place_isDeleted_idx\` (\`isDeleted\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+      `ALTER TABLE \`Place\` ADD COLUMN \`highlights\` TEXT NULL`,
+      `ALTER TABLE \`Place\` ADD COLUMN \`bestTime\` VARCHAR(100) NULL`,
+
+      // Hotel Master Library
+      `CREATE TABLE IF NOT EXISTS \`Hotel\` (
+        \`id\` VARCHAR(36) NOT NULL,
+        \`name\` VARCHAR(191) NOT NULL,
+        \`state\` VARCHAR(100) NOT NULL,
+        \`district\` VARCHAR(100) NOT NULL,
+        \`city\` VARCHAR(100) NULL,
+        \`starCategory\` VARCHAR(50) NULL DEFAULT '3 Star',
+        \`address\` TEXT NULL,
+        \`description\` TEXT NULL,
+        \`imageUrl\` TEXT NULL,
+        \`gallery\` TEXT NULL,
+        \`contactPhone\` VARCHAR(50) NULL,
+        \`contactEmail\` VARCHAR(191) NULL,
+        \`checkInTime\` VARCHAR(50) NULL DEFAULT '12:00 PM',
+        \`checkOutTime\` VARCHAR(50) NULL DEFAULT '11:00 AM',
+        \`amenities\` TEXT NULL,
+        \`createdById\` VARCHAR(36) NULL,
+        \`isDeleted\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`createdAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (\`id\`),
+        INDEX \`Hotel_state_idx\` (\`state\`),
+        INDEX \`Hotel_district_idx\` (\`district\`),
+        INDEX \`Hotel_city_idx\` (\`city\`),
+        INDEX \`Hotel_name_idx\` (\`name\`),
+        INDEX \`Hotel_starCategory_idx\` (\`starCategory\`),
+        INDEX \`Hotel_isDeleted_idx\` (\`isDeleted\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+      // ItineraryDay Hotel Integration
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelName\` VARCHAR(191) NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelStarCategory\` VARCHAR(50) NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelImageUrl\` TEXT NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelLocation\` VARCHAR(191) NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelDetails\` TEXT NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`mealPlan\` VARCHAR(100) NULL`,
     ];
 
     for (const sql of mysqlMigrations) {
@@ -187,6 +229,36 @@ export async function ensureColumns() {
       `ALTER TABLE "Supplier" ADD COLUMN "categoryDetails" TEXT`,
       `ALTER TABLE "AuditLog" ADD COLUMN "oldValue" TEXT`,
       `ALTER TABLE "AuditLog" ADD COLUMN "newValue" TEXT`,
+      `ALTER TABLE "Place" ADD COLUMN "highlights" TEXT`,
+      `ALTER TABLE "Place" ADD COLUMN "bestTime" TEXT`,
+      `CREATE TABLE IF NOT EXISTS "Hotel" (
+        "id" TEXT PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "state" TEXT NOT NULL,
+        "district" TEXT NOT NULL,
+        "city" TEXT,
+        "starCategory" TEXT DEFAULT '3 Star',
+        "address" TEXT,
+        "description" TEXT,
+        "imageUrl" TEXT,
+        "gallery" TEXT,
+        "contactPhone" TEXT,
+        "contactEmail" TEXT,
+        "checkInTime" TEXT DEFAULT '12:00 PM',
+        "checkOutTime" TEXT DEFAULT '11:00 AM',
+        "amenities" TEXT,
+        "createdById" TEXT,
+        "isDeleted" BOOLEAN DEFAULT 0,
+        "createdAt" DATETIME DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelId" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelName" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelStarCategory" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelImageUrl" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelLocation" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelDetails" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN "mealPlan" TEXT`,
     ];
     for (const sql of sqliteMigrations) {
       try {
@@ -239,6 +311,36 @@ export async function ensureColumns() {
       `ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "recordedById" TEXT`,
       `ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "oldValue" TEXT`,
       `ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "newValue" TEXT`,
+      `ALTER TABLE "Place" ADD COLUMN IF NOT EXISTS "highlights" TEXT`,
+      `ALTER TABLE "Place" ADD COLUMN IF NOT EXISTS "bestTime" VARCHAR(100)`,
+      `CREATE TABLE IF NOT EXISTS "Hotel" (
+        "id" VARCHAR(36) PRIMARY KEY,
+        "name" VARCHAR(191) NOT NULL,
+        "state" VARCHAR(100) NOT NULL,
+        "district" VARCHAR(100) NOT NULL,
+        "city" VARCHAR(100),
+        "starCategory" VARCHAR(50) DEFAULT '3 Star',
+        "address" TEXT,
+        "description" TEXT,
+        "imageUrl" TEXT,
+        "gallery" TEXT,
+        "contactPhone" VARCHAR(50),
+        "contactEmail" VARCHAR(191),
+        "checkInTime" VARCHAR(50) DEFAULT '12:00 PM',
+        "checkOutTime" VARCHAR(50) DEFAULT '11:00 AM',
+        "amenities" TEXT,
+        "createdById" VARCHAR(36),
+        "isDeleted" BOOLEAN DEFAULT FALSE,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelId" VARCHAR(36)`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelName" VARCHAR(191)`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelStarCategory" VARCHAR(50)`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelImageUrl" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelLocation" VARCHAR(191)`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelDetails" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "mealPlan" VARCHAR(100)`,
     ];
     for (const sql of pgMigrations) {
       try {

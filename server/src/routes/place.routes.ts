@@ -309,6 +309,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       category,
       description,
       famousReason,
+      highlights,
+      bestTime,
       suggestedDuration,
       distanceFromCenter,
       imageUrl,
@@ -360,6 +362,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         category: category?.trim() || 'Sightseeing',
         description: description?.trim() || famousReason?.trim() || '',
         famousReason: famousReason?.trim() || description?.trim() || '',
+        highlights: highlights?.trim() || null,
+        bestTime: bestTime?.trim() || null,
         suggestedDuration: suggestedDuration?.trim() || '2 Hours',
         distanceFromCenter: distanceFromCenter?.trim() || '',
         imageUrl: imageUrl?.trim() || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
@@ -373,6 +377,69 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     res.status(201).json({
       message: `Place "${cleanName}" permanently added to database.`,
       place,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/places/:id: Update place details
+router.put('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = String(req.params.id);
+    const {
+      name,
+      state,
+      district,
+      category,
+      description,
+      famousReason,
+      highlights,
+      bestTime,
+      suggestedDuration,
+      distanceFromCenter,
+      imageUrl,
+      gallery,
+      activities,
+      notes,
+    } = req.body;
+
+    const existing = await prisma.place.findFirst({
+      where: { id, isDeleted: false },
+    });
+
+    if (!existing) {
+      res.status(404).json({ message: 'Place not found.' });
+      return;
+    }
+
+    const galleryJson = gallery !== undefined
+      ? (typeof gallery === 'string' ? gallery : (gallery ? JSON.stringify(gallery) : null))
+      : existing.gallery;
+
+    const updated = await prisma.place.update({
+      where: { id },
+      data: {
+        ...(name ? { name: name.trim() } : {}),
+        ...(state ? { state: state.trim() } : {}),
+        ...(district ? { district: district.trim() } : {}),
+        ...(category !== undefined ? { category: category?.trim() || 'Sightseeing' } : {}),
+        ...(description !== undefined ? { description: description?.trim() || '' } : {}),
+        ...(famousReason !== undefined ? { famousReason: famousReason?.trim() || '' } : {}),
+        ...(highlights !== undefined ? { highlights: highlights?.trim() || null } : {}),
+        ...(bestTime !== undefined ? { bestTime: bestTime?.trim() || null } : {}),
+        ...(suggestedDuration !== undefined ? { suggestedDuration: suggestedDuration?.trim() || '2 Hours' } : {}),
+        ...(distanceFromCenter !== undefined ? { distanceFromCenter: distanceFromCenter?.trim() || '' } : {}),
+        ...(imageUrl !== undefined ? { imageUrl: imageUrl?.trim() || '' } : {}),
+        ...(gallery !== undefined ? { gallery: galleryJson } : {}),
+        ...(activities !== undefined ? { activities: activities?.trim() || '' } : {}),
+        ...(notes !== undefined ? { notes: notes?.trim() || '' } : {}),
+      },
+    });
+
+    res.json({
+      message: `Place "${updated.name}" updated successfully.`,
+      place: updated,
     });
   } catch (error) {
     next(error);

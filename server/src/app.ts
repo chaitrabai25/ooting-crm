@@ -46,6 +46,7 @@ import cabRoutes from './routes/cab.routes.js';
 import calendarRoutes from './routes/calendar.routes.js';
 import supplierRoutes from './routes/supplier.routes.js';
 import placeRoutes from './routes/place.routes.js';
+import hotelRoutes from './routes/hotel.routes.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -126,6 +127,7 @@ app.use('/api/cabs', cabRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/places', placeRoutes);
+app.use('/api/hotels', hotelRoutes);
 
 // Serve compiled client frontend if available (Production Full-Stack Mode)
 const clientDistPath = path.resolve(__dirname, '../../client/dist');

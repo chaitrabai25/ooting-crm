@@ -29,6 +29,9 @@ const PackageList = lazy(() => import('./pages/packages/PackageList.js').then(m 
 const PackageDetail = lazy(() => import('./pages/packages/PackageDetail.js').then(m => ({ default: m.PackageDetail })));
 const ItineraryPdfView = lazy(() => import('./pages/packages/ItineraryPdfView.js').then(m => ({ default: m.ItineraryPdfView })));
 
+const PlaceList = lazy(() => import('./pages/places/PlaceList.js').then(m => ({ default: m.PlaceList })));
+const HotelList = lazy(() => import('./pages/hotels/HotelList.js').then(m => ({ default: m.HotelList })));
+
 const QuotationList = lazy(() => import('./pages/quotations/QuotationList.js').then(m => ({ default: m.QuotationList })));
 const QuotationBuilder = lazy(() => import('./pages/quotations/QuotationBuilder.js').then(m => ({ default: m.QuotationBuilder })));
 const QuotationView = lazy(() => import('./pages/quotations/QuotationView.js').then(m => ({ default: m.QuotationView })));
@@ -94,6 +97,10 @@ export const App: React.FC = () => {
                     <Route path="/packages" element={<PackageList />} />
                     <Route path="/packages/:id" element={<PackageDetail />} />
                     <Route path="/packages/:id/itinerary-pdf" element={<ItineraryPdfView />} />
+
+                    {/* Master Data */}
+                    <Route path="/places" element={<PlaceList />} />
+                    <Route path="/hotels" element={<HotelList />} />
 
                     {/* Quotations */}
                     <Route path="/quotations" element={<QuotationList />} />

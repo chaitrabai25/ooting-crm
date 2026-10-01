@@ -281,6 +281,13 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
         date: d.date ? String(d.date).trim() : null,
         highlights: d.highlights ? String(d.highlights).trim() : null,
         travelDetails: d.travelDetails ? String(d.travelDetails).trim() : null,
+        hotelId: d.hotelId ? String(d.hotelId).trim() : null,
+        hotelName: d.hotelName ? String(d.hotelName).trim() : null,
+        hotelStarCategory: d.hotelStarCategory ? String(d.hotelStarCategory).trim() : null,
+        hotelImageUrl: d.hotelImageUrl ? String(d.hotelImageUrl).trim() : null,
+        hotelLocation: d.hotelLocation ? String(d.hotelLocation).trim() : null,
+        hotelDetails: d.hotelDetails ? String(d.hotelDetails).trim() : null,
+        mealPlan: d.mealPlan ? String(d.mealPlan).trim() : null,
         imageUrl: d.imageUrl ? String(d.imageUrl).trim() : null,
         images: imagesStr,
         startTime: d.startTime ? String(d.startTime).trim() : null,
@@ -360,6 +367,13 @@ router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next
       date: day.date ? String(day.date).trim() : null,
       highlights: day.highlights ? String(day.highlights).trim() : null,
       travelDetails: day.travelDetails ? String(day.travelDetails).trim() : null,
+      hotelId: day.hotelId ? String(day.hotelId).trim() : null,
+      hotelName: day.hotelName ? String(day.hotelName).trim() : null,
+      hotelStarCategory: day.hotelStarCategory ? String(day.hotelStarCategory).trim() : null,
+      hotelImageUrl: day.hotelImageUrl ? String(day.hotelImageUrl).trim() : null,
+      hotelLocation: day.hotelLocation ? String(day.hotelLocation).trim() : null,
+      hotelDetails: day.hotelDetails ? String(day.hotelDetails).trim() : null,
+      mealPlan: day.mealPlan ? String(day.mealPlan).trim() : null,
       imageUrl: day.imageUrl ? String(day.imageUrl).trim() : null,
       images: imagesStr,
       startTime: day.startTime ? String(day.startTime).trim() : null,
@@ -415,6 +429,187 @@ router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next
   } catch (error: any) {
     console.error('Failed to save itinerary day:', error?.stack || error);
     res.status(500).json({ message: error?.message || 'Failed to save itinerary day changes.' });
+  }
+});
+
+// Reorder Itinerary Days (atomic single transaction, preserves all day content)
+router.post('/:id/itineraries/reorder', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = String(req.params.id);
+    const { orderedDays, orderedDayIds } = req.body;
+
+    const targetPackage = await prisma.package.findUnique({
+      where: { id },
+      include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
+    });
+
+    if (!targetPackage) {
+      res.status(404).json({ message: 'Travel package not found.' });
+      return;
+    }
+
+    const updates: Array<{ id: string; dayNumber: number; date?: string | null }> = [];
+    if (Array.isArray(orderedDays) && orderedDays.length > 0) {
+      orderedDays.forEach((d: any, idx: number) => {
+        if (d && d.id) {
+          updates.push({
+            id: String(d.id),
+            dayNumber: idx + 1,
+            date: d.date !== undefined ? d.date : undefined,
+          });
+        }
+      });
+    } else if (Array.isArray(orderedDayIds) && orderedDayIds.length > 0) {
+      orderedDayIds.forEach((dayId: any, idx: number) => {
+        if (dayId) {
+          updates.push({
+            id: String(dayId),
+            dayNumber: idx + 1,
+          });
+        }
+      });
+    }
+
+    if (updates.length === 0) {
+      res.status(400).json({ message: 'No valid day ordering payload provided.' });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const item of updates) {
+        const data: any = { dayNumber: item.dayNumber };
+        if (item.date !== undefined) data.date = item.date;
+        await tx.itineraryDay.update({
+          where: { id: item.id },
+          data,
+        });
+      }
+    }, {
+      timeout: 30000,
+      maxWait: 10000,
+    });
+
+    const updatedPackage = await prisma.package.findUnique({
+      where: { id },
+      include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
+    });
+
+    if (req.user?.id) {
+      await logAudit({
+        userId: req.user.id,
+        userName: req.user.name,
+        action: 'UPDATE',
+        entity: 'PACKAGE',
+        entityId: id,
+        details: `Reordered itinerary schedule (${updates.length} days) for package "${targetPackage.packageName}"`,
+        ipAddress: req.ip,
+      });
+    }
+
+    res.json(updatedPackage);
+  } catch (error: any) {
+    console.error('Failed to reorder itineraries:', error);
+    res.status(500).json({ message: error?.message || 'Failed to reorder itinerary days.' });
+  }
+});
+
+// Copy / Duplicate Day (creates duplicate with independent database primary key ID)
+router.post('/:id/itineraries/day/:dayId/copy', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = String(req.params.id);
+    const dayId = String(req.params.dayId);
+
+    const targetPackage = await prisma.package.findUnique({
+      where: { id },
+      include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
+    });
+
+    if (!targetPackage) {
+      res.status(404).json({ message: 'Travel package not found.' });
+      return;
+    }
+
+    const dayToCopy = targetPackage.itineraries.find(
+      (d) => d.id === dayId || String(d.dayNumber) === dayId
+    );
+
+    if (!dayToCopy) {
+      res.status(404).json({ message: 'Itinerary day to copy not found.' });
+      return;
+    }
+
+    const nextDayNumber = targetPackage.itineraries.length + 1;
+
+    // Automatic sequential date calculation if original has date
+    let calculatedDate: string | null = null;
+    if (dayToCopy.date) {
+      try {
+        const parsed = new Date(dayToCopy.date);
+        if (!isNaN(parsed.getTime())) {
+          parsed.setDate(parsed.getDate() + 1);
+          calculatedDate = parsed.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          });
+        }
+      } catch {
+        calculatedDate = null;
+      }
+    }
+
+    const cleanTitle = dayToCopy.title.replace(/^Day\s*\d+:\s*/i, '');
+    const newDay = await prisma.itineraryDay.create({
+      data: {
+        packageId: id,
+        dayNumber: nextDayNumber,
+        title: `Day ${nextDayNumber}: ${cleanTitle}`,
+        description: dayToCopy.description,
+        places: dayToCopy.places,
+        activities: dayToCopy.activities,
+        highlights: dayToCopy.highlights,
+        travelDetails: dayToCopy.travelDetails,
+        startTime: dayToCopy.startTime,
+        endTime: dayToCopy.endTime,
+        imageUrl: dayToCopy.imageUrl,
+        images: dayToCopy.images,
+        hotelId: (dayToCopy as any).hotelId || null,
+        hotelName: (dayToCopy as any).hotelName || null,
+        hotelStarCategory: (dayToCopy as any).hotelStarCategory || null,
+        hotelImageUrl: (dayToCopy as any).hotelImageUrl || null,
+        hotelLocation: (dayToCopy as any).hotelLocation || null,
+        hotelDetails: (dayToCopy as any).hotelDetails || null,
+        mealPlan: (dayToCopy as any).mealPlan || null,
+        date: calculatedDate || dayToCopy.date,
+      },
+    });
+
+    const updatedPackage = await prisma.package.findUnique({
+      where: { id },
+      include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
+    });
+
+    if (req.user?.id) {
+      await logAudit({
+        userId: req.user.id,
+        userName: req.user.name,
+        action: 'CREATE',
+        entity: 'PACKAGE',
+        entityId: id,
+        details: `Duplicated Day ${dayToCopy.dayNumber} into new Day ${nextDayNumber} for package "${targetPackage.packageName}"`,
+        ipAddress: req.ip,
+      });
+    }
+
+    res.status(201).json({
+      message: `Day ${dayToCopy.dayNumber} copied to Day ${nextDayNumber} successfully.`,
+      newDay,
+      package: updatedPackage,
+      itineraries: updatedPackage?.itineraries,
+    });
+  } catch (error: any) {
+    console.error('Failed to copy itinerary day:', error);
+    res.status(500).json({ message: error?.message || 'Failed to copy itinerary day.' });
   }
 });
 
@@ -762,33 +957,69 @@ router.post('/ai-suggest', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Get Custom Saved Places
+// Get Custom / Master Saved Places
 router.get('/destinations/places', async (req: AuthRequest, res: Response, next) => {
   try {
     const state = (req.query.state as string || '').trim();
     const district = (req.query.district as string || '').trim();
 
+    const where: any = { isDeleted: false };
+    if (state) where.state = { equals: state };
+    if (district) where.district = { equals: district };
+
+    const dbPlaces = await prisma.place.findMany({
+      where,
+      orderBy: { name: 'asc' },
+    });
+
     const setting = await prisma.companySetting.findUnique({
       where: { key: 'custom_destination_places' },
     });
 
-    let places: any[] = [];
+    let legacyPlaces: any[] = [];
     if (setting?.value) {
       try {
-        places = JSON.parse(setting.value);
+        legacyPlaces = JSON.parse(setting.value);
       } catch {}
     }
 
-    if (state) places = places.filter(p => p.state?.toLowerCase() === state.toLowerCase());
-    if (district) places = places.filter(p => p.district?.toLowerCase() === district.toLowerCase());
+    if (state) legacyPlaces = legacyPlaces.filter(p => p.state?.toLowerCase() === state.toLowerCase());
+    if (district) legacyPlaces = legacyPlaces.filter(p => p.district?.toLowerCase() === district.toLowerCase());
 
-    res.json({ places });
+    const map = new Map<string, any>();
+    dbPlaces.forEach((p) => {
+      map.set(p.name.toLowerCase(), {
+        id: p.id,
+        name: p.name,
+        state: p.state,
+        district: p.district,
+        category: p.category,
+        famousReason: p.description || p.famousReason || '',
+        suggestedDuration: p.suggestedDuration || '2 Hours',
+        distanceFromCenter: p.distanceFromCenter || '',
+        imageUrl: p.imageUrl,
+        views: [
+          { label: 'Front View', url: p.imageUrl || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80' },
+          { label: 'Side View', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop&q=80' },
+        ],
+        activities: p.activities ? p.activities.split(',').map((a) => a.trim()).filter(Boolean) : ['Sightseeing', 'Photography'],
+        notes: p.notes,
+      });
+    });
+
+    legacyPlaces.forEach((p) => {
+      if (!map.has(p.name.toLowerCase())) {
+        map.set(p.name.toLowerCase(), p);
+      }
+    });
+
+    res.json({ places: Array.from(map.values()) });
   } catch (error) {
     next(error);
   }
 });
 
-// Save Custom Place to DB for future reuse
+// Save Custom Place to DB (both Place table and company setting for backward compatibility)
 router.post('/destinations/places', async (req: AuthRequest, res: Response, next) => {
   try {
     const { name, state, district, description, imageUrl, views, category, suggestedDuration, distanceFromCenter, activities, notes } = req.body;
@@ -798,57 +1029,52 @@ router.post('/destinations/places', async (req: AuthRequest, res: Response, next
       return;
     }
 
-    const newPlace = {
-      id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      name: name.trim(),
-      state: (state || 'Tamil Nadu').trim(),
-      district: (district || 'The Nilgiris (Ooty)').trim(),
-      category: category || 'Sightseeing',
-      famousReason: description?.trim() || `${name.trim()} - curated sightseeing attraction.`,
-      suggestedDuration: suggestedDuration || '2 Hours',
-      distanceFromCenter: distanceFromCenter || 'Nearby',
-      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
-      views: views || [
-        { label: 'Front View', url: imageUrl || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80' },
-        { label: 'Side View', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop&q=80' },
-        { label: 'Wide View', url: 'https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?w=800&auto=format&fit=crop&q=80' },
-        { label: 'Top View', url: 'https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=800&auto=format&fit=crop&q=80' },
-      ],
-      activities: Array.isArray(activities)
-        ? activities
-        : typeof activities === 'string'
-        ? activities.split(',').map((a: string) => a.trim()).filter(Boolean)
-        : ['Sightseeing', 'Photography'],
-      notes: notes || null,
-      createdAt: new Date().toISOString(),
-    };
+    const cleanName = name.trim();
+    const cleanState = (state || 'Tamil Nadu').trim();
+    const cleanDistrict = (district || 'The Nilgiris (Ooty)').trim();
 
-    const setting = await prisma.companySetting.findUnique({
-      where: { key: 'custom_destination_places' },
+    // Check duplicate in DB
+    let place = await prisma.place.findFirst({
+      where: { name: cleanName, district: cleanDistrict, state: cleanState, isDeleted: false },
     });
 
-    let currentList: any[] = [];
-    if (setting?.value) {
-      try {
-        currentList = JSON.parse(setting.value);
-      } catch {}
-    }
-
-    // Avoid duplicate names in same district
-    const exists = currentList.find(
-      p => p.name.toLowerCase() === newPlace.name.toLowerCase() && p.district.toLowerCase() === newPlace.district.toLowerCase()
-    );
-
-    if (!exists) {
-      currentList.unshift(newPlace);
-      await prisma.companySetting.upsert({
-        where: { key: 'custom_destination_places' },
-        update: { value: JSON.stringify(currentList) },
-        create: { key: 'custom_destination_places', value: JSON.stringify(currentList) },
+    if (!place) {
+      place = await prisma.place.create({
+        data: {
+          name: cleanName,
+          state: cleanState,
+          district: cleanDistrict,
+          category: category || 'Sightseeing',
+          description: description?.trim() || `${cleanName} - sightseeing destination in ${cleanDistrict}.`,
+          famousReason: description?.trim() || `${cleanName} - curated destination.`,
+          suggestedDuration: suggestedDuration || '2 Hours',
+          distanceFromCenter: distanceFromCenter || 'Nearby',
+          imageUrl: imageUrl || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
+          activities: Array.isArray(activities) ? activities.join(', ') : (activities || 'Sightseeing, Photography'),
+          notes: notes || null,
+          createdById: req.user?.id || null,
+        },
       });
     }
 
-    res.status(201).json({ place: newPlace, message: 'Custom place saved successfully.' });
+    res.status(201).json({
+      place: {
+        id: place.id,
+        name: place.name,
+        state: place.state,
+        district: place.district,
+        category: place.category,
+        famousReason: place.description || place.famousReason,
+        suggestedDuration: place.suggestedDuration,
+        distanceFromCenter: place.distanceFromCenter,
+        imageUrl: place.imageUrl,
+        views: views || [
+          { label: 'Front View', url: place.imageUrl },
+        ],
+        activities: place.activities ? place.activities.split(',').map((a) => a.trim()).filter(Boolean) : ['Sightseeing', 'Photography'],
+      },
+      message: 'Custom place saved successfully.',
+    });
   } catch (error) {
     next(error);
   }

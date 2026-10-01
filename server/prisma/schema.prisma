@@ -223,6 +223,13 @@ model ItineraryDay {
   date        String?  @db.VarChar(50)
   highlights  String?  @db.Text
   travelDetails String? @db.Text
+  hotelId     String?  @db.VarChar(36)
+  hotelName   String?  @db.VarChar(191)
+  hotelStarCategory String? @db.VarChar(50)
+  hotelImageUrl String? @db.Text
+  hotelLocation String? @db.VarChar(191)
+  hotelDetails String? @db.Text
+  mealPlan    String?  @db.VarChar(100)
   imageUrl    String?  @db.LongText
   images      String?  @db.LongText
   createdAt   DateTime @default(now())
@@ -684,6 +691,8 @@ model Place {
   category           String?   @default("Sightseeing") @db.VarChar(50)
   description        String?   @db.Text
   famousReason       String?   @db.Text
+  highlights         String?   @db.Text
+  bestTime           String?   @db.VarChar(100)
   suggestedDuration  String?   @db.VarChar(100)
   distanceFromCenter String?   @db.VarChar(100)
   imageUrl           String?   @db.Text
@@ -700,3 +709,36 @@ model Place {
   @@index([name])
   @@index([isDeleted])
 }
+
+// ------------------------------------------------------------------------------
+// 20. Hotels & Accommodations Master Library
+// ------------------------------------------------------------------------------
+model Hotel {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  name               String    @db.VarChar(191)
+  state              String    @db.VarChar(100)
+  district           String    @db.VarChar(100)
+  city               String?   @db.VarChar(100)
+  starCategory       String?   @default("3 Star") @db.VarChar(50)
+  address            String?   @db.Text
+  description        String?   @db.Text
+  imageUrl           String?   @db.Text
+  gallery            String?   @db.Text
+  contactPhone       String?   @db.VarChar(50)
+  contactEmail       String?   @db.VarChar(191)
+  checkInTime        String?   @default("12:00 PM") @db.VarChar(50)
+  checkOutTime       String?   @default("11:00 AM") @db.VarChar(50)
+  amenities          String?   @db.Text
+  createdById        String?   @db.VarChar(36)
+  isDeleted          Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([state])
+  @@index([district])
+  @@index([city])
+  @@index([name])
+  @@index([starCategory])
+  @@index([isDeleted])
+}
+

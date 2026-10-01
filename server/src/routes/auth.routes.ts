@@ -47,7 +47,7 @@ async function findUserByIdentifier(identifier: string) {
   });
 }
 
-// Step 1: Validate Credentials (Email or Phone) & Issue 2FA OTP
+// Step 1: Direct Secure Authentication (Email or Phone + Password -> Session)
 router.post('/login', async (req, res, next) => {
   try {
     const rawIdentifier = req.body.identifier || req.body.email || '';
@@ -64,7 +64,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     if (user.status !== 'ACTIVE') {
-      res.status(403).json({ message: 'Your account is deactivated. Please contact an administrator.' });
+      res.status(403).json({ message: 'Your account is deactivated. Please contact your administrator.' });
       return;
     }
 
@@ -74,33 +74,46 @@ router.post('/login', async (req, res, next) => {
       return;
     }
 
-    // Generate cryptographically secure 6-digit OTP
-    const rawOtp = crypto.randomInt(100000, 999999).toString();
-    const otpHash = await bcrypt.hash(rawOtp, 10);
-    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    await prisma.user.update({
+    // Direct Login Success: Update lastLoginAt and clear any legacy OTP state
+    const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        otpHash,
-        otpExpiresAt,
+        lastLoginAt: new Date(),
+        otpHash: null,
+        otpExpiresAt: null,
         otpAttempts: 0,
-        lastOtpRequestedAt: new Date(),
       },
     });
 
-    // Dispatch via real delivery service (SMTP email / Twilio SMS)
-    const delivery = await sendOtpNotification(user, rawOtp);
-    const isDeliveryConfigured = delivery.channel === 'EMAIL' || delivery.channel === 'SMS';
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiresIn as any }
+    );
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'LOGIN',
+      entity: 'USER',
+      entityId: user.id,
+      details: `User signed in successfully from IP ${req.ip}`,
+      ipAddress: req.ip,
+    });
 
     res.json({
-      otpRequired: true,
-      email: user.email,
-      phone: user.phone ? user.phone.replace(/.(?=.{4})/g, '*') : null,
-      message: isDeliveryConfigured
-        ? `A 6-digit verification code has been dispatched to ${user.email}.`
-        : `Verification code generated: ${rawOtp}. (Configure SMTP in .env/Vercel to receive in Gmail)`,
-      devOtp: !isDeliveryConfigured ? rawOtp : undefined,
+      token,
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        status: updatedUser.status,
+        permissions: updatedUser.permissions,
+        lastLoginAt: updatedUser.lastLoginAt,
+      },
+      company: await getCompanySettings(),
     });
   } catch (error) {
     next(error);

@@ -139,10 +139,21 @@ export interface ItineraryDay {
   description: string;
   activities?: string | null;
   places?: string | null;
+  date?: string | null;
+  highlights?: string | null;
+  bestTime?: string | null;
+  travelDetails?: string | null;
   startTime?: string | null;
   endTime?: string | null;
   imageUrl?: string | null;
   images?: string | null;
+  hotelId?: string | null;
+  hotelName?: string | null;
+  hotelStarCategory?: string | null;
+  hotelImageUrl?: string | null;
+  hotelLocation?: string | null;
+  hotelDetails?: string | null;
+  mealPlan?: string | null;
 }
 
 export interface Package {
@@ -469,4 +480,47 @@ export interface CompanySettings {
   branch?: string;
   upiId?: string;
   paymentNotes?: string;
+}
+
+export interface Place {
+  id: string;
+  name: string;
+  state: string;
+  district: string;
+  category?: string | null;
+  description?: string | null;
+  famousReason?: string | null;
+  highlights?: string | null;
+  bestTime?: string | null;
+  suggestedDuration?: string | null;
+  distanceFromCenter?: string | null;
+  imageUrl?: string | null;
+  gallery?: string | null;
+  activities?: string | null;
+  notes?: string | null;
+  createdById?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  isCurated?: boolean;
+}
+
+export interface Hotel {
+  id: string;
+  name: string;
+  state: string;
+  district: string;
+  city?: string | null;
+  starCategory?: string | null;
+  address?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  gallery?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  amenities?: string | null;
+  createdById?: string | null;
+  createdAt: string;
+  updatedAt?: string;
 }

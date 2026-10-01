@@ -21,12 +21,22 @@ import {
   Star,
   Info,
   Upload,
+  Copy,
+  GripVertical,
+  Building,
+  Sparkles,
+  Utensils,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
-import { ItineraryDay } from '../../types/index.js';
+import { ItineraryDay, Place, Hotel } from '../../types/index.js';
+import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
+import { PlaceModal } from '../places/PlaceModal.js';
+import { HotelModal } from '../hotels/HotelModal.js';
 import { useAuth } from '../../context/AuthContext.js';
 
 export const PackageDetail: React.FC = () => {
@@ -67,6 +77,32 @@ export const PackageDetail: React.FC = () => {
   const [dayImages, setDayImages] = useState<DayImageItem[]>([]);
   const [newImageUrlInput, setNewImageUrlInput] = useState('');
 
+  // Day Hotel & Accommodation State
+  const [dayHotelId, setDayHotelId] = useState('');
+  const [dayHotelName, setDayHotelName] = useState('');
+  const [dayHotelStarCategory, setDayHotelStarCategory] = useState('');
+  const [dayHotelImageUrl, setDayHotelImageUrl] = useState('');
+  const [dayHotelLocation, setDayHotelLocation] = useState('');
+  const [dayHotelDetails, setDayHotelDetails] = useState('');
+  const [dayMealPlan, setDayMealPlan] = useState('Breakfast & Dinner (MAP)');
+
+  // Master Data Selection inside Day Modal
+  const [daySelectedState, setDaySelectedState] = useState('Tamil Nadu');
+  const [daySelectedDistrict, setDaySelectedDistrict] = useState('The Nilgiris (Ooty)');
+  const [dayAvailableDistricts, setDayAvailableDistricts] = useState<string[]>([]);
+  const [masterPlaces, setMasterPlaces] = useState<Place[]>([]);
+  const [masterHotels, setMasterHotels] = useState<Hotel[]>([]);
+  const [selectedPlaceChips, setSelectedPlaceChips] = useState<string[]>([]);
+  const [isLoadingMasterData, setIsLoadingMasterData] = useState(false);
+
+  // Quick Modals from within day editor
+  const [isQuickPlaceOpen, setIsQuickPlaceOpen] = useState(false);
+  const [isQuickHotelOpen, setIsQuickHotelOpen] = useState(false);
+
+  // Drag and drop state for day reordering
+  const [draggedDayIndex, setDraggedDayIndex] = useState<number | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
+
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 4000);
@@ -103,12 +139,171 @@ export const PackageDetail: React.FC = () => {
     if (id) fetchPackage();
   }, [id]);
 
+  // Sync available districts for day modal
+  useEffect(() => {
+    const found = INDIA_STATES_AND_DISTRICTS.find((s) => s.state === daySelectedState);
+    if (found) {
+      setDayAvailableDistricts(found.districts);
+      if (!found.districts.includes(daySelectedDistrict)) {
+        setDaySelectedDistrict(found.districts[0] || '');
+      }
+    } else {
+      setDayAvailableDistricts([]);
+    }
+  }, [daySelectedState]);
+
+  // Load master places and hotels for selected district
+  const loadMasterDataForDay = async (stateName: string, districtName: string) => {
+    setIsLoadingMasterData(true);
+    try {
+      const [placesRes, hotelsRes] = await Promise.all([
+        api.get(`/places?state=${encodeURIComponent(stateName)}&district=${encodeURIComponent(districtName)}`),
+        api.get(`/hotels?state=${encodeURIComponent(stateName)}&district=${encodeURIComponent(districtName)}`),
+      ]);
+      setMasterPlaces(placesRes.data?.places || []);
+      setMasterHotels(hotelsRes.data?.hotels || []);
+    } catch (err) {
+      console.error('Failed to load places/hotels master data:', err);
+    } finally {
+      setIsLoadingMasterData(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isDayModalOpen && daySelectedState && daySelectedDistrict) {
+      loadMasterDataForDay(daySelectedState, daySelectedDistrict);
+    }
+  }, [isDayModalOpen, daySelectedState, daySelectedDistrict]);
+
+  // Recalculate day numbers and sequential dates based on starting date
+  const recalculateDays = (daysList: ItineraryDay[]): ItineraryDay[] => {
+    let baseDate: Date | null = null;
+    const firstDateStr = daysList[0]?.date;
+    if (firstDateStr) {
+      const parsed = new Date(firstDateStr);
+      if (!isNaN(parsed.getTime())) {
+        baseDate = parsed;
+      }
+    }
+
+    return daysList.map((day, idx) => {
+      let calculatedDate = day.date;
+      if (baseDate) {
+        const curDate = new Date(baseDate);
+        curDate.setDate(baseDate.getDate() + idx);
+        calculatedDate = curDate.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
+      }
+
+      const cleanTitle = day.title.replace(/^Day\s*\d+:\s*/i, '');
+      return {
+        ...day,
+        dayNumber: idx + 1,
+        title: `Day ${idx + 1}: ${cleanTitle}`,
+        date: calculatedDate,
+      };
+    });
+  };
+
+  // Move Day Up / Down with sequential date recalculation
+  const handleMoveDay = async (fromIdx: number, direction: 'up' | 'down') => {
+    const targetIdx = direction === 'up' ? fromIdx - 1 : fromIdx + 1;
+    if (targetIdx < 0 || targetIdx >= itineraries.length) return;
+
+    const reordered = [...itineraries];
+    const temp = reordered[fromIdx];
+    reordered[fromIdx] = reordered[targetIdx];
+    reordered[targetIdx] = temp;
+
+    const sequential = recalculateDays(reordered);
+    setItineraries(sequential);
+    setIsReordering(true);
+
+    try {
+      await api.post(`/packages/${id}/itineraries/reorder`, {
+        orderedDays: sequential.map((d) => ({ id: d.id, date: d.date })),
+      });
+      showToast('Itinerary day schedule reordered successfully.');
+    } catch (err: any) {
+      console.error('Failed to reorder days:', err);
+      showToast(err.response?.data?.message || 'Failed to save reordered schedule.', 'error');
+      fetchPackage();
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedDayIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedDayIndex === null || draggedDayIndex === targetIndex) {
+      setDraggedDayIndex(null);
+      return;
+    }
+
+    const reordered = [...itineraries];
+    const [movedDay] = reordered.splice(draggedDayIndex, 1);
+    reordered.splice(targetIndex, 0, movedDay);
+
+    const sequential = recalculateDays(reordered);
+    setItineraries(sequential);
+    setDraggedDayIndex(null);
+    setIsReordering(true);
+
+    try {
+      await api.post(`/packages/${id}/itineraries/reorder`, {
+        orderedDays: sequential.map((d) => ({ id: d.id, date: d.date })),
+      });
+      showToast('Itinerary day schedule reordered successfully.');
+    } catch (err: any) {
+      console.error('Failed to reorder days:', err);
+      showToast('Failed to save reordered schedule.', 'error');
+      fetchPackage();
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
+  // Copy / Duplicate Day
+  const handleCopyDay = async (index: number) => {
+    const targetDay = itineraries[index];
+    if (!targetDay) return;
+
+    try {
+      const res = await api.post(`/packages/${id}/itineraries/day/${targetDay.id || targetDay.dayNumber}/copy`);
+      if (res.data?.itineraries) {
+        setItineraries(res.data.itineraries);
+        setPkg((prev: any) => prev ? { ...prev, itineraries: res.data.itineraries } : prev);
+      } else {
+        await fetchPackage();
+      }
+      showToast(`Day ${targetDay.dayNumber} copied to new day successfully!`);
+    } catch (err: any) {
+      console.error('Failed to copy day:', err);
+      showToast(err.response?.data?.message || 'Failed to copy day.', 'error');
+    }
+  };
+
   const openAddDay = () => {
     setDayIndex(null);
     setDayNumber(itineraries.length + 1);
     setDayTitle(`Day ${itineraries.length + 1}: `);
     setDayDescription('');
     setDayPlaces('');
+    setSelectedPlaceChips([]);
     setDayActivities('');
     setDayDate('');
     setDayHighlights('');
@@ -118,6 +313,37 @@ export const PackageDetail: React.FC = () => {
     setDayImageUrl('');
     setDayImages([]);
     setNewImageUrlInput('');
+
+    // Reset hotel
+    setDayHotelId('');
+    setDayHotelName('');
+    setDayHotelStarCategory('');
+    setDayHotelImageUrl('');
+    setDayHotelLocation('');
+    setDayHotelDetails('');
+    setDayMealPlan('Breakfast & Dinner (MAP)');
+
+    // Attempt auto-match state and district from package destination
+    if (pkg?.destination) {
+      const destLower = pkg.destination.toLowerCase();
+      let matchedState = 'Tamil Nadu';
+      let matchedDistrict = 'The Nilgiris (Ooty)';
+      for (const s of INDIA_STATES_AND_DISTRICTS) {
+        if (destLower.includes(s.state.toLowerCase())) {
+          matchedState = s.state;
+        }
+        for (const d of s.districts) {
+          if (destLower.includes(d.toLowerCase())) {
+            matchedState = s.state;
+            matchedDistrict = d;
+            break;
+          }
+        }
+      }
+      setDaySelectedState(matchedState);
+      setDaySelectedDistrict(matchedDistrict);
+    }
+
     setIsDayModalOpen(true);
   };
 
@@ -136,6 +362,23 @@ export const PackageDetail: React.FC = () => {
     setDayEndTime(item.endTime || '');
     setDayImageUrl(item.imageUrl || '');
     setNewImageUrlInput('');
+
+    // Populate chips
+    if (item.places) {
+      const chips = item.places.split(',').map((p: string) => p.trim()).filter(Boolean);
+      setSelectedPlaceChips(chips);
+    } else {
+      setSelectedPlaceChips([]);
+    }
+
+    // Populate hotel
+    setDayHotelId(item.hotelId || '');
+    setDayHotelName(item.hotelName || '');
+    setDayHotelStarCategory(item.hotelStarCategory || '');
+    setDayHotelImageUrl(item.hotelImageUrl || '');
+    setDayHotelLocation(item.hotelLocation || '');
+    setDayHotelDetails(item.hotelDetails || '');
+    setDayMealPlan(item.mealPlan || 'Breakfast & Dinner (MAP)');
 
     let parsedImages: DayImageItem[] = [];
     if (item.images) {
@@ -164,6 +407,77 @@ export const PackageDetail: React.FC = () => {
     setDayImages(parsedImages);
     setIsDayModalOpen(true);
   };
+
+  // 1-Click Select Place from Master Library
+  const handleSelectMasterPlace = (place: Place) => {
+    if (!selectedPlaceChips.includes(place.name)) {
+      const updated = [...selectedPlaceChips, place.name];
+      setSelectedPlaceChips(updated);
+      setDayPlaces(updated.join(', '));
+    }
+
+    if (!dayDescription.trim() && (place.description || place.famousReason)) {
+      setDayDescription(place.description || place.famousReason || '');
+    }
+
+    if (place.highlights) {
+      const curH = dayHighlights ? dayHighlights.split(',').map((h) => h.trim()) : [];
+      if (!curH.includes(place.highlights)) {
+        setDayHighlights(dayHighlights ? `${dayHighlights}, ${place.highlights}` : place.highlights);
+      }
+    }
+
+    if (place.activities) {
+      const curA = dayActivities ? dayActivities.split(',').map((a) => a.trim()) : [];
+      place.activities.split(',').forEach((act) => {
+        const a = act.trim();
+        if (a && !curA.includes(a)) curA.push(a);
+      });
+      setDayActivities(curA.join(', '));
+    }
+
+    if (place.imageUrl && !dayImages.some((img) => img.url === place.imageUrl)) {
+      setDayImages((prev) => [...prev, { url: place.imageUrl!, label: place.name }]);
+      if (!dayImageUrl) setDayImageUrl(place.imageUrl);
+    }
+  };
+
+  const handleRemovePlaceChip = (placeName: string) => {
+    const updated = selectedPlaceChips.filter((p) => p !== placeName);
+    setSelectedPlaceChips(updated);
+    setDayPlaces(updated.join(', '));
+  };
+
+  const handleMovePlaceChip = (chipIdx: number, direction: 'up' | 'down') => {
+    const targetIdx = direction === 'up' ? chipIdx - 1 : chipIdx + 1;
+    if (targetIdx < 0 || targetIdx >= selectedPlaceChips.length) return;
+    const copy = [...selectedPlaceChips];
+    const temp = copy[chipIdx];
+    copy[chipIdx] = copy[targetIdx];
+    copy[targetIdx] = temp;
+    setSelectedPlaceChips(copy);
+    setDayPlaces(copy.join(', '));
+  };
+
+  // 1-Click Select Hotel from Master Library
+  const handleSelectMasterHotel = (hotel: Hotel) => {
+    setDayHotelId(hotel.id);
+    setDayHotelName(hotel.name);
+    setDayHotelStarCategory(hotel.starCategory || '3 Star Comfort');
+    setDayHotelImageUrl(hotel.imageUrl || '');
+    setDayHotelLocation(`${hotel.city ? `${hotel.city}, ` : ''}${hotel.district}`);
+    setDayHotelDetails(hotel.description || hotel.address || '');
+  };
+
+  const handleClearHotel = () => {
+    setDayHotelId('');
+    setDayHotelName('');
+    setDayHotelStarCategory('');
+    setDayHotelImageUrl('');
+    setDayHotelLocation('');
+    setDayHotelDetails('');
+  };
+
 
   const compressImage = (file: File): Promise<{ blob: Blob; dataUrl: string }> => {
     return new Promise((resolve) => {
@@ -316,7 +630,7 @@ export const PackageDetail: React.FC = () => {
         dayNumber: Number(dayNumber) || 1,
         title: dayTitle.trim() || `Day ${dayNumber}`,
         description: dayDescription.trim(),
-        places: dayPlaces.trim() || null,
+        places: selectedPlaceChips.length > 0 ? selectedPlaceChips.join(', ') : dayPlaces.trim() || null,
         activities: dayActivities.trim() || null,
         date: dayDate.trim() || null,
         highlights: dayHighlights.trim() || null,
@@ -325,6 +639,13 @@ export const PackageDetail: React.FC = () => {
         endTime: dayEndTime.trim() || null,
         imageUrl: primaryUrl,
         images: imagesJson,
+        hotelId: dayHotelId || null,
+        hotelName: dayHotelName || null,
+        hotelStarCategory: dayHotelStarCategory || null,
+        hotelImageUrl: dayHotelImageUrl || null,
+        hotelLocation: dayHotelLocation || null,
+        hotelDetails: dayHotelDetails || null,
+        mealPlan: dayMealPlan || null,
       };
 
       // Persist the specific day directly to avoid 413 (Content Too Large) payload limit on serverless
@@ -643,10 +964,46 @@ export const PackageDetail: React.FC = () => {
           <div className="space-y-4">
             {itineraries.map((day, idx) => (
               <div
-                key={idx}
-                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/30 dark:bg-slate-850/40 transition-colors flex flex-col md:flex-row items-start justify-between gap-4"
+                key={day.id || idx}
+                draggable
+                onDragStart={(e) => handleDragStart(e, idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDrop={(e) => handleDrop(e, idx)}
+                className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row items-start justify-between gap-4 ${
+                  draggedDayIndex === idx
+                    ? 'opacity-40 border-dashed border-red-400 bg-red-50/20'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/30 dark:bg-slate-850/40'
+                }`}
               >
-                <div className="flex items-start gap-3.5 flex-1">
+                {/* Drag handle & Up/Down Arrows */}
+                <div className="flex items-center md:flex-col gap-1 self-start pt-0.5 text-slate-400">
+                  <div
+                    title="Drag to reorder day"
+                    className="p-1 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing rounded"
+                  >
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={idx === 0 || isReordering}
+                    onClick={() => handleMoveDay(idx, 'up')}
+                    title="Move Day Up"
+                    className="p-1 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded transition-colors disabled:opacity-30 cursor-pointer"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={idx === itineraries.length - 1 || isReordering}
+                    onClick={() => handleMoveDay(idx, 'down')}
+                    title="Move Day Down"
+                    className="p-1 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded transition-colors disabled:opacity-30 cursor-pointer"
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="flex items-start gap-3.5 flex-1 w-full">
                   <div className="w-9 h-9 rounded-xl bg-[#C91F28] text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-xs">
                     D{day.dayNumber}
                   </div>
@@ -695,6 +1052,49 @@ export const PackageDetail: React.FC = () => {
                             <span className="font-semibold text-slate-800 dark:text-slate-200">Travel & Logistics: </span>
                             <span>{(day as any).travelDetails}</span>
                           </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Assigned Hotel Card */}
+                    {(day as any).hotelName && (
+                      <div className="mt-2.5 p-2 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          {(day as any).hotelImageUrl ? (
+                            <img
+                              src={(day as any).hotelImageUrl}
+                              alt={(day as any).hotelName}
+                              className="w-8 h-8 rounded-lg object-cover border border-amber-200"
+                            />
+                          ) : (
+                            <span className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
+                              <Building className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-800 dark:text-slate-200">
+                                {(day as any).hotelName}
+                              </span>
+                              {(day as any).hotelStarCategory && (
+                                <span className="text-[9.5px] px-1.5 py-0.2 bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-200 rounded font-semibold">
+                                  {(day as any).hotelStarCategory}
+                                </span>
+                              )}
+                            </div>
+                            {(day as any).hotelLocation && (
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
+                                {(day as any).hotelLocation}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {(day as any).mealPlan && (
+                          <span className="px-2 py-0.5 text-[10px] font-semibold bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-2xs">
+                            <Utensils className="w-3 h-3 text-emerald-600" />
+                            {(day as any).mealPlan}
+                          </span>
                         )}
                       </div>
                     )}
@@ -748,7 +1148,16 @@ export const PackageDetail: React.FC = () => {
                   );
                 })()}
 
+                {/* Day Action Buttons: Copy, Edit, Delete */}
                 <div className="flex items-center gap-1 flex-shrink-0 self-end md:self-start">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyDay(idx)}
+                    title="Copy / Duplicate Day"
+                    className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => openEditDay(idx)}
@@ -830,27 +1239,324 @@ export const PackageDetail: React.FC = () => {
             />
           </div>
 
-          {/* Places & Activities */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* PLACE & DESTINATION MASTER SECTION */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-[#C91F28]" />
+                  <span>Places & Attractions for Day {dayNumber}</span>
+                </label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                  Pick sightseeing spots from the Place Master library or type custom destinations
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsQuickPlaceOpen(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#C91F28] bg-red-50 dark:bg-red-950/40 hover:bg-red-100 rounded-lg border border-red-200 dark:border-red-900/50 transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Place to Library</span>
+              </button>
+            </div>
+
+            {/* State & District selectors for Place filtering */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Filter State</span>
+                <select
+                  value={daySelectedState}
+                  onChange={(e) => setDaySelectedState(e.target.value)}
+                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                >
+                  {INDIA_STATES_AND_DISTRICTS.map((s) => (
+                    <option key={s.state} value={s.state}>
+                      {s.state}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Filter District</span>
+                <select
+                  value={daySelectedDistrict}
+                  onChange={(e) => setDaySelectedDistrict(e.target.value)}
+                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                >
+                  {dayAvailableDistricts.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Quick Pick from Master Places */}
             <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Places to Visit</label>
+              <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between mb-1.5">
+                <span>Places in {daySelectedDistrict}:</span>
+                {isLoadingMasterData && <span className="text-[10px] text-slate-400">Loading catalog...</span>}
+              </span>
+
+              {masterPlaces.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                  {masterPlaces.map((mp) => {
+                    const isSelected = selectedPlaceChips.includes(mp.name);
+                    return (
+                      <button
+                        type="button"
+                        key={mp.id}
+                        onClick={() => handleSelectMasterPlace(mp)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-red-50 text-[#C91F28] border border-red-300 dark:bg-red-950/40 dark:border-red-800'
+                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        <MapPin className="w-3 h-3 text-[#C91F28]" />
+                        <span>{mp.name}</span>
+                        {isSelected ? <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-0.5" /> : <Plus className="w-3 h-3 text-slate-400 ml-0.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-2 text-center text-[11px] text-slate-400 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                  No places found for {daySelectedDistrict}. Click "+ Add Place to Library" above to add one.
+                </div>
+              )}
+            </div>
+
+            {/* Selected Places Ordered Chips */}
+            <div>
+              <span className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                Selected Places for this Day (Drag or use arrows to order itinerary stops):
+              </span>
+
+              {selectedPlaceChips.length > 0 ? (
+                <div className="space-y-1.5">
+                  {selectedPlaceChips.map((chip, chipIdx) => (
+                    <div
+                      key={chipIdx}
+                      className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-red-100 dark:bg-red-950/60 text-[#C91F28] font-bold text-[10px] flex items-center justify-center">
+                          {chipIdx + 1}
+                        </span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{chip}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-slate-400">
+                        <button
+                          type="button"
+                          disabled={chipIdx === 0}
+                          onClick={() => handleMovePlaceChip(chipIdx, 'up')}
+                          title="Move place earlier"
+                          className="p-1 hover:text-slate-700 dark:hover:text-white disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={chipIdx === selectedPlaceChips.length - 1}
+                          onClick={() => handleMovePlaceChip(chipIdx, 'down')}
+                          title="Move place later"
+                          className="p-1 hover:text-slate-700 dark:hover:text-white disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePlaceChip(chip)}
+                          title="Remove place"
+                          className="p-1 hover:text-rose-600 cursor-pointer ml-1"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-2 text-[11px] text-slate-400 italic">
+                  No places selected yet. Pick from above or type manually below.
+                </div>
+              )}
+            </div>
+
+            {/* Manual Places text input fallback */}
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                Places Summary Text (Automatically synced with selected places)
+              </label>
               <input
                 type="text"
                 value={dayPlaces}
-                onChange={(e) => setDayPlaces(e.target.value)}
-                placeholder="e.g. Mysore Palace, Chamundi Hills, Brindavan Gardens"
-                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+                onChange={(e) => {
+                  setDayPlaces(e.target.value);
+                  setSelectedPlaceChips(e.target.value.split(',').map((p) => p.trim()).filter(Boolean));
+                }}
+                placeholder="e.g. Ooty Lake, Botanical Garden, Doddabetta Peak"
+                className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-xs"
               />
             </div>
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Activities & Highlights</label>
-              <input
-                type="text"
-                value={dayActivities}
-                onChange={(e) => setDayActivities(e.target.value)}
-                placeholder="e.g. Boating, heritage walk, sunset tea tasting"
-                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-              />
+          </div>
+
+          {/* Activities */}
+          <div>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Activities & Sightseeing Highlights</label>
+            <input
+              type="text"
+              value={dayActivities}
+              onChange={(e) => setDayActivities(e.target.value)}
+              placeholder="e.g. Boating, heritage walk, sunset tea tasting"
+              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none text-xs"
+            />
+          </div>
+
+          {/* HOTEL ACCOMMODATION SECTION */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                  <Building className="w-4 h-4 text-amber-600" />
+                  <span>Hotel Accommodation for Night {dayNumber}</span>
+                </label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                  Auto-suggested hotels in {daySelectedDistrict} based on itinerary location
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                {dayHotelName && (
+                  <button
+                    type="button"
+                    onClick={handleClearHotel}
+                    className="px-2 py-1 text-[11px] font-semibold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
+                  >
+                    Clear Hotel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsQuickHotelOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-amber-700 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add Hotel to Library</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Pick from Master Hotels in District */}
+            {masterHotels.length > 0 && (
+              <div>
+                <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Hotels in {daySelectedDistrict}:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                  {masterHotels.map((h) => {
+                    const isCurrent = dayHotelId === h.id || dayHotelName === h.name;
+                    return (
+                      <button
+                        type="button"
+                        key={h.id}
+                        onClick={() => handleSelectMasterHotel(h)}
+                        className={`p-2 rounded-lg text-left transition-all border flex items-center gap-2 cursor-pointer ${
+                          isCurrent
+                            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 ring-1 ring-amber-400'
+                            : 'bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        {h.imageUrl ? (
+                          <img src={h.imageUrl} alt={h.name} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
+                        ) : (
+                          <span className="w-10 h-10 rounded-md bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0 text-amber-700">
+                            <Building className="w-4 h-4" />
+                          </span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block text-xs">
+                            {h.name}
+                          </span>
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 block">
+                            {h.starCategory || '3 Star'}
+                          </span>
+                        </div>
+                        {isCurrent && <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Selected Hotel Display and Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Selected Hotel / Resort Name
+                </label>
+                <input
+                  type="text"
+                  value={dayHotelName}
+                  onChange={(e) => setDayHotelName(e.target.value)}
+                  placeholder="e.g. Heritage Hill Resort / Sterling Ooty"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Star Category
+                </label>
+                <input
+                  type="text"
+                  value={dayHotelStarCategory}
+                  onChange={(e) => setDayHotelStarCategory(e.target.value)}
+                  placeholder="e.g. 4 Star, Heritage Resort"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Meal Plan & Location */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Meal Plan Included
+                </label>
+                <select
+                  value={dayMealPlan}
+                  onChange={(e) => setDayMealPlan(e.target.value)}
+                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                >
+                  <option value="Breakfast & Dinner (MAP)">Breakfast & Dinner Included (MAP Plan)</option>
+                  <option value="Breakfast Included (CP)">Breakfast Included (CP Plan)</option>
+                  <option value="All Meals Included (AP)">All Meals Included - Breakfast, Lunch & Dinner (AP Plan)</option>
+                  <option value="Room Only (EP)">Room Only (EP Plan - No Meals)</option>
+                  <option value="Welcome Drink & Dinner">Welcome Drink & Dinner</option>
+                  <option value="Custom Meal Plan">Custom Meal Plan</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Hotel Area / District
+                </label>
+                <input
+                  type="text"
+                  value={dayHotelLocation}
+                  onChange={(e) => setDayHotelLocation(e.target.value)}
+                  placeholder="e.g. Ooty Town, Madikeri Hills"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 
@@ -1109,6 +1815,33 @@ export const PackageDetail: React.FC = () => {
         confirmLabel={isDeleting ? 'Deleting...' : 'Delete Package'}
         isDanger={true}
       />
+
+      {/* Quick Add Place Modal */}
+      <PlaceModal
+        isOpen={isQuickPlaceOpen}
+        onClose={() => setIsQuickPlaceOpen(false)}
+        defaultState={daySelectedState}
+        defaultDistrict={daySelectedDistrict}
+        onSuccess={(savedPlace) => {
+          loadMasterDataForDay(daySelectedState, daySelectedDistrict);
+          handleSelectMasterPlace(savedPlace);
+          showToast(`Place "${savedPlace.name}" added to Place Master and selected for this day.`);
+        }}
+      />
+
+      {/* Quick Add Hotel Modal */}
+      <HotelModal
+        isOpen={isQuickHotelOpen}
+        onClose={() => setIsQuickHotelOpen(false)}
+        defaultState={daySelectedState}
+        defaultDistrict={daySelectedDistrict}
+        onSuccess={(savedHotel) => {
+          loadMasterDataForDay(daySelectedState, daySelectedDistrict);
+          handleSelectMasterHotel(savedHotel);
+          showToast(`Hotel "${savedHotel.name}" added to Hotel Master and selected for this day.`);
+        }}
+      />
     </div>
   );
 };
+
