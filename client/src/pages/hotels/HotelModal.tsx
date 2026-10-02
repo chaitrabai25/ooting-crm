@@ -56,6 +56,22 @@ const COMMON_AMENITIES = [
   'Travel Desk & Transfers',
 ];
 
+export interface HotelPhotoItem {
+  url: string;
+  caption?: string;
+}
+
+const PHOTO_CAPTION_PRESETS = [
+  'Deluxe Room',
+  'Dining Hall',
+  'Swimming Pool',
+  'Lobby & Reception',
+  'Exterior & Lawn',
+  'Balcony View',
+  'Suite Room',
+  'Restaurant / Bar',
+];
+
 export const HotelModal: React.FC<HotelModalProps> = ({
   isOpen,
   onClose,
@@ -79,8 +95,9 @@ export const HotelModal: React.FC<HotelModalProps> = ({
   const [checkOutTime, setCheckOutTime] = useState('11:00 AM');
   const [amenities, setAmenities] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState('');
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<HotelPhotoItem[]>([]);
   const [manualImageUrl, setManualImageUrl] = useState('');
+  const [manualImageCaption, setManualImageCaption] = useState('');
   const [websiteUrls, setWebsiteUrls] = useState<string[]>(['']);
 
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
@@ -113,22 +130,36 @@ export const HotelModal: React.FC<HotelModalProps> = ({
         setAmenities([]);
       }
 
-      // Parse images and gallery
-      let parsedImages: string[] = [];
+      // Parse images and gallery with caption support
+      let parsedImages: HotelPhotoItem[] = [];
       if (hotel.gallery) {
         try {
           const parsed = JSON.parse(hotel.gallery);
-          if (Array.isArray(parsed)) parsedImages = parsed.filter(Boolean);
+          if (Array.isArray(parsed)) {
+            parsedImages = parsed
+              .map((item: any) => {
+                if (typeof item === 'string') return { url: item.trim(), caption: '' };
+                return {
+                  url: (item.url || item.imageUrl || '').trim(),
+                  caption: item.caption || item.label || '',
+                };
+              })
+              .filter((item) => Boolean(item.url));
+          }
         } catch {
-          parsedImages = hotel.gallery.split(',').map((s) => s.trim()).filter(Boolean);
+          parsedImages = hotel.gallery
+            .split(',')
+            .map((s) => ({ url: s.trim(), caption: '' }))
+            .filter((item) => Boolean(item.url));
         }
       }
-      if (hotel.imageUrl && !parsedImages.includes(hotel.imageUrl)) {
-        parsedImages = [hotel.imageUrl, ...parsedImages];
+      if (hotel.imageUrl && !parsedImages.some((p) => p.url === hotel.imageUrl)) {
+        parsedImages = [{ url: hotel.imageUrl, caption: 'Main Property / Exterior' }, ...parsedImages];
       }
       setImages(parsedImages);
-      setImageUrl(parsedImages[0] || hotel.imageUrl || '');
+      setImageUrl(parsedImages[0]?.url || hotel.imageUrl || '');
       setManualImageUrl('');
+      setManualImageCaption('');
 
       // Parse multiple website URLs
       let parsedUrls: string[] = [];
@@ -156,6 +187,7 @@ export const HotelModal: React.FC<HotelModalProps> = ({
       setImageUrl('');
       setImages([]);
       setManualImageUrl('');
+      setManualImageCaption('');
       setWebsiteUrls(['']);
       setAmenities(['Free High-Speed Wi-Fi', 'Complimentary Breakfast', 'Multi-cuisine Restaurant']);
     }
@@ -231,7 +263,7 @@ export const HotelModal: React.FC<HotelModalProps> = ({
     setError(null);
 
     try {
-      const uploaded: string[] = [];
+      const uploaded: HotelPhotoItem[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (file.size > 25 * 1024 * 1024) {
@@ -258,14 +290,14 @@ export const HotelModal: React.FC<HotelModalProps> = ({
         }
 
         if (finalUrl) {
-          uploaded.push(finalUrl);
+          uploaded.push({ url: finalUrl, caption: '' });
         }
       }
 
       if (uploaded.length > 0) {
         setImages((prev) => {
           const combined = [...prev, ...uploaded];
-          setImageUrl(combined[0] || '');
+          setImageUrl(combined[0]?.url || '');
           return combined;
         });
       }
@@ -284,7 +316,7 @@ export const HotelModal: React.FC<HotelModalProps> = ({
       const copy = [...prev];
       const [picked] = copy.splice(index, 1);
       copy.unshift(picked);
-      setImageUrl(copy[0] || '');
+      setImageUrl(copy[0]?.url || '');
       return copy;
     });
   };
@@ -293,18 +325,29 @@ export const HotelModal: React.FC<HotelModalProps> = ({
     const trimmed = manualImageUrl.trim();
     if (!trimmed) return;
     setImages((prev) => {
-      if (prev.includes(trimmed)) return prev;
-      const next = [...prev, trimmed];
-      if (!imageUrl) setImageUrl(next[0]);
+      if (prev.some((p) => p.url === trimmed)) return prev;
+      const next = [...prev, { url: trimmed, caption: manualImageCaption.trim() }];
+      if (!imageUrl) setImageUrl(next[0].url);
       return next;
     });
     setManualImageUrl('');
+    setManualImageCaption('');
+  };
+
+  const handleUpdateCaption = (index: number, caption: string) => {
+    setImages((prev) => {
+      const copy = [...prev];
+      if (copy[index]) {
+        copy[index] = { ...copy[index], caption };
+      }
+      return copy;
+    });
   };
 
   const handleRemoveImage = (indexToRemove: number) => {
     setImages((prev) => {
       const next = prev.filter((_, idx) => idx !== indexToRemove);
-      setImageUrl(next[0] || '');
+      setImageUrl(next[0]?.url || '');
       return next;
     });
   };
@@ -343,7 +386,7 @@ export const HotelModal: React.FC<HotelModalProps> = ({
     setError(null);
 
     const cleanUrls = websiteUrls.map((u) => u.trim()).filter(Boolean);
-    const primaryImage = images[0] || imageUrl.trim() || null;
+    const primaryImage = images[0]?.url || imageUrl.trim() || null;
 
     const payload = {
       name: name.trim(),
@@ -628,66 +671,115 @@ export const HotelModal: React.FC<HotelModalProps> = ({
           </div>
         </div>
 
-        {/* Hotel Photos Upload (WebP) & Multi-Image Gallery */}
-        <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+        {/* Hotel Photos Upload (WebP) & Multi-Image Gallery with Captions */}
+        <div className="space-y-3 p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
-            <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <Camera className="w-3.5 h-3.5 text-[#C91F28]" />
-              Hotel Photos & Gallery (Auto-optimized to WebP)
-            </label>
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-[#C91F28]" />
+                Hotel Photos & Gallery (Auto-optimized to WebP)
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Add captions like "Deluxe Room", "Dining Hall", "Swimming Pool" to showcase features in itinerary PDF.
+              </p>
+            </div>
             {images.length > 0 && (
-              <span className="text-[11px] text-slate-500 font-medium">
-                {images.length} photo{images.length > 1 ? 's' : ''} added
+              <span className="text-[11px] font-bold text-[#C91F28] bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded-md border border-red-200 dark:border-red-800 shrink-0">
+                {images.length} photo{images.length > 1 ? 's' : ''}
               </span>
             )}
           </div>
 
-          {/* Photo Previews Grid */}
+          {/* Photo Previews Grid with Captions */}
           {images.length > 0 ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 pt-1 pb-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-1 pb-1">
               {images.map((img, idx) => (
                 <div
                   key={idx}
-                  className="relative group rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 aspect-video bg-slate-100 dark:bg-slate-900 shadow-2xs"
+                  className="flex flex-col bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-2xs group"
                 >
-                  <img
-                    src={img}
-                    alt={`Hotel photo ${idx + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  {idx === 0 ? (
-                    <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1 py-0.5 rounded font-medium">
-                      Cover
-                    </span>
-                  ) : (
+                  <div className="relative aspect-video bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <img
+                      src={img.url}
+                      alt={img.caption || `Hotel photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    {idx === 0 ? (
+                      <span className="absolute bottom-1 left-1 bg-black/75 text-white text-[9px] px-1.5 py-0.5 rounded font-semibold tracking-wide shadow-xs">
+                        Cover Photo
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSetCoverImage(idx)}
+                        className="absolute bottom-1 left-1 bg-black/75 hover:bg-[#C91F28] text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-semibold cursor-pointer shadow-xs"
+                      >
+                        Make Cover
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => handleSetCoverImage(idx)}
-                      className="absolute bottom-1 left-1 bg-black/75 hover:bg-[#C91F28] text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-semibold cursor-pointer"
+                      onClick={() => handleRemoveImage(idx)}
+                      className="absolute top-1 right-1 p-1 bg-rose-600/90 text-white rounded-full opacity-90 group-hover:opacity-100 hover:bg-rose-700 transition-opacity cursor-pointer shadow-xs"
+                      title="Remove Photo"
                     >
-                      Make Cover
+                      <X className="w-3 h-3" />
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-1 right-1 p-0.5 bg-rose-600/90 text-white rounded-full opacity-90 group-hover:opacity-100 hover:bg-rose-700 transition-opacity cursor-pointer shadow-xs"
-                    title="Remove Photo"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  </div>
+
+                  {/* Caption Input for each Photo */}
+                  <div className="p-2 space-y-1.5 bg-slate-50/70 dark:bg-slate-800/70 border-t border-slate-200 dark:border-slate-700 flex-1 flex flex-col justify-between">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                        Photo Caption
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Deluxe Room, Dining Hall..."
+                        value={img.caption || ''}
+                        onChange={(e) => handleUpdateCaption(idx, e.target.value)}
+                        className="w-full px-2 py-1 text-[11px] font-medium border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-md focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                      />
+                    </div>
+                    {/* Quick Preset Buttons */}
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {['Room', 'Dining', 'Pool', 'Lobby', 'Exterior'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            const full =
+                              preset === 'Room'
+                                ? 'Deluxe Room'
+                                : preset === 'Dining'
+                                ? 'Dining Hall'
+                                : preset === 'Pool'
+                                ? 'Swimming Pool'
+                                : preset === 'Lobby'
+                                ? 'Lobby & Reception'
+                                : 'Exterior View';
+                            handleUpdateCaption(idx, full);
+                          }}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:text-[#C91F28] hover:border-[#C91F28] transition-colors cursor-pointer"
+                        >
+                          +{preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="py-4 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center text-slate-400 text-xs">
+            <div className="py-5 border border-dashed border-slate-300 dark:border-slate-600 rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs">
               <Building2 className="w-6 h-6 mb-1 text-slate-400" />
-              <span>No photos uploaded yet (support JPG, PNG, WebP)</span>
+              <span>No photos uploaded yet (supports JPG, PNG, WebP)</span>
             </div>
           )}
 
           {/* Upload and URL Inputs */}
-          <div className="space-y-2 pt-1">
+          <div className="space-y-2.5 pt-1">
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="file"
@@ -701,7 +793,7 @@ export const HotelModal: React.FC<HotelModalProps> = ({
                 type="button"
                 disabled={isUploading}
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-650 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+                className="px-3.5 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-650 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
               >
                 {isUploading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C91F28]" />
@@ -710,35 +802,66 @@ export const HotelModal: React.FC<HotelModalProps> = ({
                 )}
                 <span>{isUploading ? 'Optimizing WebP...' : 'Upload Photos (Select Multiple)'}</span>
               </button>
-              <span className="text-[11px] text-slate-400">or add photo URL below</span>
+              <span className="text-[11px] text-slate-400">or add web photo URL with caption below</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <LinkIcon className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                <input
-                  type="url"
-                  placeholder="https://... photo link"
-                  value={manualImageUrl}
-                  onChange={(e) => setManualImageUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddManualImage();
-                    }
-                  }}
-                  className="w-full pl-8 pr-2.5 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                />
+            {/* Manual Image URL + Caption Box */}
+            <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="relative">
+                  <LinkIcon className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                  <input
+                    type="url"
+                    placeholder="https://... photo URL"
+                    value={manualImageUrl}
+                    onChange={(e) => setManualImageUrl(e.target.value)}
+                    className="w-full pl-8 pr-2.5 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Caption (e.g. Deluxe Room, Dining Hall)"
+                    value={manualImageCaption}
+                    onChange={(e) => setManualImageCaption(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddManualImage();
+                      }
+                    }}
+                    className="flex-1 px-2.5 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddManualImage}
+                    disabled={!manualImageUrl.trim()}
+                    className="px-3 py-1.5 bg-[#C91F28] hover:bg-[#a81920] text-white rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-40 shrink-0 shadow-2xs"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add</span>
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={handleAddManualImage}
-                disabled={!manualImageUrl.trim()}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-40"
-              >
-                <Plus className="w-3 h-3" />
-                Add Photo
-              </button>
+
+              {/* Caption Quick Chips for new URL */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[10px] text-slate-400 font-medium">Quick caption:</span>
+                {PHOTO_CAPTION_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setManualImageCaption(preset)}
+                    className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                      manualImageCaption === preset
+                        ? 'bg-red-50 text-[#C91F28] border-red-300 font-bold'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

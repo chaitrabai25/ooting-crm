@@ -34,6 +34,11 @@ import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
 
+export interface HotelPhotoDisplay {
+  url: string;
+  caption: string;
+}
+
 export const ItineraryPdfView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -70,10 +75,23 @@ export const ItineraryPdfView: React.FC = () => {
     if (id) fetchData();
   }, [id]);
 
-  const getHotelPhotos = (day: ItineraryDay): string[] => {
-    const photos: string[] = [];
-    if (day.hotelImageUrl && day.hotelImageUrl.trim() && !photos.includes(day.hotelImageUrl.trim())) {
-      photos.push(day.hotelImageUrl.trim());
+  const getHotelPhotos = (day: ItineraryDay): HotelPhotoDisplay[] => {
+    const result: HotelPhotoDisplay[] = [];
+    const addedUrls = new Set<string>();
+
+    const addPhoto = (url?: string | null, caption?: string | null) => {
+      if (!url) return;
+      const cleanUrl = url.trim();
+      if (!cleanUrl || cleanUrl === 'null' || cleanUrl === 'undefined' || addedUrls.has(cleanUrl)) return;
+      addedUrls.add(cleanUrl);
+      result.push({
+        url: cleanUrl,
+        caption: caption && caption.trim() ? caption.trim() : 'Property Accommodation',
+      });
+    };
+
+    if (day.hotelImageUrl) {
+      addPhoto(day.hotelImageUrl, 'Property Accommodation');
     }
 
     let matchedHotel = null;
@@ -84,16 +102,19 @@ export const ItineraryPdfView: React.FC = () => {
     }
 
     if (matchedHotel) {
-      if (matchedHotel.imageUrl && matchedHotel.imageUrl.trim() && !photos.includes(matchedHotel.imageUrl.trim())) {
-        photos.push(matchedHotel.imageUrl.trim());
+      if (matchedHotel.imageUrl) {
+        addPhoto(matchedHotel.imageUrl, 'Main Property / Exterior');
       }
       if (matchedHotel.gallery) {
         try {
           const gal = typeof matchedHotel.gallery === 'string' ? JSON.parse(matchedHotel.gallery) : matchedHotel.gallery;
           if (Array.isArray(gal)) {
             gal.forEach((g: any) => {
-              const url = (typeof g === 'string' ? g : g?.url || '')?.trim();
-              if (url && !photos.includes(url)) photos.push(url);
+              if (typeof g === 'string') {
+                addPhoto(g, 'Hotel Accommodation');
+              } else if (g && typeof g === 'object') {
+                addPhoto(g.url, g.caption || g.label || 'Hotel Feature');
+              }
             });
           }
         } catch {}
@@ -103,15 +124,18 @@ export const ItineraryPdfView: React.FC = () => {
           const imgs = typeof matchedHotel.images === 'string' ? JSON.parse(matchedHotel.images) : matchedHotel.images;
           if (Array.isArray(imgs)) {
             imgs.forEach((img: any) => {
-              const url = (typeof img === 'string' ? img : img?.url || '')?.trim();
-              if (url && !photos.includes(url)) photos.push(url);
+              if (typeof img === 'string') {
+                addPhoto(img, 'Hotel Accommodation');
+              } else if (img && typeof img === 'object') {
+                addPhoto(img.url, img.caption || img.label || 'Hotel Feature');
+              }
             });
           }
         } catch {}
       }
     }
 
-    return photos.filter((u) => Boolean(u) && u !== 'null' && u !== 'undefined');
+    return result;
   };
 
   const handlePrint = async () => {
@@ -415,66 +439,69 @@ export const ItineraryPdfView: React.FC = () => {
           </p>
         </div>
 
-        {/* At-a-Glance Tour Route & Overnight Stay Table (Fills Page 1 elegantly) */}
+        {/* Executive Tour Route & Stay Timeline (Replaces raw table with modern travel schedule) */}
         {itineraries.length > 0 && (
           <div className="px-8 py-5 border-b border-slate-100">
-            <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                 <Compass className="w-3.5 h-3.5 text-[#C91F28]" />
-                <span>Tour Schedule At-a-Glance</span>
+                <span>Tour Journey Route & Stay Schedule</span>
               </h3>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                {itineraries.length} Days Itinerary Summary
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-2.5 py-0.5 rounded-full">
+                {itineraries.length} Days Travel Highlights
               </span>
             </div>
 
-            <div className="overflow-hidden border border-slate-200 rounded-xl">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-700">
-                    <th className="py-2.5 px-3 w-14 text-center">Day</th>
-                    <th className="py-2.5 px-3">Sightseeing & Route Highlights</th>
-                    <th className="py-2.5 px-3">Overnight Stay (Hotel)</th>
-                    <th className="py-2.5 px-3 text-right">Meal Plan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-[11px]">
-                  {itineraries.map((d, dIdx) => (
-                    <tr key={d.id || dIdx} className="hover:bg-slate-50/50">
-                      <td className="py-2.5 px-3 font-bold text-slate-900 text-center whitespace-nowrap">
-                        <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-50 text-[#C91F28] font-bold text-[10px]">
-                          {d.dayNumber}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <div className="font-semibold text-slate-900 leading-snug">
-                          {d.title?.replace(/^Day\s*\d+:\s*/i, '') || `Day ${d.dayNumber}`}
+            <div className="space-y-2">
+              {itineraries.map((d, dIdx) => (
+                <div
+                  key={d.id || dIdx}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50/70 transition-all shadow-2xs"
+                >
+                  {/* Day Number Pill & Title */}
+                  <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                    <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-red-50 text-[#C91F28] font-black text-[11px] shrink-0 border border-red-200/80">
+                      DAY {String(d.dayNumber).padStart(2, '0')}
+                    </span>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-xs text-slate-900 truncate">
+                        {d.title?.replace(/^Day\s*\d+:\s*/i, '') || `Day ${d.dayNumber}`}
+                      </h4>
+                      {d.places && (
+                        <div className="text-[10.5px] text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
+                          <span className="truncate">{d.places}</span>
                         </div>
-                        {d.places && (
-                          <div className="text-[10px] text-slate-500 truncate max-w-sm mt-0.5">
-                            📍 {d.places}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        {d.hotelName ? (
-                          <div>
-                            <span className="font-semibold text-slate-800">{d.hotelName}</span>
-                            {d.hotelStarCategory && (
-                              <span className="ml-1 text-[9.5px] text-amber-700 font-medium">({d.hotelStarCategory})</span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic">As per itinerary</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-right whitespace-nowrap text-slate-600 font-medium">
-                        {d.mealPlan || 'MAP Plan'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Overnight Stay & Meal Badge */}
+                  <div className="flex items-center gap-2 shrink-0 sm:pl-3 border-t sm:border-t-0 sm:border-l border-slate-100 pt-1 sm:pt-0">
+                    {d.hotelName ? (
+                      <div className="flex items-center gap-1.5 bg-amber-50/70 border border-amber-200/80 px-2.5 py-1 rounded-lg">
+                        <Building2 className="w-3 h-3 text-amber-700 shrink-0" />
+                        <div className="text-right">
+                          <span className="font-bold text-[11px] text-slate-800 block leading-tight">
+                            {d.hotelName}
+                          </span>
+                          {d.hotelStarCategory && (
+                            <span className="text-[9.5px] text-amber-800 font-medium block">
+                              {d.hotelStarCategory}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic px-2">Transit / Sightseeing</span>
+                    )}
+
+                    <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg shrink-0">
+                      {d.mealPlan || 'MAP Plan'}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -504,18 +531,46 @@ export const ItineraryPdfView: React.FC = () => {
           </div>
         </div>
 
+        {/* Page 1 Running Footer Bar */}
+        <div className="px-8 py-3 bg-white border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
+          <div className="flex items-center gap-2">
+            <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
+            <span>Contact: {company.phone || '+91 8884845595'}</span>
+            <span className="text-slate-300">•</span>
+            <span>{company.email || 'support@ooting.in'}</span>
+          </div>
+          <div className="font-bold text-[10.5px] text-slate-400">
+            Page 1 of {itineraries.length > 4 ? 4 : 3}
+          </div>
+          <div className="flex items-center gap-1 font-bold text-[#C91F28]">
+            <Globe className="w-3.5 h-3.5" />
+            <span>{company.website || 'www.ooting.in'}</span>
+          </div>
+        </div>
+
         {/* Clean Page Break: Detailed Day-by-Day Schedule begins on Page 2 */}
         <div className="pdf-page-break-before"></div>
 
         {/* Detailed Day-by-Day Itinerary Section (Page 2+) */}
-        <div className="px-8 py-6 space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
-              Detailed Day-by-Day Travel Schedule
-            </h2>
-            <span className="text-xs font-semibold text-[#C91F28]">
-              {itineraries.length} Days Planned
-            </span>
+        <div className="px-8 py-5 space-y-6">
+          {/* Running Page Header on Day-by-Day Section */}
+          <div className="pt-2 pb-3 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-slate-900">
+                {pkg.packageName}
+              </div>
+              <div className="text-[10px] font-semibold text-slate-500 mt-0.5">
+                Page 2 of {itineraries.length > 4 ? 4 : 3} • Day-by-Day Detailed Travel Schedule
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-black tracking-tight text-[#C91F28] uppercase block">
+                {(company.name || 'OOTING').toUpperCase()}
+              </span>
+              <span className="text-[9.5px] text-slate-400 block font-medium">
+                {company.tagline || 'Journeys Beyond Ordinary'}
+              </span>
+            </div>
           </div>
 
           <div className="space-y-6">
@@ -576,7 +631,7 @@ export const ItineraryPdfView: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Day Sightseeing Photos (Disciplined Aspect Ratio & Height) */}
+                    {/* Day Sightseeing Photos (CORS-safe & Disciplined Height) */}
                     {(() => {
                       let photoItems: { url: string; label?: string }[] = [];
                       if ((day as any).images) {
@@ -627,10 +682,7 @@ export const ItineraryPdfView: React.FC = () => {
                                   alt={placeLabel || day.title}
                                   className="w-full h-full object-cover"
                                   style={{ width: '100%', height: '140px', maxHeight: '140px', objectFit: 'cover' }}
-                                  crossOrigin="anonymous"
-                                  onError={(e) => {
-                                    (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');
-                                  }}
+                                  referrerPolicy="no-referrer"
                                 />
                               </div>
                               {placeLabel && (
@@ -663,10 +715,7 @@ export const ItineraryPdfView: React.FC = () => {
                                       alt={placeLabel || ''}
                                       className="w-full h-full object-cover"
                                       style={{ width: '100%', height: '135px', maxHeight: '135px', objectFit: 'cover' }}
-                                      crossOrigin="anonymous"
-                                      onError={(e) => {
-                                        (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');
-                                      }}
+                                      referrerPolicy="no-referrer"
                                     />
                                   </div>
                                   {placeLabel && (
@@ -706,107 +755,122 @@ export const ItineraryPdfView: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Hotel Accommodation Card: Displays ALL uploaded hotel images */}
+                    {/* Hotel Accommodation Card: Prominent Showcase Matching Place Photo Size with Captions */}
                     {day.hotelName && day.hotelName.trim() && (
-                      <div className="mt-3 p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80 shadow-2xs">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-900">
-                            <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
-                            Overnight Stay / Hotel Accommodation
-                          </span>
-                          {day.mealPlan && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-amber-200 text-[10px] font-semibold text-amber-800">
-                              <Coffee className="w-3 h-3 text-amber-600" />
-                              {day.mealPlan}
+                      <div className="mt-3.5 p-4 rounded-xl bg-amber-50/50 border border-amber-200/80 shadow-2xs space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-amber-200/60 pb-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-900 text-[11px] font-bold uppercase tracking-wider">
+                              <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
+                              <span>Overnight Stay & Accommodation</span>
                             </span>
-                          )}
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row items-start gap-3.5">
-                          {/* Hotel Images Showcase: Primary + Gallery Thumbnails */}
-                          {hotelPhotos.length > 0 && (
-                            <div className="flex flex-col gap-1.5 shrink-0">
-                              <div className="w-28 h-20 rounded-lg overflow-hidden border border-amber-200/90 bg-white shadow-2xs">
-                                <img
-                                  src={hotelPhotos[0]}
-                                  alt={day.hotelName}
-                                  className="w-full h-full object-cover"
-                                  crossOrigin="anonymous"
-                                  onError={(e) => {
-                                    (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
-                                  }}
-                                />
-                              </div>
-                              {hotelPhotos.length > 1 && (
-                                <div className="flex items-center gap-1 max-w-[112px] overflow-hidden">
-                                  {hotelPhotos.slice(1, 4).map((hPhoto, hIdx) => (
-                                    <div
-                                      key={hIdx}
-                                      className="w-8 h-7 rounded border border-amber-200/80 overflow-hidden bg-white shrink-0"
-                                    >
-                                      <img
-                                        src={hPhoto}
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                        crossOrigin="anonymous"
-                                      />
-                                    </div>
-                                  ))}
-                                  {hotelPhotos.length > 4 && (
-                                    <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 py-0.5 rounded">
-                                      +{hotelPhotos.length - 4}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="flex-1 space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="font-bold text-xs text-slate-900">
-                                {day.hotelName}
-                              </h4>
-                              {day.hotelStarCategory && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium">
-                                  <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-                                  {day.hotelStarCategory}
-                                </span>
-                              )}
-                            </div>
-
-                            {day.hotelLocation && (
-                              <div className="flex items-center gap-1 text-[11px] text-slate-600">
-                                <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
-                                <span>{day.hotelLocation}</span>
-                              </div>
+                            <h4 className="font-bold text-xs text-slate-900">
+                              {day.hotelName}
+                            </h4>
+                            {day.hotelStarCategory && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">
+                                <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                {day.hotelStarCategory}
+                              </span>
                             )}
+                          </div>
 
-                            {/* Hotel Check-in / Check-out Timing */}
-                            {((day as any).hotelCheckIn || (day as any).hotelCheckOut) && (
-                              <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-700 pt-0.5 font-medium">
-                                {(day as any).hotelCheckIn && (
-                                  <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200">
-                                    <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
-                                    <span>Check-in: <strong>{(day as any).hotelCheckIn}</strong></span>
-                                  </span>
-                                )}
-                                {(day as any).hotelCheckOut && (
-                                  <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200">
-                                    <Clock className="w-3 h-3 text-amber-700 shrink-0" />
-                                    <span>Check-out: <strong>{(day as any).hotelCheckOut}</strong></span>
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            {day.hotelDetails && (
-                              <p className="text-[10px] text-slate-500 leading-tight pt-0.5">
-                                {day.hotelDetails}
-                              </p>
+                          <div className="flex items-center gap-2">
+                            {day.mealPlan && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-amber-200 text-[10px] font-bold text-amber-800 shadow-2xs">
+                                <Coffee className="w-3 h-3 text-amber-600" />
+                                <span>{day.mealPlan}</span>
+                              </span>
                             )}
                           </div>
                         </div>
+
+                        {/* Location & Timings */}
+                        <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 gap-2">
+                          {day.hotelLocation && (
+                            <div className="flex items-center gap-1 text-[11px]">
+                              <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
+                              <span className="font-medium text-slate-700">{day.hotelLocation}</span>
+                            </div>
+                          )}
+                          {((day as any).hotelCheckIn || (day as any).hotelCheckOut) && (
+                            <div className="flex items-center gap-2 text-[10px] font-medium">
+                              {(day as any).hotelCheckIn && (
+                                <span className="bg-white px-2 py-0.5 rounded border border-amber-200">
+                                  Check-in: <strong className="text-slate-800">{(day as any).hotelCheckIn}</strong>
+                                </span>
+                              )}
+                              {(day as any).hotelCheckOut && (
+                                <span className="bg-white px-2 py-0.5 rounded border border-amber-200">
+                                  Check-out: <strong className="text-slate-800">{(day as any).hotelCheckOut}</strong>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {day.hotelDetails && (
+                          <p className="text-[10.5px] text-slate-500 leading-snug">
+                            {day.hotelDetails}
+                          </p>
+                        )}
+
+                        {/* Prominent Hotel Photos Showcase with Captions (Like Place Image Size) */}
+                        {hotelPhotos.length > 0 && (
+                          <div className="pt-1">
+                            {hotelPhotos.length === 1 ? (
+                              <div className="w-full bg-white rounded-xl border border-amber-200/90 overflow-hidden shadow-2xs">
+                                <div
+                                  className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
+                                  style={{ width: '100%', height: '140px', maxHeight: '140px', minHeight: '140px' }}
+                                >
+                                  <img
+                                    src={hotelPhotos[0].url}
+                                    alt={hotelPhotos[0].caption || day.hotelName || 'Hotel'}
+                                    className="w-full h-full object-cover"
+                                    style={{ width: '100%', height: '140px', maxHeight: '140px', objectFit: 'cover' }}
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </div>
+                                <div className="px-3 py-1.5 bg-amber-50/70 border-t border-amber-200/70 flex items-center justify-between text-xs">
+                                  <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
+                                    <span>{hotelPhotos[0].caption || 'Hotel Accommodation'}</span>
+                                  </span>
+                                  <span className="text-[10px] text-amber-800 font-semibold">{day.hotelName}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                {hotelPhotos.slice(0, 3).map((hPhoto, hIdx) => (
+                                  <div
+                                    key={hIdx}
+                                    className="flex flex-col bg-white rounded-xl border border-amber-200/90 overflow-hidden shadow-2xs"
+                                  >
+                                    <div
+                                      className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
+                                      style={{ width: '100%', height: '130px', maxHeight: '130px', minHeight: '130px' }}
+                                    >
+                                      <img
+                                        src={hPhoto.url}
+                                        alt={hPhoto.caption || day.hotelName || 'Hotel'}
+                                        className="w-full h-full object-cover"
+                                        style={{ width: '100%', height: '130px', maxHeight: '130px', objectFit: 'cover' }}
+                                        referrerPolicy="no-referrer"
+                                      />
+                                    </div>
+                                    <div className="px-2.5 py-1 bg-amber-50/70 border-t border-amber-200/70 flex items-center gap-1 text-[10px]">
+                                      <Building2 className="w-3 h-3 text-[#C91F28] shrink-0" />
+                                      <span className="truncate font-bold text-amber-950">
+                                        {hPhoto.caption || (hIdx === 0 ? 'Main Property' : 'Room Feature')}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -814,13 +878,30 @@ export const ItineraryPdfView: React.FC = () => {
               );
             })}
           </div>
-        </div>
 
-        {/* Important Terms & Booking Notice */}
-        <div className="px-8 py-4 border-t border-slate-200 text-[10px] text-slate-500 leading-normal bg-white page-break-avoid">
-          <p>
-            <strong>Booking Notice:</strong> All hotel accommodations and vehicle availability are subject to confirmation at the time of deposit payment. Rates are valid for 15 days from quote generation.
-          </p>
+          {/* Important Terms & Booking Notice */}
+          <div className="p-3.5 border border-slate-200 rounded-xl text-[10px] text-slate-500 leading-normal bg-white page-break-avoid">
+            <p>
+              <strong>Booking Notice:</strong> All hotel accommodations and vehicle availability are subject to confirmation at the time of deposit payment. Rates are valid for 15 days from quote generation.
+            </p>
+          </div>
+
+          {/* Running Footer Bar on Day Schedule */}
+          <div className="pt-3 pb-1 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600 bg-white">
+            <div className="flex items-center gap-2">
+              <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
+              <span>Contact: {company.phone || '+91 8884845595'}</span>
+              <span className="text-slate-300">•</span>
+              <span>{company.email || 'support@ooting.in'}</span>
+            </div>
+            <div className="font-bold text-[10.5px] text-slate-400">
+              Page 2 of {itineraries.length > 4 ? 4 : 3}
+            </div>
+            <div className="flex items-center gap-1 font-bold text-[#C91F28]">
+              <Globe className="w-3.5 h-3.5" />
+              <span>{company.website || 'www.ooting.in'}</span>
+            </div>
+          </div>
         </div>
 
         {/* Footer Wave Asset */}
@@ -836,7 +917,7 @@ export const ItineraryPdfView: React.FC = () => {
           />
         </div>
 
-        {/* Dedicated Final Page: Elite Thank You & Hospitality Guarantee Card */}
+        {/* Dedicated Final Page: Professional Executive Thank You & Corporate Directory */}
         <div
           className="pdf-page-break-before pdf-thank-you-page w-full flex flex-col justify-between bg-white text-slate-900 border-t-2 border-slate-200 print:border-none print:min-h-screen"
           style={{ minHeight: '960px' }}
@@ -854,142 +935,169 @@ export const ItineraryPdfView: React.FC = () => {
             />
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-between p-8 sm:p-10 text-center max-w-3xl mx-auto space-y-6">
-            
-            {/* Travel Hero Aesthetic Banner */}
-            <div className="w-full rounded-2xl overflow-hidden shadow-sm relative h-40 bg-slate-900 shrink-0">
-              <img
-                src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1200&q=80"
-                alt="Scenic Travel"
-                className="w-full h-full object-cover opacity-75"
-                crossOrigin="anonymous"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col items-center justify-end pb-4 px-4 text-white">
-                <span className="text-[10px] font-extrabold tracking-widest uppercase text-amber-300">
-                  Ooting  •  Curated Travel Experiences
-                </span>
-                <h3 className="text-xl font-black tracking-tight text-white mt-1">
-                  Journeys Beyond Ordinary
-                </h3>
-                <p className="text-[11px] text-slate-200 font-light mt-0.5">
-                  Turning your travel dreams into cherished memories that last a lifetime
-                </p>
+          {/* Running Header on Thank You Page */}
+          <div className="px-8 pt-4 pb-2 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-slate-900">
+                {pkg.packageName}
+              </div>
+              <div className="text-[10px] font-semibold text-slate-500 mt-0.5">
+                Final Page • Journey Acknowledgement & Support
               </div>
             </div>
+            <div className="text-right">
+              <span className="text-xs font-black tracking-tight text-[#C91F28] uppercase block">
+                {(company.name || 'OOTING').toUpperCase()}
+              </span>
+              <span className="text-[9.5px] text-slate-400 block font-medium">
+                {company.tagline || 'Journeys Beyond Ordinary'}
+              </span>
+            </div>
+          </div>
 
-            {/* Heartfelt Hospitality Message */}
-            <div className="space-y-2 max-w-xl mx-auto">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-[#C91F28] text-xs font-bold uppercase tracking-wider rounded-full">
+          {/* Thank You Main Body: Clean, Professional, Spacious */}
+          <div className="flex-1 flex flex-col justify-between p-8 sm:p-12 max-w-4xl mx-auto w-full">
+            
+            {/* Center Section: Large font THANK YOU + One Line below */}
+            <div className="text-center pt-4 sm:pt-8 pb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 text-[#C91F28] text-xs font-extrabold uppercase tracking-wider rounded-full mb-3 border border-red-200">
                 <Sparkles className="w-3.5 h-3.5 text-[#C91F28]" />
                 <span>Happy Holidays & Safe Travels</span>
               </span>
-              <h2 className="text-2xl font-extrabold text-slate-950 tracking-tight">
-                Thank You for Choosing Ooting!
-              </h2>
-              <p className="text-slate-600 text-xs leading-relaxed">
-                Dear Valued Traveler, it is our greatest privilege to design this travel experience for you. 
-                We believe that every journey is a precious chapter of life. From your arrival to your safe return home, 
-                our dedicated tour managers, experienced chauffeurs, and 24/7 concierge remain devoted to your comfort, safety, and joy.
+
+              {/* Large Font THANK YOU */}
+              <h1 className="text-4xl sm:text-5xl font-black uppercase tracking-tight text-slate-900 leading-tight">
+                THANK YOU
+              </h1>
+
+              {/* ONE Line below */}
+              <p className="text-sm sm:text-base font-medium text-slate-600 italic mt-3 max-w-xl mx-auto">
+                Thank you for choosing Ooting — we look forward to curating your next unforgettable journey.
               </p>
+
+              {/* Red Accent Divider */}
+              <div className="w-20 h-1 bg-[#C91F28] rounded-full mx-auto mt-4"></div>
             </div>
 
-            {/* 4 Ooting Service Guarantees */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full text-left">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-1">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4" />
+            {/* Side-by-Side Professional Corporate Details Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6 text-left">
+              {/* Left Column: Brand Identity & Trust Pillars */}
+              <div className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/90 space-y-4 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white p-1 border border-slate-200 shadow-2xs flex items-center justify-center shrink-0">
+                    <img
+                      src={company.logoUrl || '/assets/ooting-logo.jpg'}
+                      alt="Ooting"
+                      className="max-w-full max-h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900 uppercase">
+                      {(company.name || 'OOTING TOURS & TRAVELS').toUpperCase()}
+                    </h3>
+                    <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block">
+                      {company.tagline || 'Journeys Beyond Ordinary'}
+                    </span>
+                  </div>
                 </div>
-                <div className="font-bold text-[11px] text-slate-900">Verified Stays</div>
-                <div className="text-[10px] text-slate-500 leading-tight">Handpicked, sanitized premium properties</div>
+
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Your dedicated travel companion for bespoke holiday itineraries, handpicked hotel stays, and authentic local experiences across India.
+                </p>
+
+                <div className="space-y-2 pt-1 text-xs">
+                  <div className="flex items-center gap-2 font-medium text-slate-700">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Verified & Sanitized Premium Accommodations</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-medium text-slate-700">
+                    <Car className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>Commercial AC Fleet with Seasoned Chauffeurs</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-medium text-slate-700">
+                    <Headphones className="w-4 h-4 text-[#C91F28] shrink-0" />
+                    <span>24/7 Dedicated Tour Concierge & Live Support</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-1">
-                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <Car className="w-4 h-4" />
+              {/* Right Column: Clean Corporate Office & Contact Details */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-red-50/40 via-white to-slate-50 border border-red-200/80 space-y-3.5 shadow-2xs">
+                <div className="border-b border-red-200/60 pb-2 flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-[#C91F28]">
+                    Official Booking & Support Desk
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    Always Reachable
+                  </span>
                 </div>
-                <div className="font-bold text-[11px] text-slate-900">Dedicated Fleet</div>
-                <div className="text-[10px] text-slate-500 leading-tight">Commercial AC cars with seasoned drivers</div>
-              </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-1">
-                <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center">
-                  <Headphones className="w-4 h-4" />
-                </div>
-                <div className="font-bold text-[11px] text-slate-900">24/7 On-Tour Care</div>
-                <div className="text-[10px] text-slate-500 leading-tight">Dedicated travel manager reachable anytime</div>
-              </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
+                      <Phone className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">Helpline / WhatsApp</span>
+                      <span className="font-bold text-slate-800 text-xs">
+                        {company.phone || '+91 8884845595 / +91 6362845243'}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-1">
-                <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <Award className="w-4 h-4" />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
+                      <Mail className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">Reservation Email</span>
+                      <span className="font-bold text-slate-800 text-xs">
+                        {company.email || 'support@ooting.in'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
+                      <Globe className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">Official Website</span>
+                      <span className="font-bold text-slate-800 text-xs">
+                        {company.website || 'www.ooting.in'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
+                      <FileText className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">GSTIN Registration</span>
+                      <span className="font-bold text-slate-800 text-xs">
+                        {company?.gstin && company.gstin !== 'NULL' ? company.gstin.replace(/^GSTIN:\s*/i, '') : 'NILL'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 pt-0.5">
+                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5">
+                      <MapPin className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">Registered Head Office</span>
+                      <span className="font-semibold text-slate-700 text-[11px] leading-tight block">
+                        Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="font-bold text-[11px] text-slate-900">Best Value</div>
-                <div className="text-[10px] text-slate-500 leading-tight">100% transparent pricing & zero hidden fees</div>
               </div>
             </div>
 
-            {/* Keep Connected & VIP Concierge Card */}
-            <div className="w-full bg-gradient-to-br from-red-50/80 via-white to-rose-50/50 p-5 rounded-2xl border border-red-200/80 shadow-xs space-y-3 text-left">
-              <div className="flex items-center justify-between border-b border-red-200/60 pb-2">
-                <h3 className="font-extrabold text-xs uppercase tracking-wider text-[#C91F28] flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>VIP Tour Concierge & Support Directory</span>
-                </h3>
-                <span className="text-[10px] font-bold text-slate-500">24/7 Live Assistance</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200">
-                  <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
-                    <Phone className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[9.5px] text-slate-400 block font-semibold uppercase">Helpline / WhatsApp</span>
-                    <span className="font-bold text-slate-800 text-xs">
-                      {company.phone || '+91 8884845595 / +91 6362845243'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200">
-                  <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[9.5px] text-slate-400 block font-semibold uppercase">Official Email</span>
-                    <span className="font-bold text-slate-800 text-xs">
-                      {company.email || 'support@ooting.in'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200">
-                  <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
-                    <Globe className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[9.5px] text-slate-400 block font-semibold uppercase">Website Portal</span>
-                    <span className="font-bold text-slate-800 text-xs">
-                      {company.website || 'www.ooting.in'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200">
-                  <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[9.5px] text-slate-400 block font-semibold uppercase">Registered Head Office</span>
-                    <span className="font-bold text-slate-800 text-[10.5px] leading-tight block truncate">
-                      Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Signature Block */}
+            {/* Elegant Closing Signature */}
             <div className="pt-2 text-center text-xs text-slate-500 space-y-1">
               <div className="font-serif italic text-slate-600 text-sm">
                 "We don't just plan tours; we curate unforgettable experiences to cherish for a lifetime."
@@ -997,6 +1105,23 @@ export const ItineraryPdfView: React.FC = () => {
               <div className="text-[11px] font-bold text-slate-800">
                 Warmest Regards, The Team at Ooting Tours & Travels
               </div>
+            </div>
+          </div>
+
+          {/* Running Footer Bar on Thank You Page */}
+          <div className="px-8 py-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600 bg-white">
+            <div className="flex items-center gap-2 font-medium">
+              <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
+              <span>Contact: {company.phone || '+91 8884845595'}</span>
+              <span className="text-slate-300">•</span>
+              <span>{company.email || 'support@ooting.in'}</span>
+            </div>
+            <div className="font-bold text-[10.5px] text-slate-400">
+              Page {itineraries.length > 4 ? 4 : 3} of {itineraries.length > 4 ? 4 : 3}
+            </div>
+            <div className="flex items-center gap-1 font-bold text-[#C91F28]">
+              <Globe className="w-3.5 h-3.5" />
+              <span>{company.website || 'www.ooting.in'}</span>
             </div>
           </div>
 
