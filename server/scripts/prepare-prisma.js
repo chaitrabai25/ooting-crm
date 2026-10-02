@@ -19,24 +19,8 @@ if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = CLOUD_TIDB_URL;
 }
 
-const dbUrl = process.env.DATABASE_URL || CLOUD_TIDB_URL;
-const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
-const isMysql = dbUrl.startsWith('mysql://');
-const isSqlite = dbUrl.startsWith('file:') || (!isPostgres && !isMysql);
-
-let dbType = 'MySQL (Local / Cloud Production)';
-let sourceSchema = 'prisma/schema.mysql.prisma';
-
-if (isPostgres) {
-  dbType = 'PostgreSQL (Cloud)';
-  sourceSchema = 'prisma/schema.postgresql.prisma';
-} else if (isMysql) {
-  dbType = 'MySQL (Local / Cloud Production)';
-  sourceSchema = 'prisma/schema.mysql.prisma';
-} else if (isSqlite) {
-  dbType = 'SQLite (Local / Fallback)';
-  sourceSchema = 'prisma/schema.sqlite.prisma';
-}
+const dbType = 'MySQL 8.0+ (Dedicated Local / Cloud Engine)';
+const sourceSchema = 'prisma/schema.mysql.prisma';
 
 console.log(`[Prisma Init] Database Engine: ${dbType}`);
 console.log(`[Prisma Init] Active Schema: ${sourceSchema}`);

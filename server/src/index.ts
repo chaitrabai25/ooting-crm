@@ -39,20 +39,7 @@ async function ensureDBSchema() {
     if (isTableMissing) {
       console.log('🔄 Required database tables/columns missing. Automatically initializing database schema safely...');
       try {
-        const dbUrl = process.env.DATABASE_URL || '';
-        const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
-        const isMysql = dbUrl.startsWith('mysql://');
-        const isSqlite = dbUrl.startsWith('file:') || (!isPostgres && !isMysql);
-
-        let schemaFile = 'prisma/schema.mysql.prisma';
-        if (isPostgres) {
-          schemaFile = 'prisma/schema.postgresql.prisma';
-        } else if (isSqlite) {
-          schemaFile = 'prisma/schema.sqlite.prisma';
-        } else if (isMysql) {
-          schemaFile = 'prisma/schema.mysql.prisma';
-        }
-
+        const schemaFile = 'prisma/schema.prisma';
         const serverDir = path.resolve(__dirname, '..');
         const schemaPath = path.resolve(serverDir, schemaFile);
 

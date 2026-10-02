@@ -15,11 +15,12 @@
     "db:migrate:cloud": "node scripts/migrate-to-cloud-mysql.js",
     "db:setup:local": "prisma db push && node scripts/migrate-to-mysql.js",
     "db:dump": "node scripts/generate-dump.js",
-    "prisma:pg:generate": "prisma generate --schema=prisma/schema.postgresql.prisma",
-    "prisma:pg:push": "prisma db push --schema=prisma/schema.postgresql.prisma",
+    "db:export": "node scripts/export-live-mysql.js",
+    "db:view": "node scripts/view-mysql-data.js",
     "setup:prod:admin": "tsx scripts/setup-production-admin.ts",
     "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",

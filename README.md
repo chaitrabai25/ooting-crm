@@ -54,8 +54,9 @@
 - **Backend**: Node.js, Express, TypeScript, Prisma ORM, Zod, Multer, Bcrypt, JsonWebToken.
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Recharts, Axios.
 - **Database**:
-  - **Local Development**: SQLite (`file:./ooting.db`) via Prisma for friction-free out-of-the-box local execution in VS Code without needing external database services or Docker.
-  - **Production Deployment**: Parallel `schema.postgresql.prisma` ready for cloud databases (Supabase, Neon, AWS RDS, PostgreSQL).
+  - **Engine**: Dedicated MySQL 8.0+ (InnoDB utf8mb4) across both local development and cloud production.
+  - **ORM**: Prisma ORM with strict type-safety and automated migrations.
+  - **Visual DB Tool**: Prisma Studio (`npm run db:studio` or `npm run db:view`) to inspect tables in browser/terminal.
 - **Branding**: Authentic Ooting crimson color palette (`#C91F28`) with official company logo and header/footer wave graphics extracted from official templates.
 
 ---
@@ -118,8 +119,7 @@ RM/
 │   ├── tsconfig.json
 │   ├── .env                   # Server environment variables
 │   ├── prisma/
-│   │   ├── schema.prisma      # SQLite Prisma schema (local development)
-│   │   ├── schema.postgresql.prisma # PostgreSQL schema (production)
+│   │   ├── schema.prisma      # Production MySQL 8.0+ Schema
 │   │   └── seed.ts            # Seed script (Admin user, packages, settings)
 │   └── src/
 │       ├── config/            # Environment & company configuration

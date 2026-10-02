@@ -81,34 +81,6 @@ export const Login: React.FC = () => {
           )}
 
           <form className="space-y-5" onSubmit={handleSubmit}>
-            {/* Quick Super Admin Selector for fast testing */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl text-xs space-y-2">
-              <span className="font-semibold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider block">
-                Quick Select Super Admin:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIdentifier('chaitrabaijr@gmail.com');
-                    setPassword('Chaitra@25');
-                  }}
-                  className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-lg font-medium text-slate-800 dark:text-slate-200 transition-colors cursor-pointer text-[11px]"
-                >
-                  👑 chaitrabaijr@gmail.com
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIdentifier('8951233134');
-                    setPassword('Chaitra@25');
-                  }}
-                  className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-lg font-medium text-slate-800 dark:text-slate-200 transition-colors cursor-pointer text-[11px]"
-                >
-                  📱 8951233134 (Phone)
-                </button>
-              </div>
-            </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
