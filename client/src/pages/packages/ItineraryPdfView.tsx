@@ -20,12 +20,6 @@ import {
   Building2,
   Star,
   Coffee,
-  ShieldCheck,
-  Car,
-  Headphones,
-  Sparkles,
-  HeartHandshake,
-  Award,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Package, ItineraryDay } from '../../types/index.js';
@@ -322,7 +316,7 @@ export const ItineraryPdfView: React.FC = () => {
                   alt={company.name || 'Ooting'}
                   className="max-w-full max-h-full object-contain"
                   style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                  crossOrigin="anonymous"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
                   }}
@@ -439,73 +433,6 @@ export const ItineraryPdfView: React.FC = () => {
           </p>
         </div>
 
-        {/* Executive Tour Route & Stay Timeline (Replaces raw table with modern travel schedule) */}
-        {itineraries.length > 0 && (
-          <div className="px-8 py-5 border-b border-slate-100">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                <Compass className="w-3.5 h-3.5 text-[#C91F28]" />
-                <span>Tour Journey Route & Stay Schedule</span>
-              </h3>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-2.5 py-0.5 rounded-full">
-                {itineraries.length} Days Travel Highlights
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              {itineraries.map((d, dIdx) => (
-                <div
-                  key={d.id || dIdx}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50/70 transition-all shadow-2xs"
-                >
-                  {/* Day Number Pill & Title */}
-                  <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-                    <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-red-50 text-[#C91F28] font-black text-[11px] shrink-0 border border-red-200/80">
-                      DAY {String(d.dayNumber).padStart(2, '0')}
-                    </span>
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-xs text-slate-900 truncate">
-                        {d.title?.replace(/^Day\s*\d+:\s*/i, '') || `Day ${d.dayNumber}`}
-                      </h4>
-                      {d.places && (
-                        <div className="text-[10.5px] text-slate-500 truncate flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
-                          <span className="truncate">{d.places}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Overnight Stay & Meal Badge */}
-                  <div className="flex items-center gap-2 shrink-0 sm:pl-3 border-t sm:border-t-0 sm:border-l border-slate-100 pt-1 sm:pt-0">
-                    {d.hotelName ? (
-                      <div className="flex items-center gap-1.5 bg-amber-50/70 border border-amber-200/80 px-2.5 py-1 rounded-lg">
-                        <Building2 className="w-3 h-3 text-amber-700 shrink-0" />
-                        <div className="text-right">
-                          <span className="font-bold text-[11px] text-slate-800 block leading-tight">
-                            {d.hotelName}
-                          </span>
-                          {d.hotelStarCategory && (
-                            <span className="text-[9.5px] text-amber-800 font-medium block">
-                              {d.hotelStarCategory}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-slate-400 italic px-2">Transit / Sightseeing</span>
-                    )}
-
-                    <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg shrink-0">
-                      {d.mealPlan || 'MAP Plan'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Inclusions & Exclusions on Page 1 Overview */}
         <div className="px-8 py-5 border-b border-slate-200 bg-slate-50/50">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
@@ -531,46 +458,18 @@ export const ItineraryPdfView: React.FC = () => {
           </div>
         </div>
 
-        {/* Page 1 Running Footer Bar */}
-        <div className="px-8 py-3 bg-white border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
-          <div className="flex items-center gap-2">
-            <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
-            <span>Contact: {company.phone || '+91 8884845595'}</span>
-            <span className="text-slate-300">•</span>
-            <span>{company.email || 'support@ooting.in'}</span>
-          </div>
-          <div className="font-bold text-[10.5px] text-slate-400">
-            Page 1 of {itineraries.length > 4 ? 4 : 3}
-          </div>
-          <div className="flex items-center gap-1 font-bold text-[#C91F28]">
-            <Globe className="w-3.5 h-3.5" />
-            <span>{company.website || 'www.ooting.in'}</span>
-          </div>
-        </div>
-
         {/* Clean Page Break: Detailed Day-by-Day Schedule begins on Page 2 */}
         <div className="pdf-page-break-before"></div>
 
         {/* Detailed Day-by-Day Itinerary Section (Page 2+) */}
-        <div className="px-8 py-5 space-y-6">
-          {/* Running Page Header on Day-by-Day Section */}
-          <div className="pt-2 pb-3 border-b border-slate-200 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-black uppercase tracking-wider text-slate-900">
-                {pkg.packageName}
-              </div>
-              <div className="text-[10px] font-semibold text-slate-500 mt-0.5">
-                Page 2 of {itineraries.length > 4 ? 4 : 3} • Day-by-Day Detailed Travel Schedule
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-xs font-black tracking-tight text-[#C91F28] uppercase block">
-                {(company.name || 'OOTING').toUpperCase()}
-              </span>
-              <span className="text-[9.5px] text-slate-400 block font-medium">
-                {company.tagline || 'Journeys Beyond Ordinary'}
-              </span>
-            </div>
+        <div className="px-8 py-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+              Detailed Day-by-Day Travel Schedule
+            </h2>
+            <span className="text-xs font-semibold text-[#C91F28]">
+              {itineraries.length} Days Planned
+            </span>
           </div>
 
           <div className="space-y-6">
@@ -886,22 +785,6 @@ export const ItineraryPdfView: React.FC = () => {
             </p>
           </div>
 
-          {/* Running Footer Bar on Day Schedule */}
-          <div className="pt-3 pb-1 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600 bg-white">
-            <div className="flex items-center gap-2">
-              <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
-              <span>Contact: {company.phone || '+91 8884845595'}</span>
-              <span className="text-slate-300">•</span>
-              <span>{company.email || 'support@ooting.in'}</span>
-            </div>
-            <div className="font-bold text-[10.5px] text-slate-400">
-              Page 2 of {itineraries.length > 4 ? 4 : 3}
-            </div>
-            <div className="flex items-center gap-1 font-bold text-[#C91F28]">
-              <Globe className="w-3.5 h-3.5" />
-              <span>{company.website || 'www.ooting.in'}</span>
-            </div>
-          </div>
         </div>
 
         {/* Footer Wave Asset */}
@@ -917,7 +800,7 @@ export const ItineraryPdfView: React.FC = () => {
           />
         </div>
 
-        {/* Dedicated Final Page: Professional Executive Thank You & Corporate Directory */}
+        {/* Dedicated Final Page: Simple & Professional Executive Thank You Card */}
         <div
           className="pdf-page-break-before pdf-thank-you-page w-full flex flex-col justify-between bg-white text-slate-900 border-t-2 border-slate-200 print:border-none print:min-h-screen"
           style={{ minHeight: '960px' }}
@@ -935,193 +818,112 @@ export const ItineraryPdfView: React.FC = () => {
             />
           </div>
 
-          {/* Running Header on Thank You Page */}
-          <div className="px-8 pt-4 pb-2 border-b border-slate-200 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-black uppercase tracking-wider text-slate-900">
-                {pkg.packageName}
+          {/* Centered Thank You Card Content */}
+          <div className="flex-1 flex flex-col justify-center items-center px-8 sm:px-14 py-12 max-w-3xl mx-auto w-full text-center">
+            {/* Ooting Logo */}
+            <div className="w-20 h-20 rounded-2xl bg-white p-2 border border-slate-200 shadow-xs flex items-center justify-center mb-5">
+              <img
+                src={company.logoUrl || '/assets/ooting-logo.jpg'}
+                alt={company.name || 'Ooting'}
+                className="max-w-full max-h-full object-contain"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                }}
+              />
+            </div>
+
+            {/* Large Font THANK YOU */}
+            <h1 className="text-4xl sm:text-5xl font-black uppercase tracking-tight text-slate-900 leading-tight text-center">
+              THANK YOU
+            </h1>
+
+            {/* Below One Line */}
+            <p className="text-sm sm:text-base font-medium text-slate-600 italic mt-3 max-w-xl text-center">
+              Thank you for choosing Ooting — we look forward to curating your next unforgettable journey.
+            </p>
+
+            {/* Red Accent Divider */}
+            <div className="w-16 h-1 bg-[#C91F28] rounded-full mx-auto my-7"></div>
+
+            {/* Professional Company Details Card */}
+            <div className="w-full bg-slate-50/90 border border-slate-200 rounded-2xl p-6 sm:p-7 text-left shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3.5 mb-4 border-b border-slate-200 gap-2">
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-slate-900 uppercase tracking-tight">
+                    {(company.name || 'OOTING TOURS & TRAVELS').toUpperCase()}
+                  </h3>
+                  <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                    {company.tagline || 'Journeys Beyond Ordinary'}
+                  </span>
+                </div>
+                <div>
+                  <span className="inline-block text-[11px] font-semibold text-slate-700 bg-white px-2.5 py-1 rounded-md border border-slate-200">
+                    GSTIN: {company?.gstin && company.gstin !== 'NULL' ? company.gstin.replace(/^GSTIN:\s*/i, '') : 'NILL'}
+                  </span>
+                </div>
               </div>
-              <div className="text-[10px] font-semibold text-slate-500 mt-0.5">
-                Final Page • Journey Acknowledgement & Support
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-xs font-black tracking-tight text-[#C91F28] uppercase block">
-                {(company.name || 'OOTING').toUpperCase()}
-              </span>
-              <span className="text-[9.5px] text-slate-400 block font-medium">
-                {company.tagline || 'Journeys Beyond Ordinary'}
-              </span>
-            </div>
-          </div>
 
-          {/* Thank You Main Body: Clean, Professional, Spacious */}
-          <div className="flex-1 flex flex-col justify-between p-8 sm:p-12 max-w-4xl mx-auto w-full">
-            
-            {/* Center Section: Large font THANK YOU + One Line below */}
-            <div className="text-center pt-4 sm:pt-8 pb-4">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 text-[#C91F28] text-xs font-extrabold uppercase tracking-wider rounded-full mb-3 border border-red-200">
-                <Sparkles className="w-3.5 h-3.5 text-[#C91F28]" />
-                <span>Happy Holidays & Safe Travels</span>
-              </span>
-
-              {/* Large Font THANK YOU */}
-              <h1 className="text-4xl sm:text-5xl font-black uppercase tracking-tight text-slate-900 leading-tight">
-                THANK YOU
-              </h1>
-
-              {/* ONE Line below */}
-              <p className="text-sm sm:text-base font-medium text-slate-600 italic mt-3 max-w-xl mx-auto">
-                Thank you for choosing Ooting — we look forward to curating your next unforgettable journey.
-              </p>
-
-              {/* Red Accent Divider */}
-              <div className="w-20 h-1 bg-[#C91F28] rounded-full mx-auto mt-4"></div>
-            </div>
-
-            {/* Side-by-Side Professional Corporate Details Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6 text-left">
-              {/* Left Column: Brand Identity & Trust Pillars */}
-              <div className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/90 space-y-4 shadow-2xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-white p-1 border border-slate-200 shadow-2xs flex items-center justify-center shrink-0">
-                    <img
-                      src={company.logoUrl || '/assets/ooting-logo.jpg'}
-                      alt="Ooting"
-                      className="max-w-full max-h-full object-contain"
-                      referrerPolicy="no-referrer"
-                    />
+              {/* Clean contact grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5">
+                    <Phone className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-sm text-slate-900 uppercase">
-                      {(company.name || 'OOTING TOURS & TRAVELS').toUpperCase()}
-                    </h3>
-                    <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block">
-                      {company.tagline || 'Journeys Beyond Ordinary'}
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Helpline / WhatsApp</span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      {company.phone || '+91 8884845595 / +91 6362845243'}
                     </span>
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Your dedicated travel companion for bespoke holiday itineraries, handpicked hotel stays, and authentic local experiences across India.
-                </p>
-
-                <div className="space-y-2 pt-1 text-xs">
-                  <div className="flex items-center gap-2 font-medium text-slate-700">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Verified & Sanitized Premium Accommodations</span>
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5">
+                    <Mail className="w-3.5 h-3.5" />
                   </div>
-                  <div className="flex items-center gap-2 font-medium text-slate-700">
-                    <Car className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>Commercial AC Fleet with Seasoned Chauffeurs</span>
-                  </div>
-                  <div className="flex items-center gap-2 font-medium text-slate-700">
-                    <Headphones className="w-4 h-4 text-[#C91F28] shrink-0" />
-                    <span>24/7 Dedicated Tour Concierge & Live Support</span>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Email Support</span>
+                    <span className="font-bold text-slate-800 text-xs break-all">
+                      {company.email || 'support@ooting.in'}
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Right Column: Clean Corporate Office & Contact Details */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-red-50/40 via-white to-slate-50 border border-red-200/80 space-y-3.5 shadow-2xs">
-                <div className="border-b border-red-200/60 pb-2 flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-[#C91F28]">
-                    Official Booking & Support Desk
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-                    Always Reachable
-                  </span>
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5">
+                    <Globe className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Official Website</span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      {company.website || 'www.ooting.in'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
-                      <Phone className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">Helpline / WhatsApp</span>
-                      <span className="font-bold text-slate-800 text-xs">
-                        {company.phone || '+91 8884845595 / +91 6362845243'}
-                      </span>
-                    </div>
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5">
+                    <MapPin className="w-3.5 h-3.5" />
                   </div>
-
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
-                      <Mail className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">Reservation Email</span>
-                      <span className="font-bold text-slate-800 text-xs">
-                        {company.email || 'support@ooting.in'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
-                      <Globe className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">Official Website</span>
-                      <span className="font-bold text-slate-800 text-xs">
-                        {company.website || 'www.ooting.in'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
-                      <FileText className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">GSTIN Registration</span>
-                      <span className="font-bold text-slate-800 text-xs">
-                        {company?.gstin && company.gstin !== 'NULL' ? company.gstin.replace(/^GSTIN:\s*/i, '') : 'NILL'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5 pt-0.5">
-                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5">
-                      <MapPin className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-semibold block">Registered Head Office</span>
-                      <span className="font-semibold text-slate-700 text-[11px] leading-tight block">
-                        Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India
-                      </span>
-                    </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Registered Head Office</span>
+                    <span className="font-medium text-slate-700 text-xs leading-snug">
+                      Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Elegant Closing Signature */}
-            <div className="pt-2 text-center text-xs text-slate-500 space-y-1">
+            {/* Warm Signature Quote */}
+            <div className="mt-8 text-center text-xs text-slate-500 space-y-1">
               <div className="font-serif italic text-slate-600 text-sm">
-                "We don't just plan tours; we curate unforgettable experiences to cherish for a lifetime."
+                "Curating unforgettable experiences to cherish for a lifetime."
               </div>
-              <div className="text-[11px] font-bold text-slate-800">
+              <div className="text-[11px] font-bold text-slate-700">
                 Warmest Regards, The Team at Ooting Tours & Travels
               </div>
-            </div>
-          </div>
-
-          {/* Running Footer Bar on Thank You Page */}
-          <div className="px-8 py-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600 bg-white">
-            <div className="flex items-center gap-2 font-medium">
-              <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
-              <span>Contact: {company.phone || '+91 8884845595'}</span>
-              <span className="text-slate-300">•</span>
-              <span>{company.email || 'support@ooting.in'}</span>
-            </div>
-            <div className="font-bold text-[10.5px] text-slate-400">
-              Page {itineraries.length > 4 ? 4 : 3} of {itineraries.length > 4 ? 4 : 3}
-            </div>
-            <div className="flex items-center gap-1 font-bold text-[#C91F28]">
-              <Globe className="w-3.5 h-3.5" />
-              <span>{company.website || 'www.ooting.in'}</span>
             </div>
           </div>
 
