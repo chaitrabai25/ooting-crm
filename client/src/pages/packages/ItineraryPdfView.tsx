@@ -20,6 +20,10 @@ import {
   Building2,
   Star,
   Coffee,
+  ShieldCheck,
+  Car,
+  Headphones,
+  Sparkles,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Package, ItineraryDay } from '../../types/index.js';
@@ -32,6 +36,27 @@ export interface HotelPhotoDisplay {
   url: string;
   caption: string;
 }
+
+const parseBulletPoints = (text?: string | null): string[] => {
+  if (!text || !text.trim()) return [];
+  const raw = text.trim();
+  // Check if multiline
+  const lines = raw
+    .split(/\r?\n/)
+    .map((s) => s.replace(/^[\s•\-\*\d\.\)\✓\✔\✕\✖\—]+/, '').trim())
+    .filter(Boolean);
+  if (lines.length > 1) return lines;
+
+  // If on a single line separated by commas or semicolons
+  if (raw.includes(',') || raw.includes(';')) {
+    return raw
+      .split(/[,;]/)
+      .map((s) => s.replace(/^[\s•\-\*\d\.\)\✓\✔\✕\✖\—]+/, '').trim())
+      .filter(Boolean);
+  }
+
+  return [raw];
+};
 
 export const ItineraryPdfView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -433,27 +458,129 @@ export const ItineraryPdfView: React.FC = () => {
           </p>
         </div>
 
-        {/* Inclusions & Exclusions on Page 1 Overview */}
+        {/* Inclusions & Exclusions on Page 1 Overview - Point-wise with custom bullets */}
         <div className="px-8 py-5 border-b border-slate-200 bg-slate-50/50">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
-            <div className="bg-white p-3.5 rounded-xl border border-emerald-200/90 shadow-2xs space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-[11px] text-emerald-800">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Tour Inclusions</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            {/* Inclusions List */}
+            <div className="bg-white p-4 rounded-xl border border-emerald-200/90 shadow-2xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 font-bold text-[11.5px] text-emerald-900 pb-2 border-b border-emerald-100">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Tour Inclusions</span>
+                </div>
+                <ul className="space-y-2 pt-2.5">
+                  {parseBulletPoints(
+                    pkg.inclusions ||
+                      'Hotel accommodation in selected room category\nDaily breakfast at hotel restaurant\nPrivate dedicated AC vehicle for transfers and sightseeing\nDriver beta, toll charges, fuel, and parking fees\nAll applicable state taxes and GST'
+                  ).map((pt, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[11px] text-slate-700 leading-snug">
+                      <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                        ✓
+                      </span>
+                      <span>{pt}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <p className="text-[10.5px] text-slate-600 leading-relaxed whitespace-pre-line">
-                {pkg.inclusions || 'Hotel accommodation, daily breakfast, private sightseeing transfers, and tour taxes.'}
+            </div>
+
+            {/* Exclusions List */}
+            <div className="bg-white p-4 rounded-xl border border-rose-200/90 shadow-2xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 font-bold text-[11.5px] text-rose-900 pb-2 border-b border-rose-100">
+                  <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Tour Exclusions</span>
+                </div>
+                <ul className="space-y-2 pt-2.5">
+                  {parseBulletPoints(
+                    pkg.exclusions ||
+                      'Airfare, train fare, or bus tickets to destination\nEntry monument tickets, safari, camera fees, or boat rides\nLunch, dinner, laundry, telephone calls, and room mini-bar\nTravel, baggage, or medical insurance\nAny tips or personal expenses not mentioned in inclusions'
+                  ).map((pt, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[11px] text-slate-700 leading-snug">
+                      <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                        ✕
+                      </span>
+                      <span>{pt}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Page 1 Filler: Trip Highlights & Executive Standards */}
+        <div className="px-8 py-5 border-b border-slate-200 bg-white">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-3 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-[#C91F28]" />
+            <span>Trip Highlights & Executive Standards</span>
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center mb-2">
+                <Car className="w-4 h-4" />
+              </div>
+              <h4 className="text-[11px] font-bold text-slate-900">Dedicated AC Vehicle</h4>
+              <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                Private chauffeur-driven vehicle with fuel, tolls, and parking fully managed.
               </p>
             </div>
 
-            <div className="bg-white p-3.5 rounded-xl border border-rose-200/90 shadow-2xs space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-[11px] text-rose-800">
-                <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                <span>Tour Exclusions</span>
+            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center mb-2">
+                <ShieldCheck className="w-4 h-4" />
               </div>
-              <p className="text-[10.5px] text-slate-600 leading-relaxed whitespace-pre-line">
-                {pkg.exclusions || 'Flight/train tickets, personal expenses, entry fees not mentioned, and tips.'}
+              <h4 className="text-[11px] font-bold text-slate-900">Verified Stays</h4>
+              <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                Handpicked, sanitized accommodations with verified guest safety and hygiene.
               </p>
+            </div>
+
+            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center mb-2">
+                <Compass className="w-4 h-4" />
+              </div>
+              <h4 className="text-[11px] font-bold text-slate-900">Tailored Sightseeing</h4>
+              <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                Curated points of interest with flexible pacing for relaxation and photos.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center mb-2">
+                <Headphones className="w-4 h-4" />
+              </div>
+              <h4 className="text-[11px] font-bold text-slate-900">24/7 Tour Concierge</h4>
+              <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                Round-the-clock remote customer support and on-trip assistance at your service.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Page 1 Filler: Important Travel Guidelines & Guest Notes */}
+        <div className="px-8 py-4 border-b border-slate-200 bg-slate-50/60">
+          <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+            <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wide mb-2 text-[#C91F28]">
+              Important Guest Guidelines & Travel Notes
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5 text-[10.5px] text-slate-600">
+              <div className="flex items-start gap-1.5">
+                <span className="text-[#C91F28] font-bold">•</span>
+                <span>Valid Government Photo ID (Aadhaar / Passport / Voter ID) mandatory for all guests at check-in.</span>
+              </div>
+              <div className="flex items-start gap-1.5">
+                <span className="text-[#C91F28] font-bold">•</span>
+                <span>Standard hotel check-in is 12:00 PM – 2:00 PM; check-out is 10:00 AM – 11:00 AM.</span>
+              </div>
+              <div className="flex items-start gap-1.5">
+                <span className="text-[#C91F28] font-bold">•</span>
+                <span>Vehicle AC operates on plains; AC is turned off on steep ghat roads to ensure engine power.</span>
+              </div>
+              <div className="flex items-start gap-1.5">
+                <span className="text-[#C91F28] font-bold">•</span>
+                <span>Sightseeing sequences may be adjusted locally to optimize travel time and weather conditions.</span>
+              </div>
             </div>
           </div>
         </div>
@@ -787,45 +914,19 @@ export const ItineraryPdfView: React.FC = () => {
 
         </div>
 
-        {/* Footer Wave Asset */}
+        {/* Dedicated Final Page: Simple & Professional Executive Thank You Page */}
         <div
-          className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
-          style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+          className="pdf-page-break-before pdf-thank-you-page w-full flex flex-col justify-between bg-white text-slate-900 print:min-h-screen"
+          style={{ minHeight: '850px' }}
         >
-          <img
-            src="/assets/ooting-footer-wave.png"
-            alt=""
-            className="w-full h-full object-cover opacity-90"
-            style={{ width: '100%', height: '8px', objectFit: 'cover' }}
-          />
-        </div>
-
-        {/* Dedicated Final Page: Simple & Professional Executive Thank You Card */}
-        <div
-          className="pdf-page-break-before pdf-thank-you-page w-full flex flex-col justify-between bg-white text-slate-900 border-t-2 border-slate-200 print:border-none print:min-h-screen"
-          style={{ minHeight: '960px' }}
-        >
-          {/* Top Wave Asset */}
-          <div
-            className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
-            style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
-          >
-            <img
-              src="/assets/ooting-header-wave.png"
-              alt=""
-              className="w-full h-full object-cover opacity-90"
-              style={{ width: '100%', height: '8px', objectFit: 'cover' }}
-            />
-          </div>
-
           {/* Centered Thank You Card Content */}
           <div className="flex-1 flex flex-col justify-center items-center px-8 sm:px-14 py-12 max-w-3xl mx-auto w-full text-center">
-            {/* Ooting Logo */}
-            <div className="w-20 h-20 rounded-2xl bg-white p-2 border border-slate-200 shadow-xs flex items-center justify-center mb-5">
+            {/* Ooting Logo - Direct & Transparent (No Box) */}
+            <div className="mb-6 flex justify-center">
               <img
                 src={company.logoUrl || '/assets/ooting-logo.jpg'}
                 alt={company.name || 'Ooting'}
-                className="max-w-full max-h-full object-contain"
+                className="h-16 sm:h-20 w-auto max-w-[220px] object-contain drop-shadow-xs"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
