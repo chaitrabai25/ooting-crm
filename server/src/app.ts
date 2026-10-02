@@ -73,6 +73,7 @@ if (!fs.existsSync(uploadsDir)) {
   }
 }
 app.use('/uploads', express.static(uploadsDir));
+app.use('/api/uploads', express.static(uploadsDir));
 
 // Ensure database connection and columns exist before serving any API route (crucial for Vercel Serverless)
 app.use(async (req, res, next) => {

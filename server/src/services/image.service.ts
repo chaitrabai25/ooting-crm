@@ -63,10 +63,6 @@ export async function processAndSaveImage(
   const uploadsRoot = path.resolve(__dirname, '../../uploads');
   const targetDir = path.join(uploadsRoot, folder);
 
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-  }
-
   const filename = generateSafeWebpFilename(originalName);
   const targetPath = path.join(targetDir, filename);
 
@@ -86,17 +82,21 @@ export async function processAndSaveImage(
 
   const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
 
-  let url = `/uploads/${folder}/${filename}`;
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  let url = `data:image/webp;base64,${data.toString('base64')}`;
 
-  // Try writing to disk; on read-only serverless environments (e.g. Vercel), fallback cleanly to base64 WebP data URL
-  try {
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
+  // If not in a serverless read-only environment, attempt saving to disk
+  if (!isServerless) {
+    try {
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      fs.writeFileSync(targetPath, data);
+      url = `/uploads/${folder}/${filename}`;
+    } catch (fsErr: any) {
+      console.warn(`[ImageService] Disk write unavailable (${fsErr?.message || fsErr}). Using optimized WebP base64 data URL.`);
+      url = `data:image/webp;base64,${data.toString('base64')}`;
     }
-    fs.writeFileSync(targetPath, data);
-  } catch (fsErr: any) {
-    console.warn(`[ImageService] Disk write unavailable (${fsErr?.message || fsErr}). Using optimized WebP base64 data URL.`);
-    url = `data:image/webp;base64,${data.toString('base64')}`;
   }
 
   return {

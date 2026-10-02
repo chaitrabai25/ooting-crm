@@ -162,6 +162,9 @@ export async function ensureColumns() {
       `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelImageUrl\` TEXT NULL`,
       `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelLocation\` VARCHAR(191) NULL`,
       `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`mealPlan\` VARCHAR(100) NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelDetails\` TEXT NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelCheckIn\` VARCHAR(50) NULL`,
+      `ALTER TABLE \`ItineraryDay\` ADD COLUMN \`hotelCheckOut\` VARCHAR(50) NULL`,
       `ALTER TABLE \`Hotel\` ADD COLUMN \`websiteUrls\` TEXT NULL`,
       `ALTER TABLE \`Hotel\` MODIFY COLUMN \`imageUrl\` LONGTEXT NULL`,
       `ALTER TABLE \`Hotel\` MODIFY COLUMN \`gallery\` LONGTEXT NULL`,
@@ -264,6 +267,8 @@ export async function ensureColumns() {
       `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelLocation" TEXT`,
       `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelDetails" TEXT`,
       `ALTER TABLE "ItineraryDay" ADD COLUMN "mealPlan" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelCheckIn" TEXT`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN "hotelCheckOut" TEXT`,
     ];
     for (const sql of sqliteMigrations) {
       try {
@@ -346,6 +351,8 @@ export async function ensureColumns() {
       `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelLocation" VARCHAR(191)`,
       `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelDetails" TEXT`,
       `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "mealPlan" VARCHAR(100)`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelCheckIn" VARCHAR(50)`,
+      `ALTER TABLE "ItineraryDay" ADD COLUMN IF NOT EXISTS "hotelCheckOut" VARCHAR(50)`,
     ];
     for (const sql of pgMigrations) {
       try {

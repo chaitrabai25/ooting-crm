@@ -600,6 +600,24 @@ export const ItineraryPdfView: React.FC = () => {
                             </div>
                           )}
 
+                          {/* Hotel Check-in / Check-out Timing */}
+                          {((day as any).hotelCheckIn || (day as any).hotelCheckOut) && (
+                            <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-700 pt-0.5 font-medium">
+                              {(day as any).hotelCheckIn && (
+                                <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200">
+                                  <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
+                                  <span>Check-in: <strong>{(day as any).hotelCheckIn}</strong></span>
+                                </span>
+                              )}
+                              {(day as any).hotelCheckOut && (
+                                <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200">
+                                  <Clock className="w-3 h-3 text-amber-700 shrink-0" />
+                                  <span>Check-out: <strong>{(day as any).hotelCheckOut}</strong></span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+
                           {day.hotelDetails && (
                             <p className="text-[10px] text-slate-500 leading-tight">
                               {day.hotelDetails}
@@ -665,6 +683,129 @@ export const ItineraryPdfView: React.FC = () => {
             style={{ width: '100%', height: '8px', objectFit: 'cover' }}
           />
         </div>
+
+        {/* Automatic Dedicated Final Thank-You Page */}
+        <div
+          className="pdf-page-break-before pdf-thank-you-page w-full flex flex-col justify-between bg-white text-slate-900 border-t-2 border-slate-200 print:border-none print:min-h-screen"
+          style={{ minHeight: '960px' }}
+        >
+          {/* Top Wave Asset */}
+          <div
+            className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
+            style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+          >
+            <img
+              src="/assets/ooting-header-wave.png"
+              alt=""
+              className="w-full h-full object-cover opacity-90"
+              style={{ width: '100%', height: '8px', objectFit: 'cover' }}
+            />
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 text-center max-w-2xl mx-auto my-auto space-y-6">
+            {/* Ooting Logo */}
+            <div
+              className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center bg-white p-2 border border-slate-200 shadow-md mx-auto"
+              style={{ width: '80px', height: '80px', minWidth: '80px', maxWidth: '80px', minHeight: '80px', maxHeight: '80px' }}
+            >
+              <img
+                src={company.logoUrl || '/assets/ooting-logo.jpg'}
+                alt="Ooting"
+                className="max-w-full max-h-full object-contain"
+                crossOrigin="anonymous"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <span className="inline-block px-3 py-1 bg-red-100 text-[#C91F28] text-xs font-bold uppercase tracking-wider rounded-full">
+                Happy Holidays & Safe Travels
+              </span>
+              <h2 className="text-3xl font-extrabold text-slate-950 tracking-tight">
+                Thank You for Travelling with Ooting!
+              </h2>
+              <p className="text-slate-600 text-sm leading-relaxed max-w-lg mx-auto">
+                Your journey doesn't end here — let's create many more memorable journeys together.
+              </p>
+            </div>
+
+            {/* Keep Connected Card */}
+            <div className="w-full bg-gradient-to-br from-red-50/80 via-white to-rose-50/50 p-6 rounded-2xl border border-red-200/80 shadow-xs space-y-4 text-left">
+              <h3 className="font-extrabold text-sm uppercase tracking-wider text-[#C91F28] border-b border-red-200/60 pb-2 text-center">
+                Keep Connected with Ooting
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                  <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Phone / WhatsApp</span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      {company.phone || '8884845595 / 6362845243'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                  <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Email Support</span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      {company.email || 'support@ooting.in'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                  <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Official Website</span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      {company.website || 'www.ooting.in'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                  <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Head Office</span>
+                    <span className="font-bold text-slate-800 text-[11px] leading-tight block">
+                      Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-400 italic">
+              "We don't just plan tours; we curate unforgettable experiences to cherish for a lifetime."
+            </div>
+          </div>
+
+          {/* Bottom Wave Asset */}
+          <div
+            className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
+            style={{ width: '100%', height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+          >
+            <img
+              src="/assets/ooting-footer-wave.png"
+              alt=""
+              className="w-full h-full object-cover opacity-90"
+              style={{ width: '100%', height: '8px', objectFit: 'cover' }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Printable CSS style tags */}
@@ -682,6 +823,10 @@ export const ItineraryPdfView: React.FC = () => {
           .page-break-avoid {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
+          }
+          .pdf-page-break-before {
+            page-break-before: always !important;
+            break-before: page !important;
           }
         }
       `}</style>

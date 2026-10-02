@@ -15,7 +15,17 @@ export function normalizeGstin(val?: string | null): string {
   return clean.toUpperCase();
 }
 
+let cachedCompanySettings: { data: any; expiresAt: number } | null = null;
+
+export function invalidateCompanySettingsCache(): void {
+  cachedCompanySettings = null;
+}
+
 export async function getCompanySettings() {
+  if (cachedCompanySettings && cachedCompanySettings.expiresAt > Date.now()) {
+    return cachedCompanySettings.data;
+  }
+
   try {
     const settings = await prisma.companySetting.findMany();
     const settingsMap: Record<string, string> = {};
@@ -23,7 +33,7 @@ export async function getCompanySettings() {
       settingsMap[s.key] = s.value;
     });
 
-    return {
+    const result = {
       name: settingsMap['company_name'] || config.company.name,
       tagline: settingsMap['company_tagline'] || config.company.tagline,
       email: settingsMap['company_email'] || config.company.email,
@@ -41,6 +51,9 @@ export async function getCompanySettings() {
       upiId: settingsMap['upi_id'] || '',
       paymentNotes: settingsMap['payment_notes'] || '',
     };
+
+    cachedCompanySettings = { data: result, expiresAt: Date.now() + 60000 };
+    return result;
   } catch (error) {
     return {
       name: config.company.name,
@@ -143,6 +156,8 @@ router.put('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next
         create: { key: item.key, value: item.value! },
       });
     }
+
+    invalidateCompanySettingsCache();
 
     await logAudit({
       userId: req.user!.id,

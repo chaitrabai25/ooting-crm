@@ -230,6 +230,8 @@ model ItineraryDay {
   hotelLocation String? @db.VarChar(191)
   hotelDetails String? @db.Text
   mealPlan    String?  @db.VarChar(100)
+  hotelCheckIn String? @db.VarChar(50)
+  hotelCheckOut String? @db.VarChar(50)
   imageUrl    String?  @db.LongText
   images      String?  @db.LongText
   createdAt   DateTime @default(now())

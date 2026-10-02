@@ -286,6 +286,20 @@ export async function generateA4Pdf({
           )
         : [];
 
+      // Forced Page Break elements (e.g. Dedicated Thank-You page)
+      const forceBreakNodes = clonedTargetEl
+        ? Array.from(
+            (clonedTargetEl as HTMLElement).querySelectorAll<HTMLElement>(
+              '.pdf-page-break-before, .pdf-thank-you-page'
+            )
+          )
+        : [];
+
+      const forceBreaks = forceBreakNodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return (rect.top - targetRect.top) * scaleRatio;
+      });
+
       const avoidSplits = breakNodes
         .map((node) => {
           const rect = node.getBoundingClientRect();
@@ -312,8 +326,15 @@ export async function generateA4Pdf({
         const remainingHeight = canvas.height - currentY;
         let sliceHeight = Math.min(effectiveCanvasHeight, remainingHeight);
 
-        // If slice doesn't reach the document bottom, calculate an intelligent boundary
-        if (currentY + sliceHeight < canvas.height) {
+        // Check if there is an explicit forced page break ahead within this slice window
+        const nextForceBreak = forceBreaks.find(
+          (fb) => fb > currentY + 50 && fb <= currentY + sliceHeight
+        );
+
+        if (nextForceBreak) {
+          // Cut cleanly right before the forced page-break element so it begins on the next page
+          sliceHeight = Math.floor(nextForceBreak - currentY);
+        } else if (currentY + sliceHeight < canvas.height) {
           const targetCut = currentY + sliceHeight;
 
           // Find if targetCut conflicts with any avoid-split element

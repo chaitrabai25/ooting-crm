@@ -86,6 +86,8 @@ export const PackageDetail: React.FC = () => {
   const [dayHotelLocation, setDayHotelLocation] = useState('');
   const [dayHotelDetails, setDayHotelDetails] = useState('');
   const [dayMealPlan, setDayMealPlan] = useState('Breakfast & Dinner (MAP)');
+  const [dayHotelCheckIn, setDayHotelCheckIn] = useState('12:00 PM');
+  const [dayHotelCheckOut, setDayHotelCheckOut] = useState('11:00 AM');
 
   // Master Data Selection inside Day Modal
   const [daySelectedState, setDaySelectedState] = useState('Tamil Nadu');
@@ -350,6 +352,8 @@ export const PackageDetail: React.FC = () => {
     setDayHotelLocation('');
     setDayHotelDetails('');
     setDayMealPlan('Breakfast & Dinner (MAP)');
+    setDayHotelCheckIn('12:00 PM');
+    setDayHotelCheckOut('11:00 AM');
 
     // Attempt auto-match state and district from package destination
     if (pkg?.destination) {
@@ -407,6 +411,8 @@ export const PackageDetail: React.FC = () => {
     setDayHotelLocation(item.hotelLocation || '');
     setDayHotelDetails(item.hotelDetails || '');
     setDayMealPlan(item.mealPlan || 'Breakfast & Dinner (MAP)');
+    setDayHotelCheckIn(item.hotelCheckIn || '12:00 PM');
+    setDayHotelCheckOut(item.hotelCheckOut || '11:00 AM');
 
     let parsedImages: DayImageItem[] = [];
     if (item.images) {
@@ -464,9 +470,44 @@ export const PackageDetail: React.FC = () => {
       setDayActivities(curA.join(', '));
     }
 
-    if (place.imageUrl && !dayImages.some((img) => img.url === place.imageUrl)) {
-      setDayImages((prev) => [...prev, { url: place.imageUrl!, label: place.name }]);
-      if (!dayImageUrl) setDayImageUrl(place.imageUrl);
+    // Support multi-photo from Place Master (primary imageUrl + gallery)
+    const placeImages: string[] = [];
+    if (place.imageUrl) placeImages.push(place.imageUrl);
+    if ((place as any).gallery) {
+      try {
+        const gal = typeof (place as any).gallery === 'string' ? JSON.parse((place as any).gallery) : (place as any).gallery;
+        if (Array.isArray(gal)) {
+          gal.forEach((g: any) => {
+            const url = typeof g === 'string' ? g : g?.url;
+            if (url && !placeImages.includes(url)) placeImages.push(url);
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to parse place gallery:', e);
+      }
+    }
+    if ((place as any).images) {
+      try {
+        const imgs = typeof (place as any).images === 'string' ? JSON.parse((place as any).images) : (place as any).images;
+        if (Array.isArray(imgs)) {
+          imgs.forEach((img: any) => {
+            const url = typeof img === 'string' ? img : img?.url;
+            if (url && !placeImages.includes(url)) placeImages.push(url);
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to parse place images:', e);
+      }
+    }
+
+    if (placeImages.length > 0) {
+      setDayImages((prev) => {
+        const toAdd = placeImages
+          .filter((url) => !prev.some((img) => img.url === url))
+          .map((url) => ({ url, label: place.name }));
+        return [...prev, ...toAdd];
+      });
+      if (!dayImageUrl && placeImages[0]) setDayImageUrl(placeImages[0]);
     }
   };
 
@@ -495,6 +536,12 @@ export const PackageDetail: React.FC = () => {
     setDayHotelImageUrl(hotel.imageUrl || '');
     setDayHotelLocation(`${hotel.city ? `${hotel.city}, ` : ''}${hotel.district}`);
     setDayHotelDetails(hotel.description || hotel.address || '');
+    if ((hotel as any).checkInTime) {
+      setDayHotelCheckIn((hotel as any).checkInTime);
+    }
+    if ((hotel as any).checkOutTime) {
+      setDayHotelCheckOut((hotel as any).checkOutTime);
+    }
   };
 
   const handleClearHotel = () => {
@@ -504,6 +551,8 @@ export const PackageDetail: React.FC = () => {
     setDayHotelImageUrl('');
     setDayHotelLocation('');
     setDayHotelDetails('');
+    setDayHotelCheckIn('12:00 PM');
+    setDayHotelCheckOut('11:00 AM');
   };
 
 
@@ -674,6 +723,8 @@ export const PackageDetail: React.FC = () => {
         hotelLocation: dayHotelLocation || null,
         hotelDetails: dayHotelDetails || null,
         mealPlan: dayMealPlan || null,
+        hotelCheckIn: dayHotelCheckIn || null,
+        hotelCheckOut: dayHotelCheckOut || null,
       };
 
       // Persist the specific day directly to avoid 413 (Content Too Large) payload limit on serverless
@@ -750,6 +801,15 @@ export const PackageDetail: React.FC = () => {
           endTime: d.endTime?.trim() || null,
           imageUrl: d.imageUrl?.trim() || null,
           images: d.images ? (typeof d.images === 'string' ? d.images : JSON.stringify(d.images)) : null,
+          hotelId: d.hotelId || null,
+          hotelName: d.hotelName || null,
+          hotelStarCategory: d.hotelStarCategory || null,
+          hotelImageUrl: d.hotelImageUrl || null,
+          hotelLocation: d.hotelLocation || null,
+          hotelDetails: d.hotelDetails || null,
+          mealPlan: d.mealPlan || null,
+          hotelCheckIn: d.hotelCheckIn || null,
+          hotelCheckOut: d.hotelCheckOut || null,
         };
         const res = await api.post('/packages/' + id + '/itineraries/day', { day: dayPayload });
         if (res.data?.itineraries) {
@@ -1561,6 +1621,7 @@ export const PackageDetail: React.FC = () => {
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
                       {dayHotelLocation || 'Location specified in itinerary'} • {dayMealPlan}
+                      {dayHotelCheckIn && dayHotelCheckOut ? ` • In: ${dayHotelCheckIn} / Out: ${dayHotelCheckOut}` : ''}
                     </span>
                   </div>
                 </div>
@@ -1654,6 +1715,35 @@ export const PackageDetail: React.FC = () => {
                   value={dayHotelLocation}
                   onChange={(e) => setDayHotelLocation(e.target.value)}
                   placeholder="e.g. Ooty Town, Madikeri Hills"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Hotel Check-in / Check-out Times */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Hotel Check-in Time
+                </label>
+                <input
+                  type="text"
+                  value={dayHotelCheckIn}
+                  onChange={(e) => setDayHotelCheckIn(e.target.value)}
+                  placeholder="e.g. 12:00 PM or 02:00 PM"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Hotel Check-out Time
+                </label>
+                <input
+                  type="text"
+                  value={dayHotelCheckOut}
+                  onChange={(e) => setDayHotelCheckOut(e.target.value)}
+                  placeholder="e.g. 11:00 AM or 10:00 AM"
                   className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                 />
               </div>

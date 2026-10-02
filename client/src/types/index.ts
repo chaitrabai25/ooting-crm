@@ -154,6 +154,8 @@ export interface ItineraryDay {
   hotelLocation?: string | null;
   hotelDetails?: string | null;
   mealPlan?: string | null;
+  hotelCheckIn?: string | null;
+  hotelCheckOut?: string | null;
 }
 
 export interface Package {

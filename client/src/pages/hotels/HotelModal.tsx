@@ -181,6 +181,48 @@ export const HotelModal: React.FC<HotelModalProps> = ({
     );
   };
 
+  const compressImage = (file: File): Promise<{ blob: Blob; dataUrl: string }> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            canvas.toBlob(
+              (blob) => resolve({ blob: blob || file, dataUrl }),
+              'image/jpeg',
+              0.82
+            );
+          } else {
+            resolve({ blob: file, dataUrl: (reader.result as string) || '' });
+          }
+        };
+        img.onerror = () => resolve({ blob: file, dataUrl: (reader.result as string) || '' });
+        img.src = (reader.result as string) || '';
+      };
+      reader.onerror = () => resolve({ blob: file, dataUrl: '' });
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -192,12 +234,31 @@ export const HotelModal: React.FC<HotelModalProps> = ({
       const uploaded: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const formData = new FormData();
-        formData.append('image', file);
+        if (file.size > 25 * 1024 * 1024) {
+          setError(`File "${file.name}" exceeds 25 MB and was skipped.`);
+          continue;
+        }
 
-        const res = await api.post('/upload/image?folder=hotels', formData);
-        if (res.data?.url) {
-          uploaded.push(res.data.url);
+        const { blob, dataUrl } = await compressImage(file);
+        let finalUrl = '';
+
+        try {
+          const formData = new FormData();
+          const safeName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') + '.jpg';
+          formData.append('image', blob, safeName);
+          formData.append('folder', 'hotels');
+
+          const res = await api.post('/upload/image?folder=hotels', formData);
+          if (res.data?.url) {
+            finalUrl = res.data.url;
+          }
+        } catch (serverErr) {
+          console.warn('Server upload fallback to optimized image data URL:', serverErr);
+          finalUrl = dataUrl;
+        }
+
+        if (finalUrl) {
+          uploaded.push(finalUrl);
         }
       }
 
@@ -210,11 +271,22 @@ export const HotelModal: React.FC<HotelModalProps> = ({
       }
     } catch (err: any) {
       console.error('Hotel images upload failed:', err);
-      setError(err.response?.data?.message || 'Failed to upload and optimize hotel photo(s).');
+      setError(err.response?.data?.message || 'Failed to upload hotel photo(s).');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleSetCoverImage = (index: number) => {
+    if (index === 0 || index >= images.length) return;
+    setImages((prev) => {
+      const copy = [...prev];
+      const [picked] = copy.splice(index, 1);
+      copy.unshift(picked);
+      setImageUrl(copy[0] || '');
+      return copy;
+    });
   };
 
   const handleAddManualImage = () => {
@@ -583,10 +655,18 @@ export const HotelModal: React.FC<HotelModalProps> = ({
                     alt={`Hotel photo ${idx + 1}`}
                     className="w-full h-full object-cover"
                   />
-                  {idx === 0 && (
+                  {idx === 0 ? (
                     <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1 py-0.5 rounded font-medium">
                       Cover
                     </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSetCoverImage(idx)}
+                      className="absolute bottom-1 left-1 bg-black/75 hover:bg-[#C91F28] text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-semibold cursor-pointer"
+                    >
+                      Make Cover
+                    </button>
                   )}
                   <button
                     type="button"

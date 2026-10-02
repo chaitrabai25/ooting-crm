@@ -61,6 +61,8 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
   const [distanceFromCenter, setDistanceFromCenter] = useState('');
   const [activities, setActivities] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [manualImageUrl, setManualImageUrl] = useState('');
   const [notes, setNotes] = useState('');
 
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
@@ -81,8 +83,23 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
       setSuggestedDuration(place.suggestedDuration || '2 Hours');
       setDistanceFromCenter(place.distanceFromCenter || '');
       setActivities(place.activities || '');
-      setImageUrl(place.imageUrl || '');
       setNotes(place.notes || '');
+
+      let parsedImages: string[] = [];
+      if (place.gallery) {
+        try {
+          const parsed = JSON.parse(place.gallery);
+          if (Array.isArray(parsed)) parsedImages = parsed.filter(Boolean);
+        } catch {
+          parsedImages = place.gallery.split(',').map((s) => s.trim()).filter(Boolean);
+        }
+      }
+      if (place.imageUrl && !parsedImages.includes(place.imageUrl)) {
+        parsedImages = [place.imageUrl, ...parsedImages];
+      }
+      setImages(parsedImages);
+      setImageUrl(parsedImages[0] || place.imageUrl || '');
+      setManualImageUrl('');
     } else {
       setName('');
       setState(defaultState || 'Tamil Nadu');
@@ -95,6 +112,8 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
       setDistanceFromCenter('');
       setActivities('');
       setImageUrl('');
+      setImages([]);
+      setManualImageUrl('');
       setNotes('');
     }
     setError(null);
@@ -113,29 +132,132 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
     }
   }, [state]);
 
+  const compressImage = (file: File): Promise<{ blob: Blob; dataUrl: string }> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            canvas.toBlob(
+              (blob) => resolve({ blob: blob || file, dataUrl }),
+              'image/jpeg',
+              0.82
+            );
+          } else {
+            resolve({ blob: file, dataUrl: (reader.result as string) || '' });
+          }
+        };
+        img.onerror = () => resolve({ blob: file, dataUrl: (reader.result as string) || '' });
+        img.src = (reader.result as string) || '';
+      };
+      reader.onerror = () => resolve({ blob: file, dataUrl: '' });
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsUploading(true);
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
+      const uploaded: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.size > 25 * 1024 * 1024) {
+          setError(`File "${file.name}" exceeds 25 MB and was skipped.`);
+          continue;
+        }
 
-      // Server converts to optimized .webp automatically via Sharp
-      const res = await api.post('/upload/image?folder=places', formData);
-      if (res.data?.url) {
-        setImageUrl(res.data.url);
+        const { blob, dataUrl } = await compressImage(file);
+        let finalUrl = '';
+
+        try {
+          const formData = new FormData();
+          const safeName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') + '.jpg';
+          formData.append('image', blob, safeName);
+          formData.append('folder', 'places');
+
+          const res = await api.post('/upload/image?folder=places', formData);
+          if (res.data?.url) {
+            finalUrl = res.data.url;
+          }
+        } catch (serverErr) {
+          console.warn('Server upload fallback to optimized image data URL:', serverErr);
+          finalUrl = dataUrl;
+        }
+
+        if (finalUrl) {
+          uploaded.push(finalUrl);
+        }
+      }
+
+      if (uploaded.length > 0) {
+        setImages((prev) => {
+          const combined = [...prev, ...uploaded];
+          setImageUrl(combined[0] || '');
+          return combined;
+        });
       }
     } catch (err: any) {
-      console.error('Image upload failed:', err);
-      setError(err.response?.data?.message || 'Failed to upload and optimize image. Please try again.');
+      console.error('Place images upload failed:', err);
+      setError(err.response?.data?.message || 'Failed to upload place photo(s).');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleSetCoverImage = (index: number) => {
+    if (index === 0 || index >= images.length) return;
+    setImages((prev) => {
+      const copy = [...prev];
+      const [picked] = copy.splice(index, 1);
+      copy.unshift(picked);
+      setImageUrl(copy[0] || '');
+      return copy;
+    });
+  };
+
+  const handleAddManualImage = () => {
+    const trimmed = manualImageUrl.trim();
+    if (!trimmed) return;
+    setImages((prev) => {
+      if (prev.includes(trimmed)) return prev;
+      const next = [...prev, trimmed];
+      if (!imageUrl) setImageUrl(next[0]);
+      return next;
+    });
+    setManualImageUrl('');
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setImages((prev) => {
+      const next = prev.filter((_, idx) => idx !== indexToRemove);
+      setImageUrl(next[0] || '');
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,6 +274,7 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
     setIsSubmitting(true);
     setError(null);
 
+    const primaryImage = images[0] || imageUrl.trim() || null;
     const payload = {
       name: name.trim(),
       state: state.trim(),
@@ -164,7 +287,8 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
       suggestedDuration: suggestedDuration.trim() || '2 Hours',
       distanceFromCenter: distanceFromCenter.trim() || null,
       activities: activities.trim() || null,
-      imageUrl: imageUrl.trim() || null,
+      imageUrl: primaryImage,
+      gallery: images.length > 0 ? JSON.stringify(images) : null,
       notes: notes.trim() || null,
     };
 
@@ -361,71 +485,116 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
           </div>
         </div>
 
-        {/* Photo Upload & Preview */}
+        {/* Place Photos Upload (WebP) & Multi-Image Gallery */}
         <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-          <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between">
+            <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <Camera className="w-3.5 h-3.5 text-[#C91F28]" />
-              Place Feature Photo (Auto-optimized to WebP)
-            </span>
-            {imageUrl && (
+              Place Photos & Gallery (Auto-optimized to WebP)
+            </label>
+            {images.length > 0 && (
+              <span className="text-[11px] text-slate-500 font-medium">
+                {images.length} photo{images.length > 1 ? 's' : ''} added
+              </span>
+            )}
+          </div>
+
+          {/* Photo Previews Grid */}
+          {images.length > 0 ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 pt-1 pb-1">
+              {images.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="relative group rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 aspect-video bg-slate-100 dark:bg-slate-900 shadow-2xs"
+                >
+                  <img
+                    src={img}
+                    alt={`Place photo ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  {idx === 0 ? (
+                    <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1 py-0.5 rounded font-medium">
+                      Cover
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSetCoverImage(idx)}
+                      className="absolute bottom-1 left-1 bg-black/75 hover:bg-[#C91F28] text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-semibold cursor-pointer"
+                    >
+                      Make Cover
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    className="absolute top-1 right-1 p-0.5 bg-rose-600/90 text-white rounded-full opacity-90 group-hover:opacity-100 hover:bg-rose-700 transition-opacity cursor-pointer shadow-xs"
+                    title="Remove Photo"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-4 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center text-slate-400 text-xs">
+              <Camera className="w-6 h-6 mb-1 text-slate-400" />
+              <span>No photos uploaded yet (supports JPG, PNG, WebP)</span>
+            </div>
+          )}
+
+          {/* Upload and URL Inputs */}
+          <div className="space-y-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                multiple
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
               <button
                 type="button"
-                onClick={() => setImageUrl('')}
-                className="text-[11px] text-rose-600 hover:underline flex items-center gap-0.5"
+                disabled={isUploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-650 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
               >
-                <X className="w-3 h-3" /> Clear Image
+                {isUploading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C91F28]" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5 text-[#C91F28]" />
+                )}
+                <span>{isUploading ? 'Optimizing WebP...' : 'Upload Photos (Select Multiple)'}</span>
               </button>
-            )}
-          </label>
+              <span className="text-[11px] text-slate-400">or add photo URL below</span>
+            </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            {imageUrl ? (
-              <div className="w-28 h-20 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 flex-shrink-0 bg-slate-100">
-                <img src={imageUrl} alt="Place Preview" className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <div className="w-28 h-20 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-slate-400 text-[10px] flex-shrink-0">
-                <Camera className="w-5 h-5 mb-0.5" />
-                No Photo
-              </div>
-            )}
-
-            <div className="flex-1 w-full space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  disabled={isUploading}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-650 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-                >
-                  {isUploading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C91F28]" />
-                  ) : (
-                    <Upload className="w-3.5 h-3.5 text-[#C91F28]" />
-                  )}
-                  <span>{isUploading ? 'Optimizing WebP...' : 'Upload Image File'}</span>
-                </button>
-                <span className="text-[11px] text-slate-400">or enter image URL below</span>
-              </div>
-
-              <div className="relative">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
                 <LinkIcon className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
                 <input
                   type="url"
-                  placeholder="https://images.unsplash.com/... or /uploads/..."
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://... photo link (Unsplash, external URL, etc.)"
+                  value={manualImageUrl}
+                  onChange={(e) => setManualImageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddManualImage();
+                    }
+                  }}
                   className="w-full pl-8 pr-2.5 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                 />
               </div>
+              <button
+                type="button"
+                onClick={handleAddManualImage}
+                disabled={!manualImageUrl.trim()}
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-40"
+              >
+                + Add URL
+              </button>
             </div>
           </div>
         </div>
