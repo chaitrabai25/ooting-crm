@@ -20,6 +20,12 @@ import {
   Building2,
   Star,
   Coffee,
+  ShieldCheck,
+  Car,
+  Headphones,
+  Sparkles,
+  HeartHandshake,
+  Award,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Package, ItineraryDay } from '../../types/index.js';
@@ -34,23 +40,79 @@ export const ItineraryPdfView: React.FC = () => {
   const { company } = useCompanySettings();
 
   const [pkg, setPkg] = useState<Package | null>(null);
+  const [hotelsLookup, setHotelsLookup] = useState<Map<string, any>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
-    const fetchPackage = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true);
-        const res = await api.get('/packages/' + id);
-        setPkg(res.data);
+        const [pkgRes, hotelsRes] = await Promise.all([
+          api.get('/packages/' + id),
+          api.get('/hotels').catch(() => ({ data: { hotels: [] } })),
+        ]);
+        setPkg(pkgRes.data);
+
+        const map = new Map<string, any>();
+        const list = hotelsRes.data?.hotels || [];
+        list.forEach((h: any) => {
+          if (h.id) map.set(h.id, h);
+          if (h.name) map.set(h.name.toLowerCase().trim(), h);
+        });
+        setHotelsLookup(map);
       } catch (err) {
         console.error('Failed to load package itinerary for PDF:', err);
       } finally {
         setIsLoading(false);
       }
     };
-    if (id) fetchPackage();
+    if (id) fetchData();
   }, [id]);
+
+  const getHotelPhotos = (day: ItineraryDay): string[] => {
+    const photos: string[] = [];
+    if (day.hotelImageUrl && day.hotelImageUrl.trim() && !photos.includes(day.hotelImageUrl.trim())) {
+      photos.push(day.hotelImageUrl.trim());
+    }
+
+    let matchedHotel = null;
+    if (day.hotelId && hotelsLookup.has(day.hotelId)) {
+      matchedHotel = hotelsLookup.get(day.hotelId);
+    } else if (day.hotelName && hotelsLookup.has(day.hotelName.toLowerCase().trim())) {
+      matchedHotel = hotelsLookup.get(day.hotelName.toLowerCase().trim());
+    }
+
+    if (matchedHotel) {
+      if (matchedHotel.imageUrl && matchedHotel.imageUrl.trim() && !photos.includes(matchedHotel.imageUrl.trim())) {
+        photos.push(matchedHotel.imageUrl.trim());
+      }
+      if (matchedHotel.gallery) {
+        try {
+          const gal = typeof matchedHotel.gallery === 'string' ? JSON.parse(matchedHotel.gallery) : matchedHotel.gallery;
+          if (Array.isArray(gal)) {
+            gal.forEach((g: any) => {
+              const url = (typeof g === 'string' ? g : g?.url || '')?.trim();
+              if (url && !photos.includes(url)) photos.push(url);
+            });
+          }
+        } catch {}
+      }
+      if (matchedHotel.images) {
+        try {
+          const imgs = typeof matchedHotel.images === 'string' ? JSON.parse(matchedHotel.images) : matchedHotel.images;
+          if (Array.isArray(imgs)) {
+            imgs.forEach((img: any) => {
+              const url = (typeof img === 'string' ? img : img?.url || '')?.trim();
+              if (url && !photos.includes(url)) photos.push(url);
+            });
+          }
+        } catch {}
+      }
+    }
+
+    return photos.filter((u) => Boolean(u) && u !== 'null' && u !== 'undefined');
+  };
 
   const handlePrint = async () => {
     if (!pkg) return;
@@ -345,7 +407,7 @@ export const ItineraryPdfView: React.FC = () => {
 
         {/* Tour Overview */}
         <div className="px-8 py-5 border-b border-slate-100">
-          <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 mb-2">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-2">
             Tour Overview & Highlights
           </h3>
           <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
@@ -353,7 +415,99 @@ export const ItineraryPdfView: React.FC = () => {
           </p>
         </div>
 
-        {/* Day-by-Day Itinerary Section */}
+        {/* At-a-Glance Tour Route & Overnight Stay Table (Fills Page 1 elegantly) */}
+        {itineraries.length > 0 && (
+          <div className="px-8 py-5 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-2.5">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                <Compass className="w-3.5 h-3.5 text-[#C91F28]" />
+                <span>Tour Schedule At-a-Glance</span>
+              </h3>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                {itineraries.length} Days Itinerary Summary
+              </span>
+            </div>
+
+            <div className="overflow-hidden border border-slate-200 rounded-xl">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                    <th className="py-2.5 px-3 w-14 text-center">Day</th>
+                    <th className="py-2.5 px-3">Sightseeing & Route Highlights</th>
+                    <th className="py-2.5 px-3">Overnight Stay (Hotel)</th>
+                    <th className="py-2.5 px-3 text-right">Meal Plan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[11px]">
+                  {itineraries.map((d, dIdx) => (
+                    <tr key={d.id || dIdx} className="hover:bg-slate-50/50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900 text-center whitespace-nowrap">
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-50 text-[#C91F28] font-bold text-[10px]">
+                          {d.dayNumber}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="font-semibold text-slate-900 leading-snug">
+                          {d.title?.replace(/^Day\s*\d+:\s*/i, '') || `Day ${d.dayNumber}`}
+                        </div>
+                        {d.places && (
+                          <div className="text-[10px] text-slate-500 truncate max-w-sm mt-0.5">
+                            📍 {d.places}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {d.hotelName ? (
+                          <div>
+                            <span className="font-semibold text-slate-800">{d.hotelName}</span>
+                            {d.hotelStarCategory && (
+                              <span className="ml-1 text-[9.5px] text-amber-700 font-medium">({d.hotelStarCategory})</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">As per itinerary</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap text-slate-600 font-medium">
+                        {d.mealPlan || 'MAP Plan'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Inclusions & Exclusions on Page 1 Overview */}
+        <div className="px-8 py-5 border-b border-slate-200 bg-slate-50/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+            <div className="bg-white p-3.5 rounded-xl border border-emerald-200/90 shadow-2xs space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-[11px] text-emerald-800">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Tour Inclusions</span>
+              </div>
+              <p className="text-[10.5px] text-slate-600 leading-relaxed whitespace-pre-line">
+                {pkg.inclusions || 'Hotel accommodation, daily breakfast, private sightseeing transfers, and tour taxes.'}
+              </p>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-xl border border-rose-200/90 shadow-2xs space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-[11px] text-rose-800">
+                <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span>Tour Exclusions</span>
+              </div>
+              <p className="text-[10.5px] text-slate-600 leading-relaxed whitespace-pre-line">
+                {pkg.exclusions || 'Flight/train tickets, personal expenses, entry fees not mentioned, and tips.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Clean Page Break: Detailed Day-by-Day Schedule begins on Page 2 */}
+        <div className="pdf-page-break-before"></div>
+
+        {/* Detailed Day-by-Day Itinerary Section (Page 2+) */}
         <div className="px-8 py-6 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2">
             <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
@@ -365,302 +519,300 @@ export const ItineraryPdfView: React.FC = () => {
           </div>
 
           <div className="space-y-6">
-            {itineraries.map((day, idx) => (
-              <div
-                key={day.id || idx}
-                className="itinerary-day-card page-break-avoid border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white"
-              >
-                {/* Day Header Bar */}
-                <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-lg bg-[#C91F28] text-white font-black text-xs flex items-center justify-center shadow-xs">
-                      {day.dayNumber}
-                    </span>
-                    <div>
-                      <h3 className="font-bold text-sm text-slate-900">{day.title}</h3>
-                      {(day as any).date && (
-                        <span className="text-[11px] text-[#C91F28] font-bold block">
-                          {(day as any).date}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+            {itineraries.map((day, idx) => {
+              const hotelPhotos = getHotelPhotos(day);
 
-                  {(day.startTime || day.endTime) && (
-                    <div className="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
-                      <Clock className="w-3 h-3 text-[#C91F28]" />
-                      <span>
-                        {day.startTime || 'Start'} {day.endTime ? `– ${day.endTime}` : ''}
+              return (
+                <div
+                  key={day.id || idx}
+                  className="itinerary-day-card page-break-avoid border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white"
+                >
+                  {/* Day Header Bar */}
+                  <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-lg bg-[#C91F28] text-white font-black text-xs flex items-center justify-center shadow-xs">
+                        {day.dayNumber}
                       </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Day Content Body */}
-                <div className="p-5 space-y-3.5">
-                  <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-                    {day.description}
-                  </p>
-
-                  {((day as any).highlights || (day as any).travelDetails) && (
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-                      {(day as any).highlights && (
-                        <div>
-                          <strong className="text-slate-800">Highlights: </strong>
-                          <span className="text-slate-700">{(day as any).highlights}</span>
-                        </div>
-                      )}
-                      {(day as any).travelDetails && (
-                        <div>
-                          <strong className="text-slate-800">Travel & Logistics: </strong>
-                          <span className="text-slate-700">{(day as any).travelDetails}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Day Photo(s) - Disciplined Aspect Ratio & Height with Place Name Label */}
-                  {(() => {
-                    let photoItems: { url: string; label?: string }[] = [];
-                    if ((day as any).images) {
-                      try {
-                        const parsed = JSON.parse((day as any).images);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                          photoItems = parsed
-                            .map((item: any) => {
-                              if (typeof item === 'string') return { url: item.trim() };
-                              return {
-                                url: (item.url || item.imageUrl || '').trim(),
-                                label: item.label || item.name || item.placeName,
-                              };
-                            })
-                            .filter((item) => Boolean(item.url) && item.url !== 'undefined' && item.url !== 'null' && item.url !== '""');
-                        }
-                      } catch {
-                        if (typeof (day as any).images === 'string' && (day as any).images.includes(',')) {
-                          photoItems = (day as any).images
-                            .split(',')
-                            .map((s: string) => ({ url: s.trim() }))
-                            .filter((item: any) => Boolean(item.url) && item.url !== 'undefined' && item.url !== 'null');
-                        }
-                      }
-                    }
-                    if (photoItems.length === 0 && day.imageUrl && day.imageUrl.trim()) {
-                      photoItems = [{ url: day.imageUrl.trim() }];
-                    }
-
-                    if (photoItems.length === 0) return null;
-
-                    const placesList = day.places
-                      ? day.places.split(',').map((s: string) => s.trim()).filter(Boolean)
-                      : [];
-
-                    if (photoItems.length === 1) {
-                      const item = photoItems[0];
-                      const placeLabel = item.label || (placesList.length > 0 ? placesList.join(' • ') : '');
-                      return (
-                        <div className="pt-2 day-photo-card">
-                          <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                            <div
-                              className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                              style={{ width: '100%', height: '210px', maxHeight: '210px', minHeight: '210px' }}
-                            >
-                              <img
-                                src={item.url}
-                                alt={placeLabel || day.title}
-                                className="w-full h-full object-cover"
-                                style={{ width: '100%', height: '210px', maxHeight: '210px', objectFit: 'cover' }}
-                                crossOrigin="anonymous"
-                                onError={(e) => {
-                                  (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');
-                                }}
-                              />
-                            </div>
-                            {placeLabel && (
-                              <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-xs text-slate-800 font-medium">
-                                <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" style={{ width: '14px', height: '14px' }} />
-                                <span className="font-semibold text-slate-900">{placeLabel}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="pt-2">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                          {photoItems.map((item, pIdx) => {
-                            const placeLabel = item.label || placesList[pIdx] || '';
-                            return (
-                              <div
-                                key={pIdx}
-                                className="day-photo-card flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
-                              >
-                                <div
-                                  className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                                  style={{ width: '100%', height: '135px', maxHeight: '135px', minHeight: '135px' }}
-                                >
-                                  <img
-                                    src={item.url}
-                                    alt={placeLabel || ''}
-                                    className="w-full h-full object-cover"
-                                    style={{ width: '100%', height: '135px', maxHeight: '135px', objectFit: 'cover' }}
-                                    crossOrigin="anonymous"
-                                    onError={(e) => {
-                                      (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');
-                                    }}
-                                  />
-                                </div>
-                                {placeLabel && (
-                                  <div className="px-2 py-1 bg-slate-50 border-t border-slate-200 flex items-center gap-1 text-[10px] text-slate-800 font-medium">
-                                    <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" style={{ width: '12px', height: '12px' }} />
-                                    <span className="truncate font-semibold text-slate-800">{placeLabel}</span>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Places & Activities */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs border-t border-slate-100">
-                    {day.places && (
-                      <div className="flex items-start gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-[#C91F28] mt-0.5 flex-shrink-0" />
-                        <div>
-                          <span className="font-semibold text-slate-800 block text-[11px]">Places Visited:</span>
-                          <span className="text-slate-600 text-[11px]">{day.places}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {day.activities && (
-                      <div className="flex items-start gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <span className="font-semibold text-slate-800 block text-[11px]">Key Activities:</span>
-                          <span className="text-slate-600 text-[11px]">{day.activities}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Hotel Accommodation Card (Rendered only if hotel is assigned to this day) */}
-                  {day.hotelName && day.hotelName.trim() && (
-                    <div className="mt-3 p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80 shadow-2xs">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-900">
-                          <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
-                          Overnight Stay / Hotel
-                        </span>
-                        {day.mealPlan && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-amber-200 text-[10px] font-semibold text-amber-800">
-                            <Coffee className="w-3 h-3 text-amber-600" />
-                            {day.mealPlan}
+                      <div>
+                        <h3 className="font-bold text-sm text-slate-900">{day.title}</h3>
+                        {(day as any).date && (
+                          <span className="text-[11px] text-[#C91F28] font-bold block">
+                            {(day as any).date}
                           </span>
                         )}
                       </div>
+                    </div>
 
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                        {day.hotelImageUrl && (
-                          <div className="w-24 h-16 rounded-lg overflow-hidden border border-amber-200/90 shrink-0 bg-white">
-                            <img
-                              src={day.hotelImageUrl}
-                              alt={day.hotelName}
-                              className="w-full h-full object-cover"
-                              crossOrigin="anonymous"
-                              onError={(e) => {
-                                (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
-                              }}
-                            />
+                    {(day.startTime || day.endTime) && (
+                      <div className="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
+                        <Clock className="w-3 h-3 text-[#C91F28]" />
+                        <span>
+                          {day.startTime || 'Start'} {day.endTime ? `– ${day.endTime}` : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Day Content Body */}
+                  <div className="p-5 space-y-3.5">
+                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+                      {day.description}
+                    </p>
+
+                    {((day as any).highlights || (day as any).travelDetails) && (
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                        {(day as any).highlights && (
+                          <div>
+                            <strong className="text-slate-800">Highlights: </strong>
+                            <span className="text-slate-700">{(day as any).highlights}</span>
                           </div>
                         )}
-
-                        <div className="flex-1 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="font-bold text-xs text-slate-900">
-                              {day.hotelName}
-                            </h4>
-                            {day.hotelStarCategory && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium">
-                                <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-                                {day.hotelStarCategory}
-                              </span>
-                            )}
+                        {(day as any).travelDetails && (
+                          <div>
+                            <strong className="text-slate-800">Travel & Logistics: </strong>
+                            <span className="text-slate-700">{(day as any).travelDetails}</span>
                           </div>
+                        )}
+                      </div>
+                    )}
 
-                          {day.hotelLocation && (
-                            <div className="flex items-center gap-1 text-[11px] text-slate-600">
-                              <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
-                              <span>{day.hotelLocation}</span>
-                            </div>
-                          )}
+                    {/* Day Sightseeing Photos (Disciplined Aspect Ratio & Height) */}
+                    {(() => {
+                      let photoItems: { url: string; label?: string }[] = [];
+                      if ((day as any).images) {
+                        try {
+                          const parsed = JSON.parse((day as any).images);
+                          if (Array.isArray(parsed) && parsed.length > 0) {
+                            photoItems = parsed
+                              .map((item: any) => {
+                                if (typeof item === 'string') return { url: item.trim() };
+                                return {
+                                  url: (item.url || item.imageUrl || '').trim(),
+                                  label: item.label || item.name || item.placeName,
+                                };
+                              })
+                              .filter((item) => Boolean(item.url) && item.url !== 'undefined' && item.url !== 'null' && item.url !== '""');
+                          }
+                        } catch {
+                          if (typeof (day as any).images === 'string' && (day as any).images.includes(',')) {
+                            photoItems = (day as any).images
+                              .split(',')
+                              .map((s: string) => ({ url: s.trim() }))
+                              .filter((item: any) => Boolean(item.url) && item.url !== 'undefined' && item.url !== 'null');
+                          }
+                        }
+                      }
+                      if (photoItems.length === 0 && day.imageUrl && day.imageUrl.trim()) {
+                        photoItems = [{ url: day.imageUrl.trim() }];
+                      }
 
-                          {/* Hotel Check-in / Check-out Timing */}
-                          {((day as any).hotelCheckIn || (day as any).hotelCheckOut) && (
-                            <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-700 pt-0.5 font-medium">
-                              {(day as any).hotelCheckIn && (
-                                <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200">
-                                  <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
-                                  <span>Check-in: <strong>{(day as any).hotelCheckIn}</strong></span>
-                                </span>
+                      if (photoItems.length === 0) return null;
+
+                      const placesList = day.places
+                        ? day.places.split(',').map((s: string) => s.trim()).filter(Boolean)
+                        : [];
+
+                      if (photoItems.length === 1) {
+                        const item = photoItems[0];
+                        const placeLabel = item.label || (placesList.length > 0 ? placesList.join(' • ') : '');
+                        return (
+                          <div className="pt-2 day-photo-card">
+                            <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                              <div
+                                className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
+                                style={{ width: '100%', height: '140px', maxHeight: '140px', minHeight: '140px' }}
+                              >
+                                <img
+                                  src={item.url}
+                                  alt={placeLabel || day.title}
+                                  className="w-full h-full object-cover"
+                                  style={{ width: '100%', height: '140px', maxHeight: '140px', objectFit: 'cover' }}
+                                  crossOrigin="anonymous"
+                                  onError={(e) => {
+                                    (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');
+                                  }}
+                                />
+                              </div>
+                              {placeLabel && (
+                                <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-xs text-slate-800 font-medium">
+                                  <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" style={{ width: '14px', height: '14px' }} />
+                                  <span className="font-semibold text-slate-900">{placeLabel}</span>
+                                </div>
                               )}
-                              {(day as any).hotelCheckOut && (
-                                <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200">
-                                  <Clock className="w-3 h-3 text-amber-700 shrink-0" />
-                                  <span>Check-out: <strong>{(day as any).hotelCheckOut}</strong></span>
-                                </span>
-                              )}
                             </div>
-                          )}
+                          </div>
+                        );
+                      }
 
-                          {day.hotelDetails && (
-                            <p className="text-[10px] text-slate-500 leading-tight">
-                              {day.hotelDetails}
-                            </p>
+                      return (
+                        <div className="pt-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            {photoItems.map((item, pIdx) => {
+                              const placeLabel = item.label || placesList[pIdx] || '';
+                              return (
+                                <div
+                                  key={pIdx}
+                                  className="day-photo-card flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
+                                >
+                                  <div
+                                    className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
+                                    style={{ width: '100%', height: '135px', maxHeight: '135px', minHeight: '135px' }}
+                                  >
+                                    <img
+                                      src={item.url}
+                                      alt={placeLabel || ''}
+                                      className="w-full h-full object-cover"
+                                      style={{ width: '100%', height: '135px', maxHeight: '135px', objectFit: 'cover' }}
+                                      crossOrigin="anonymous"
+                                      onError={(e) => {
+                                        (e.currentTarget.closest('.day-photo-card') as HTMLElement)?.style.setProperty('display', 'none');
+                                      }}
+                                    />
+                                  </div>
+                                  {placeLabel && (
+                                    <div className="px-2 py-1 bg-slate-50 border-t border-slate-200 flex items-center gap-1 text-[10px] text-slate-800 font-medium">
+                                      <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" style={{ width: '12px', height: '12px' }} />
+                                      <span className="truncate font-semibold text-slate-800">{placeLabel}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Places & Activities */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs border-t border-slate-100">
+                      {day.places && (
+                        <div className="flex items-start gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#C91F28] mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="font-semibold text-slate-800 block text-[11px]">Places Visited:</span>
+                            <span className="text-slate-600 text-[11px]">{day.places}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {day.activities && (
+                        <div className="flex items-start gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="font-semibold text-slate-800 block text-[11px]">Key Activities:</span>
+                            <span className="text-slate-600 text-[11px]">{day.activities}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hotel Accommodation Card: Displays ALL uploaded hotel images */}
+                    {day.hotelName && day.hotelName.trim() && (
+                      <div className="mt-3 p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80 shadow-2xs">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                            <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
+                            Overnight Stay / Hotel Accommodation
+                          </span>
+                          {day.mealPlan && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-amber-200 text-[10px] font-semibold text-amber-800">
+                              <Coffee className="w-3 h-3 text-amber-600" />
+                              {day.mealPlan}
+                            </span>
                           )}
                         </div>
+
+                        <div className="flex flex-col sm:flex-row items-start gap-3.5">
+                          {/* Hotel Images Showcase: Primary + Gallery Thumbnails */}
+                          {hotelPhotos.length > 0 && (
+                            <div className="flex flex-col gap-1.5 shrink-0">
+                              <div className="w-28 h-20 rounded-lg overflow-hidden border border-amber-200/90 bg-white shadow-2xs">
+                                <img
+                                  src={hotelPhotos[0]}
+                                  alt={day.hotelName}
+                                  className="w-full h-full object-cover"
+                                  crossOrigin="anonymous"
+                                  onError={(e) => {
+                                    (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
+                                  }}
+                                />
+                              </div>
+                              {hotelPhotos.length > 1 && (
+                                <div className="flex items-center gap-1 max-w-[112px] overflow-hidden">
+                                  {hotelPhotos.slice(1, 4).map((hPhoto, hIdx) => (
+                                    <div
+                                      key={hIdx}
+                                      className="w-8 h-7 rounded border border-amber-200/80 overflow-hidden bg-white shrink-0"
+                                    >
+                                      <img
+                                        src={hPhoto}
+                                        alt=""
+                                        className="w-full h-full object-cover"
+                                        crossOrigin="anonymous"
+                                      />
+                                    </div>
+                                  ))}
+                                  {hotelPhotos.length > 4 && (
+                                    <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 py-0.5 rounded">
+                                      +{hotelPhotos.length - 4}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-bold text-xs text-slate-900">
+                                {day.hotelName}
+                              </h4>
+                              {day.hotelStarCategory && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium">
+                                  <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                  {day.hotelStarCategory}
+                                </span>
+                              )}
+                            </div>
+
+                            {day.hotelLocation && (
+                              <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                                <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
+                                <span>{day.hotelLocation}</span>
+                              </div>
+                            )}
+
+                            {/* Hotel Check-in / Check-out Timing */}
+                            {((day as any).hotelCheckIn || (day as any).hotelCheckOut) && (
+                              <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-700 pt-0.5 font-medium">
+                                {(day as any).hotelCheckIn && (
+                                  <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200">
+                                    <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
+                                    <span>Check-in: <strong>{(day as any).hotelCheckIn}</strong></span>
+                                  </span>
+                                )}
+                                {(day as any).hotelCheckOut && (
+                                  <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200">
+                                    <Clock className="w-3 h-3 text-amber-700 shrink-0" />
+                                    <span>Check-out: <strong>{(day as any).hotelCheckOut}</strong></span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {day.hotelDetails && (
+                              <p className="text-[10px] text-slate-500 leading-tight pt-0.5">
+                                {day.hotelDetails}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Inclusions & Exclusions */}
-        <div className="px-8 py-6 bg-slate-50/70 border-t border-slate-200 page-break-avoid">
-          <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 mb-4">
-            Package Inclusions & Exclusions
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Inclusions */}
-            <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-2xs space-y-2">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                <span>What Is Included:</span>
-              </div>
-              <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-                {pkg.inclusions || 'Hotel accommodation, daily breakfast, private sightseeing transfers, and tour taxes.'}
-              </p>
-            </div>
-
-            {/* Exclusions */}
-            <div className="bg-white p-4 rounded-xl border border-rose-200 shadow-2xs space-y-2">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-rose-800">
-                <XCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-                <span>What Is Excluded:</span>
-              </div>
-              <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-                {pkg.exclusions || 'Flight/train tickets, personal expenses, entry fees not mentioned, and tips.'}
-              </p>
-            </div>
+              );
+            })}
           </div>
         </div>
 
@@ -684,7 +836,7 @@ export const ItineraryPdfView: React.FC = () => {
           />
         </div>
 
-        {/* Automatic Dedicated Final Thank-You Page */}
+        {/* Dedicated Final Page: Elite Thank You & Hospitality Guarantee Card */}
         <div
           className="pdf-page-break-before pdf-thank-you-page w-full flex flex-col justify-between bg-white text-slate-900 border-t-2 border-slate-200 print:border-none print:min-h-screen"
           style={{ minHeight: '960px' }}
@@ -702,85 +854,134 @@ export const ItineraryPdfView: React.FC = () => {
             />
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 text-center max-w-2xl mx-auto my-auto space-y-6">
-            {/* Ooting Logo */}
-            <div
-              className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center bg-white p-2 border border-slate-200 shadow-md mx-auto"
-              style={{ width: '80px', height: '80px', minWidth: '80px', maxWidth: '80px', minHeight: '80px', maxHeight: '80px' }}
-            >
+          <div className="flex-1 flex flex-col items-center justify-between p-8 sm:p-10 text-center max-w-3xl mx-auto space-y-6">
+            
+            {/* Travel Hero Aesthetic Banner */}
+            <div className="w-full rounded-2xl overflow-hidden shadow-sm relative h-40 bg-slate-900 shrink-0">
               <img
-                src={company.logoUrl || '/assets/ooting-logo.jpg'}
-                alt="Ooting"
-                className="max-w-full max-h-full object-contain"
+                src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1200&q=80"
+                alt="Scenic Travel"
+                className="w-full h-full object-cover opacity-75"
                 crossOrigin="anonymous"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
-                }}
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col items-center justify-end pb-4 px-4 text-white">
+                <span className="text-[10px] font-extrabold tracking-widest uppercase text-amber-300">
+                  Ooting  •  Curated Travel Experiences
+                </span>
+                <h3 className="text-xl font-black tracking-tight text-white mt-1">
+                  Journeys Beyond Ordinary
+                </h3>
+                <p className="text-[11px] text-slate-200 font-light mt-0.5">
+                  Turning your travel dreams into cherished memories that last a lifetime
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <span className="inline-block px-3 py-1 bg-red-100 text-[#C91F28] text-xs font-bold uppercase tracking-wider rounded-full">
-                Happy Holidays & Safe Travels
+            {/* Heartfelt Hospitality Message */}
+            <div className="space-y-2 max-w-xl mx-auto">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-[#C91F28] text-xs font-bold uppercase tracking-wider rounded-full">
+                <Sparkles className="w-3.5 h-3.5 text-[#C91F28]" />
+                <span>Happy Holidays & Safe Travels</span>
               </span>
-              <h2 className="text-3xl font-extrabold text-slate-950 tracking-tight">
-                Thank You for Travelling with Ooting!
+              <h2 className="text-2xl font-extrabold text-slate-950 tracking-tight">
+                Thank You for Choosing Ooting!
               </h2>
-              <p className="text-slate-600 text-sm leading-relaxed max-w-lg mx-auto">
-                Your journey doesn't end here — let's create many more memorable journeys together.
+              <p className="text-slate-600 text-xs leading-relaxed">
+                Dear Valued Traveler, it is our greatest privilege to design this travel experience for you. 
+                We believe that every journey is a precious chapter of life. From your arrival to your safe return home, 
+                our dedicated tour managers, experienced chauffeurs, and 24/7 concierge remain devoted to your comfort, safety, and joy.
               </p>
             </div>
 
-            {/* Keep Connected Card */}
-            <div className="w-full bg-gradient-to-br from-red-50/80 via-white to-rose-50/50 p-6 rounded-2xl border border-red-200/80 shadow-xs space-y-4 text-left">
-              <h3 className="font-extrabold text-sm uppercase tracking-wider text-[#C91F28] border-b border-red-200/60 pb-2 text-center">
-                Keep Connected with Ooting
-              </h3>
+            {/* 4 Ooting Service Guarantees */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full text-left">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-1">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div className="font-bold text-[11px] text-slate-900">Verified Stays</div>
+                <div className="text-[10px] text-slate-500 leading-tight">Handpicked, sanitized premium properties</div>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-1">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Car className="w-4 h-4" />
+                </div>
+                <div className="font-bold text-[11px] text-slate-900">Dedicated Fleet</div>
+                <div className="text-[10px] text-slate-500 leading-tight">Commercial AC cars with seasoned drivers</div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-1">
+                <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center">
+                  <Headphones className="w-4 h-4" />
+                </div>
+                <div className="font-bold text-[11px] text-slate-900">24/7 On-Tour Care</div>
+                <div className="text-[10px] text-slate-500 leading-tight">Dedicated travel manager reachable anytime</div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-1">
+                <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <Award className="w-4 h-4" />
+                </div>
+                <div className="font-bold text-[11px] text-slate-900">Best Value</div>
+                <div className="text-[10px] text-slate-500 leading-tight">100% transparent pricing & zero hidden fees</div>
+              </div>
+            </div>
+
+            {/* Keep Connected & VIP Concierge Card */}
+            <div className="w-full bg-gradient-to-br from-red-50/80 via-white to-rose-50/50 p-5 rounded-2xl border border-red-200/80 shadow-xs space-y-3 text-left">
+              <div className="flex items-center justify-between border-b border-red-200/60 pb-2">
+                <h3 className="font-extrabold text-xs uppercase tracking-wider text-[#C91F28] flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>VIP Tour Concierge & Support Directory</span>
+                </h3>
+                <span className="text-[10px] font-bold text-slate-500">24/7 Live Assistance</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200">
                   <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
                     <Phone className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Phone / WhatsApp</span>
+                    <span className="text-[9.5px] text-slate-400 block font-semibold uppercase">Helpline / WhatsApp</span>
                     <span className="font-bold text-slate-800 text-xs">
-                      {company.phone || '8884845595 / 6362845243'}
+                      {company.phone || '+91 8884845595 / +91 6362845243'}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                <div className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200">
                   <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
                     <Mail className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Email Support</span>
+                    <span className="text-[9.5px] text-slate-400 block font-semibold uppercase">Official Email</span>
                     <span className="font-bold text-slate-800 text-xs">
                       {company.email || 'support@ooting.in'}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                <div className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200">
                   <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
                     <Globe className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Official Website</span>
+                    <span className="text-[9.5px] text-slate-400 block font-semibold uppercase">Website Portal</span>
                     <span className="font-bold text-slate-800 text-xs">
                       {company.website || 'www.ooting.in'}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                <div className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200">
                   <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-[#C91F28] shrink-0">
                     <MapPin className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] text-slate-400 block font-semibold uppercase">Head Office</span>
-                    <span className="font-bold text-slate-800 text-[11px] leading-tight block">
+                    <span className="text-[9.5px] text-slate-400 block font-semibold uppercase">Registered Head Office</span>
+                    <span className="font-bold text-slate-800 text-[10.5px] leading-tight block truncate">
                       Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka
                     </span>
                   </div>
@@ -788,8 +989,14 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
-            <div className="text-xs text-slate-400 italic">
-              "We don't just plan tours; we curate unforgettable experiences to cherish for a lifetime."
+            {/* Signature Block */}
+            <div className="pt-2 text-center text-xs text-slate-500 space-y-1">
+              <div className="font-serif italic text-slate-600 text-sm">
+                "We don't just plan tours; we curate unforgettable experiences to cherish for a lifetime."
+              </div>
+              <div className="text-[11px] font-bold text-slate-800">
+                Warmest Regards, The Team at Ooting Tours & Travels
+              </div>
             </div>
           </div>
 

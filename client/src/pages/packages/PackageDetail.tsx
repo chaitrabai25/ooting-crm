@@ -22,6 +22,7 @@ import {
   Info,
   Upload,
   Copy,
+  ClipboardPaste,
   GripVertical,
   Building,
   Sparkles,
@@ -109,6 +110,31 @@ export const PackageDetail: React.FC = () => {
   // Drag and drop state for day reordering
   const [draggedDayIndex, setDraggedDayIndex] = useState<number | null>(null);
   const [isReordering, setIsReordering] = useState(false);
+
+  // Cross-package copied day clipboard state
+  const [copiedDayInfo, setCopiedDayInfo] = useState<{
+    sourcePackageId?: string;
+    sourcePackageName?: string;
+    day: any;
+  } | null>(() => {
+    try {
+      const raw = localStorage.getItem('ooting_copied_day_v1');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const raw = localStorage.getItem('ooting_copied_day_v1');
+        setCopiedDayInfo(raw ? JSON.parse(raw) : null);
+      } catch {}
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMessage({ text, type });
@@ -307,23 +333,81 @@ export const PackageDetail: React.FC = () => {
     }
   };
 
-  // Copy / Duplicate Day
-  const handleCopyDay = async (index: number) => {
+  // Copy Day to Clipboard (Cross-Package and in-package support)
+  const handleCopyDay = (index: number) => {
     const targetDay = itineraries[index];
     if (!targetDay) return;
 
+    const payload = {
+      sourcePackageId: id,
+      sourcePackageName: pkg?.packageName || 'Package',
+      copiedAt: new Date().toISOString(),
+      day: {
+        dayNumber: targetDay.dayNumber,
+        title: targetDay.title,
+        description: targetDay.description,
+        places: targetDay.places,
+        activities: targetDay.activities,
+        date: targetDay.date,
+        highlights: (targetDay as any).highlights,
+        travelDetails: (targetDay as any).travelDetails,
+        startTime: (targetDay as any).startTime,
+        endTime: (targetDay as any).endTime,
+        imageUrl: targetDay.imageUrl,
+        images: (targetDay as any).images,
+        hotelId: (targetDay as any).hotelId,
+        hotelName: (targetDay as any).hotelName,
+        hotelStarCategory: (targetDay as any).hotelStarCategory,
+        hotelImageUrl: (targetDay as any).hotelImageUrl,
+        hotelLocation: (targetDay as any).hotelLocation,
+        hotelDetails: (targetDay as any).hotelDetails,
+        mealPlan: (targetDay as any).mealPlan,
+        hotelCheckIn: (targetDay as any).hotelCheckIn,
+        hotelCheckOut: (targetDay as any).hotelCheckOut,
+      },
+    };
+
     try {
-      const res = await api.post(`/packages/${id}/itineraries/day/${targetDay.id || targetDay.dayNumber}/copy`);
+      localStorage.setItem('ooting_copied_day_v1', JSON.stringify(payload));
+      setCopiedDayInfo(payload);
+      showToast(`Day ${targetDay.dayNumber} copied to clipboard! Click "Paste Day" to paste it here or into any other package.`);
+    } catch (err) {
+      console.error('Failed to copy day to clipboard:', err);
+      showToast('Failed to copy day to clipboard.', 'error');
+    }
+  };
+
+  // Paste Copied Day from Clipboard into Current Package
+  const handlePasteCopiedDay = async () => {
+    if (!copiedDayInfo?.day) {
+      showToast('No day found in clipboard to paste.', 'error');
+      return;
+    }
+
+    const nextDayNum = itineraries.length + 1;
+    const cleanSourceTitle = (copiedDayInfo.day.title || `Day ${copiedDayInfo.day.dayNumber}`).replace(/^Day\s*\d+:\s*/i, '');
+    const pastedDay: any = {
+      ...copiedDayInfo.day,
+      dayNumber: nextDayNum,
+      title: `Day ${nextDayNum}: ${cleanSourceTitle}`,
+    };
+    delete pastedDay.id;
+
+    setIsSaving(true);
+    try {
+      const res = await api.post(`/packages/${id}/itineraries/day`, { day: pastedDay });
       if (res.data?.itineraries) {
         setItineraries(res.data.itineraries);
         setPkg((prev: any) => prev ? { ...prev, itineraries: res.data.itineraries } : prev);
       } else {
         await fetchPackage();
       }
-      showToast(`Day ${targetDay.dayNumber} copied to new day successfully!`);
+      showToast(`Pasted "${cleanSourceTitle}" as Day ${nextDayNum} from ${copiedDayInfo.sourcePackageName || 'clipboard'}!`);
     } catch (err: any) {
-      console.error('Failed to copy day:', err);
-      showToast(err.response?.data?.message || 'Failed to copy day.', 'error');
+      console.error('Failed to paste day:', err);
+      showToast(err.response?.data?.message || 'Failed to paste day.', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -555,6 +639,55 @@ export const PackageDetail: React.FC = () => {
     setDayHotelCheckOut('11:00 AM');
   };
 
+  const handlePasteIntoDayModal = () => {
+    if (!copiedDayInfo?.day) {
+      showToast('No day in clipboard to paste.', 'error');
+      return;
+    }
+    const d = copiedDayInfo.day;
+    const cleanTitle = (d.title || '').replace(/^Day\s*\d+:\s*/i, '');
+    setDayTitle(`Day ${dayNumber}: ${cleanTitle}`);
+    setDayDescription(d.description || '');
+    setDayPlaces(d.places || '');
+    setDayActivities(d.activities || '');
+    setDayHighlights(d.highlights || '');
+    setDayTravelDetails(d.travelDetails || '');
+    setDayStartTime(d.startTime || '09:00 AM');
+    setDayEndTime(d.endTime || '06:00 PM');
+    setDayImageUrl(d.imageUrl || '');
+    setDayHotelId(d.hotelId || '');
+    setDayHotelName(d.hotelName || '');
+    setDayHotelStarCategory(d.hotelStarCategory || '');
+    setDayHotelImageUrl(d.hotelImageUrl || '');
+    setDayHotelLocation(d.hotelLocation || '');
+    setDayHotelDetails(d.hotelDetails || '');
+    setDayMealPlan(d.mealPlan || 'Breakfast & Dinner (MAP)');
+    setDayHotelCheckIn(d.hotelCheckIn || '12:00 PM');
+    setDayHotelCheckOut(d.hotelCheckOut || '11:00 AM');
+
+    if (d.places) {
+      const chips = d.places.split(',').map((p: string) => p.trim()).filter(Boolean);
+      setSelectedPlaceChips(chips);
+    } else {
+      setSelectedPlaceChips([]);
+    }
+
+    if (d.images) {
+      try {
+        const parsed = typeof d.images === 'string' ? JSON.parse(d.images) : d.images;
+        if (Array.isArray(parsed)) {
+          setDayImages(parsed.map((p: any) => ({
+            url: typeof p === 'string' ? p : p.url || p.imageUrl || '',
+            label: typeof p === 'string' ? '' : p.label || p.name || '',
+          })).filter((p: any) => Boolean(p.url)));
+        }
+      } catch {}
+    } else if (d.imageUrl) {
+      setDayImages([{ url: d.imageUrl, label: d.places || '' }]);
+    }
+
+    showToast(`Pasted details from "${cleanTitle || `Day ${d.dayNumber}`}" into this day form!`);
+  };
 
   const compressImage = (file: File): Promise<{ blob: Blob; dataUrl: string }> => {
     return new Promise((resolve) => {
@@ -784,41 +917,36 @@ export const PackageDetail: React.FC = () => {
   const handlePersistItineraries = async () => {
     setIsSaving(true);
     try {
-      let latestItineraries = itineraries;
-      for (let idx = 0; idx < itineraries.length; idx++) {
-        const d = itineraries[idx] as any;
-        const dayPayload = {
-          id: d.id,
-          dayNumber: Number(d.dayNumber) || (idx + 1),
-          title: (d.title || `Day ${idx + 1}`).trim(),
-          description: (d.description || '').trim(),
-          places: d.places?.trim() || null,
-          activities: d.activities?.trim() || null,
-          date: d.date?.trim() || null,
-          highlights: d.highlights?.trim() || null,
-          travelDetails: d.travelDetails?.trim() || null,
-          startTime: d.startTime?.trim() || null,
-          endTime: d.endTime?.trim() || null,
-          imageUrl: d.imageUrl?.trim() || null,
-          images: d.images ? (typeof d.images === 'string' ? d.images : JSON.stringify(d.images)) : null,
-          hotelId: d.hotelId || null,
-          hotelName: d.hotelName || null,
-          hotelStarCategory: d.hotelStarCategory || null,
-          hotelImageUrl: d.hotelImageUrl || null,
-          hotelLocation: d.hotelLocation || null,
-          hotelDetails: d.hotelDetails || null,
-          mealPlan: d.mealPlan || null,
-          hotelCheckIn: d.hotelCheckIn || null,
-          hotelCheckOut: d.hotelCheckOut || null,
-        };
-        const res = await api.post('/packages/' + id + '/itineraries/day', { day: dayPayload });
-        if (res.data?.itineraries) {
-          latestItineraries = res.data.itineraries;
-        }
-      }
+      const sanitizedDays = itineraries.map((d: any, idx: number) => ({
+        id: d.id,
+        dayNumber: Number(d.dayNumber) || (idx + 1),
+        title: (d.title || `Day ${idx + 1}`).trim(),
+        description: (d.description || '').trim(),
+        places: d.places?.trim() || null,
+        activities: d.activities?.trim() || null,
+        date: d.date?.trim() || null,
+        highlights: d.highlights?.trim() || null,
+        travelDetails: d.travelDetails?.trim() || null,
+        startTime: d.startTime?.trim() || null,
+        endTime: d.endTime?.trim() || null,
+        imageUrl: d.imageUrl?.trim() || null,
+        images: d.images ? (typeof d.images === 'string' ? d.images : JSON.stringify(d.images)) : null,
+        hotelId: d.hotelId || null,
+        hotelName: d.hotelName || null,
+        hotelStarCategory: d.hotelStarCategory || null,
+        hotelImageUrl: d.hotelImageUrl || null,
+        hotelLocation: d.hotelLocation || null,
+        hotelDetails: d.hotelDetails || null,
+        mealPlan: d.mealPlan || null,
+        hotelCheckIn: d.hotelCheckIn || null,
+        hotelCheckOut: d.hotelCheckOut || null,
+      }));
 
-      setItineraries(latestItineraries);
-      setPkg((prev: any) => prev ? { ...prev, itineraries: latestItineraries } : prev);
+      const res = await api.post(`/packages/${id}/itineraries`, { days: sanitizedDays });
+      if (res.data?.itineraries) {
+        setItineraries(res.data.itineraries);
+        setPkg((prev: any) => prev ? { ...prev, itineraries: res.data.itineraries } : prev);
+      }
       setHasUnsavedChanges(false);
       showToast('Itinerary changes saved successfully to database!');
     } catch (err: any) {
@@ -1015,7 +1143,19 @@ export const PackageDetail: React.FC = () => {
               Organized chronological travel schedule and daily route stops
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {copiedDayInfo && (
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={handlePasteCopiedDay}
+                title={`Paste day "${copiedDayInfo.day?.title || `Day ${copiedDayInfo.day?.dayNumber}`}" from ${copiedDayInfo.sourcePackageName || 'clipboard'}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 rounded-xl shadow-2xs transition-colors cursor-pointer"
+              >
+                <ClipboardPaste className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Paste Day ({copiedDayInfo.day?.title?.replace(/^Day\s*\d+:\s*/i, '').slice(0, 15) || `Day ${copiedDayInfo.day?.dayNumber}`})</span>
+              </button>
+            )}
             <button
               type="button"
               disabled={isSaving}
@@ -1278,6 +1418,24 @@ export const PackageDetail: React.FC = () => {
         maxWidth="2xl"
       >
         <form onSubmit={handleSaveDayModal} className="space-y-4 text-xs max-h-[80vh] overflow-y-auto pr-1">
+          {copiedDayInfo && (
+            <div className="flex items-center justify-between p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs">
+              <div className="flex items-center gap-2">
+                <ClipboardPaste className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-emerald-800 dark:text-emerald-300 font-medium">
+                  Copied from {copiedDayInfo.sourcePackageName || 'another package'}: <strong>{copiedDayInfo.day?.title || `Day ${copiedDayInfo.day?.dayNumber}`}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handlePasteIntoDayModal}
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[11px] shadow-2xs transition-colors cursor-pointer shrink-0"
+              >
+                Paste Into This Day
+              </button>
+            </div>
+          )}
+
           {/* Day #, Day Title, Date */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>

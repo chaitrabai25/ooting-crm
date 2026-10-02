@@ -432,27 +432,37 @@ export async function generateA4Pdf({
     if (totalPages > 1 && p > 1) {
       // Red top brand accent bar (0.8mm)
       pdf.setFillColor(201, 31, 40); // #C91F28
-      pdf.rect(marginX, 4.5, printableWidth, 0.8, 'F');
+      pdf.rect(marginX, 3.8, printableWidth, 0.8, 'F');
 
-      // Left brand & document title
+      // Left Top: Package Name (Bold) and Page Number below it
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(8);
       pdf.setTextColor(15, 23, 42); // slate-900
-      pdf.text('OOTING', marginX, 9.5);
+      const headerTitle = (title || 'Tour Itinerary').toUpperCase();
+      const displayTitle = headerTitle.length > 55 ? headerTitle.substring(0, 52) + '...' : headerTitle;
+      pdf.text(displayTitle, marginX, 7.8);
+
+      // Directly below package name: Page Number
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(7);
+      pdf.setTextColor(100, 116, 139); // slate-500
+      pdf.text(`Page ${p} of ${totalPages}`, marginX, 10.8);
+
+      // Right Top: Brand Name & Tagline
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(8);
+      pdf.setTextColor(201, 31, 40); // #C91F28
+      pdf.text('OOTING', pageWidth - marginX - 38, 8.5);
 
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(7.5);
       pdf.setTextColor(100, 116, 139); // slate-500
-      const headerTitle = title ? `  |  ${title}` : '  |  Tour Itinerary — Official Travel Document';
-      pdf.text(headerTitle, marginX + 13, 9.5);
+      pdf.text('  |  Journeys Beyond Ordinary', pageWidth - marginX - 38 + 12, 8.5);
 
-      // Right contact info
-      pdf.text('support@ooting.in  •  +91 8884845595', pageWidth - marginX, 9.5, { align: 'right' });
-
-      // Subtle dividing line
+      // Subtle dividing line below header
       pdf.setDrawColor(226, 232, 240); // slate-200
       pdf.setLineWidth(0.2);
-      pdf.line(marginX, 12, pageWidth - marginX, 12);
+      pdf.line(marginX, 12.5, pageWidth - marginX, 12.5);
     }
 
     // Running Footer on ALL pages (p = 1..totalPages)
@@ -460,19 +470,29 @@ export async function generateA4Pdf({
     pdf.setLineWidth(0.2);
     pdf.line(marginX, 289, pageWidth - marginX, 289);
 
+    // Left Footer: Contact Number & Support Email
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(7);
-    pdf.setTextColor(100, 116, 139); // slate-500
-    pdf.text(
-      'Ooting — Journeys Beyond Ordinary  •  Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India',
-      marginX,
-      293
-    );
-
-    pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(7.5);
     pdf.setTextColor(71, 85, 105); // slate-600
-    pdf.text(`Page ${p} of ${totalPages}`, pageWidth - marginX, 293, { align: 'right' });
+    pdf.text(
+      '📞 Contact: +91 8884845595  •  support@ooting.in',
+      marginX,
+      293.5
+    );
+
+    // Center Footer (Page 1 gets page number here)
+    if (p === 1 && totalPages > 1) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7);
+      pdf.setTextColor(148, 163, 184); // slate-400
+      pdf.text(`Page 1 of ${totalPages}`, pageWidth / 2, 293.5, { align: 'center' });
+    }
+
+    // Right Footer: Ooting Website Link
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(201, 31, 40); // #C91F28
+    pdf.text('🌐 www.ooting.in', pageWidth - marginX, 293.5, { align: 'right' });
   }
 
   const pdfBlob = pdf.output('blob');
