@@ -281,7 +281,7 @@ export async function generateA4Pdf({
       const breakNodes = clonedTargetEl
         ? Array.from(
             (clonedTargetEl as HTMLElement).querySelectorAll<HTMLElement>(
-              '.page-break-avoid, [break-inside-avoid], section, .itinerary-day-card, tr'
+              '.page-break-avoid, [break-inside-avoid], section, .itinerary-day-card:not(.itinerary-day-1), tr'
             )
           )
         : [];

@@ -328,13 +328,13 @@ export const ItineraryPdfView: React.FC = () => {
         </div>
 
         {/* Letterhead Header Section */}
-        <div className="px-8 pt-6 pb-5 border-b border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+        <div className="px-8 py-3.5 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             {/* LEFT SIDE: Logo & Company Name/Tagline */}
-            <div className="flex items-start gap-4">
+            <div className="flex items-center gap-3.5">
               <div
-                className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
-                style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px', minHeight: '56px', maxHeight: '56px', overflow: 'hidden' }}
+                className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
+                style={{ width: '48px', height: '48px', minWidth: '48px', maxWidth: '48px', minHeight: '48px', maxHeight: '48px', overflow: 'hidden' }}
               >
                 <img
                   src={company.logoUrl || '/assets/ooting-logo.jpg'}
@@ -348,146 +348,132 @@ export const ItineraryPdfView: React.FC = () => {
                 />
               </div>
               <div className="min-w-0">
-                <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                <span className="text-lg font-black tracking-tight text-slate-900 block leading-tight uppercase">
                   {(company.name || 'OOTING').toUpperCase()}
                 </span>
-                <span className="text-[11px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                <span className="text-[10.5px] font-bold text-[#C91F28] uppercase tracking-wide block">
                   {company.tagline || 'Journeys Beyond Ordinary'}
                 </span>
-                <span className="text-[10px] text-slate-500 block mt-0.5">
+                <span className="text-[9.5px] text-slate-500 block">
                   Premium Tour Operator & Destination Specialist
                 </span>
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details with proper margin */}
+            {/* RIGHT SIDE: Company Contact Details with compact layout */}
             <div className="flex justify-end ml-auto shrink-0">
-              <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
+              <div className="w-fit ml-auto grid grid-cols-2 gap-x-4 gap-y-1 text-[10.5px] text-slate-700 max-w-[340px]">
                 {company.website && (
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                      <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                    </span>
-                    <span className="font-medium text-slate-800 tracking-tight break-all">{company.website}</span>
+                  <div className="flex items-center gap-1.5">
+                    <Globe className="w-3 h-3 text-[#C91F28] shrink-0" />
+                    <span className="font-medium text-slate-800 tracking-tight truncate">{company.website}</span>
                   </div>
                 )}
                 {company.email && (
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                      <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                    </span>
-                    <span className="font-medium text-slate-800 tracking-tight break-all">{company.email}</span>
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="w-3 h-3 text-[#C91F28] shrink-0" />
+                    <span className="font-medium text-slate-800 tracking-tight truncate">{company.email}</span>
                   </div>
                 )}
                 {company.phone && (
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                      <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                    </span>
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="w-3 h-3 text-[#C91F28] shrink-0" />
                     <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
-                    <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                  </span>
+                <div className="flex items-center gap-1.5">
+                  <FileText className="w-3 h-3 text-[#C91F28] shrink-0" />
                   <span className="font-medium text-slate-800 tracking-tight">
                     GSTIN: {company?.gstin && company.gstin !== 'NULL' ? company.gstin.replace(/^GSTIN:\s*/i, '') : 'NILL'}
                   </span>
                 </div>
-                {company.address && (
-                  <div className="flex items-start gap-2 pt-0.5">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
-                      <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
-                    </span>
-                    <div className="text-slate-600 leading-snug">
-                      <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
-                      <div>Shivamogga, Karnataka, India</div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* Package Title Banner */}
-        <div className="px-8 py-6 bg-gradient-to-r from-red-50/70 via-rose-50/40 to-white border-b border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="px-8 py-3.5 bg-gradient-to-r from-red-50/70 via-rose-50/40 to-white border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
             <div>
-              <span className="inline-block px-2.5 py-0.5 bg-[#C91F28] text-white text-[10px] font-bold uppercase tracking-wider rounded-md mb-1.5">
-                Official Tour Itinerary
-              </span>
-              <h1 className="text-2xl font-extrabold text-slate-950 tracking-tight">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-block px-2 py-0.5 bg-[#C91F28] text-white text-[9px] font-bold uppercase tracking-wider rounded">
+                  Official Tour Itinerary
+                </span>
+                <span className="text-xs font-semibold text-[#C91F28]">
+                  • {itineraries.length} Days Planned
+                </span>
+              </div>
+              <h1 className="text-xl font-extrabold text-slate-950 tracking-tight">
                 {pkg.packageName}
               </h1>
               {/* Clean Icon Badges without raw bullets */}
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700 mt-2 font-medium">
-                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-                  <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700 mt-1.5 font-medium">
+                <span className="inline-flex items-center gap-1.5 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs text-[11px]">
+                  <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
                   <span>{pkg.destination}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-                  <Clock className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                <span className="inline-flex items-center gap-1.5 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs text-[11px]">
+                  <Clock className="w-3 h-3 text-[#C91F28] shrink-0" />
                   <span>{pkg.duration}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-                  <Compass className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                <span className="inline-flex items-center gap-1.5 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs text-[11px]">
+                  <Compass className="w-3 h-3 text-[#C91F28] shrink-0" />
                   <span className="capitalize">{pkg.packageType.toLowerCase()} Package</span>
                 </span>
               </div>
             </div>
 
             <div className="text-right">
-              <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold block">Starting Price</span>
-              <span className="text-2xl font-extrabold text-[#C91F28]">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Starting Price</span>
+              <span className="text-xl font-extrabold text-[#C91F28]">
                 ₹{Number(pkg.price).toLocaleString('en-IN')}
               </span>
-              <span className="text-[10px] text-slate-500 block">Per Person (All Inclusive)</span>
+              <span className="text-[9.5px] text-slate-500 block">Per Person (All Inclusive)</span>
             </div>
           </div>
         </div>
 
         {/* Tour Overview */}
-        <div className="px-8 py-3.5 border-b border-slate-100">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-1.5">
+        <div className="px-8 py-2.5 border-b border-slate-100">
+          <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-900 mb-1">
             Tour Overview & Highlights
           </h3>
-          <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+          <p className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-line">
             {pkg.description}
           </p>
         </div>
 
         {/* Detailed Day-by-Day Itinerary Section (Starts directly on Page 1) */}
-        <div className="px-8 py-5 space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+        <div className="px-8 py-3.5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
               Detailed Day-by-Day Travel Schedule
             </h2>
-            <span className="text-xs font-semibold text-[#C91F28]">
+            <span className="text-[11px] font-semibold text-[#C91F28]">
               {itineraries.length} Days Planned
             </span>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             {itineraries.map((day, idx) => {
               const hotelPhotos = getHotelPhotos(day);
 
               return (
                 <div
                   key={day.id || idx}
-                  className="itinerary-day-card page-break-avoid border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white"
+                  className={`itinerary-day-card ${idx === 0 ? 'itinerary-day-1' : 'page-break-avoid'} border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white`}
                 >
                   {/* Day Header Bar */}
-                  <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-lg bg-[#C91F28] text-white font-black text-xs flex items-center justify-center shadow-xs">
+                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-md bg-[#C91F28] text-white font-black text-xs flex items-center justify-center shadow-xs">
                         {day.dayNumber}
                       </span>
                       <div>
-                        <h3 className="font-bold text-sm text-slate-900">{day.title}</h3>
+                        <h3 className="font-bold text-xs sm:text-sm text-slate-900">{day.title}</h3>
                         {(day as any).date && (
-                          <span className="text-[11px] text-[#C91F28] font-bold block">
+                          <span className="text-[10px] text-[#C91F28] font-bold block">
                             {(day as any).date}
                           </span>
                         )}
@@ -495,7 +481,7 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
 
                     {(day.startTime || day.endTime) && (
-                      <div className="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
+                      <div className="text-[10.5px] text-slate-500 flex items-center gap-1 font-medium">
                         <Clock className="w-3 h-3 text-[#C91F28]" />
                         <span>
                           {day.startTime || 'Start'} {day.endTime ? `– ${day.endTime}` : ''}
@@ -505,13 +491,13 @@ export const ItineraryPdfView: React.FC = () => {
                   </div>
 
                   {/* Day Content Body */}
-                  <div className="p-5 space-y-3.5">
-                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+                  <div className="p-3.5 space-y-2.5">
+                    <p className="text-[11.5px] text-slate-700 leading-snug whitespace-pre-line">
                       {day.description}
                     </p>
 
                     {((day as any).highlights || (day as any).travelDetails) && (
-                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] space-y-0.5">
                         {(day as any).highlights && (
                           <div>
                             <strong className="text-slate-800">Highlights: </strong>
@@ -567,23 +553,23 @@ export const ItineraryPdfView: React.FC = () => {
                         const item = photoItems[0];
                         const placeLabel = item.label || (placesList.length > 0 ? placesList.join(' • ') : '');
                         return (
-                          <div className="pt-2 day-photo-card">
-                            <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                          <div className="pt-1 day-photo-card">
+                            <div className="w-full bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
                               <div
                                 className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                                style={{ width: '100%', height: '140px', maxHeight: '140px', minHeight: '140px' }}
+                                style={{ width: '100%', height: '110px', maxHeight: '110px', minHeight: '110px' }}
                               >
                                 <img
                                   src={item.url}
                                   alt={placeLabel || day.title}
                                   className="w-full h-full object-cover"
-                                  style={{ width: '100%', height: '140px', maxHeight: '140px', objectFit: 'cover' }}
+                                  style={{ width: '100%', height: '110px', maxHeight: '110px', objectFit: 'cover' }}
                                   referrerPolicy="no-referrer"
                                 />
                               </div>
                               {placeLabel && (
-                                <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-xs text-slate-800 font-medium">
-                                  <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" style={{ width: '14px', height: '14px' }} />
+                                <div className="px-2.5 py-1 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-[10.5px] text-slate-800 font-medium">
+                                  <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" style={{ width: '12px', height: '12px' }} />
                                   <span className="font-semibold text-slate-900">{placeLabel}</span>
                                 </div>
                               )}
@@ -593,30 +579,30 @@ export const ItineraryPdfView: React.FC = () => {
                       }
 
                       return (
-                        <div className="pt-2">
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        <div className="pt-1">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             {photoItems.map((item, pIdx) => {
                               const placeLabel = item.label || placesList[pIdx] || '';
                               return (
                                 <div
                                   key={pIdx}
-                                  className="day-photo-card flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs"
+                                  className="day-photo-card flex flex-col bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs"
                                 >
                                   <div
                                     className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                                    style={{ width: '100%', height: '135px', maxHeight: '135px', minHeight: '135px' }}
+                                    style={{ width: '100%', height: '100px', maxHeight: '100px', minHeight: '100px' }}
                                   >
                                     <img
                                       src={item.url}
                                       alt={placeLabel || ''}
                                       className="w-full h-full object-cover"
-                                      style={{ width: '100%', height: '135px', maxHeight: '135px', objectFit: 'cover' }}
+                                      style={{ width: '100%', height: '100px', maxHeight: '100px', objectFit: 'cover' }}
                                       referrerPolicy="no-referrer"
                                     />
                                   </div>
                                   {placeLabel && (
-                                    <div className="px-2 py-1 bg-slate-50 border-t border-slate-200 flex items-center gap-1 text-[10px] text-slate-800 font-medium">
-                                      <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" style={{ width: '12px', height: '12px' }} />
+                                    <div className="px-2 py-0.5 bg-slate-50 border-t border-slate-200 flex items-center gap-1 text-[9.5px] text-slate-800 font-medium">
+                                      <MapPin className="w-2.5 h-2.5 text-[#C91F28] shrink-0" style={{ width: '10px', height: '10px' }} />
                                       <span className="truncate font-semibold text-slate-800">{placeLabel}</span>
                                     </div>
                                   )}
@@ -629,52 +615,52 @@ export const ItineraryPdfView: React.FC = () => {
                     })()}
 
                     {/* Places & Activities */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs border-t border-slate-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[10.5px] border-t border-slate-100">
                       {day.places && (
                         <div className="flex items-start gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#C91F28] mt-0.5 flex-shrink-0" />
+                          <MapPin className="w-3 h-3 text-[#C91F28] mt-0.5 flex-shrink-0" />
                           <div>
-                            <span className="font-semibold text-slate-800 block text-[11px]">Places Visited:</span>
-                            <span className="text-slate-600 text-[11px]">{day.places}</span>
+                            <span className="font-semibold text-slate-800 block text-[10.5px]">Places Visited:</span>
+                            <span className="text-slate-600 text-[10.5px]">{day.places}</span>
                           </div>
                         </div>
                       )}
 
                       {day.activities && (
                         <div className="flex items-start gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                          <Calendar className="w-3 h-3 text-emerald-600 mt-0.5 flex-shrink-0" />
                           <div>
-                            <span className="font-semibold text-slate-800 block text-[11px]">Key Activities:</span>
-                            <span className="text-slate-600 text-[11px]">{day.activities}</span>
+                            <span className="font-semibold text-slate-800 block text-[10.5px]">Key Activities:</span>
+                            <span className="text-slate-600 text-[10.5px]">{day.activities}</span>
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Hotel Accommodation Card: Prominent Showcase Matching Place Photo Size with Captions */}
+                    {/* Hotel Accommodation Card: Prominent Showcase with Captions */}
                     {day.hotelName && day.hotelName.trim() && (
-                      <div className="mt-3.5 p-4 rounded-xl bg-amber-50/50 border border-amber-200/80 shadow-2xs space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-amber-200/60 pb-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-900 text-[11px] font-bold uppercase tracking-wider">
-                              <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
+                      <div className="mt-2.5 p-3 rounded-xl bg-amber-50/50 border border-amber-200/80 shadow-2xs space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-amber-200/60 pb-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-900 text-[10px] font-bold uppercase tracking-wider">
+                              <Building2 className="w-3 h-3 text-[#C91F28]" />
                               <span>Overnight Stay & Accommodation</span>
                             </span>
                             <h4 className="font-bold text-xs text-slate-900">
                               {day.hotelName}
                             </h4>
                             {day.hotelStarCategory && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">
+                              <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-amber-100 text-amber-800 text-[9.5px] font-bold">
                                 <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
                                 {day.hotelStarCategory}
                               </span>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             {day.mealPlan && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-amber-200 text-[10px] font-bold text-amber-800 shadow-2xs">
-                                <Coffee className="w-3 h-3 text-amber-600" />
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-amber-200 text-[9.5px] font-bold text-amber-800 shadow-2xs">
+                                <Coffee className="w-2.5 h-2.5 text-amber-600" />
                                 <span>{day.mealPlan}</span>
                               </span>
                             )}
@@ -682,22 +668,22 @@ export const ItineraryPdfView: React.FC = () => {
                         </div>
 
                         {/* Location & Timings */}
-                        <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 gap-2">
+                        <div className="flex flex-wrap items-center justify-between text-[10.5px] text-slate-600 gap-1.5">
                           {day.hotelLocation && (
-                            <div className="flex items-center gap-1 text-[11px]">
+                            <div className="flex items-center gap-1 text-[10.5px]">
                               <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
                               <span className="font-medium text-slate-700">{day.hotelLocation}</span>
                             </div>
                           )}
                           {((day as any).hotelCheckIn || (day as any).hotelCheckOut) && (
-                            <div className="flex items-center gap-2 text-[10px] font-medium">
+                            <div className="flex items-center gap-1.5 text-[9.5px] font-medium">
                               {(day as any).hotelCheckIn && (
-                                <span className="bg-white px-2 py-0.5 rounded border border-amber-200">
+                                <span className="bg-white px-1.5 py-0.5 rounded border border-amber-200">
                                   Check-in: <strong className="text-slate-800">{(day as any).hotelCheckIn}</strong>
                                 </span>
                               )}
                               {(day as any).hotelCheckOut && (
-                                <span className="bg-white px-2 py-0.5 rounded border border-amber-200">
+                                <span className="bg-white px-1.5 py-0.5 rounded border border-amber-200">
                                   Check-out: <strong className="text-slate-800">{(day as any).hotelCheckOut}</strong>
                                 </span>
                               )}
@@ -706,57 +692,57 @@ export const ItineraryPdfView: React.FC = () => {
                         </div>
 
                         {day.hotelDetails && (
-                          <p className="text-[10.5px] text-slate-500 leading-snug">
+                          <p className="text-[10px] text-slate-500 leading-snug">
                             {day.hotelDetails}
                           </p>
                         )}
 
-                        {/* Prominent Hotel Photos Showcase with Captions (Like Place Image Size) */}
+                        {/* Hotel Photos Showcase with Captions */}
                         {hotelPhotos.length > 0 && (
-                          <div className="pt-1">
+                          <div className="pt-0.5">
                             {hotelPhotos.length === 1 ? (
-                              <div className="w-full bg-white rounded-xl border border-amber-200/90 overflow-hidden shadow-2xs">
+                              <div className="w-full bg-white rounded-lg border border-amber-200/90 overflow-hidden shadow-2xs">
                                 <div
                                   className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                                  style={{ width: '100%', height: '140px', maxHeight: '140px', minHeight: '140px' }}
+                                  style={{ width: '100%', height: '105px', maxHeight: '105px', minHeight: '105px' }}
                                 >
                                   <img
                                     src={hotelPhotos[0].url}
                                     alt={hotelPhotos[0].caption || day.hotelName || 'Hotel'}
                                     className="w-full h-full object-cover"
-                                    style={{ width: '100%', height: '140px', maxHeight: '140px', objectFit: 'cover' }}
+                                    style={{ width: '100%', height: '105px', maxHeight: '105px', objectFit: 'cover' }}
                                     referrerPolicy="no-referrer"
                                   />
                                 </div>
-                                <div className="px-3 py-1.5 bg-amber-50/70 border-t border-amber-200/70 flex items-center justify-between text-xs">
-                                  <span className="font-bold text-amber-900 flex items-center gap-1.5">
-                                    <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
+                                <div className="px-2.5 py-1 bg-amber-50/70 border-t border-amber-200/70 flex items-center justify-between text-[10.5px]">
+                                  <span className="font-bold text-amber-900 flex items-center gap-1">
+                                    <Building2 className="w-3 h-3 text-[#C91F28]" />
                                     <span>{hotelPhotos[0].caption || 'Hotel Accommodation'}</span>
                                   </span>
-                                  <span className="text-[10px] text-amber-800 font-semibold">{day.hotelName}</span>
+                                  <span className="text-[9.5px] text-amber-800 font-semibold">{day.hotelName}</span>
                                 </div>
                               </div>
                             ) : (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 {hotelPhotos.slice(0, 3).map((hPhoto, hIdx) => (
                                   <div
                                     key={hIdx}
-                                    className="flex flex-col bg-white rounded-xl border border-amber-200/90 overflow-hidden shadow-2xs"
+                                    className="flex flex-col bg-white rounded-lg border border-amber-200/90 overflow-hidden shadow-2xs"
                                   >
                                     <div
                                       className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                                      style={{ width: '100%', height: '130px', maxHeight: '130px', minHeight: '130px' }}
+                                      style={{ width: '100%', height: '95px', maxHeight: '95px', minHeight: '95px' }}
                                     >
                                       <img
                                         src={hPhoto.url}
                                         alt={hPhoto.caption || day.hotelName || 'Hotel'}
                                         className="w-full h-full object-cover"
-                                        style={{ width: '100%', height: '130px', maxHeight: '130px', objectFit: 'cover' }}
+                                        style={{ width: '100%', height: '95px', maxHeight: '95px', objectFit: 'cover' }}
                                         referrerPolicy="no-referrer"
                                       />
                                     </div>
-                                    <div className="px-2.5 py-1 bg-amber-50/70 border-t border-amber-200/70 flex items-center gap-1 text-[10px]">
-                                      <Building2 className="w-3 h-3 text-[#C91F28] shrink-0" />
+                                    <div className="px-2 py-0.5 bg-amber-50/70 border-t border-amber-200/70 flex items-center gap-1 text-[9.5px]">
+                                      <Building2 className="w-2.5 h-2.5 text-[#C91F28] shrink-0" />
                                       <span className="truncate font-bold text-amber-950">
                                         {hPhoto.caption || (hIdx === 0 ? 'Main Property' : 'Room Feature')}
                                       </span>
@@ -989,6 +975,10 @@ export const ItineraryPdfView: React.FC = () => {
           .page-break-avoid {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
+          }
+          .itinerary-day-1 {
+            break-before: avoid !important;
+            page-break-before: avoid !important;
           }
           .pdf-page-break-before {
             page-break-before: always !important;

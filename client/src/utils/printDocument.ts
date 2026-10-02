@@ -173,7 +173,6 @@ export async function printElement(elementId: string, options: PrintOptions = {}
           background: #ffffff !important;
           width: 100% !important;
           max-width: 100% !important;
-          page-break-inside: avoid !important;
         }
       </style>
     </head>
