@@ -360,33 +360,54 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details with compact layout */}
+            {/* RIGHT SIDE: Company Contact Details (vertical one-by-one list) */}
             <div className="flex justify-end ml-auto shrink-0">
-              <div className="w-fit ml-auto grid grid-cols-2 gap-x-4 gap-y-1 text-[10.5px] text-slate-700 max-w-[340px]">
+              <div className="w-fit ml-auto flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
                 {company.website && (
-                  <div className="flex items-center gap-1.5">
-                    <Globe className="w-3 h-3 text-[#C91F28] shrink-0" />
-                    <span className="font-medium text-slate-800 tracking-tight truncate">{company.website}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
+                    </span>
+                    <span className="font-medium text-slate-800 tracking-tight break-all text-[11px]">{company.website}</span>
                   </div>
                 )}
                 {company.email && (
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="w-3 h-3 text-[#C91F28] shrink-0" />
-                    <span className="font-medium text-slate-800 tracking-tight truncate">{company.email}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
+                    </span>
+                    <span className="font-medium text-slate-800 tracking-tight break-all text-[11px]">{company.email}</span>
                   </div>
                 )}
                 {company.phone && (
-                  <div className="flex items-center gap-1.5">
-                    <Phone className="w-3 h-3 text-[#C91F28] shrink-0" />
-                    <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
+                    </span>
+                    <span className="font-medium text-slate-800 tracking-tight text-[11px]">{company.phone}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-1.5">
-                  <FileText className="w-3 h-3 text-[#C91F28] shrink-0" />
-                  <span className="font-medium text-slate-800 tracking-tight">
-                    GSTIN: {company?.gstin && company.gstin !== 'NULL' ? company.gstin.replace(/^GSTIN:\s*/i, '') : 'NILL'}
-                  </span>
-                </div>
+                {company?.gstin && company.gstin !== 'NULL' && company.gstin !== 'NIL' && company.gstin !== 'NILL' && company.gstin.trim() !== '' && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                      <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
+                    </span>
+                    <span className="font-medium text-slate-800 tracking-tight text-[11px]">
+                      GSTIN: {company.gstin.replace(/^GSTIN:\s*/i, '')}
+                    </span>
+                  </div>
+                )}
+                {company.address && (
+                  <div className="flex items-start gap-2 pt-0.5">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                      <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
+                    </span>
+                    <div className="text-slate-600 leading-snug text-[10.5px]">
+                      <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
+                      <div>Shivamogga, Karnataka, India</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -874,11 +895,13 @@ export const ItineraryPdfView: React.FC = () => {
                       {company.tagline || 'Journeys Beyond Ordinary'}
                     </span>
                   </div>
-                  <div>
-                    <span className="inline-block text-[11px] font-semibold text-slate-700 bg-white px-2.5 py-1 rounded-md border border-slate-200">
-                      GSTIN: {company?.gstin && company.gstin !== 'NULL' ? company.gstin.replace(/^GSTIN:\s*/i, '') : 'NILL'}
-                    </span>
-                  </div>
+                  {company?.gstin && company.gstin !== 'NULL' && company.gstin !== 'NIL' && company.gstin !== 'NILL' && company.gstin.trim() !== '' && (
+                    <div>
+                      <span className="inline-block text-[11px] font-semibold text-slate-700 bg-white px-2.5 py-1 rounded-md border border-slate-200">
+                        GSTIN: {company.gstin.replace(/^GSTIN:\s*/i, '')}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Clean contact grid */}
