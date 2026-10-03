@@ -65,14 +65,43 @@ export async function generateA4Pdf({
     targetEl.style.borderRadius = '0';
     targetEl.style.border = 'none';
 
-    // 1. Deterministic SVG Icon Normalization:
-    // Convert inline SVGs into data-URI <img> elements so html2canvas renders them
-    // natively via drawImage() with 100% position accuracy and zero baseline/flex shift.
+    // 1. Flexbox Gap Polyfill for html2canvas (html2canvas does not natively support CSS gap)
+    const flexContainers = Array.from(targetEl.querySelectorAll<HTMLElement>('.flex, [class*="gap-"]'));
+    flexContainers.forEach((container) => {
+      const cls = container.getAttribute('class') || '';
+      const isCol = cls.includes('flex-col');
+      let gapPx = 0;
+      const match = cls.match(/\bgap(?:-x)?-(\d+(?:\.\d+)?)\b/);
+      if (match) {
+        gapPx = parseFloat(match[1]) * 4; // 1 unit = 4px in Tailwind (gap-1.5 = 6px, gap-2 = 8px, gap-3 = 12px)
+      } else {
+        const comp = window.getComputedStyle(container);
+        if (comp.gap && comp.gap !== 'normal') {
+          gapPx = parseFloat(comp.gap) || 0;
+        }
+      }
+
+      if (gapPx > 0) {
+        const children = Array.from(container.children) as HTMLElement[];
+        children.forEach((child, idx) => {
+          if (idx < children.length - 1) {
+            if (isCol) {
+              if (!child.style.marginBottom) child.style.setProperty('margin-bottom', `${gapPx}px`, 'important');
+            } else {
+              if (!child.style.marginRight) child.style.setProperty('margin-right', `${gapPx}px`, 'important');
+            }
+          }
+        });
+      }
+    });
+
+    // 2. Deterministic SVG Icon Normalization:
+    // Resolve currentColor to actual computed color and ensure xmlns & dimensions
     const svgs = Array.from(targetEl.querySelectorAll<SVGElement>('svg'));
     svgs.forEach((svg) => {
       const cls = svg.getAttribute('class') || '';
       let pxSize = 14;
-      if (cls.includes('w-3 ') || cls.includes('w-3.5') || cls.includes('h-3.5')) pxSize = 14;
+      if (cls.includes('w-3.5') || cls.includes('h-3.5')) pxSize = 14;
       else if (cls.includes('w-4') || cls.includes('h-4')) pxSize = 16;
       else if (cls.includes('w-5') || cls.includes('h-5')) pxSize = 20;
       else if (cls.includes('w-6') || cls.includes('h-6')) pxSize = 24;
@@ -83,6 +112,21 @@ export async function generateA4Pdf({
       if (!svg.getAttribute('viewBox')) {
         svg.setAttribute('viewBox', '0 0 24 24');
       }
+      if (!svg.getAttribute('xmlns')) {
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      }
+
+      // Compute actual stroke color so data URL doesn't fall back to black
+      let strokeColor = '#C91F28';
+      try {
+        const comp = window.getComputedStyle(svg);
+        strokeColor = comp.color || comp.stroke || '#C91F28';
+      } catch {}
+      svg.setAttribute('stroke', strokeColor);
+
+      // Check if SVG has an adjacent sibling to maintain spacing
+      const hasNextSibling = !!svg.nextElementSibling;
+      const rightMargin = hasNextSibling ? '6px' : '0px';
 
       try {
         const svgXml = new XMLSerializer().serializeToString(svg);
@@ -97,17 +141,29 @@ export async function generateA4Pdf({
         img.style.maxWidth = `${pxSize}px`;
         img.style.maxHeight = `${pxSize}px`;
         img.style.display = 'inline-block';
-        img.style.verticalAlign = '-0.15em';
+        img.style.verticalAlign = 'middle';
+        img.style.alignSelf = 'center';
         img.style.flexShrink = '0';
-        img.style.margin = '0';
-        img.style.padding = '0';
+        if (hasNextSibling) {
+          img.style.marginRight = rightMargin;
+        }
         svg.parentNode?.replaceChild(img, svg);
       } catch {
         svg.style.width = `${pxSize}px`;
         svg.style.height = `${pxSize}px`;
         svg.style.display = 'inline-block';
         svg.style.verticalAlign = 'middle';
+        if (hasNextSibling) svg.style.marginRight = rightMargin;
       }
+    });
+
+    // 3. Remove CSS line-clamp that causes text to be clipped in html2canvas
+    const clampedEls = targetEl.querySelectorAll<HTMLElement>('.line-clamp-1, .line-clamp-2, .line-clamp-3, [class*="line-clamp"]');
+    clampedEls.forEach((el) => {
+      el.style.setProperty('display', 'block', 'important');
+      el.style.setProperty('-webkit-line-clamp', 'unset', 'important');
+      el.style.setProperty('overflow', 'visible', 'important');
+      el.style.setProperty('max-height', 'none', 'important');
     });
 
     // 2. Strict Image Dimension & Natural Aspect-Ratio Enforcement (Prevents squashed logos or blown-up photos)
@@ -235,14 +291,9 @@ export async function generateA4Pdf({
           el.style.width = `${a4StandardPxWidth}px`;
           el.style.maxWidth = `${a4StandardPxWidth}px`;
           el.style.minWidth = `${a4StandardPxWidth}px`;
-          if (onePageOnly) {
-            el.style.height = `${a4StandardPxHeight}px`;
-            el.style.maxHeight = `${a4StandardPxHeight}px`;
-            el.style.overflow = 'hidden';
-          } else {
-            el.style.minHeight = `${a4StandardPxHeight}px`;
-            el.style.overflow = 'visible';
-          }
+          el.style.height = 'auto';
+          el.style.minHeight = `${a4StandardPxHeight}px`;
+          el.style.overflow = 'visible';
           fixSvgAndStyles(clonedDoc, el);
         }
       },

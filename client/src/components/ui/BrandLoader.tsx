@@ -1,4 +1,5 @@
 import React from 'react';
+import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 interface BrandLoaderProps {
   size?: 'sm' | 'md' | 'lg' | 'fullscreen';
@@ -9,8 +10,9 @@ interface BrandLoaderProps {
 
 /**
  * Executive Brand Loader for Ooting CRM
- * Features the authentic company logo with spinning brand accents,
- * smooth pulse animation, and high-contrast dark/light mode compatibility.
+ * Dynamically uses the official company logo configured in Settings,
+ * featuring smooth dual concentric orbital rings, glowing ambient pulse,
+ * and high-contrast dark/light mode compatibility.
  */
 export const BrandLoader: React.FC<BrandLoaderProps> = ({
   size = 'md',
@@ -18,15 +20,28 @@ export const BrandLoader: React.FC<BrandLoaderProps> = ({
   subtext,
   className = '',
 }) => {
+  let logoUrl = '/assets/ooting-logo.jpg';
+  let companyName = 'OOTING';
+  let companyTagline = 'Journeys Beyond Ordinary';
+
+  try {
+    const { company } = useCompanySettings();
+    if (company?.logoUrl) logoUrl = company.logoUrl;
+    if (company?.name) companyName = company.name.toUpperCase();
+    if (company?.tagline) companyTagline = company.tagline;
+  } catch {
+    // Graceful fallback when rendered outside CompanySettingsProvider
+  }
+
   if (size === 'sm') {
     return (
       <div className={`inline-flex items-center gap-2 ${className}`}>
         <div className="relative flex items-center justify-center w-5 h-5 shrink-0">
-          <div className="absolute inset-0 rounded-full border-2 border-brand-200 dark:border-brand-950 border-t-[#C91F28] animate-spin" />
+          <div className="absolute inset-0 rounded-full border-2 border-slate-200 dark:border-slate-800 border-t-[#C91F28] animate-spin" />
           <div className="w-3.5 h-3.5 rounded-full bg-white flex items-center justify-center p-0.5 overflow-hidden shadow-2xs">
             <img
-              src="/assets/ooting-logo.png"
-              alt="Ooting"
+              src={logoUrl}
+              alt={companyName}
               className="w-full h-full object-contain"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
@@ -48,36 +63,36 @@ export const BrandLoader: React.FC<BrandLoaderProps> = ({
       <div className="relative flex items-center justify-center mb-5">
         {/* Outer subtle glow aura */}
         <div
-          className={`absolute rounded-full bg-[#C91F28]/10 dark:bg-[#C91F28]/15 blur-xl animate-pulse ${
-            isLarge ? 'w-28 h-28' : 'w-20 h-20'
+          className={`absolute rounded-full bg-[#C91F28]/15 dark:bg-[#C91F28]/25 blur-2xl animate-pulse ${
+            isLarge ? 'w-32 h-32' : 'w-24 h-24'
           }`}
         />
 
         {/* Outer Orbiting Gradient Ring */}
         <div
-          className={`rounded-full border-2 border-slate-200/60 dark:border-slate-800 border-t-[#C91F28] border-r-amber-400 animate-spin ${
-            isLarge ? 'w-20 h-20' : 'w-16 h-16'
+          className={`rounded-full border-2 border-slate-200/80 dark:border-slate-800 border-t-[#C91F28] border-r-amber-500 animate-spin ${
+            isLarge ? 'w-24 h-24' : 'w-18 h-18'
           }`}
           style={{ animationDuration: '1.2s' }}
         />
 
         {/* Counter-rotating Inner Accent Ring */}
         <div
-          className={`absolute rounded-full border border-dashed border-[#C91F28]/40 dark:border-amber-400/40 animate-spin ${
-            isLarge ? 'w-16 h-16' : 'w-12 h-12'
+          className={`absolute rounded-full border-2 border-dashed border-[#C91F28]/40 dark:border-amber-400/40 animate-spin ${
+            isLarge ? 'w-18 h-18' : 'w-14 h-14'
           }`}
           style={{ animationDirection: 'reverse', animationDuration: '3s' }}
         />
 
         {/* Pure White Central Logo Shield */}
         <div
-          className={`absolute rounded-2xl bg-white p-1.5 shadow-md shadow-slate-900/10 border border-slate-200/80 flex items-center justify-center overflow-hidden transition-transform duration-300 hover:scale-105 ${
-            isLarge ? 'w-12 h-12' : 'w-9 h-9'
+          className={`absolute rounded-2xl bg-white p-2 shadow-xl shadow-slate-900/10 border border-slate-200/90 flex items-center justify-center overflow-hidden transition-transform duration-300 hover:scale-105 ${
+            isLarge ? 'w-14 h-14' : 'w-11 h-11'
           }`}
         >
           <img
-            src="/assets/ooting-logo.png"
-            alt="Ooting Logo"
+            src={logoUrl}
+            alt={companyName}
             className="w-full h-full object-contain"
             onError={(e) => {
               (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
@@ -90,7 +105,7 @@ export const BrandLoader: React.FC<BrandLoaderProps> = ({
       <div className="space-y-1.5 max-w-xs">
         <div className="flex items-center justify-center gap-1.5">
           <span className="text-xs font-black tracking-[0.25em] text-slate-900 dark:text-white uppercase">
-            OOTING
+            {companyName}
           </span>
           <span className="w-1.5 h-1.5 rounded-full bg-[#C91F28] inline-block animate-ping" />
         </div>
@@ -107,7 +122,7 @@ export const BrandLoader: React.FC<BrandLoaderProps> = ({
           </p>
         ) : (
           <p className="text-[10px] text-slate-400 dark:text-slate-500 tracking-wide font-medium">
-            Journeys Beyond Ordinary
+            {companyTagline}
           </p>
         )}
       </div>

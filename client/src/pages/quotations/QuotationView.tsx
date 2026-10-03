@@ -98,44 +98,48 @@ export const QuotationView: React.FC = () => {
         elementId: 'quotation-document',
         filename,
         title: `Travel Quotation — ${quotation.quotationNumber}`,
-        onePageOnly: false,
+        onePageOnly: true,
         margin: 8,
       });
 
-      const phoneDigits = quotation.customer?.phone?.replace(/\D/g, '') || '';
+      // Always download PDF to device
+      await download();
+
+      // Normalize phone number to international format (India: +91)
+      const rawPhone = quotation.customer?.phone || quotation.lead?.phone || '';
+      const digits = rawPhone.replace(/\D/g, '');
+      let formattedPhone = digits;
+      if (digits.length === 10) {
+        formattedPhone = `91${digits}`;
+      } else if (digits.length === 11 && digits.startsWith('0')) {
+        formattedPhone = `91${digits.slice(1)}`;
+      }
+
       const dates = quotation.travelStartDate
         ? `${new Date(quotation.travelStartDate).toLocaleDateString('en-IN')} to ${quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}`
         : 'TBD';
 
       const messageText =
         `Hello *${quotation.customer?.fullName || 'Valued Client'}*,\n\n` +
-        `Here is your travel quotation from *Ooting - Journeys Beyond Ordinary*:\n\n` +
+        `Here is your travel quotation from *${company?.name || 'Ooting'} - ${company?.tagline || 'Journeys Beyond Ordinary'}*:\n\n` +
         `📋 *Quotation #:* ${quotation.quotationNumber}\n` +
         `📍 *Destination:* ${quotation.destination}\n` +
         `🗓 *Travel Dates:* ${dates}\n` +
         `👥 *Guests:* ${quotation.adults} Adults${quotation.children > 0 ? `, ${quotation.children} Children` : ''}\n` +
-        `🚗 *Cab / Transport:* ${quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle'}\n` +
+        `🚗 *Transport:* ${quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle'}\n` +
         `💰 *Total Amount:* ₹${Number(quotation.finalAmount).toLocaleString('en-IN')}\n\n` +
-        `Please review the attached Quotation PDF and let us know if you would like to confirm your booking.\n\n` +
-        `Warm regards,\n*Ooting Team*`;
+        `📄 *Your official Quotation PDF has been downloaded to your device.* Please find it attached.\n\n` +
+        `Warm regards,\n*${company?.name || 'Ooting'} Tours & Travels*\n${company?.phone ? `📞 ${company.phone}` : ''}`;
 
-      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
-      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        await navigator.share({
-          files: [pdfFile],
-          title: `Travel Quotation - ${quotation.quotationNumber}`,
-          text: messageText,
-        });
-      } else {
-        download();
-        const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(
-          messageText +
-          `\n\n📄 Note: The official Travel Quotation PDF has been downloaded to your device. Please attach it here to send.`
-        )}`;
-        window.open(url, '_blank');
-      }
+      const waUrl = formattedPhone
+        ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(messageText)}`
+        : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
+
+      window.open(waUrl, '_blank');
+      showToast('Quotation PDF downloaded! WhatsApp chat opened with customer.');
     } catch (err) {
       console.error('WhatsApp quotation share error:', err);
+      showToast('Failed to generate PDF for WhatsApp share.', 'error');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -387,43 +391,43 @@ export const QuotationView: React.FC = () => {
             {/* RIGHT SIDE: Company Contact Details with clean sheet margin */}
             <div className="w-fit ml-auto shrink-0 flex flex-col space-y-0.5 text-xs text-slate-700 max-w-[320px]">
               {company?.website && (
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                <div className="flex items-center">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mr-2">
                     <Globe className="w-3 h-3" />
                   </span>
-                  <span className="font-medium text-[11px] text-slate-800 break-all">{company.website}</span>
+                  <span className="font-semibold text-[11px] text-slate-800 break-all">{company.website}</span>
                 </div>
               )}
               {company?.email && (
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                <div className="flex items-center">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mr-2">
                     <Mail className="w-3 h-3" />
                   </span>
-                  <span className="font-medium text-[11px] text-slate-800 break-all">{company.email}</span>
+                  <span className="font-semibold text-[11px] text-slate-800 break-all">{company.email}</span>
                 </div>
               )}
               {company?.phone && (
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                <div className="flex items-center">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mr-2">
                     <Phone className="w-3 h-3" />
                   </span>
-                  <span className="font-medium text-[11px] text-slate-800">{company.phone}</span>
+                  <span className="font-semibold text-[11px] text-slate-800">{company.phone}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+              <div className="flex items-center">
+                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mr-2">
                   <FileText className="w-3 h-3" />
                 </span>
-                <span className="font-medium text-[11px] text-slate-800">
+                <span className="font-bold text-[11px] text-slate-800">
                   GSTIN: {company?.gstin && company.gstin !== 'NULL' ? company.gstin.replace(/^GSTIN:\s*/i, '') : 'NILL'}
                 </span>
               </div>
               {company?.address && (
-                <div className="flex items-start gap-2 pt-0.5">
-                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                <div className="flex items-start pt-0.5">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5 mr-2">
                     <MapPin className="w-3 h-3" />
                   </span>
-                  <div className="text-[9.5px] text-slate-600 leading-snug whitespace-pre-line">
+                  <div className="text-[9.5px] font-bold text-slate-800 leading-snug whitespace-pre-line">
                     {company.address}
                   </div>
                 </div>
@@ -444,17 +448,17 @@ export const QuotationView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-1.5 text-xs">
-              <Calendar className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-[10px] text-slate-400">Date:</span>
+            <div className="flex items-center text-xs mr-4">
+              <Calendar className="w-3.5 h-3.5 text-amber-400 mr-1.5 shrink-0" />
+              <span className="text-[10px] text-slate-400 mr-1">Date:</span>
               <span className="text-[11px] font-bold text-white">
                 {new Date(quotation.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 text-xs">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-[10px] text-slate-400">Validity:</span>
+            <div className="flex items-center text-xs">
+              <Clock className="w-3.5 h-3.5 text-amber-400 mr-1.5 shrink-0" />
+              <span className="text-[10px] text-slate-400 mr-1">Validity:</span>
               <span className="text-[11px] font-bold text-white">15 Days</span>
             </div>
           </div>
@@ -472,19 +476,19 @@ export const QuotationView: React.FC = () => {
               <p className="font-bold text-slate-900 text-xs mb-1.5">{quotation.customer?.fullName || 'Valued Client'}</p>
               <div className="space-y-1.5 text-[11px] text-slate-600">
                 {quotation.customer?.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3 h-3 text-[#C91F28] shrink-0" />
+                  <div className="flex items-center">
+                    <Phone className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
                     <span className="font-mono text-slate-800 font-medium">{quotation.customer.phone}</span>
                   </div>
                 )}
                 {quotation.customer?.email && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3 h-3 text-[#C91F28] shrink-0" />
+                  <div className="flex items-center">
+                    <Mail className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
                     <span className="text-slate-800 break-all">{quotation.customer.email}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3 h-3 text-[#C91F28] shrink-0" />
+                <div className="flex items-center">
+                  <MapPin className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
                   <span className="text-slate-800">
                     {quotation.customer?.city || 'India'}{quotation.customer?.state ? `, ${quotation.customer.state}` : ''}
                   </span>
@@ -525,36 +529,36 @@ export const QuotationView: React.FC = () => {
 
           {/* Row 2: Key Trip Arrangements Strip */}
           <div className="grid grid-cols-3 gap-2.5">
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="flex items-center gap-1.5 text-[#C91F28] mb-0.5">
-                <Building2 className="w-3.5 h-3.5 shrink-0" />
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center text-[#C91F28] mb-1">
+                <Building2 className="w-3.5 h-3.5 shrink-0 mr-1.5" />
                 <span className="font-bold text-[10px] uppercase tracking-wider text-slate-900">
                   Accommodation
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 leading-snug line-clamp-2">
+              <p className="text-[10px] text-slate-700 leading-snug">
                 {quotation.accommodation || '3-Star / 4-Star Premium Resorts with Breakfast'}
               </p>
             </div>
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="flex items-center gap-1.5 text-[#C91F28] mb-0.5">
-                <Car className="w-3.5 h-3.5 shrink-0" />
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center text-[#C91F28] mb-1">
+                <Car className="w-3.5 h-3.5 shrink-0 mr-1.5" />
                 <span className="font-bold text-[10px] uppercase tracking-wider text-slate-900">
                   Vehicle & Transfers
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 leading-snug line-clamp-2">
+              <p className="text-[10px] text-slate-700 leading-snug">
                 {quotation.cabDetails || quotation.transport || 'Dedicated AC Tourist Vehicle for all transfers'}
               </p>
             </div>
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="flex items-center gap-1.5 text-[#C91F28] mb-0.5">
-                <Compass className="w-3.5 h-3.5 shrink-0" />
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center text-[#C91F28] mb-1">
+                <Compass className="w-3.5 h-3.5 shrink-0 mr-1.5" />
                 <span className="font-bold text-[10px] uppercase tracking-wider text-slate-900">
                   Sightseeing & Activities
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 leading-snug line-clamp-2">
+              <p className="text-[10px] text-slate-700 leading-snug">
                 {quotation.activities || 'All key sightseeing & scenic viewpoint excursions'}
               </p>
             </div>

@@ -174,7 +174,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         margin: 8,
       });
 
-      const phone = (booking.customer?.phone || '').replace(/[^0-9]/g, '');
+      const rawPhone = (booking.customer?.phone || '').replace(/[^0-9]/g, '');
+      const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
       const paymentSummaryText = isFullyPaid
         ? `• *Payment Status: Payment Completed / Fully Paid* (Balance: ₹0)\n`
         : `• *Balance Due: ₹${balanceDue.toLocaleString('en-IN')}*\n• *Payment Due Date: ${formattedDueDate}*\n• Status: ${paymentStatus}\n`;
@@ -190,22 +191,15 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         paymentSummaryText + '\n' +
         `Thank you for choosing ${company.name || 'Ooting'}!`;
 
-      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
-      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        await navigator.share({
-          files: [pdfFile],
-          title: `Tax Invoice - ${invoiceNumber}`,
-          text: messageText,
-        });
-      } else {
-        download();
-        const text = encodeURIComponent(
-          messageText +
-          `\n\n📄 Note: The official A4 Tax Invoice PDF has been downloaded to your device. Please attach it here to send.`
-        );
-        const waUrl = `https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${text}`;
-        window.open(waUrl, '_blank');
-      }
+      // Always auto-download the official A4 PDF for immediate customer delivery
+      await download();
+
+      const text = encodeURIComponent(
+        messageText +
+        `\n\n📄 Note: The official A4 Tax Invoice PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
+      );
+      const waUrl = `https://wa.me/${cleanPhone}?text=${text}`;
+      window.open(waUrl, '_blank');
     } catch (err) {
       console.error('WhatsApp invoice share error:', err);
     } finally {
@@ -437,7 +431,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 <div className="w-fit ml-auto shrink-0 flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                   {company.website && (
                     <div className="flex items-center gap-2.5">
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                      <span className="w-4 h-4 mr-2 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
                         <Globe className="w-3.5 h-3.5" />
                       </span>
                       <span className="font-medium text-[11px] text-slate-800 break-all leading-normal">{company.website}</span>
@@ -445,7 +439,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   )}
                   {company.email && (
                     <div className="flex items-center gap-2.5">
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                      <span className="w-4 h-4 mr-2 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
                         <Mail className="w-3.5 h-3.5" />
                       </span>
                       <span className="font-medium text-[11px] text-slate-800 break-all leading-normal">{company.email}</span>
@@ -453,14 +447,14 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   )}
                   {company.phone && (
                     <div className="flex items-center gap-2.5">
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                      <span className="w-4 h-4 mr-2 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
                         <Phone className="w-3.5 h-3.5" />
                       </span>
                       <span className="font-medium text-[11px] text-slate-800 leading-normal">{company.phone}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
+                    <span className="w-4 h-4 mr-2 flex items-center justify-center flex-shrink-0 text-[#C91F28]">
                       <FileText className="w-3.5 h-3.5" />
                     </span>
                     <span className="font-medium text-[11px] text-slate-800 leading-normal">
@@ -469,10 +463,10 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
                   {company.address && (
                     <div className="flex items-start gap-2.5 pt-0.5">
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
+                      <span className="w-4 h-4 mr-2 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
                         <MapPin className="w-3.5 h-3.5" />
                       </span>
-                      <div className="text-[10.5px] text-slate-600 leading-snug flex-1 whitespace-pre-line">
+                      <div className="text-[10.5px] font-bold text-slate-800 leading-snug flex-1 whitespace-pre-line">
                         {company.address}
                       </div>
                     </div>
@@ -531,19 +525,19 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   <p className="font-bold text-slate-900 text-xs">{booking.customer?.fullName || 'Guest Customer'}</p>
                   {booking.customer?.phone && (
                     <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
-                      <Phone className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <Phone className="w-2.5 h-2.5 mr-1.5 text-slate-400 shrink-0" />
                       <span>{booking.customer.phone}</span>
                     </p>
                   )}
                   {booking.customer?.email && (
                     <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
-                      <Mail className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <Mail className="w-2.5 h-2.5 mr-1.5 text-slate-400 shrink-0" />
                       <span>{booking.customer.email}</span>
                     </p>
                   )}
                   {booking.customer?.city && (
                     <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
-                      <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <MapPin className="w-2.5 h-2.5 mr-1.5 text-slate-400 shrink-0" />
                       <span>{booking.customer.city}{booking.customer.state ? `, ${booking.customer.state}` : ''}</span>
                     </p>
                   )}
@@ -746,7 +740,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               {/* Official Verification Notice (NO SIGNATURES) */}
               <div className="border border-slate-200 rounded-lg p-2 bg-slate-50/80 text-center space-y-0.5">
                 <div className="flex items-center justify-center gap-1.5 text-slate-900 font-bold text-[10.5px] uppercase tracking-wider">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28] shrink-0 inline-block align-middle" />
+                  <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-[#C91F28] shrink-0 inline-block align-middle" />
                   <span className="inline-block align-middle leading-none">Official Tax Invoice • {company.name || 'Ooting'}</span>
                 </div>
                 <p className="text-[9.5px] text-slate-500">

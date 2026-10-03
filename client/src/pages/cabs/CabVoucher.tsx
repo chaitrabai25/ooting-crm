@@ -111,7 +111,7 @@ const DutySlipDocumentBody: React.FC<{
           <div className="w-fit ml-auto shrink-0 flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
             {company.website && (
               <div className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                <span className="w-3.5 h-3.5 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                   <Globe className="w-3 h-3" />
                 </span>
                 <span className="font-medium text-[11px] text-slate-800 break-all">{company.website}</span>
@@ -119,7 +119,7 @@ const DutySlipDocumentBody: React.FC<{
             )}
             {company.email && (
               <div className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                <span className="w-3.5 h-3.5 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                   <Mail className="w-3 h-3" />
                 </span>
                 <span className="font-medium text-[11px] text-slate-800 break-all">{company.email}</span>
@@ -127,14 +127,14 @@ const DutySlipDocumentBody: React.FC<{
             )}
             {company.phone && (
               <div className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+                <span className="w-3.5 h-3.5 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                   <Phone className="w-3 h-3" />
                 </span>
                 <span className="font-medium text-[11px] text-slate-800">{company.phone}</span>
               </div>
             )}
             <div className="flex items-center gap-2">
-              <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28]">
+              <span className="w-3.5 h-3.5 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                 <FileText className="w-3 h-3" />
               </span>
               <span className="font-medium text-[11px] text-slate-800">
@@ -143,10 +143,10 @@ const DutySlipDocumentBody: React.FC<{
             </div>
             {company.address && (
               <div className="flex items-start gap-2 pt-0.5">
-                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                <span className="w-3.5 h-3.5 mr-2 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
                   <MapPin className="w-3 h-3" />
                 </span>
-                <div className="text-[10px] text-slate-600 leading-snug whitespace-pre-line">
+                <div className="text-[10px] font-bold text-slate-800 leading-snug whitespace-pre-line">
                   {company.address}
                 </div>
               </div>
@@ -657,7 +657,8 @@ export const CabVoucher: React.FC = () => {
         margin: 8,
       });
 
-      const phone = cab.customerPhone.replace(/[^0-9]/g, '');
+      const rawPhone = (cab.customerPhone || '').replace(/[^0-9]/g, '');
+      const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
       const allowanceText = cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0
         ? `Driver Allowance: ₹${cab.driverAllowanceTotal} (${cab.driverAllowanceType === 'NIGHT_WISE' ? 'Night-wise' : cab.driverAllowanceType === 'CUSTOM' ? 'Custom' : 'Day-wise'})\n`
         : '';
@@ -680,21 +681,14 @@ export const CabVoucher: React.FC = () => {
         `Balance Due: ₹${Number(cab.balanceAmount).toLocaleString('en-IN')}\n\n` +
         `Have a safe & memorable journey with ${company.name || 'Ooting'}!`;
 
-      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
-      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        await navigator.share({
-          files: [pdfFile],
-          title: `Cab Duty Slip - ${cab.bookingReference}`,
-          text: messageText,
-        });
-      } else {
-        download();
-        const text = encodeURIComponent(
-          messageText +
-          `\n\n📄 Note: The official Cab Duty Slip PDF has been downloaded to your device. Please attach it here to send.`
-        );
-        window.open(`https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${text}`, '_blank');
-      }
+      // Always auto-download the official A4 PDF for immediate customer delivery
+      await download();
+
+      const text = encodeURIComponent(
+        messageText +
+        `\n\n📄 Note: The official Cab Duty Slip PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
+      );
+      window.open(`https://wa.me/${cleanPhone}?text=${text}`, '_blank');
     } catch (err) {
       console.error('WhatsApp duty slip share error:', err);
     } finally {

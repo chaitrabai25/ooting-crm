@@ -993,7 +993,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                         {company.website && (
                           <div className="flex items-center gap-2">
-                            <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                            <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                               <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                             </span>
                             <span className="font-medium text-slate-800 tracking-tight break-all">{company.website}</span>
@@ -1001,7 +1001,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                         )}
                         {company.email && (
                           <div className="flex items-center gap-2">
-                            <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                            <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                               <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                             </span>
                             <span className="font-medium text-slate-800 tracking-tight break-all">{company.email}</span>
@@ -1009,14 +1009,14 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                         )}
                         {company.phone && (
                           <div className="flex items-center gap-2">
-                            <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                            <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                               <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                             </span>
                             <span className="font-medium text-slate-800 tracking-tight">{company.phone}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2">
-                          <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                          <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                             <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                           </span>
                           <span className="font-medium text-slate-800 tracking-tight">
@@ -1025,10 +1025,10 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                         </div>
                         {company.address && (
                           <div className="flex items-start gap-2 pt-0.5">
-                            <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                            <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
                               <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                             </span>
-                            <div className="text-slate-600 leading-snug whitespace-pre-line">
+                            <div className="text-slate-800 font-bold leading-snug whitespace-pre-line">
                               {company.address}
                             </div>
                           </div>

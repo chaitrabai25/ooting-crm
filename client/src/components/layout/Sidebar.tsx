@@ -311,7 +311,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Brand Header */}
-      <div className={`h-16 px-3 flex items-center border-b border-slate-800/80 bg-[#080B11] transition-all ${
+      <div className={`h-16 px-3 flex items-center border-b border-slate-800/90 bg-slate-950/60 transition-all ${
         isCollapsed ? 'justify-center' : 'justify-between'
       }`}>
         {isCollapsed ? (
@@ -468,7 +468,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                         onClick={() => toggleGroup(item.id)}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                           hasActiveChild
-                            ? 'text-white font-bold bg-slate-800/60 border-l-2 border-red-500 pl-2.5'
+                            ? 'text-white font-bold bg-slate-800/80 border-l-2 border-[#C91F28] pl-2.5'
                             : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                         }`}
                       >
@@ -498,7 +498,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                                 to={child.path}
                                 className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                   active
-                                    ? 'bg-red-500/15 text-red-300 font-semibold border-l-2 border-red-500 shadow-2xs'
+                                    ? 'bg-[#C91F28]/15 text-rose-300 font-semibold border-l-2 border-[#C91F28] shadow-2xs'
                                     : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
                                 }`}
                               >
@@ -519,8 +519,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       </div>
 
       {/* User Profile & Logout Footer */}
-      <div className="p-2.5 border-t border-slate-800/80 bg-[#080B11]">
-        <div className={`flex items-center rounded-xl bg-slate-900/90 border border-slate-800/80 ${
+      <div className="p-2.5 border-t border-slate-800/90 bg-slate-950/60">
+        <div className={`flex items-center rounded-xl bg-slate-800/70 border border-slate-700/60 ${
           isCollapsed ? 'justify-center p-1.5' : 'justify-between px-2.5 py-1.5'
         }`}>
           {isCollapsed ? (
@@ -536,7 +536,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
             <>
               <div className="flex flex-col min-w-0 pr-1">
                 <span className="text-xs font-semibold text-slate-200 truncate">{user?.name}</span>
-                <span className="text-[10px] text-red-400 uppercase font-semibold tracking-wide truncate">
+                <span className="text-[10px] text-red-400 uppercase font-bold tracking-wide truncate">
                   {user?.role?.replace('_', ' ')}
                 </span>
               </div>
@@ -559,7 +559,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 border-r border-slate-800/80 z-30 select-none shadow-2xl bg-[#0B0F19] text-slate-200 transition-all duration-300 ease-in-out ${
+        className={`hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 border-r border-slate-800/90 z-30 select-none shadow-xl bg-slate-900 text-slate-200 transition-all duration-300 ease-in-out ${
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
@@ -576,7 +576,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
           />
 
           {/* Drawer content */}
-          <div className="relative flex flex-col w-72 max-w-[85vw] h-full bg-[#0B0F19] text-slate-200 shadow-2xl z-10 border-r border-slate-800/80">
+          <div className="relative flex flex-col w-72 max-w-[85vw] h-full bg-slate-900 text-slate-200 shadow-2xl z-10 border-r border-slate-800/90">
             {sidebarContent}
           </div>
         </div>

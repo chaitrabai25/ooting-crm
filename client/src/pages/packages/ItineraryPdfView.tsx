@@ -212,21 +212,14 @@ export const ItineraryPdfView: React.FC = () => {
         `Have a look at the attached official PDF document for the complete day-by-day schedule.\n\n` +
         `Warm regards,\n*Ooting Team*`;
 
-      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
-      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        await navigator.share({
-          files: [pdfFile],
-          title: `Tour Itinerary - ${pkg.packageName}`,
-          text: messageText,
-        });
-      } else {
-        download();
-        const text = encodeURIComponent(
-          messageText +
-          `\n\n📄 Note: The official Tour Itinerary PDF has been downloaded to your device. Please attach it here to send.`
-        );
-        window.open(`https://wa.me/?text=${text}`, '_blank');
-      }
+      // Always auto-download the official PDF for immediate customer delivery
+      await download();
+
+      const text = encodeURIComponent(
+        messageText +
+        `\n\n📄 Note: The official Tour Itinerary PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
+      );
+      window.open(`https://wa.me/?text=${text}`, '_blank');
     } catch (err) {
       console.error('WhatsApp itinerary share error:', err);
     } finally {
@@ -365,7 +358,7 @@ export const ItineraryPdfView: React.FC = () => {
               <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[340px]">
                 {company.website && (
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                    <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                       <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-semibold text-slate-800 tracking-tight break-all text-xs">{company.website}</span>
@@ -373,7 +366,7 @@ export const ItineraryPdfView: React.FC = () => {
                 )}
                 {company.email && (
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                    <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                       <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-semibold text-slate-800 tracking-tight break-all text-xs">{company.email}</span>
@@ -381,7 +374,7 @@ export const ItineraryPdfView: React.FC = () => {
                 )}
                 {company.phone && (
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                    <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                       <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-semibold text-slate-800 tracking-tight text-xs">{company.phone}</span>
@@ -389,7 +382,7 @@ export const ItineraryPdfView: React.FC = () => {
                 )}
                 {company?.gstin && company.gstin !== 'NULL' && company.gstin !== 'NIL' && company.gstin !== 'NILL' && company.gstin.trim() !== '' && (
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28]">
+                    <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                       <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-semibold text-slate-800 tracking-tight text-xs">
@@ -399,10 +392,10 @@ export const ItineraryPdfView: React.FC = () => {
                 )}
                 {company.address && (
                   <div className="flex items-start gap-2 pt-0.5">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
+                    <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
                       <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
-                    <div className="text-slate-600 leading-snug text-[11px] font-medium whitespace-pre-line">
+                    <div className="text-slate-800 leading-snug text-[11px] font-bold whitespace-pre-line">
                       {company.address}
                     </div>
                   </div>
@@ -947,7 +940,7 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Head Office</span>
-                      <span className="font-medium text-slate-700 text-xs leading-snug whitespace-pre-line">
+                      <span className="font-bold text-slate-800 text-xs leading-snug whitespace-pre-line">
                         {company.address || 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India'}
                       </span>
                     </div>

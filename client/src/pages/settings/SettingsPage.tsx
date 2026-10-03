@@ -14,6 +14,7 @@ import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { CompanySettings } from '../../types/index.js';
+import { BrandLoader } from '../../components/ui/BrandLoader.js';
 
 interface MasterData {
   leadStatuses: string[];
@@ -169,8 +170,8 @@ export const SettingsPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <BrandLoader size="lg" text="Loading System Settings..." subtext="Retrieving company profile and configuration" />
       </div>
     );
   }
