@@ -22,6 +22,11 @@ import {
   Link as LinkIcon,
   Loader2,
   Check,
+  Play,
+  Pause,
+  Square,
+  SkipForward,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
@@ -81,6 +86,18 @@ const AVAILABLE_PLACEHOLDERS = [
   '{{dueAmount}}',
 ];
 
+const interpolateClientTemplate = (template: string, item: Record<string, any>): string => {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    return item[key] !== undefined && item[key] !== null ? String(item[key]) : `{{${key}}}`;
+  });
+};
+
+const sanitizePhoneNumber = (raw: string): string => {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 10) digits = '91' + digits;
+  return digits;
+};
+
 export const BulkWhatsAppPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +112,37 @@ export const BulkWhatsAppPage: React.FC = () => {
   const [isUploadingMedia, setIsUploadingMedia] = useState<boolean>(false);
   const [recipientSource, setRecipientSource] = useState<'EXCEL' | 'CRM'>('CRM');
   const [isLoadingCustomers, setIsLoadingCustomers] = useState<boolean>(false);
+
+  // Delivery Timer State (Delay between automated sends in seconds)
+  const [delaySeconds, setDelaySeconds] = useState<number>(3);
+
+  // Automated Autopilot Broadcast Execution State
+  const [isAutoBroadcasting, setIsAutoBroadcasting] = useState<boolean>(false);
+  const [isAutoPaused, setIsAutoPaused] = useState<boolean>(false);
+  const [isCompleted, setIsCompleted] = useState<boolean>(false);
+  const [currentBroadcastIndex, setCurrentBroadcastIndex] = useState<number>(0);
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(0);
+  const [dispatchedHistory, setDispatchedHistory] = useState<
+    Array<{
+      phone: string;
+      name: string;
+      status: 'SENT' | 'FAILED' | 'SKIPPED';
+      time: string;
+      webUrl?: string;
+      error?: string;
+    }>
+  >([]);
+
+  // Gateway Settings Modal State
+  const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
+  const [configToken, setConfigToken] = useState<string>('');
+  const [configPhoneId, setConfigPhoneId] = useState<string>('');
+  const [configBusinessNum, setConfigBusinessNum] = useState<string>('');
+  const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
+
+  const broadcastWindowRef = useRef<Window | null>(null);
+  const isPausedRef = useRef<boolean>(false);
+  const isStoppedRef = useRef<boolean>(false);
 
   const [recipients, setRecipients] = useState<RecipientRow[]>([]);
   const [previews, setPreviews] = useState<any[]>([]);
@@ -264,8 +312,35 @@ export const BulkWhatsAppPage: React.FC = () => {
     }
   };
 
-  // Bulk Send Execution
-  const handleBulkSend = async () => {
+  // Gateway Config Handlers
+  const handleOpenConfig = () => {
+    setConfigToken('');
+    setConfigPhoneId(apiStatus?.phoneNumberId || '');
+    setConfigBusinessNum(apiStatus?.businessNumber || '');
+    setIsConfigOpen(true);
+  };
+
+  const handleSaveGatewayConfig = async () => {
+    try {
+      setIsSavingConfig(true);
+      setError(null);
+      const res = await api.post('/whatsapp/config', {
+        token: configToken.trim() || undefined,
+        phoneNumberId: configPhoneId.trim() || undefined,
+        businessNumber: configBusinessNum.trim() || undefined,
+      });
+      setApiStatus(res.data.status);
+      setIsConfigOpen(false);
+    } catch (err: any) {
+      console.error('Failed to save gateway config:', err);
+      setError(err.response?.data?.message || 'Failed to update WhatsApp gateway settings.');
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
+  // Automated Autopilot Broadcast Execution
+  const handleStartBroadcast = async () => {
     if (recipients.length === 0) {
       setError('Please select or load recipients first.');
       return;
@@ -275,27 +350,164 @@ export const BulkWhatsAppPage: React.FC = () => {
       return;
     }
 
-    try {
-      setIsSending(true);
-      setSendProgress(20);
-      setError(null);
+    setError(null);
+    setIsAutoBroadcasting(true);
+    setIsAutoPaused(false);
+    setIsCompleted(false);
+    setCurrentBroadcastIndex(0);
+    setCountdownSeconds(0);
+    setDispatchedHistory([]);
+    isPausedRef.current = false;
+    isStoppedRef.current = false;
 
-      const res = await api.post('/whatsapp/bulk-send', {
-        template: messageTemplate,
-        recipients,
-        mediaType,
-        mediaUrl,
-        mediaFilename,
-      });
-
-      setSendProgress(100);
-      setSendResults(res.data.results || []);
-    } catch (err: any) {
-      console.error('Bulk send error:', err);
-      setError(err.response?.data?.message || 'Failed to dispatch bulk WhatsApp messages.');
-    } finally {
-      setIsSending(false);
+    const isCloudApi = !!apiStatus?.ready;
+    if (!isCloudApi) {
+      try {
+        broadcastWindowRef.current = window.open(
+          'about:blank',
+          'ooting_broadcast_target',
+          'width=960,height=750,left=150,top=100'
+        );
+      } catch (e) {
+        console.warn('Popup window blocked or error:', e);
+      }
     }
+
+    for (let i = 0; i < recipients.length; i++) {
+      if (isStoppedRef.current) break;
+      setCurrentBroadcastIndex(i);
+      const recipient = recipients[i];
+
+      // Check pause state
+      while (isPausedRef.current && !isStoppedRef.current) {
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      if (isStoppedRef.current) break;
+
+      const rawPhone = recipient.Phone || recipient.phone || '';
+      const cleanPhone = sanitizePhoneNumber(rawPhone);
+      const personalizedMsg = interpolateClientTemplate(messageTemplate, recipient);
+
+      let fullMsg = personalizedMsg;
+      if (mediaUrl) {
+        const mediaLabel = mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 Tour Itinerary';
+        fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
+      }
+
+      const waUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(fullMsg)}`;
+
+      if (isCloudApi) {
+        try {
+          await api.post('/whatsapp/send', {
+            phone: cleanPhone,
+            message: fullMsg,
+            customerId: recipient.customerId,
+            mediaType,
+            mediaUrl,
+            mediaFilename,
+          });
+          setDispatchedHistory((prev) => [
+            {
+              phone: cleanPhone,
+              name: recipient.customerName || 'Customer',
+              status: 'SENT',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            },
+            ...prev,
+          ]);
+        } catch (err: any) {
+          setDispatchedHistory((prev) => [
+            {
+              phone: cleanPhone,
+              name: recipient.customerName || 'Customer',
+              status: 'FAILED',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              error: err?.response?.data?.message || 'API dispatch failed',
+            },
+            ...prev,
+          ]);
+        }
+      } else {
+        try {
+          if (broadcastWindowRef.current && !broadcastWindowRef.current.closed) {
+            broadcastWindowRef.current.location.href = waUrl;
+            try {
+              broadcastWindowRef.current.focus();
+            } catch (_) {}
+          } else {
+            broadcastWindowRef.current = window.open(
+              waUrl,
+              'ooting_broadcast_target',
+              'width=960,height=750,left=150,top=100'
+            );
+          }
+        } catch (e) {
+          console.warn('Navigation error:', e);
+        }
+
+        setDispatchedHistory((prev) => [
+          {
+            phone: cleanPhone,
+            name: recipient.customerName || 'Customer',
+            status: 'SENT',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            webUrl: waUrl,
+          },
+          ...prev,
+        ]);
+      }
+
+      // Timer delay countdown before next recipient
+      if (i < recipients.length - 1 && !isStoppedRef.current) {
+        let remaining = delaySeconds;
+        setCountdownSeconds(remaining);
+        while (remaining > 0 && !isStoppedRef.current) {
+          while (isPausedRef.current && !isStoppedRef.current) {
+            await new Promise((r) => setTimeout(r, 400));
+          }
+          if (isStoppedRef.current) break;
+          await new Promise((r) => setTimeout(r, 1000));
+          remaining -= 1;
+          setCountdownSeconds(remaining);
+        }
+      }
+    }
+
+    setIsCompleted(true);
+    setCountdownSeconds(0);
+  };
+
+  const handleTogglePause = () => {
+    isPausedRef.current = !isPausedRef.current;
+    setIsAutoPaused(isPausedRef.current);
+  };
+
+  const handleSkipContact = () => {
+    setCountdownSeconds(0);
+  };
+
+  const handleStopBroadcast = () => {
+    isStoppedRef.current = true;
+    setIsAutoPaused(false);
+    setIsCompleted(true);
+    setCountdownSeconds(0);
+  };
+
+  const handleExportBroadcastReport = () => {
+    if (dispatchedHistory.length === 0) return;
+    const exportRows = dispatchedHistory.map((h, i) => ({
+      'S.No': i + 1,
+      'Customer Name': h.name,
+      'Phone Number': h.phone,
+      'Status': h.status,
+      'Timestamp': h.time,
+      'Error': h.error || 'None',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'BroadcastLog');
+    XLSX.writeFile(wb, `WhatsApp_Broadcast_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   return (
@@ -312,22 +524,33 @@ export const BulkWhatsAppPage: React.FC = () => {
           </p>
         </div>
 
-        {/* API Gateway Status Badge */}
-        {apiStatus && (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-500">Gateway:</span>
-            <span
-              className={`text-xs px-2.5 py-1 rounded-full font-bold border flex items-center gap-1.5 ${
-                apiStatus.ready
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800'
-                  : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${apiStatus.ready ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-              {apiStatus.activeGateway} ({apiStatus.ready ? 'Connected' : 'wa.me Fallback Ready'})
-            </span>
-          </div>
-        )}
+        {/* API Gateway Status Badge & Gateway Setup Modal Trigger */}
+        <div className="flex flex-wrap items-center gap-2">
+          {apiStatus && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-500">Gateway:</span>
+              <span
+                className={`text-xs px-2.5 py-1 rounded-full font-bold border flex items-center gap-1.5 ${
+                  apiStatus.ready
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800'
+                    : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${apiStatus.ready ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                {apiStatus.activeGateway} ({apiStatus.ready ? 'Direct Cloud API' : 'Web Automator'})
+              </span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleOpenConfig}
+            className="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-1.5 transition-colors"
+          >
+            <SettingsIcon className="w-3.5 h-3.5 text-brand-600" />
+            <span>Gateway Setup</span>
+          </button>
+        </div>
       </div>
 
       {/* Error Banner */}
@@ -798,38 +1021,69 @@ export const BulkWhatsAppPage: React.FC = () => {
             )}
           </div>
 
-          {/* Action Button */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
+          {/* Delivery Timer Pacing & Automated Broadcast Dispatch */}
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
+            {/* Delivery Timer Selector */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-emerald-600" />
+                  Delivery Timer Delay (Anti-spam Pacing)
+                </label>
+                <span className="text-[11px] font-mono text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                  {delaySeconds}s Delay
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { sec: 2, label: '2s Fast' },
+                  { sec: 3, label: '3s Default' },
+                  { sec: 5, label: '5s Safe' },
+                  { sec: 10, label: '10s Antispam' },
+                ].map((item) => (
+                  <button
+                    key={item.sec}
+                    type="button"
+                    onClick={() => setDelaySeconds(item.sec)}
+                    disabled={isAutoBroadcasting}
+                    className={`py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all ${
+                      delaySeconds === item.sec
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 font-bold shadow-xs'
+                        : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400">
+                Paces automated message dispatches sequentially to protect your number from spam detection and rate limits.
+              </p>
+            </div>
+
+            {/* Launch Automated Broadcast Button */}
             <button
               type="button"
-              onClick={handleBulkSend}
-              disabled={isSending || recipients.length === 0}
-              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+              onClick={handleStartBroadcast}
+              disabled={isAutoBroadcasting || recipients.length === 0}
+              className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
             >
               <Send className="w-4 h-4" />
               <span>
-                {isSending
-                  ? 'Broadcasting WhatsApp Messages...'
-                  : `Dispatch to ${recipients.length} Recipients ${
-                      mediaType === 'IMAGE'
-                        ? '(with Image)'
-                        : mediaType === 'DOCUMENT'
-                        ? '(with PDF Document)'
-                        : ''
-                    }`}
+                {isAutoBroadcasting
+                  ? 'Broadcasting in Progress...'
+                  : `🚀 Start Automated Bulk Broadcast (${recipients.length} Contacts)`}
               </span>
             </button>
 
-            {isSending && (
-              <div className="space-y-1">
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-emerald-600 h-2 transition-all duration-300"
-                    style={{ width: `${sendProgress}%` }}
-                  ></div>
-                </div>
-                <span className="text-[10px] text-slate-400 text-center block">
-                  Processing broadcast queue...
+            {recipients.length > 0 && (
+              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                <span>
+                  Source: {recipientSource === 'CRM' ? 'CRM Customer Base' : 'Excel Spreadsheet'}
+                </span>
+                <span>
+                  Media: {mediaType === 'NONE' ? 'Text Only' : mediaType === 'IMAGE' ? '🖼️ Offer Poster Attached' : '📄 PDF Itinerary'}
                 </span>
               </div>
             )}
@@ -837,67 +1091,298 @@ export const BulkWhatsAppPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Send Results Modal */}
-      {sendResults && (
+      {/* Gateway Configuration Modal */}
+      {isConfigOpen && (
         <Modal
-          isOpen={!!sendResults}
-          onClose={() => setSendResults(null)}
-          title="WhatsApp Broadcast Results"
+          isOpen={isConfigOpen}
+          onClose={() => setIsConfigOpen(false)}
+          title="Direct WhatsApp Business Gateway Setup"
           maxWidth="lg"
         >
           <div className="space-y-4">
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 rounded-xl text-xs text-emerald-800 dark:text-emerald-200 font-medium">
-              Broadcast completed! Below is the delivery status for each recipient. If an official Cloud API
-              credential is not configured, you can click "Open WhatsApp" to send via direct Web WhatsApp.
+            <div className="p-3 bg-brand-50 dark:bg-brand-950/40 border border-brand-200 dark:border-brand-800 rounded-xl text-xs text-brand-900 dark:text-brand-100 flex items-start gap-2.5">
+              <ShieldCheck className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-bold block">Direct Sender Number Connectivity:</span>
+                <p className="text-[11px] leading-relaxed">
+                  Enter your official Meta WhatsApp Cloud API credentials to dispatch bulky offer posters & itineraries directly from your number in the background. If left blank, the automated Web broadcaster will sequentially transmit via WhatsApp Web with your timer pacing.
+                </p>
+              </div>
             </div>
 
-            <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
-              {sendResults.map((res, idx) => (
-                <div key={idx} className="p-3 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100 block">
-                      {res.customerName || 'Customer'} ({res.phone})
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      Status: {res.status} • Provider: {res.provider || 'wa.me'}
-                    </span>
-                  </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Meta Cloud API Access Token
+                </label>
+                <input
+                  type="password"
+                  value={configToken}
+                  onChange={(e) => setConfigToken(e.target.value)}
+                  placeholder="EAAG..."
+                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+              </div>
 
-                  <div className="flex items-center gap-2">
-                    {res.success ? (
-                      <span className="text-emerald-600 font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" /> Sent
-                      </span>
-                    ) : (
-                      <span className="text-amber-600 font-bold flex items-center gap-1">
-                        Fallback Ready
-                      </span>
-                    )}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Phone Number ID (from Meta Developers)
+                </label>
+                <input
+                  type="text"
+                  value={configPhoneId}
+                  onChange={(e) => setConfigPhoneId(e.target.value)}
+                  placeholder="e.g. 109876543210987"
+                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+              </div>
 
-                    {res.webUrl && (
-                      <a
-                        href={res.webUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg"
-                      >
-                        <span>Open WhatsApp</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Registered Business Sender Phone Number
+                </label>
+                <input
+                  type="text"
+                  value={configBusinessNum}
+                  onChange={(e) => setConfigBusinessNum(e.target.value)}
+                  placeholder="e.g. 919876543210"
+                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+              </div>
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
               <button
                 type="button"
-                onClick={() => setSendResults(null)}
-                className="px-4 py-2 bg-brand-600 text-white text-xs font-semibold rounded-xl"
+                onClick={() => setIsConfigOpen(false)}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
               >
-                Done
+                Cancel
               </button>
+              <button
+                type="button"
+                onClick={handleSaveGatewayConfig}
+                disabled={isSavingConfig}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm disabled:opacity-50"
+              >
+                {isSavingConfig ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>Save & Verify Connection</span>
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Automated Autopilot Broadcast Execution Modal */}
+      {(isAutoBroadcasting || isCompleted) && (
+        <Modal
+          isOpen={isAutoBroadcasting || isCompleted}
+          onClose={() => {
+            if (!isAutoBroadcasting) {
+              setIsAutoBroadcasting(false);
+              setIsCompleted(false);
+            }
+          }}
+          title={
+            isCompleted
+              ? '✅ Automated WhatsApp Broadcast Finished'
+              : isAutoPaused
+              ? '⏸️ Broadcast Paused'
+              : '🚀 Automated WhatsApp Broadcast In Progress'
+          }
+          maxWidth="2xl"
+        >
+          <div className="space-y-4">
+            {/* Top Status & Live Progress */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      isCompleted
+                        ? 'bg-emerald-500'
+                        : isAutoPaused
+                        ? 'bg-amber-500 animate-pulse'
+                        : 'bg-emerald-500 animate-ping'
+                    }`}
+                  ></div>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {isCompleted
+                      ? `Successfully processed all ${recipients.length} recipients.`
+                      : isAutoPaused
+                      ? `Paused at recipient ${currentBroadcastIndex + 1} of ${recipients.length}`
+                      : `Sending contact ${currentBroadcastIndex + 1} of ${recipients.length}...`}
+                  </span>
+                </div>
+
+                {/* Countdown Timer Badge */}
+                {!isCompleted && !isAutoPaused && countdownSeconds > 0 && (
+                  <span className="text-xs font-mono font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    <span>Next message in {countdownSeconds}s</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="bg-emerald-600 h-2.5 transition-all duration-300 rounded-full"
+                  style={{
+                    width: `${Math.round(
+                      ((currentBroadcastIndex + (isCompleted ? 1 : 0)) / Math.max(1, recipients.length)) * 100
+                    )}%`,
+                  }}
+                ></div>
+              </div>
+
+              {/* Current Recipient Card */}
+              {!isCompleted && recipients[currentBroadcastIndex] && (
+                <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                      Target: {recipients[currentBroadcastIndex]?.customerName || 'Customer'}
+                    </span>
+                    <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                      {recipients[currentBroadcastIndex]?.Phone || recipients[currentBroadcastIndex]?.phone}
+                    </span>
+                  </div>
+
+                  {mediaUrl && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      {mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 PDF Doc'}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Control Action Buttons */}
+              {!isCompleted && (
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleTogglePause}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                  >
+                    {isAutoPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                    <span>{isAutoPaused ? 'Resume' : 'Pause'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSkipContact}
+                    className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                  >
+                    <SkipForward className="w-3.5 h-3.5" />
+                    <span>Skip Timer</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleStopBroadcast}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                  >
+                    <Square className="w-3.5 h-3.5" />
+                    <span>Stop</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Real-time Dispatched Activity Table */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Live Dispatch Activity Log ({dispatchedHistory.length})
+                </span>
+                {dispatchedHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleExportBroadcastReport}
+                    className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Export Excel Report (.xlsx)</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
+                {dispatchedHistory.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    Dispatched messages will appear here in real time...
+                  </div>
+                ) : (
+                  dispatchedHistory.map((item, idx) => (
+                    <div key={idx} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                      <div>
+                        <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                          {item.name} ({item.phone})
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          Dispatched at {item.time} {item.error ? `• ${item.error}` : ''}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {item.status === 'SENT' ? (
+                          <span className="text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Sent
+                          </span>
+                        ) : (
+                          <span className="text-rose-600 font-bold flex items-center gap-1 text-[11px]">
+                            <AlertCircle className="w-3.5 h-3.5" /> Failed
+                          </span>
+                        )}
+
+                        {item.webUrl && (
+                          <a
+                            href={item.webUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1 text-slate-400 hover:text-emerald-600"
+                            title="Open direct WhatsApp link"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700">
+              <span className="text-[11px] text-slate-400">
+                {isCompleted ? 'All scheduled messages processed.' : 'Automated pacing active.'}
+              </span>
+
+              <div className="flex items-center gap-2">
+                {dispatchedHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleExportBroadcastReport}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Report (.xlsx)</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleStopBroadcast();
+                    setIsAutoBroadcasting(false);
+                    setIsCompleted(false);
+                  }}
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors"
+                >
+                  {isCompleted ? 'Done' : 'Close'}
+                </button>
+              </div>
             </div>
           </div>
         </Modal>

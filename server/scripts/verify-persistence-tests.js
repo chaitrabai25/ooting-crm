@@ -24,8 +24,20 @@ async function runTests() {
   }
 
   try {
-    // Clean up any leftover test customer from an aborted previous run
-    await prisma.customer.deleteMany({ where: { phone: '9999999999' } });
+    // Clean up any leftover test data from an aborted previous run
+    const testCustomers = await prisma.customer.findMany({ where: { phone: '9999999999' }, select: { id: true } });
+    const testCustomerIds = testCustomers.map((c) => c.id);
+    if (testCustomerIds.length > 0) {
+      const testBookings = await prisma.booking.findMany({ where: { customerId: { in: testCustomerIds } }, select: { id: true } });
+      const testBookingIds = testBookings.map((b) => b.id);
+      if (testBookingIds.length > 0) {
+        await prisma.traveller.deleteMany({ where: { bookingId: { in: testBookingIds } } });
+        await prisma.booking.deleteMany({ where: { id: { in: testBookingIds } } });
+      }
+      await prisma.quotation.deleteMany({ where: { customerId: { in: testCustomerIds } } });
+      await prisma.lead.deleteMany({ where: { customerId: { in: testCustomerIds } } });
+      await prisma.customer.deleteMany({ where: { id: { in: testCustomerIds } } });
+    }
     await prisma.lead.deleteMany({ where: { destination: 'Test Destination' } });
 
     console.log('--- 1. Baseline Data Integrity Check ---');
@@ -261,12 +273,22 @@ async function runTests() {
     // Disconnect client to simulate server restart / network disconnect
     await prisma.$disconnect();
 
-    // Create a new fresh PrismaClient instance
+    // Create a new fresh PrismaClient instance with retry for cloud network jitter
     const freshPrisma = new PrismaClient();
-    const reconnectedBooking = await freshPrisma.booking.findUnique({
-      where: { bookingNumber: bkNum },
-      include: { customer: true, travellersList: true },
-    });
+    let reconnectedBooking = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await new Promise((r) => setTimeout(r, 1500));
+        reconnectedBooking = await freshPrisma.booking.findUnique({
+          where: { bookingNumber: bkNum },
+          include: { customer: true, travellersList: true },
+        });
+        if (reconnectedBooking) break;
+      } catch (e) {
+        if (attempt === 3) throw e;
+        console.log(`[Retry ${attempt}] Waiting for cloud database reconnection...`);
+      }
+    }
 
     assert(
       reconnectedBooking !== null && reconnectedBooking.finalAmount === 23000,

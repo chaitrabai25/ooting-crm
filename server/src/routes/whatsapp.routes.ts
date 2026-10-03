@@ -224,8 +224,9 @@ router.post('/bulk-send', authenticate, async (req: AuthRequest, res: Response, 
         });
       }
 
-      // Small delay between calls to avoid hitting rate limits
-      await new Promise(resolve => setTimeout(resolve, 80));
+      // Delay between calls to avoid spam blocks and rate limits
+      const sleepTime = Math.max(300, parseInt(String(req.body.delayMs || 1500), 10));
+      await new Promise(resolve => setTimeout(resolve, sleepTime));
     }
 
     await logAudit({
@@ -257,9 +258,47 @@ const sendSchema = z.object({
 });
 
 // Check integration configuration status
-router.get('/status', authenticate, async (req: AuthRequest, res: Response) => {
-  const status = getWhatsAppConfigStatus();
+router.get('/config-status', authenticate, async (req: AuthRequest, res: Response) => {
+  const status = await getWhatsAppConfigStatus();
   res.json(status);
+});
+
+router.get('/status', authenticate, async (req: AuthRequest, res: Response) => {
+  const status = await getWhatsAppConfigStatus();
+  res.json(status);
+});
+
+// Save WhatsApp Meta Cloud API or Business number settings
+router.post('/config', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { token, phoneNumberId, businessNumber } = req.body;
+    if (token !== undefined) {
+      await prisma.companySetting.upsert({
+        where: { key: 'whatsapp_cloud_api_token' },
+        update: { value: String(token).trim() },
+        create: { key: 'whatsapp_cloud_api_token', value: String(token).trim() },
+      });
+    }
+    if (phoneNumberId !== undefined) {
+      await prisma.companySetting.upsert({
+        where: { key: 'whatsapp_phone_number_id' },
+        update: { value: String(phoneNumberId).trim() },
+        create: { key: 'whatsapp_phone_number_id', value: String(phoneNumberId).trim() },
+      });
+    }
+    if (businessNumber !== undefined) {
+      await prisma.companySetting.upsert({
+        where: { key: 'whatsapp_business_number' },
+        update: { value: String(businessNumber).trim() },
+        create: { key: 'whatsapp_business_number', value: String(businessNumber).trim() },
+      });
+    }
+
+    const updatedStatus = await getWhatsAppConfigStatus();
+    res.json({ message: 'WhatsApp configuration updated successfully.', status: updatedStatus });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Send WhatsApp message to customer

@@ -47,14 +47,38 @@ export function sanitizePhoneNumber(phone: string): { formatted: string; digitsO
   return { formatted: clean, digitsOnly, isValid };
 }
 
-export function getWhatsAppConfigStatus(): {
+export async function getWhatsAppConfigStatus(): Promise<{
   configured: boolean;
   provider: 'META_CLOUD_API' | 'TWILIO' | 'DIRECT_WEB';
   details: string;
   phoneNumberId?: string;
-} {
-  const metaToken = process.env.WHATSAPP_CLOUD_API_TOKEN;
-  const metaPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  token?: string;
+  businessNumber?: string;
+}> {
+  let metaToken = process.env.WHATSAPP_CLOUD_API_TOKEN;
+  let metaPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  let businessNumber = process.env.WHATSAPP_BUSINESS_NUMBER;
+
+  if (!metaToken || !metaPhoneId) {
+    try {
+      const settings = await prisma.companySetting.findMany({
+        where: {
+          key: { in: ['whatsapp_cloud_api_token', 'whatsapp_phone_number_id', 'whatsapp_business_number'] },
+        },
+      });
+      const map: Record<string, string> = {};
+      settings.forEach((s) => {
+        map[s.key] = s.value;
+      });
+      if (map['whatsapp_cloud_api_token'] && map['whatsapp_phone_number_id']) {
+        metaToken = map['whatsapp_cloud_api_token'];
+        metaPhoneId = map['whatsapp_phone_number_id'];
+      }
+      if (map['whatsapp_business_number']) {
+        businessNumber = map['whatsapp_business_number'];
+      }
+    } catch (_) {}
+  }
 
   if (metaToken && metaPhoneId) {
     return {
@@ -62,6 +86,8 @@ export function getWhatsAppConfigStatus(): {
       provider: 'META_CLOUD_API',
       details: 'Connected to official Meta WhatsApp Cloud API',
       phoneNumberId: metaPhoneId,
+      token: metaToken,
+      businessNumber: businessNumber || undefined,
     };
   }
 
@@ -74,13 +100,15 @@ export function getWhatsAppConfigStatus(): {
       configured: true,
       provider: 'TWILIO',
       details: `Connected to Twilio WhatsApp API (${twilioNumber})`,
+      businessNumber: twilioNumber,
     };
   }
 
   return {
     configured: false,
     provider: 'DIRECT_WEB',
-    details: 'Direct WhatsApp Web / App mode (Cloud API credentials not set in environment variables)',
+    details: 'Direct Web WhatsApp Mode (Sequential Autopilot Timer Enabled)',
+    businessNumber: businessNumber || undefined,
   };
 }
 
@@ -100,10 +128,10 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
 
   const fullTextMessage = mediaUrl ? `${message}\n\n📎 Attachment: ${mediaUrl}` : message;
   const directWebUrl = `https://wa.me/${digitsOnly}?text=${encodeURIComponent(fullTextMessage)}`;
-  const config = getWhatsAppConfigStatus();
+  const config = await getWhatsAppConfigStatus();
 
   // Mode 1: Meta Cloud API
-  if (config.provider === 'META_CLOUD_API') {
+  if (config.provider === 'META_CLOUD_API' && config.phoneNumberId && config.token) {
     try {
       let payload: any;
       if (mediaType === 'IMAGE' && mediaUrl) {
@@ -140,11 +168,11 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       }
 
       const response = await fetch(
-        `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+        `https://graph.facebook.com/v19.0/${config.phoneNumberId}/messages`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${process.env.WHATSAPP_CLOUD_API_TOKEN}`,
+            'Authorization': `Bearer ${config.token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(payload),
