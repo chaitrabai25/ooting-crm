@@ -15,6 +15,13 @@ import {
   RefreshCw,
   Clock,
   ShieldCheck,
+  Image as ImageIcon,
+  FileText,
+  Users,
+  Paperclip,
+  Link as LinkIcon,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
@@ -76,9 +83,18 @@ const AVAILABLE_PLACEHOLDERS = [
 
 export const BulkWhatsAppPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaFileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('PROMO');
   const [messageTemplate, setMessageTemplate] = useState<string>(DEFAULT_TEMPLATES[0].content);
+
+  // Media Attachment State (Image / PDF Document)
+  const [mediaType, setMediaType] = useState<'NONE' | 'IMAGE' | 'DOCUMENT'>('NONE');
+  const [mediaUrl, setMediaUrl] = useState<string>('');
+  const [mediaFilename, setMediaFilename] = useState<string>('');
+  const [isUploadingMedia, setIsUploadingMedia] = useState<boolean>(false);
+  const [recipientSource, setRecipientSource] = useState<'EXCEL' | 'CRM'>('CRM');
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState<boolean>(false);
 
   const [recipients, setRecipients] = useState<RecipientRow[]>([]);
   const [previews, setPreviews] = useState<any[]>([]);
@@ -98,19 +114,29 @@ export const BulkWhatsAppPage: React.FC = () => {
     }).catch(console.error);
   }, []);
 
-  // Update preview when template or recipients change
+  // Auto-fetch all CRM customers when recipientSource is CRM and recipients is empty
+  useEffect(() => {
+    if (recipientSource === 'CRM' && recipients.length === 0) {
+      handleLoadCrmCustomers();
+    }
+  }, [recipientSource]);
+
+  // Update preview when template, recipients, or media changes
   useEffect(() => {
     if (recipients.length > 0) {
       api.post('/whatsapp/preview', {
         template: messageTemplate,
         recipients,
+        mediaType,
+        mediaUrl,
+        mediaFilename,
       }).then((res) => {
         setPreviews(res.data.previews || []);
       }).catch(console.error);
     } else {
       setPreviews([]);
     }
-  }, [messageTemplate, recipients]);
+  }, [messageTemplate, recipients, mediaType, mediaUrl, mediaFilename]);
 
   const handleSelectTemplate = (id: string) => {
     setSelectedTemplateId(id);
@@ -122,9 +148,74 @@ export const BulkWhatsAppPage: React.FC = () => {
     setMessageTemplate((prev) => prev + ' ' + placeholder);
   };
 
+  // Auto-load all active CRM customers
+  const handleLoadCrmCustomers = async () => {
+    try {
+      setIsLoadingCustomers(true);
+      setError(null);
+      const res = await api.get('/whatsapp/crm-recipients');
+      const list: RecipientRow[] = res.data.recipients || [];
+      if (!list || list.length === 0) {
+        setError('No active CRM customers with valid phone numbers were found.');
+        return;
+      }
+      setRecipients(list);
+      setSelectedPreviewIndex(0);
+    } catch (err: any) {
+      console.error('Failed to load CRM customers:', err);
+      setError('Failed to fetch CRM customers. Please try again.');
+    } finally {
+      setIsLoadingCustomers(false);
+    }
+  };
+
   // Download Sample Excel Template (.xlsx) with Bearer Authentication
   const handleDownloadTemplate = async () => {
     await downloadExcel('/whatsapp/template/excel', 'ooting-whatsapp-template.xlsx');
+  };
+
+  // Media File Upload Handler (Image / PDF Document)
+  const handleMediaFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingMedia(true);
+      setError(null);
+
+      if (mediaType === 'IMAGE') {
+        if (!file.type.startsWith('image/')) {
+          setError('Please upload a valid image file (JPG, PNG, WebP).');
+          return;
+        }
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('folder', 'whatsapp');
+        const res = await api.post('/upload/image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        setMediaUrl(res.data.url);
+        setMediaFilename(res.data.filename || file.name);
+      } else if (mediaType === 'DOCUMENT') {
+        if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+          setError('Please upload a valid PDF document (.pdf).');
+          return;
+        }
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post('/upload/document', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        setMediaUrl(res.data.url);
+        setMediaFilename(res.data.originalName || file.name);
+      }
+    } catch (err: any) {
+      console.error('Media upload failed:', err);
+      setError(err?.response?.data?.message || 'Failed to upload media file.');
+    } finally {
+      setIsUploadingMedia(false);
+      if (mediaFileInputRef.current) mediaFileInputRef.current.value = '';
+    }
   };
 
   // Upload Excel Spreadsheet (.xlsx only)
@@ -176,7 +267,7 @@ export const BulkWhatsAppPage: React.FC = () => {
   // Bulk Send Execution
   const handleBulkSend = async () => {
     if (recipients.length === 0) {
-      setError('Please upload an Excel list of recipients first.');
+      setError('Please select or load recipients first.');
       return;
     }
     if (!messageTemplate.trim()) {
@@ -192,6 +283,9 @@ export const BulkWhatsAppPage: React.FC = () => {
       const res = await api.post('/whatsapp/bulk-send', {
         template: messageTemplate,
         recipients,
+        mediaType,
+        mediaUrl,
+        mediaFilename,
       });
 
       setSendProgress(100);
@@ -319,63 +413,293 @@ export const BulkWhatsAppPage: React.FC = () => {
             />
           </div>
 
-          {/* Excel Upload Section */}
+          {/* Media Attachment (Image or PDF Document) */}
           <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                3. Upload Recipient List (.xlsx only)
+                <Paperclip className="w-4 h-4 text-brand-600" />
+                3. Attach Media (Image or PDF Document)
               </h2>
+              {mediaType !== 'NONE' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMediaType('NONE');
+                    setMediaUrl('');
+                    setMediaFilename('');
+                  }}
+                  className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold"
+                >
+                  Remove Attachment
+                </button>
+              )}
+            </div>
+
+            {/* Type selector buttons */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMediaType('NONE');
+                  setMediaUrl('');
+                  setMediaFilename('');
+                }}
+                className={`p-2 rounded-xl border text-center text-xs font-medium transition-all ${
+                  mediaType === 'NONE'
+                    ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-950/40 text-brand-900 dark:text-brand-100 font-semibold shadow-xs'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                Text Only (No Media)
+              </button>
 
               <button
                 type="button"
-                onClick={handleDownloadTemplate}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                onClick={() => setMediaType('IMAGE')}
+                className={`p-2 rounded-xl border text-center text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                  mediaType === 'IMAGE'
+                    ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 font-semibold shadow-xs'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Sample Excel Template</span>
+                <ImageIcon className="w-4 h-4 text-emerald-600" />
+                Image (Photo / Flyer)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMediaType('DOCUMENT')}
+                className={`p-2 rounded-xl border text-center text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                  mediaType === 'DOCUMENT'
+                    ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-100 font-semibold shadow-xs'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <FileText className="w-4 h-4 text-indigo-600" />
+                PDF Document (Itinerary)
               </button>
             </div>
 
-            {/* Hidden input */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              accept=".xlsx, .xls"
-              className="hidden"
-            />
+            {/* Media upload controls */}
+            {mediaType !== 'NONE' && (
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                <input
+                  type="file"
+                  ref={mediaFileInputRef}
+                  onChange={handleMediaFileUpload}
+                  accept={mediaType === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : '.pdf,application/pdf'}
+                  className="hidden"
+                />
 
-            {/* Drag & Drop Zone */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 p-6 rounded-xl text-center cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-900/30"
-            >
-              <Upload className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
-              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
-                Click to upload Excel spreadsheet (.xlsx / .xls)
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5">
-                Must include a 'Phone' column, and optional 'customerName', 'package', 'travelDate'
-              </span>
-            </div>
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => mediaFileInputRef.current?.click()}
+                    disabled={isUploadingMedia}
+                    className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    {isUploadingMedia ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    <span>
+                      {isUploadingMedia
+                        ? 'Uploading...'
+                        : mediaType === 'IMAGE'
+                        ? 'Upload Image File'
+                        : 'Upload PDF Document'}
+                    </span>
+                  </button>
 
-            {/* Uploaded Summary */}
-            {recipients.length > 0 && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span className="font-semibold text-emerald-900 dark:text-emerald-100">
-                    {recipients.length} recipients loaded from Excel.
-                  </span>
+                  <span className="text-[11px] text-slate-400">or paste direct media URL below</span>
                 </div>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <LinkIcon className="w-3.5 h-3.5" />
+                  </div>
+                  <input
+                    type="url"
+                    value={mediaUrl}
+                    onChange={(e) => setMediaUrl(e.target.value)}
+                    placeholder={
+                      mediaType === 'IMAGE'
+                        ? 'https://example.com/tour-poster.jpg'
+                        : 'https://example.com/itinerary.pdf'
+                    }
+                    className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  />
+                </div>
+
+                {/* Media Active Banner */}
+                {mediaUrl && (
+                  <div className="p-2.5 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-100">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      {mediaType === 'IMAGE' ? (
+                        <img
+                          src={mediaUrl}
+                          alt="preview"
+                          className="w-10 h-10 object-cover rounded-lg border border-emerald-200"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 flex items-center justify-center font-bold text-[10px]">
+                          PDF
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <span className="font-semibold block truncate">
+                          {mediaFilename || (mediaType === 'IMAGE' ? 'Image Attached' : 'PDF Document Attached')}
+                        </span>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block truncate font-mono">
+                          {mediaUrl}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMediaUrl('');
+                        setMediaFilename('');
+                      }}
+                      className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900 rounded text-rose-600 shrink-0 ml-2"
+                      title="Clear file"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Recipient Source: Auto CRM Customers or Excel Upload */}
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-emerald-600" />
+                4. Select Recipients (Auto CRM or Excel)
+              </h2>
+
+              {recipientSource === 'EXCEL' && (
                 <button
                   type="button"
-                  onClick={() => setRecipients([])}
-                  className="text-rose-600 hover:text-rose-700 font-semibold"
+                  onClick={handleDownloadTemplate}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
                 >
-                  Clear List
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Sample Excel</span>
                 </button>
+              )}
+            </div>
+
+            {/* Source switch pills */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRecipientSource('CRM');
+                  handleLoadCrmCustomers();
+                }}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  recipientSource === 'CRM'
+                    ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 shadow-xs'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Auto-Load All CRM Customers</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRecipientSource('EXCEL')}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  recipientSource === 'EXCEL'
+                    ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-950/40 text-brand-900 dark:text-brand-100 shadow-xs'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-brand-600" />
+                <span>Upload Custom Excel (.xlsx)</span>
+              </button>
+            </div>
+
+            {/* If CRM mode */}
+            {recipientSource === 'CRM' && (
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  {isLoadingCustomers ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  )}
+                  <div>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                      {isLoadingCustomers
+                        ? 'Fetching all CRM customers...'
+                        : `${recipients.length} Active CRM Customers Loaded`}
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Synchronized directly from your CRM customer registry.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleLoadCrmCustomers}
+                  disabled={isLoadingCustomers}
+                  className="px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 rounded-lg flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoadingCustomers ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            )}
+
+            {/* If EXCEL mode */}
+            {recipientSource === 'EXCEL' && (
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".xlsx, .xls"
+                  className="hidden"
+                />
+
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 p-6 rounded-xl text-center cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-900/30"
+                >
+                  <Upload className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                    Click to upload Excel spreadsheet (.xlsx / .xls)
+                  </span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                    Must include a 'Phone' column, and optional 'customerName', 'package', 'travelDate'
+                  </span>
+                </div>
+
+                {recipients.length > 0 && (
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                        {recipients.length} recipients loaded from Excel.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRecipients([])}
+                      className="text-rose-600 hover:text-rose-700 font-semibold"
+                    >
+                      Clear List
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -408,13 +732,43 @@ export const BulkWhatsAppPage: React.FC = () => {
               </div>
 
               {/* Chat Bubble Area */}
-              <div className="space-y-3 min-h-[190px] flex flex-col justify-end bg-[#0b141a]">
-                <div className="bg-[#005c4b] text-white p-3 rounded-2xl rounded-tr-xs text-xs max-w-[92%] ml-auto shadow-md space-y-1.5">
-                  <p className="whitespace-pre-wrap leading-relaxed">
+              <div className="space-y-3 min-h-[220px] flex flex-col justify-end bg-[#0b141a]">
+                <div className="bg-[#005c4b] text-white p-2.5 rounded-2xl rounded-tr-xs text-xs max-w-[92%] ml-auto shadow-md space-y-2">
+                  {/* Media attachment render in chat bubble */}
+                  {mediaType === 'IMAGE' && mediaUrl && (
+                    <div className="rounded-xl overflow-hidden bg-black/20 border border-white/10 max-h-48 flex items-center justify-center">
+                      <img
+                        src={mediaUrl}
+                        alt="attachment"
+                        className="w-full h-auto max-h-48 object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {mediaType === 'DOCUMENT' && mediaUrl && (
+                    <div className="p-2.5 bg-black/25 rounded-xl border border-white/10 flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-sm">
+                        PDF
+                      </div>
+                      <div className="overflow-hidden truncate flex-1">
+                        <span className="font-semibold text-[11px] block truncate text-slate-100">
+                          {mediaFilename || 'Itinerary_Details.pdf'}
+                        </span>
+                        <span className="text-[9px] text-emerald-300 block uppercase font-mono">
+                          PDF • Document
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="whitespace-pre-wrap leading-relaxed px-1">
                     {previews[selectedPreviewIndex]?.message ||
                       'Hello Customer, your customized message preview will appear here once recipients are loaded.'}
                   </p>
-                  <div className="text-[9px] text-white/60 text-right">
+                  <div className="text-[9px] text-white/60 text-right pr-1">
                     {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
                   </div>
                 </div>
@@ -456,7 +810,13 @@ export const BulkWhatsAppPage: React.FC = () => {
               <span>
                 {isSending
                   ? 'Broadcasting WhatsApp Messages...'
-                  : `Dispatch to ${recipients.length} Recipients`}
+                  : `Dispatch to ${recipients.length} Recipients ${
+                      mediaType === 'IMAGE'
+                        ? '(with Image)'
+                        : mediaType === 'DOCUMENT'
+                        ? '(with PDF Document)'
+                        : ''
+                    }`}
               </span>
             </button>
 

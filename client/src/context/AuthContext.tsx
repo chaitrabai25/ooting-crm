@@ -88,12 +88,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
-  const logout = () => {
-    localStorage.removeItem('ooting_crm_token');
-    localStorage.removeItem('ooting_crm_user');
-    setToken(null);
-    setUser(null);
-    window.location.href = '/login';
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Best-effort server notification
+    } finally {
+      localStorage.removeItem('ooting_crm_token');
+      localStorage.removeItem('ooting_crm_user');
+      setToken(null);
+      setUser(null);
+      window.location.href = '/login';
+    }
   };
 
   const refreshUser = async () => {

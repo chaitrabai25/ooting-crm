@@ -3,7 +3,7 @@ import { prisma } from '../db/prisma.js';
 interface AuditParams {
   userId?: string;
   userName?: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE' | 'LOGIN' | 'EXPORT' | 'IMPORT';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE' | 'LOGIN' | 'LOGOUT' | 'EXPORT' | 'IMPORT';
   entity: 'CUSTOMER' | 'LEAD' | 'BOOKING' | 'PAYMENT' | 'PACKAGE' | 'AGENT' | 'USER' | 'EXPENSE' | 'QUOTATION' | 'SETTING' | 'CAB_BOOKING' | 'CALENDAR_EVENT' | 'SUPPLIER';
   entityId?: string;
   details?: string;

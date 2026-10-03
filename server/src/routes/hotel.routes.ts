@@ -7,6 +7,13 @@ import { logAudit } from '../middleware/audit.js';
 const router = Router();
 router.use(authenticate);
 
+const sanitizeCell = (val: any): string => {
+  if (val === null || val === undefined) return '';
+  const str = String(val).trim();
+  if (str.startsWith('data:image/')) return '[Embedded Image Data]';
+  return str.length > 32000 ? str.slice(0, 32000) + '... (truncated)' : str;
+};
+
 // GET /api/hotels/export/excel: Export hotels to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
@@ -17,19 +24,19 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 
     const rows = hotels.map((h: any, idx: number) => ({
       'S.No': idx + 1,
-      'Hotel Name': h.name,
-      'Star Category': h.starCategory || '3 Star',
-      'State': h.state,
-      'District': h.district,
-      'City / Town': h.city || '',
-      'Address': h.address || '',
-      'Description': h.description || '',
-      'Phone': h.contactPhone || '',
-      'Email': h.contactEmail || '',
-      'Check-in': h.checkInTime || '12:00 PM',
-      'Check-out': h.checkOutTime || '11:00 AM',
-      'Amenities': h.amenities || '',
-      'Image URL': h.imageUrl || '',
+      'Hotel Name': sanitizeCell(h.name),
+      'Star Category': sanitizeCell(h.starCategory || '3 Star'),
+      'State': sanitizeCell(h.state),
+      'District': sanitizeCell(h.district),
+      'City / Town': sanitizeCell(h.city || ''),
+      'Address': sanitizeCell(h.address || ''),
+      'Description': sanitizeCell(h.description || ''),
+      'Phone': sanitizeCell(h.contactPhone || ''),
+      'Email': sanitizeCell(h.contactEmail || ''),
+      'Check-in': sanitizeCell(h.checkInTime || '12:00 PM'),
+      'Check-out': sanitizeCell(h.checkOutTime || '11:00 AM'),
+      'Amenities': sanitizeCell(h.amenities || ''),
+      'Image URL': sanitizeCell(h.imageUrl || ''),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -39,7 +46,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=ooting-hotels-${Date.now()}.xlsx`);
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
   } catch (error) {
     next(error);
   }

@@ -176,10 +176,50 @@ router.get('/audit-logs', authorize('ADMIN'), async (req: AuthRequest, res: Resp
     const limit = Math.max(1, parseInt(req.query.limit as string || '30', 10));
     const entity = (req.query.entity as string || '').trim();
     const action = (req.query.action as string || '').trim();
+    const dateParam = (req.query.date as string || '').trim();
+    const startDateParam = (req.query.startDate as string || '').trim();
+    const endDateParam = (req.query.endDate as string || '').trim();
+    const search = (req.query.search as string || '').trim();
 
     const where: any = {};
     if (entity) where.entity = entity;
     if (action) where.action = action;
+
+    if (dateParam) {
+      const d = new Date(dateParam);
+      if (!isNaN(d.getTime())) {
+        const startOfDay = new Date(d);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const endOfDay = new Date(d);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        where.createdAt = { gte: startOfDay, lte: endOfDay };
+      }
+    } else if (startDateParam || endDateParam) {
+      where.createdAt = {};
+      if (startDateParam) {
+        const s = new Date(startDateParam);
+        if (!isNaN(s.getTime())) {
+          s.setUTCHours(0, 0, 0, 0);
+          where.createdAt.gte = s;
+        }
+      }
+      if (endDateParam) {
+        const e = new Date(endDateParam);
+        if (!isNaN(e.getTime())) {
+          e.setUTCHours(23, 59, 59, 999);
+          where.createdAt.lte = e;
+        }
+      }
+    }
+
+    if (search) {
+      where.OR = [
+        { details: { contains: search } },
+        { userName: { contains: search } },
+        { ipAddress: { contains: search } },
+        { entityId: { contains: search } },
+      ];
+    }
 
     const [total, logs] = await Promise.all([
       prisma.auditLog.count({ where }),

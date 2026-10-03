@@ -646,10 +646,44 @@ export const CabVoucher: React.FC = () => {
 
   const handleWhatsApp = async () => {
     if (!cab) return;
+
+    const rawPhone = (cab.customerPhone || '').replace(/[^0-9]/g, '');
+    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const allowanceText = cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0
+      ? `Driver Allowance: ₹${cab.driverAllowanceTotal} (${cab.driverAllowanceType === 'NIGHT_WISE' ? 'Night-wise' : cab.driverAllowanceType === 'CUSTOM' ? 'Custom' : 'Day-wise'})\n`
+      : '';
+    const dutyRangeText = cab.dutyRange ? `Duty Range: ${cab.dutyRange}\n` : '';
+
+    const messageText =
+      `*${(company.name || 'OOTING').toUpperCase()} - CAB DUTY SLIP*\n\n` +
+      `Booking Ref: ${cab.bookingReference}\n` +
+      `Guest Name: ${cab.customerName}\n` +
+      `Pickup Date: ${new Date(cab.pickupDate).toLocaleDateString('en-IN')}\n` +
+      `Pickup Time: ${cab.pickupTime}\n` +
+      `Pickup Location: ${cab.pickupPlace}\n` +
+      `Drop Location: ${cab.dropPlace}\n` +
+      dutyRangeText +
+      `Vehicle: ${cab.vehicleType} (${cab.requiredCabType})\n` +
+      (cab.carNumber ? `Car No: ${cab.carNumber}\n` : '') +
+      (cab.driverName ? `Driver: ${cab.driverName} (${cab.driverPhone || 'N/A'})\n` : '') +
+      `Total Fare: ₹${Number(cab.cabAmount).toLocaleString('en-IN')}\n` +
+      allowanceText +
+      `Balance Due: ₹${Number(cab.balanceAmount).toLocaleString('en-IN')}\n\n` +
+      `Have a safe & memorable journey with ${company.name || 'Ooting'}!`;
+
+    const filename = `DutySlip-${cab.bookingReference}.pdf`;
+    const text = encodeURIComponent(
+      messageText +
+      `\n\n📄 Note: The official Cab Duty Slip PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
+    );
+    const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${text}` : `https://wa.me/?text=${text}`;
+
+    // Open WhatsApp synchronously in user click gesture to avoid browser popup blockers
+    window.open(waUrl, '_blank');
+
     try {
       setIsGeneratingPdf(true);
-      const filename = `DutySlip-${cab.bookingReference}.pdf`;
-      const { download, pdfBlob } = await generateA4Pdf({
+      const { download } = await generateA4Pdf({
         elementId: 'duty-slip-document',
         filename,
         title: `Cab Duty Slip — ${cab.bookingReference}`,
@@ -657,38 +691,8 @@ export const CabVoucher: React.FC = () => {
         margin: 8,
       });
 
-      const rawPhone = (cab.customerPhone || '').replace(/[^0-9]/g, '');
-      const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-      const allowanceText = cab.driverAllowanceTotal && cab.driverAllowanceTotal > 0
-        ? `Driver Allowance: ₹${cab.driverAllowanceTotal} (${cab.driverAllowanceType === 'NIGHT_WISE' ? 'Night-wise' : cab.driverAllowanceType === 'CUSTOM' ? 'Custom' : 'Day-wise'})\n`
-        : '';
-      const dutyRangeText = cab.dutyRange ? `Duty Range: ${cab.dutyRange}\n` : '';
-
-      const messageText =
-        `*${(company.name || 'OOTING').toUpperCase()} - CAB DUTY SLIP*\n\n` +
-        `Booking Ref: ${cab.bookingReference}\n` +
-        `Guest Name: ${cab.customerName}\n` +
-        `Pickup Date: ${new Date(cab.pickupDate).toLocaleDateString('en-IN')}\n` +
-        `Pickup Time: ${cab.pickupTime}\n` +
-        `Pickup Location: ${cab.pickupPlace}\n` +
-        `Drop Location: ${cab.dropPlace}\n` +
-        dutyRangeText +
-        `Vehicle: ${cab.vehicleType} (${cab.requiredCabType})\n` +
-        (cab.carNumber ? `Car No: ${cab.carNumber}\n` : '') +
-        (cab.driverName ? `Driver: ${cab.driverName} (${cab.driverPhone || 'N/A'})\n` : '') +
-        `Total Fare: ₹${Number(cab.cabAmount).toLocaleString('en-IN')}\n` +
-        allowanceText +
-        `Balance Due: ₹${Number(cab.balanceAmount).toLocaleString('en-IN')}\n\n` +
-        `Have a safe & memorable journey with ${company.name || 'Ooting'}!`;
-
       // Always auto-download the official A4 PDF for immediate customer delivery
       await download();
-
-      const text = encodeURIComponent(
-        messageText +
-        `\n\n📄 Note: The official Cab Duty Slip PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
-      );
-      window.open(`https://wa.me/${cleanPhone}?text=${text}`, '_blank');
     } catch (err) {
       console.error('WhatsApp duty slip share error:', err);
     } finally {

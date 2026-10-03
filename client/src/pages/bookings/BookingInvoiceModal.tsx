@@ -159,14 +159,39 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
 
   // WhatsApp Document Share: Shares exact invoice PDF and details
   const handleShareWhatsApp = async () => {
+    const rawPhone = (booking.customer?.phone || '').replace(/[^0-9]/g, '');
+    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const cleanGuest = (booking.customer?.fullName || 'Guest').replace(/[^a-zA-Z0-9]/g, '_');
+    const cleanBooking = (booking.bookingNumber || 'OOT').replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `Invoice_${cleanBooking}_${cleanGuest}.pdf`;
+
+    const paymentSummaryText = isFullyPaid
+      ? `• *Payment Status: Payment Completed / Fully Paid* (Balance: ₹0)\n`
+      : `• *Balance Due: ₹${balanceDue.toLocaleString('en-IN')}*\n• *Payment Due Date: ${formattedDueDate}*\n• Status: ${paymentStatus}\n`;
+
+    const messageText =
+      `*${(company.name || 'OOTING').toUpperCase()} - OFFICIAL TAX INVOICE*\n\n` +
+      `Dear ${booking.customer?.fullName || 'Guest'},\n` +
+      `Your Tax Invoice *${invoiceNumber}* for Booking *${booking.bookingNumber}* is attached.\n\n` +
+      `• Tour: ${booking.package?.packageName || 'Custom Holiday Itinerary'}\n` +
+      `• Travel Dates: ${travelStartDate} to ${travelEndDate}\n` +
+      `• Grand Total: ₹${grandTotal.toLocaleString('en-IN')}\n` +
+      `• Amount Paid: ₹${amountPaid.toLocaleString('en-IN')}\n` +
+      paymentSummaryText + '\n' +
+      `Thank you for choosing ${company.name || 'Ooting'}!`;
+
+    const text = encodeURIComponent(
+      messageText +
+      `\n\n📄 Note: The official A4 Tax Invoice PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
+    );
+    const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${text}` : `https://wa.me/?text=${text}`;
+
+    // Open WhatsApp synchronously in user click gesture to avoid browser popup blockers
+    window.open(waUrl, '_blank');
+
     try {
       setIsGeneratingPdf(true);
-      const cleanGuest = (booking.customer?.fullName || 'Guest').replace(/[^a-zA-Z0-9]/g, '_');
-      const cleanBooking = (booking.bookingNumber || 'OOT').replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `Invoice_${cleanBooking}_${cleanGuest}.pdf`;
-
-      // Generate PDF Blob
-      const { download, pdfBlob } = await generateA4Pdf({
+      const { download } = await generateA4Pdf({
         elementId: 'invoice-document',
         filename,
         title: `Tax Invoice — ${invoiceNumber}`,
@@ -174,32 +199,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         margin: 8,
       });
 
-      const rawPhone = (booking.customer?.phone || '').replace(/[^0-9]/g, '');
-      const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-      const paymentSummaryText = isFullyPaid
-        ? `• *Payment Status: Payment Completed / Fully Paid* (Balance: ₹0)\n`
-        : `• *Balance Due: ₹${balanceDue.toLocaleString('en-IN')}*\n• *Payment Due Date: ${formattedDueDate}*\n• Status: ${paymentStatus}\n`;
-
-      const messageText =
-        `*${(company.name || 'OOTING').toUpperCase()} - OFFICIAL TAX INVOICE*\n\n` +
-        `Dear ${booking.customer?.fullName || 'Guest'},\n` +
-        `Your Tax Invoice *${invoiceNumber}* for Booking *${booking.bookingNumber}* is attached.\n\n` +
-        `• Tour: ${booking.package?.packageName || 'Custom Holiday Itinerary'}\n` +
-        `• Travel Dates: ${travelStartDate} to ${travelEndDate}\n` +
-        `• Grand Total: ₹${grandTotal.toLocaleString('en-IN')}\n` +
-        `• Amount Paid: ₹${amountPaid.toLocaleString('en-IN')}\n` +
-        paymentSummaryText + '\n' +
-        `Thank you for choosing ${company.name || 'Ooting'}!`;
-
       // Always auto-download the official A4 PDF for immediate customer delivery
       await download();
-
-      const text = encodeURIComponent(
-        messageText +
-        `\n\n📄 Note: The official A4 Tax Invoice PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
-      );
-      const waUrl = `https://wa.me/${cleanPhone}?text=${text}`;
-      window.open(waUrl, '_blank');
     } catch (err) {
       console.error('WhatsApp invoice share error:', err);
     } finally {

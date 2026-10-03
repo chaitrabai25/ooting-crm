@@ -334,4 +334,24 @@ router.post('/change-password', authenticate, async (req: AuthRequest, res: Resp
   }
 });
 
+// User Logout with Audit Logging
+router.post('/logout', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    if (req.user) {
+      await logAudit({
+        userId: req.user.id,
+        userName: req.user.name,
+        action: 'LOGOUT',
+        entity: 'USER',
+        entityId: req.user.id,
+        details: `User logged out successfully from IP ${req.ip}`,
+        ipAddress: req.ip,
+      });
+    }
+    res.json({ message: 'Logged out successfully.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

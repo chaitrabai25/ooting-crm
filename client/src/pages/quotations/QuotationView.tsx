@@ -91,10 +91,45 @@ export const QuotationView: React.FC = () => {
 
   const handleShareWhatsApp = async () => {
     if (!quotation) return;
+
+    // Normalize phone number to international format (India: +91)
+    const rawPhone = quotation.customer?.phone || quotation.lead?.phone || '';
+    const digits = rawPhone.replace(/\D/g, '');
+    let formattedPhone = digits;
+    if (digits.length === 10) {
+      formattedPhone = `91${digits}`;
+    } else if (digits.length === 11 && digits.startsWith('0')) {
+      formattedPhone = `91${digits.slice(1)}`;
+    }
+
+    const dates = quotation.travelStartDate
+      ? `${new Date(quotation.travelStartDate).toLocaleDateString('en-IN')} to ${quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}`
+      : 'TBD';
+
+    const messageText =
+      `Hello *${quotation.customer?.fullName || 'Valued Client'}*,\n\n` +
+      `Here is your travel quotation from *${company?.name || 'Ooting'} - ${company?.tagline || 'Journeys Beyond Ordinary'}*:\n\n` +
+      `📋 *Quotation #:* ${quotation.quotationNumber}\n` +
+      `📍 *Destination:* ${quotation.destination}\n` +
+      `🗓 *Travel Dates:* ${dates}\n` +
+      `👥 *Guests:* ${quotation.adults} Adults${quotation.children > 0 ? `, ${quotation.children} Children` : ''}\n` +
+      `🚗 *Transport:* ${quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle'}\n` +
+      `💰 *Total Amount:* ₹${Number(quotation.finalAmount).toLocaleString('en-IN')}\n\n` +
+      `📄 *Your official Quotation PDF has been downloaded to your device.* Please find it attached.\n\n` +
+      `Warm regards,\n*${company?.name || 'Ooting'} Tours & Travels*\n${company?.phone ? `📞 ${company.phone}` : ''}`;
+
+    const waUrl = formattedPhone
+      ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(messageText)}`
+      : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
+
+    // Open WhatsApp synchronously in user click gesture to prevent browser popup blocking
+    window.open(waUrl, '_blank');
+    showToast('Opening WhatsApp with customer... PDF downloading simultaneously.');
+
     try {
       setIsGeneratingPdf(true);
       const filename = `Quotation-${quotation.quotationNumber}.pdf`;
-      const { download, pdfBlob } = await generateA4Pdf({
+      const { download } = await generateA4Pdf({
         elementId: 'quotation-document',
         filename,
         title: `Travel Quotation — ${quotation.quotationNumber}`,
@@ -104,39 +139,6 @@ export const QuotationView: React.FC = () => {
 
       // Always download PDF to device
       await download();
-
-      // Normalize phone number to international format (India: +91)
-      const rawPhone = quotation.customer?.phone || quotation.lead?.phone || '';
-      const digits = rawPhone.replace(/\D/g, '');
-      let formattedPhone = digits;
-      if (digits.length === 10) {
-        formattedPhone = `91${digits}`;
-      } else if (digits.length === 11 && digits.startsWith('0')) {
-        formattedPhone = `91${digits.slice(1)}`;
-      }
-
-      const dates = quotation.travelStartDate
-        ? `${new Date(quotation.travelStartDate).toLocaleDateString('en-IN')} to ${quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}`
-        : 'TBD';
-
-      const messageText =
-        `Hello *${quotation.customer?.fullName || 'Valued Client'}*,\n\n` +
-        `Here is your travel quotation from *${company?.name || 'Ooting'} - ${company?.tagline || 'Journeys Beyond Ordinary'}*:\n\n` +
-        `📋 *Quotation #:* ${quotation.quotationNumber}\n` +
-        `📍 *Destination:* ${quotation.destination}\n` +
-        `🗓 *Travel Dates:* ${dates}\n` +
-        `👥 *Guests:* ${quotation.adults} Adults${quotation.children > 0 ? `, ${quotation.children} Children` : ''}\n` +
-        `🚗 *Transport:* ${quotation.cabDetails || quotation.transport || 'Dedicated AC Vehicle'}\n` +
-        `💰 *Total Amount:* ₹${Number(quotation.finalAmount).toLocaleString('en-IN')}\n\n` +
-        `📄 *Your official Quotation PDF has been downloaded to your device.* Please find it attached.\n\n` +
-        `Warm regards,\n*${company?.name || 'Ooting'} Tours & Travels*\n${company?.phone ? `📞 ${company.phone}` : ''}`;
-
-      const waUrl = formattedPhone
-        ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(messageText)}`
-        : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
-
-      window.open(waUrl, '_blank');
-      showToast('Quotation PDF downloaded! WhatsApp chat opened with customer.');
     } catch (err) {
       console.error('WhatsApp quotation share error:', err);
       showToast('Failed to generate PDF for WhatsApp share.', 'error');
@@ -437,7 +439,10 @@ export const QuotationView: React.FC = () => {
         </div>
 
         {/* Official Document Meta Banner */}
-        <div className="bg-slate-900 text-white px-8 py-2 flex items-center justify-between shrink-0">
+        <div
+          className="bg-slate-900 text-white px-8 py-2.5 flex items-center justify-between shrink-0 min-h-[44px] h-11"
+          style={{ minHeight: '44px', height: '44px', boxSizing: 'border-box' }}
+        >
           <div className="flex items-center gap-3">
             <span className="inline-block px-2.5 py-0.5 bg-[#C91F28] text-white text-[10px] font-black uppercase tracking-wider rounded">
               QUOTATION
@@ -732,12 +737,12 @@ export const QuotationView: React.FC = () => {
                   </p>
                 )}
               </div>
-              <div className="pt-1 border-t border-slate-200 flex items-center justify-between text-[9px] text-slate-600">
-                <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
-                  <span>Computer-generated commercial quotation verified by {company?.name || 'Ooting'} CRM.</span>
+              <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between text-[8.5px] text-slate-500">
+                <div className="flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-[#C91F28] shrink-0" />
+                  <span>Verified by {company?.name || 'Ooting'} CRM</span>
                 </div>
-                <span className="font-bold text-slate-800 uppercase tracking-wider">Authorized Signatory</span>
+                <span className="font-bold text-slate-800 uppercase tracking-wider text-[9px]">Authorized Signatory</span>
               </div>
             </div>
           </div>

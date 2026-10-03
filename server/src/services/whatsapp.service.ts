@@ -6,6 +6,9 @@ export interface WhatsAppSendParams {
   customerId?: string | null;
   templateName?: string | null;
   userId?: string | null;
+  mediaType?: 'NONE' | 'IMAGE' | 'DOCUMENT';
+  mediaUrl?: string | null;
+  mediaFilename?: string | null;
 }
 
 export interface WhatsAppSendResult {
@@ -82,7 +85,7 @@ export function getWhatsAppConfigStatus(): {
 }
 
 export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<WhatsAppSendResult> {
-  const { phone, message, customerId, templateName, userId } = params;
+  const { phone, message, customerId, templateName, userId, mediaType = 'NONE', mediaUrl, mediaFilename } = params;
   const { formatted, digitsOnly, isValid } = sanitizePhoneNumber(phone);
 
   if (!isValid) {
@@ -95,12 +98,47 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
     };
   }
 
-  const directWebUrl = `https://wa.me/${digitsOnly}?text=${encodeURIComponent(message)}`;
+  const fullTextMessage = mediaUrl ? `${message}\n\n📎 Attachment: ${mediaUrl}` : message;
+  const directWebUrl = `https://wa.me/${digitsOnly}?text=${encodeURIComponent(fullTextMessage)}`;
   const config = getWhatsAppConfigStatus();
 
   // Mode 1: Meta Cloud API
   if (config.provider === 'META_CLOUD_API') {
     try {
+      let payload: any;
+      if (mediaType === 'IMAGE' && mediaUrl) {
+        payload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: digitsOnly,
+          type: 'image',
+          image: {
+            link: mediaUrl,
+            caption: message,
+          },
+        };
+      } else if (mediaType === 'DOCUMENT' && mediaUrl) {
+        payload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: digitsOnly,
+          type: 'document',
+          document: {
+            link: mediaUrl,
+            caption: message,
+            filename: mediaFilename || 'Document.pdf',
+          },
+        };
+      } else {
+        payload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: digitsOnly,
+          type: 'text',
+          text: { preview_url: true, body: fullTextMessage },
+        };
+      }
+
       const response = await fetch(
         `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
         {
@@ -109,13 +147,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
             'Authorization': `Bearer ${process.env.WHATSAPP_CLOUD_API_TOKEN}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: digitsOnly,
-            type: 'text',
-            text: { preview_url: false, body: message },
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -127,7 +159,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
           data: {
             customerId: customerId || null,
             phone: formatted,
-            messageContent: message,
+            messageContent: fullTextMessage,
             templateName: templateName || null,
             status: 'FAILED',
             provider: 'META_CLOUD_API',
@@ -187,7 +219,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
     data: {
       customerId: customerId || null,
       phone: formatted,
-      messageContent: message,
+      messageContent: fullTextMessage,
       templateName: templateName || null,
       status: 'SENT',
       provider: 'DIRECT_WEB',

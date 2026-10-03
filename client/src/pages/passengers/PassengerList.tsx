@@ -345,8 +345,8 @@ export const PassengerList: React.FC = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-        <form onSubmit={handleSearch} className="relative flex-1 w-full md:max-w-md">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between flex-wrap max-w-full">
+        <form onSubmit={handleSearch} className="relative flex-1 min-w-[240px] max-w-full md:max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -357,8 +357,8 @@ export const PassengerList: React.FC = () => {
           />
         </form>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
-          <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 flex-1 sm:flex-initial max-w-full sm:max-w-[240px]">
             <PackageIcon className="w-4 h-4 text-slate-400 shrink-0" />
             <select
               value={selectedPackageId}
@@ -366,7 +366,8 @@ export const PassengerList: React.FC = () => {
                 setSelectedPackageId(e.target.value);
                 setPage(1);
               }}
-              className="w-full sm:w-auto px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#C91F28]"
+              title="Filter by travel package"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#C91F28] truncate cursor-pointer"
             >
               <option value="">All Travel Packages</option>
               {packages.map((pkg) => (
@@ -383,7 +384,8 @@ export const PassengerList: React.FC = () => {
               setSelectedStatus(e.target.value);
               setPage(1);
             }}
-            className="w-full sm:w-auto px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#C91F28]"
+            title="Filter by booking status"
+            className="w-full sm:w-auto shrink-0 min-w-[130px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#C91F28] cursor-pointer"
           >
             <option value="">All Statuses</option>
             <option value="CONFIRMED">Confirmed</option>

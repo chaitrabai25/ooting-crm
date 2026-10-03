@@ -1,7 +1,14 @@
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import multer from 'multer';
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import { processAndSaveImage } from '../services/image.service.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = Router();
 router.use(authenticate);
@@ -114,6 +121,57 @@ router.post(
       res.status(500).json({
         message: error?.message ? `Bulk image optimization failed: ${error.message}` : 'Bulk image upload failed.',
       });
+    }
+  }
+);
+
+// Upload PDF document for WhatsApp broadcast & customer communications
+const docUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 35 * 1024 * 1024 }, // 35MB max for PDFs
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF documents are allowed.'));
+    }
+  },
+});
+
+router.post(
+  '/document',
+  (req: AuthRequest, res: Response, next) => {
+    docUpload.single('file')(req, res, (err: any) => {
+      if (err) return res.status(400).json({ message: err.message || 'PDF upload error.' });
+      next();
+    });
+  },
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ message: 'No document file uploaded.' });
+      return;
+    }
+    try {
+      const uploadsDir = path.resolve(__dirname, '../../uploads/documents');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      const cleanName = path.parse(req.file.originalname).name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeFilename = `${cleanName}-${Date.now()}.pdf`;
+      const destPath = path.join(uploadsDir, safeFilename);
+      fs.writeFileSync(destPath, req.file.buffer);
+
+      const fileUrl = `/uploads/documents/${safeFilename}`;
+      res.json({
+        url: fileUrl,
+        filename: safeFilename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        message: 'PDF document uploaded successfully.',
+      });
+    } catch (error: any) {
+      console.error('Document upload error:', error);
+      res.status(500).json({ message: error.message || 'Failed to upload PDF document.' });
     }
   }
 );

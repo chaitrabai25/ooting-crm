@@ -190,12 +190,31 @@ export const ItineraryPdfView: React.FC = () => {
 
   const handleShareWhatsApp = async () => {
     if (!pkg) return;
+
+    const cleanTitle = (pkg.packageName || 'Itinerary').replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `Itinerary_${cleanTitle}.pdf`;
+
+    const messageText =
+      `*${(company.name || 'OOTING').toUpperCase()} - TOUR ITINERARY*\n\n` +
+      `Here is the official travel itinerary for *${pkg.packageName}* (${pkg.destination})!\n\n` +
+      `• Duration: ${pkg.duration}\n` +
+      `• Starting Price: ₹${Number(pkg.price).toLocaleString('en-IN')} Per Person\n` +
+      `• Inclusions: ${pkg.inclusions || 'Standard holiday package inclusions'}\n\n` +
+      `Have a look at the attached official PDF document for the complete day-by-day schedule.\n\n` +
+      `Warm regards,\n*Ooting Team*`;
+
+    const text = encodeURIComponent(
+      messageText +
+      `\n\n📄 Note: The official Tour Itinerary PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
+    );
+    const waUrl = `https://wa.me/?text=${text}`;
+
+    // Open WhatsApp synchronously in user click gesture to avoid browser popup blockers
+    window.open(waUrl, '_blank');
+
     try {
       setIsGeneratingPdf(true);
-      const cleanTitle = (pkg.packageName || 'Itinerary').replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `Itinerary_${cleanTitle}.pdf`;
-
-      const { download, pdfBlob } = await generateA4Pdf({
+      const { download } = await generateA4Pdf({
         elementId: 'itinerary-document',
         filename,
         title: pkg.packageName || 'Official Tour Itinerary',
@@ -203,23 +222,8 @@ export const ItineraryPdfView: React.FC = () => {
         margin: 8,
       });
 
-      const messageText =
-        `*${(company.name || 'OOTING').toUpperCase()} - TOUR ITINERARY*\n\n` +
-        `Here is the official travel itinerary for *${pkg.packageName}* (${pkg.destination})!\n\n` +
-        `• Duration: ${pkg.duration}\n` +
-        `• Starting Price: ₹${Number(pkg.price).toLocaleString('en-IN')} Per Person\n` +
-        `• Inclusions: ${pkg.inclusions || 'Standard holiday package inclusions'}\n\n` +
-        `Have a look at the attached official PDF document for the complete day-by-day schedule.\n\n` +
-        `Warm regards,\n*Ooting Team*`;
-
       // Always auto-download the official PDF for immediate customer delivery
       await download();
-
-      const text = encodeURIComponent(
-        messageText +
-        `\n\n📄 Note: The official Tour Itinerary PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
-      );
-      window.open(`https://wa.me/?text=${text}`, '_blank');
     } catch (err) {
       console.error('WhatsApp itinerary share error:', err);
     } finally {

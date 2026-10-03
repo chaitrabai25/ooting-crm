@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { History, Shield, Filter, RefreshCw, Clock } from 'lucide-react';
+import { History, Shield, Filter, RefreshCw, Clock, Calendar, Search, X } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -31,6 +31,8 @@ export const AuditLogsPage: React.FC = () => {
 
   const [entityFilter, setEntityFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
 
   const fetchLogs = async () => {
     try {
@@ -40,6 +42,8 @@ export const AuditLogsPage: React.FC = () => {
       params.append('limit', '25');
       if (entityFilter) params.append('entity', entityFilter);
       if (actionFilter) params.append('action', actionFilter);
+      if (dateFilter) params.append('date', dateFilter);
+      if (searchFilter.trim()) params.append('search', searchFilter.trim());
 
       const res = await api.get(`/settings/audit-logs?${params.toString()}`);
       setLogs(res.data.data || []);
@@ -54,7 +58,7 @@ export const AuditLogsPage: React.FC = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, [page, entityFilter, actionFilter]);
+  }, [page, entityFilter, actionFilter, dateFilter]);
 
   const columns: Column<AuditLog>[] = [
     {
@@ -147,48 +151,103 @@ export const AuditLogsPage: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap gap-3 items-center">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Filter By:</span>
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap gap-3 items-center justify-between">
+        <div className="flex flex-wrap gap-2.5 items-center">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Filter By:</span>
+          </div>
+
+          {/* Date Picker Filter with Calendar Icon */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs hover:border-slate-300 transition-colors">
+            <Calendar className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setPage(1);
+              }}
+              title="Filter audit activities by specific date"
+              className="bg-transparent border-none text-xs text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+            />
+            {dateFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFilter('');
+                  setPage(1);
+                }}
+                title="Clear date filter"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-1 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          <select
+            value={entityFilter}
+            onChange={(e) => {
+              setEntityFilter(e.target.value);
+              setPage(1);
+            }}
+            className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
+          >
+            <option value="">All Entities</option>
+            <option value="USER">Staff / Users</option>
+            <option value="LEAD">Leads</option>
+            <option value="CUSTOMER">Customers</option>
+            <option value="BOOKING">Tour Bookings</option>
+            <option value="CAB_BOOKING">Cab Duty Slips</option>
+            <option value="PAYMENT">Payments</option>
+            <option value="QUOTATION">Quotations</option>
+            <option value="PACKAGE">Packages</option>
+            <option value="EXPENSE">Expenses</option>
+            <option value="AGENT">B2B Agents</option>
+            <option value="SUPPLIER">Suppliers</option>
+            <option value="SETTING">Settings</option>
+          </select>
+
+          <select
+            value={actionFilter}
+            onChange={(e) => {
+              setActionFilter(e.target.value);
+              setPage(1);
+            }}
+            className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
+          >
+            <option value="">All Actions</option>
+            <option value="LOGIN">Login</option>
+            <option value="LOGOUT">Logout</option>
+            <option value="CREATE">Create</option>
+            <option value="UPDATE">Update</option>
+            <option value="DELETE">Delete</option>
+            <option value="STATUS_CHANGE">Status Change</option>
+            <option value="CONVERT">Convert</option>
+            <option value="IMPORT">Import Data</option>
+            <option value="EXPORT">Export Data</option>
+          </select>
         </div>
 
-        <select
-          value={entityFilter}
-          onChange={(e) => {
-            setEntityFilter(e.target.value);
+        {/* Search Activity by text */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
             setPage(1);
+            fetchLogs();
           }}
-          className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          className="relative min-w-[220px] max-w-xs w-full sm:w-auto"
         >
-          <option value="">All Entities</option>
-          <option value="LEAD">Leads</option>
-          <option value="CUSTOMER">Customers</option>
-          <option value="BOOKING">Bookings</option>
-          <option value="PAYMENT">Payments</option>
-          <option value="QUOTATION">Quotations</option>
-          <option value="EXPENSE">Expenses</option>
-          <option value="AGENT">Agents</option>
-          <option value="PACKAGE">Packages</option>
-          <option value="USER">Users</option>
-          <option value="SETTING">Settings</option>
-        </select>
-
-        <select
-          value={actionFilter}
-          onChange={(e) => {
-            setActionFilter(e.target.value);
-            setPage(1);
-          }}
-          className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
-        >
-          <option value="">All Actions</option>
-          <option value="CREATE">Create</option>
-          <option value="UPDATE">Update</option>
-          <option value="DELETE">Delete</option>
-          <option value="CONVERT">Convert (Lead to Booking)</option>
-          <option value="LOGIN">Login</option>
-        </select>
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search action or user..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-1 focus:ring-[#C91F28]"
+          />
+        </form>
       </div>
 
       {/* Table */}

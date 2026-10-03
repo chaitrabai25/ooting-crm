@@ -96,7 +96,8 @@ export async function generateA4Pdf({
     });
 
     // 2. Deterministic SVG Icon Normalization:
-    // Resolve currentColor to actual computed color and ensure xmlns & dimensions
+    // Keep native SVG elements with explicit dimensions and resolved stroke colors.
+    // (Never replace with async <img> which causes naturalWidth 0 layout overlap)
     const svgs = Array.from(targetEl.querySelectorAll<SVGElement>('svg'));
     svgs.forEach((svg) => {
       const cls = svg.getAttribute('class') || '';
@@ -116,44 +117,34 @@ export async function generateA4Pdf({
         svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
       }
 
-      // Compute actual stroke color so data URL doesn't fall back to black
+      // Compute actual stroke color so currentColor is resolved
       let strokeColor = '#C91F28';
       try {
         const comp = window.getComputedStyle(svg);
         strokeColor = comp.color || comp.stroke || '#C91F28';
       } catch {}
-      svg.setAttribute('stroke', strokeColor);
 
-      // Check if SVG has an adjacent sibling to maintain spacing
+      if (!svg.getAttribute('stroke') || svg.getAttribute('stroke') === 'currentColor') {
+        svg.setAttribute('stroke', strokeColor);
+      }
+      if (!svg.getAttribute('fill') || svg.getAttribute('fill') === 'currentColor') {
+        svg.setAttribute('fill', 'none');
+      }
+
+      svg.style.width = `${pxSize}px`;
+      svg.style.height = `${pxSize}px`;
+      svg.style.minWidth = `${pxSize}px`;
+      svg.style.minHeight = `${pxSize}px`;
+      svg.style.maxWidth = `${pxSize}px`;
+      svg.style.maxHeight = `${pxSize}px`;
+      svg.style.flexShrink = '0';
+      svg.style.display = 'inline-block';
+      svg.style.verticalAlign = 'middle';
+
+      // Ensure proper right margin if adjacent to text
       const hasNextSibling = !!svg.nextElementSibling;
-      const rightMargin = hasNextSibling ? '6px' : '0px';
-
-      try {
-        const svgXml = new XMLSerializer().serializeToString(svg);
-        const img = clonedDoc.createElement('img');
-        img.setAttribute('src', 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgXml));
-        img.setAttribute('width', String(pxSize));
-        img.setAttribute('height', String(pxSize));
-        img.style.width = `${pxSize}px`;
-        img.style.height = `${pxSize}px`;
-        img.style.minWidth = `${pxSize}px`;
-        img.style.minHeight = `${pxSize}px`;
-        img.style.maxWidth = `${pxSize}px`;
-        img.style.maxHeight = `${pxSize}px`;
-        img.style.display = 'inline-block';
-        img.style.verticalAlign = 'middle';
-        img.style.alignSelf = 'center';
-        img.style.flexShrink = '0';
-        if (hasNextSibling) {
-          img.style.marginRight = rightMargin;
-        }
-        svg.parentNode?.replaceChild(img, svg);
-      } catch {
-        svg.style.width = `${pxSize}px`;
-        svg.style.height = `${pxSize}px`;
-        svg.style.display = 'inline-block';
-        svg.style.verticalAlign = 'middle';
-        if (hasNextSibling) svg.style.marginRight = rightMargin;
+      if (hasNextSibling && !svg.style.marginRight && !cls.includes('mr-')) {
+        svg.style.marginRight = '6px';
       }
     });
 

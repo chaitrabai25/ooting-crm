@@ -51,10 +51,75 @@ router.get('/template/excel', authenticate, async (req: AuthRequest, res: Respon
   res.send(buffer);
 });
 
+// Fetch active CRM customers formatted as recipients for WhatsApp broadcast
+router.get('/crm-recipients', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const customers: any[] = await prisma.customer.findMany({
+      where: { isDeleted: false },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        city: true,
+        bookings: {
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            bookingNumber: true,
+            travelStartDate: true,
+            totalAmount: true,
+            finalAmount: true,
+            payments: {
+              select: { amount: true, paymentStatus: true },
+            },
+            package: {
+              select: { packageName: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const validRecipients = customers
+      .filter((c) => c.phone && c.phone.trim().length >= 8)
+      .map((c) => {
+        const bk = c.bookings && c.bookings.length > 0 ? c.bookings[0] : null;
+        let formattedDate = '';
+        if (bk?.travelStartDate) {
+          try {
+            const d = new Date(bk.travelStartDate);
+            formattedDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+          } catch (_) {}
+        }
+        const total = bk?.finalAmount || bk?.totalAmount || 0;
+        const paid = Array.isArray(bk?.payments)
+          ? bk.payments.filter((p: any) => p.paymentStatus === 'SUCCESS').reduce((s: number, p: any) => s + (p.amount || 0), 0)
+          : 0;
+        const due = Math.max(0, total - paid);
+
+        return {
+          Phone: c.phone,
+          customerName: c.fullName || 'Valued Guest',
+          package: bk?.package?.packageName || 'Tour Package',
+          travelDate: formattedDate,
+          bookingNumber: bk?.bookingNumber || '',
+          quotationAmount: total ? String(total) : '',
+          dueAmount: due ? String(due) : '0',
+          customerId: c.id,
+        };
+      });
+
+    res.json({ recipients: validRecipients, count: validRecipients.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Preview interpolated messages before bulk send
 router.post('/preview', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
-    const { template, recipients } = req.body;
+    const { template, recipients, mediaType = 'NONE', mediaUrl = '', mediaFilename = '' } = req.body;
     if (!template || !Array.isArray(recipients)) {
       res.status(400).json({ message: 'Template string and recipients array are required.' });
       return;
@@ -70,10 +135,13 @@ router.post('/preview', authenticate, async (req: AuthRequest, res: Response, ne
         originalPhone: r.phone || r.Phone,
         customerName: r.customerName || r.name || 'Customer',
         message: interpolated,
+        mediaType,
+        mediaUrl,
+        mediaFilename,
       };
     });
 
-    res.json({ previews, count: previews.length });
+    res.json({ previews, count: previews.length, mediaType, mediaUrl, mediaFilename });
   } catch (error) {
     next(error);
   }
@@ -82,7 +150,7 @@ router.post('/preview', authenticate, async (req: AuthRequest, res: Response, ne
 // Send Bulk WhatsApp Messages
 router.post('/bulk-send', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
-    const { template, recipients } = req.body;
+    const { template, recipients, mediaType = 'NONE', mediaUrl, mediaFilename } = req.body;
     if (!template || !Array.isArray(recipients) || recipients.length === 0) {
       res.status(400).json({ message: 'Valid template and recipients list are required.' });
       return;
@@ -124,8 +192,11 @@ router.post('/bulk-send', authenticate, async (req: AuthRequest, res: Response, 
         const sendRes = await sendWhatsAppMessage({
           phone,
           message,
-          customerId: r.customerId,
+          customerId: r.customerId || r.id,
           userId: req.user!.id,
+          mediaType: mediaType as any,
+          mediaUrl: mediaUrl || r.mediaUrl,
+          mediaFilename: mediaFilename || r.mediaFilename,
         });
 
         if (sendRes.status === 'SENT') {

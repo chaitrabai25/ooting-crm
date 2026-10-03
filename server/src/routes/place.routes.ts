@@ -6,6 +6,13 @@ import { authenticate, AuthRequest } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticate);
 
+const sanitizeCell = (val: any): string => {
+  if (val === null || val === undefined) return '';
+  const str = String(val).trim();
+  if (str.startsWith('data:image/')) return '[Embedded Image Data]';
+  return str.length > 32000 ? str.slice(0, 32000) + '... (truncated)' : str;
+};
+
 // GET /api/places/export/excel: Export places to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
@@ -16,16 +23,16 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 
     const rows = places.map((p, idx) => ({
       'S.No': idx + 1,
-      'Place Name': p.name,
-      'State': p.state,
-      'District': p.district,
-      'Category': p.category || 'Sightseeing',
-      'Description': (p as any).description || (p as any).famousReason || '',
-      'Duration': p.suggestedDuration || '2 Hours',
-      'Distance': p.distanceFromCenter || '',
-      'Activities': p.activities || '',
-      'Image URL': p.imageUrl || '',
-      'Notes': (p as any).notes || '',
+      'Place Name': sanitizeCell(p.name),
+      'State': sanitizeCell(p.state),
+      'District': sanitizeCell(p.district),
+      'Category': sanitizeCell(p.category || 'Sightseeing'),
+      'Description': sanitizeCell((p as any).description || (p as any).famousReason || ''),
+      'Duration': sanitizeCell(p.suggestedDuration || '2 Hours'),
+      'Distance': sanitizeCell(p.distanceFromCenter || ''),
+      'Activities': sanitizeCell(p.activities || ''),
+      'Image URL': sanitizeCell(p.imageUrl || ''),
+      'Notes': sanitizeCell((p as any).notes || ''),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -35,7 +42,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=ooting-places-${Date.now()}.xlsx`);
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
   } catch (error) {
     next(error);
   }
