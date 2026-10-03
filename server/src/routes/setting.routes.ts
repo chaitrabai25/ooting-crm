@@ -22,10 +22,6 @@ export function invalidateCompanySettingsCache(): void {
 }
 
 export async function getCompanySettings() {
-  if (cachedCompanySettings && cachedCompanySettings.expiresAt > Date.now()) {
-    return cachedCompanySettings.data;
-  }
-
   try {
     const settings = await prisma.companySetting.findMany();
     const settingsMap: Record<string, string> = {};
@@ -52,7 +48,6 @@ export async function getCompanySettings() {
       paymentNotes: settingsMap['payment_notes'] || '',
     };
 
-    cachedCompanySettings = { data: result, expiresAt: Date.now() + 60000 };
     return result;
   } catch (error) {
     return {

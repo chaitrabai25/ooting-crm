@@ -8,8 +8,8 @@
  *  - Database backup snapshot generation & export.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard, Upload, Loader2, RotateCcw } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
@@ -27,6 +27,7 @@ export const SettingsPage: React.FC = () => {
   const { user } = useAuth();
   const { updateCompany: syncGlobalCompany, refreshCompany } = useCompanySettings();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [company, setCompany] = useState<CompanySettings>({
     name: 'Ooting',
@@ -51,8 +52,54 @@ export const SettingsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDumping, setIsDumping] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage('Logo image exceeds 10 MB limit. Please select a smaller file.');
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    setErrorMessage(null);
+
+    try {
+      const formData = new FormData();
+      const safeName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') + '.webp';
+      formData.append('image', file, safeName);
+      formData.append('folder', 'company');
+
+      const res = await api.post('/upload/image?folder=company', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (res.data?.url) {
+        setCompany((prev) => ({ ...prev, logoUrl: res.data.url }));
+        setSuccessMessage('Brand logo uploaded successfully! Click "Save Settings" below to apply across all documents.');
+        setTimeout(() => setSuccessMessage(null), 5000);
+      }
+    } catch (err: any) {
+      console.warn('Server upload failed, converting to local data URL:', err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setCompany((prev) => ({ ...prev, logoUrl: dataUrl }));
+        setSuccessMessage('Logo loaded locally! Click "Save Settings" below to apply across all documents.');
+        setTimeout(() => setSuccessMessage(null), 5000);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingLogo(false);
+      if (logoInputRef.current) {
+        logoInputRef.current.value = '';
+      }
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -263,36 +310,78 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <div className="md:col-span-2 space-y-2">
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Brand Logo</label>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center justify-between">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Brand Logo</label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Used across Quotations, Invoices, Cab Duty Slips, Itineraries & CRM Navigation
+                </span>
+              </div>
+
+              {/* Hidden file input for manual upload */}
+              <input
+                type="file"
+                ref={logoInputRef}
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={handleLogoUpload}
+                className="hidden"
+                disabled={!isAdmin || isUploadingLogo}
+              />
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Upload Button */}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    disabled={isUploadingLogo}
+                    onClick={() => logoInputRef.current?.click()}
+                    className="px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm disabled:opacity-50 cursor-pointer shrink-0"
+                    title="Upload custom logo file from your computer (for B2B, white-label, or brand updates)"
+                  >
+                    {isUploadingLogo ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Logo File</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* Direct URL input */}
                 <input
                   type="text"
                   disabled={!isAdmin}
                   value={company.logoUrl}
                   onChange={(e) => setCompany({ ...company, logoUrl: e.target.value })}
-                  placeholder="/assets/ooting-logo.jpg"
-                  className="flex-1 min-w-[260px] p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                  placeholder="/assets/ooting-logo.jpg or https://..."
+                  className="flex-1 min-w-[240px] p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
                 />
+
+                {/* Quick Presets */}
                 {isAdmin && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-logo.jpg' })}
-                      className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-[11px] font-medium transition"
+                      className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md text-[11px] font-medium transition cursor-pointer text-slate-700 dark:text-slate-300"
                     >
                       Default Logo
                     </button>
                     <button
                       type="button"
                       onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-icon-white.jpg' })}
-                      className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-[11px] font-medium transition"
+                      className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md text-[11px] font-medium transition cursor-pointer text-slate-700 dark:text-slate-300"
                     >
                       White Icon
                     </button>
                     <button
                       type="button"
                       onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-banner.jpg' })}
-                      className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-[11px] font-medium transition"
+                      className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md text-[11px] font-medium transition cursor-pointer text-slate-700 dark:text-slate-300"
                     >
                       Full Banner
                     </button>
@@ -300,18 +389,35 @@ export const SettingsPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Logo Preview */}
+              {/* Logo Preview & Reset */}
               {company.logoUrl && (
-                <div className="mt-2 p-3 bg-slate-900 border border-slate-800 rounded-lg inline-flex items-center gap-3">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Preview:</span>
-                  <img
-                    src={company.logoUrl}
-                    alt="Logo Preview"
-                    className="h-9 max-w-[160px] object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
+                <div className="mt-2.5 p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0">Live Preview:</span>
+                    <div className="p-1 bg-white/10 rounded-lg border border-white/10 flex items-center justify-center max-w-[160px] max-h-12 overflow-hidden">
+                      <img
+                        src={company.logoUrl}
+                        alt="Logo Preview"
+                        className="max-h-10 max-w-[150px] object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                    <span className="text-[11px] text-slate-300 truncate max-w-xs font-mono">
+                      {company.logoUrl}
+                    </span>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-logo.jpg' })}
+                      className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 transition shrink-0 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

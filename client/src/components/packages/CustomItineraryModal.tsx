@@ -1028,9 +1028,8 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                             <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
                               <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                             </span>
-                            <div className="text-slate-600 leading-snug">
-                              <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
-                              <div>Shivamogga, Karnataka, India</div>
+                            <div className="text-slate-600 leading-snug whitespace-pre-line">
+                              {company.address}
                             </div>
                           </div>
                         )}

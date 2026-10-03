@@ -311,34 +311,42 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Brand Header */}
-      <div className={`h-16 px-3 flex items-center border-b border-slate-800 bg-slate-950/80 transition-all ${
+      <div className={`h-16 px-3 flex items-center border-b border-slate-800/80 bg-[#080B11] transition-all ${
         isCollapsed ? 'justify-center' : 'justify-between'
       }`}>
         {isCollapsed ? (
           <div
-            className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow-sm border border-slate-700 cursor-pointer"
+            className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow-sm border border-slate-750 cursor-pointer"
             onClick={toggleCollapse}
-            title="Expand sidebar"
+            title={company?.name ? `${company.name} - Expand sidebar` : 'Expand sidebar'}
           >
             <img
-              src="/assets/ooting-logo.jpg"
-              alt="Ooting"
+              src={company?.logoUrl || '/assets/ooting-logo.jpg'}
+              alt={company?.name || 'Ooting'}
               className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+              }}
             />
           </div>
         ) : (
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow-sm border border-slate-700 flex-shrink-0">
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow-sm border border-slate-750 flex-shrink-0">
               <img
-                src="/assets/ooting-logo.jpg"
-                alt="Ooting"
+                src={company?.logoUrl || '/assets/ooting-logo.jpg'}
+                alt={company?.name || 'Ooting'}
                 className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                }}
               />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-extrabold text-sm tracking-wide text-white truncate">OOTING CRM</span>
-              <span className="text-[10px] text-brand-400 font-semibold tracking-tight truncate">
-                Journeys Beyond Ordinary
+              <span className="font-black text-sm tracking-wide text-white truncate uppercase">
+                {(company?.name || 'OOTING').toUpperCase()} CRM
+              </span>
+              <span className="text-[10px] text-red-400 font-semibold tracking-tight truncate">
+                {company?.tagline || 'Journeys Beyond Ordinary'}
               </span>
             </div>
           </div>
@@ -369,7 +377,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       </div>
 
       {/* Navigation Menu */}
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 scrollbar-thin scrollbar-thumb-slate-700">
+      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
         {navigationSections.map((section, idx) => {
           if (section.adminOnly && user?.role !== 'SUPER_ADMIN' && user?.role !== 'ADMIN') {
             return null;
@@ -396,7 +404,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
           return (
             <div key={idx} className="space-y-1">
               {!isCollapsed && (
-                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <p className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400/90 mb-1">
                   {section.title}
                 </p>
               )}
@@ -419,8 +427,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                             : 'gap-3 px-3 py-2'
                         } ${
                           active
-                            ? 'bg-[#C91F28] text-white shadow-md shadow-red-950/40 font-bold'
-                            : 'text-slate-200 hover:text-white hover:bg-slate-800/80 active:scale-[0.99]'
+                            ? 'bg-gradient-to-r from-red-600 to-[#C91F28] text-white shadow-md shadow-red-950/50 font-bold'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60 active:scale-[0.99]'
                         }`}
                       >
                         <Icon className="w-4 h-4 flex-shrink-0" />
@@ -444,8 +452,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                         title={`${item.title} (${item.items.map((i) => i.name).join(', ')})`}
                         className={`flex items-center justify-center p-2.5 my-0.5 rounded-xl text-xs transition-all ${
                           hasActiveChild
-                            ? 'bg-[#C91F28] text-white shadow-md font-bold'
-                            : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                            ? 'bg-gradient-to-r from-red-600 to-[#C91F28] text-white shadow-md font-bold'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                         }`}
                       >
                         <GroupIcon className="w-4 h-4 flex-shrink-0" />
@@ -460,13 +468,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                         onClick={() => toggleGroup(item.id)}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                           hasActiveChild
-                            ? 'text-white font-bold bg-slate-800/50'
-                            : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                            ? 'text-white font-bold bg-slate-800/60 border-l-2 border-red-500 pl-2.5'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <GroupIcon
-                            className={`w-4 h-4 flex-shrink-0 ${hasActiveChild ? 'text-[#C91F28]' : 'text-slate-400'}`}
+                            className={`w-4 h-4 flex-shrink-0 ${hasActiveChild ? 'text-red-400' : 'text-slate-400'}`}
                           />
                           <span>{item.title}</span>
                         </div>
@@ -479,7 +487,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
                       {/* Group Children (Accordion) */}
                       {isOpen && (
-                        <div className="pl-3.5 space-y-0.5 ml-3 border-l border-slate-800 my-0.5">
+                        <div className="pl-3.5 space-y-0.5 ml-3 border-l border-slate-800/80 my-0.5">
                           {item.items.map((child) => {
                             const ChildIcon = child.icon;
                             const active = isLinkActive(child);
@@ -490,8 +498,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                                 to={child.path}
                                 className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                   active
-                                    ? 'bg-[#C91F28] text-white font-bold shadow-xs shadow-red-950/30'
-                                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                                    ? 'bg-red-500/15 text-red-300 font-semibold border-l-2 border-red-500 shadow-2xs'
+                                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
                                 }`}
                               >
                                 <ChildIcon className="w-3.5 h-3.5 flex-shrink-0" />
@@ -511,16 +519,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       </div>
 
       {/* User Profile & Logout Footer */}
-      <div className="p-2 border-t border-slate-800 bg-slate-950/60">
-        <div className={`flex items-center rounded-lg bg-slate-850/60 border border-slate-800/60 ${
-          isCollapsed ? 'justify-center p-1.5' : 'justify-between px-2 py-1.5'
+      <div className="p-2.5 border-t border-slate-800/80 bg-[#080B11]">
+        <div className={`flex items-center rounded-xl bg-slate-900/90 border border-slate-800/80 ${
+          isCollapsed ? 'justify-center p-1.5' : 'justify-between px-2.5 py-1.5'
         }`}>
           {isCollapsed ? (
             <button
               type="button"
               onClick={logout}
               title={`Sign out (${user?.name})`}
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -528,7 +536,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
             <>
               <div className="flex flex-col min-w-0 pr-1">
                 <span className="text-xs font-semibold text-slate-200 truncate">{user?.name}</span>
-                <span className="text-[10px] text-brand-400 uppercase font-medium tracking-wide truncate">
+                <span className="text-[10px] text-red-400 uppercase font-semibold tracking-wide truncate">
                   {user?.role?.replace('_', ' ')}
                 </span>
               </div>
@@ -536,7 +544,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                 type="button"
                 onClick={logout}
                 title="Sign out"
-                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-md transition-colors cursor-pointer flex-shrink-0"
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer flex-shrink-0"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -551,7 +559,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 border-r border-slate-800 z-30 select-none shadow-xl bg-slate-900 text-slate-100 transition-all duration-300 ease-in-out ${
+        className={`hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 border-r border-slate-800/80 z-30 select-none shadow-2xl bg-[#0B0F19] text-slate-200 transition-all duration-300 ease-in-out ${
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
@@ -568,7 +576,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
           />
 
           {/* Drawer content */}
-          <div className="relative flex flex-col w-72 max-w-[85vw] h-full bg-slate-900 text-slate-100 shadow-2xl z-10 border-r border-slate-800">
+          <div className="relative flex flex-col w-72 max-w-[85vw] h-full bg-[#0B0F19] text-slate-200 shadow-2xl z-10 border-r border-slate-800/80">
             {sidebarContent}
           </div>
         </div>

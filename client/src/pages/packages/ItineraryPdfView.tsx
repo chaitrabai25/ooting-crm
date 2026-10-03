@@ -402,9 +402,8 @@ export const ItineraryPdfView: React.FC = () => {
                     <span className="w-4 h-4 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
                       <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
-                    <div className="text-slate-600 leading-snug text-[11px] font-medium">
-                      <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
-                      <div>Shivamogga, Karnataka, India</div>
+                    <div className="text-slate-600 leading-snug text-[11px] font-medium whitespace-pre-line">
+                      {company.address}
                     </div>
                   </div>
                 )}
@@ -948,8 +947,8 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Head Office</span>
-                      <span className="font-medium text-slate-700 text-xs leading-snug">
-                        Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India
+                      <span className="font-medium text-slate-700 text-xs leading-snug whitespace-pre-line">
+                        {company.address || 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India'}
                       </span>
                     </div>
                   </div>
@@ -962,7 +961,7 @@ export const ItineraryPdfView: React.FC = () => {
                   "Curating unforgettable experiences to cherish for a lifetime."
                 </div>
                 <div className="text-xs font-bold text-slate-800">
-                  Warmest Regards, The Team at Ooting Tours & Travels
+                  Warmest Regards, The Team at {company.name || 'Ooting Tours & Travels'}
                 </div>
               </div>
             </div>

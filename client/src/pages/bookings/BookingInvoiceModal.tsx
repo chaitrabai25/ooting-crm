@@ -472,9 +472,8 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                       <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-[#C91F28] mt-0.5">
                         <MapPin className="w-3.5 h-3.5" />
                       </span>
-                      <div className="text-[10.5px] text-slate-600 leading-snug flex-1">
-                        <div>Ooting 3rd Cross, Malavagoppa, BH Road,</div>
-                        <div>Shivamogga, Karnataka, India</div>
+                      <div className="text-[10.5px] text-slate-600 leading-snug flex-1 whitespace-pre-line">
+                        {company.address}
                       </div>
                     </div>
                   )}

@@ -34,12 +34,12 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
   const [company, setCompany] = useState<CompanySettings>(() => {
     const saved = localStorage.getItem('ooting_company_settings');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      // Migrate away from banner if saved
-      if (parsed.logoUrl === '/assets/ooting-banner.jpg') {
-        parsed.logoUrl = '/assets/ooting-logo.jpg';
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...defaultSettings, ...parsed };
+      } catch (e) {
+        console.error('Failed to parse saved company settings:', e);
       }
-      return { ...defaultSettings, ...parsed };
     }
     return defaultSettings;
   });
