@@ -31,6 +31,7 @@ import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
+import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
 
 interface DutySlipTableRow {
   id: string;
@@ -608,10 +609,11 @@ export const CabVoucher: React.FC = () => {
         customTableRows: showCustomTable ? customRows : null,
       });
       setSaveRowsSuccess(true);
+      notifySuccess('Table Saved', 'Duty slip table rows updated successfully.');
       setTimeout(() => setSaveRowsSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to save duty slip table:', err);
-      alert('Failed to save duty slip table rows.');
+      notifyError('Save Failed', 'Failed to save duty slip table rows.');
     } finally {
       setIsSavingRows(false);
     }
@@ -636,9 +638,10 @@ export const CabVoucher: React.FC = () => {
         margin: 8,
       });
       await download();
+      notifySuccess('Duty Slip Downloaded', `DutySlip-${cab.bookingReference}.pdf saved.`);
     } catch (err) {
       console.error('Failed to generate Duty Slip PDF:', err);
-      alert('Could not generate PDF. Please try the Print button.');
+      notifyError('PDF Export Failed', 'Could not generate PDF. Please try the Print button.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -849,7 +852,7 @@ export const CabVoucher: React.FC = () => {
       {/* Main A4 Duty Slip Document (Container isolated for dedicated PDF and Print) */}
       <div
         id="duty-slip-document"
-        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col text-slate-800 font-serif shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
+        className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col text-slate-800 font-sans antialiased shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
         style={{
           width: '794px',
           maxWidth: '794px',
@@ -858,6 +861,7 @@ export const CabVoucher: React.FC = () => {
           maxHeight: '1050px',
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
+          fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         }}
       >
         <DutySlipDocumentBody
@@ -911,7 +915,7 @@ export const CabVoucher: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center">
               <div
-                className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col text-slate-800 font-serif shadow-2xl rounded-2xl overflow-hidden border border-slate-200"
+                className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col text-slate-800 font-sans antialiased shadow-2xl rounded-2xl overflow-hidden border border-slate-200"
                 style={{
                   width: '794px',
                   maxWidth: '794px',
@@ -920,6 +924,7 @@ export const CabVoucher: React.FC = () => {
                   maxHeight: '1050px',
                   boxSizing: 'border-box',
                   backgroundColor: '#ffffff',
+                  fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                 }}
               >
                 <DutySlipDocumentBody

@@ -43,6 +43,7 @@ import { SupplierModal } from './SupplierModal.js';
 import { Supplier, SupplierType } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { notifyError } from '../../utils/sweetalert.js';
 import { ALL_INDIAN_STATES } from '../../data/indiaLocations.js';
 import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
 import { Briefcase } from 'lucide-react';
@@ -288,7 +289,7 @@ export const SupplierList: React.FC = () => {
       fetchSuppliers();
       fetchStats();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete supplier.');
+      notifyError('Failed to Delete Supplier', err.response?.data?.message || 'Failed to delete supplier.');
     } finally {
       setIsDeleting(false);
     }

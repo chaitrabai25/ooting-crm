@@ -309,7 +309,8 @@ export const ItineraryPdfView: React.FC = () => {
       {/* Main A4 Printable Document Paper */}
       <div
         id="itinerary-document"
-        className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-serif print:m-0"
+        className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-sans antialiased print:m-0"
+        style={{ fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
       >
         
         {/* Top Header Wave Asset */}

@@ -18,6 +18,7 @@ import { UserModal } from './UserModal.js';
 import { User, Role } from '../../types/index.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useLiveSync } from '../../utils/useLiveSync.js';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export const UserList: React.FC = () => {
   const { user: currentUser, isSuperAdmin } = useAuth();
@@ -72,7 +73,7 @@ export const UserList: React.FC = () => {
       await api.put(`/users/${user.id}`, { status: newStatus });
       fetchUsers();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to update user status.');
+      notifyError('Status Update Failed', err.response?.data?.message || 'Failed to update user status.');
     }
   };
 
@@ -84,7 +85,7 @@ export const UserList: React.FC = () => {
       setDeletingUser(null);
       fetchUsers();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete user.');
+      notifyError('Failed to Delete User', err.response?.data?.message || 'Failed to delete user.');
     } finally {
       setIsDeleting(false);
     }

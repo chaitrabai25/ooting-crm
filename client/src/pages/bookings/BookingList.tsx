@@ -37,6 +37,7 @@ import { Booking, Package } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
 import { Car } from 'lucide-react';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export const BookingList: React.FC = () => {
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ export const BookingList: React.FC = () => {
       setDeleteBooking(null);
       fetchBookings();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete booking.');
+      notifyError('Failed to Delete Booking', err.response?.data?.message || 'Failed to delete booking.');
     } finally {
       setIsDeleting(false);
     }

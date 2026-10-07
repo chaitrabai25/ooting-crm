@@ -27,6 +27,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
 import { SupplierModal } from './SupplierModal.js';
 import { Supplier } from '../../types/index.js';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export const SupplierDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -73,7 +74,7 @@ export const SupplierDetail: React.FC = () => {
       navigate('/suppliers');
     } catch (err: any) {
       console.error('Failed to delete supplier:', err);
-      alert(err.response?.data?.message || 'Failed to delete supplier.');
+      notifyError('Failed to Delete Supplier', err.response?.data?.message || 'Failed to delete supplier.');
     } finally {
       setIsDeleting(false);
       setIsDeleteOpen(false);

@@ -21,6 +21,7 @@ import { Booking } from '../../types/index.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
+import { notifyError, notifySuccess } from '../../utils/sweetalert.js';
 
 interface BookingInvoiceModalProps {
   isOpen: boolean;
@@ -149,9 +150,10 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         margin: 8,
       });
       await download();
+      notifySuccess('Invoice Downloaded', `Saved ${filename} successfully.`);
     } catch (err) {
       console.error('Failed to generate invoice PDF:', err);
-      alert('Failed to generate PDF. Please try again or use the Print button.');
+      notifyError('PDF Export Failed', 'Failed to generate PDF. Please try again or use the Print button.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -369,7 +371,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100 dark:bg-slate-950 flex justify-center print:p-0 print:bg-white print:overflow-visible print:static print:block">
           <div
             id="invoice-document"
-            className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-serif shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
+            className="w-[794px] max-w-[794px] h-[1050px] max-h-[1050px] mx-auto bg-white flex flex-col justify-between text-slate-800 font-sans antialiased shadow-xl rounded-2xl overflow-hidden border border-slate-200 print:shadow-none print:rounded-none print:border-none print:m-0 print:w-full print:max-w-full print:h-[280mm] print:max-h-[280mm] print:overflow-hidden"
             style={{
               width: '794px',
               maxWidth: '794px',
@@ -378,6 +380,7 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               maxHeight: '1050px',
               boxSizing: 'border-box',
               backgroundColor: '#ffffff',
+              fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             }}
           >
             {/* Top Brand Accent */}
@@ -571,11 +574,11 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               <div className="py-1.5 border-b border-slate-200">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-700 bg-slate-50 font-bold">
-                      <th className="py-1.5 px-2.5 text-[10px] font-black text-slate-900 uppercase tracking-wider">Service Description</th>
-                      <th className="py-1.5 px-2.5 w-28 text-center text-[10px] font-black text-slate-900 uppercase tracking-wider">Travellers / Qty</th>
-                      <th className="py-1.5 px-2.5 w-32 text-right text-[10px] font-black text-slate-900 uppercase tracking-wider">Rate (₹)</th>
-                      <th className="py-1.5 px-2.5 w-32 text-right text-[10px] font-black text-slate-900 uppercase tracking-wider">Amount (₹)</th>
+                    <tr className="border-b border-slate-200 text-slate-700 bg-slate-100 font-bold">
+                      <th className="py-2 px-3 text-[10px] font-black text-slate-900 uppercase tracking-wider">Service Description</th>
+                      <th className="py-2 px-3 w-28 text-center text-[10px] font-black text-slate-900 uppercase tracking-wider">Travellers / Qty</th>
+                      <th className="py-2 px-3 w-32 text-right text-[10px] font-black text-slate-900 uppercase tracking-wider">Rate (₹)</th>
+                      <th className="py-2 px-3 w-32 text-right text-[10px] font-black text-[#C91F28] uppercase tracking-wider">Amount (₹)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">

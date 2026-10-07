@@ -23,6 +23,7 @@ import { Badge } from '../../components/ui/Badge.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
+import { notifyError } from '../../utils/sweetalert.js';
 import { useAuth } from '../../context/AuthContext.js';
 
 export const LeadDetail: React.FC = () => {
@@ -57,7 +58,7 @@ export const LeadDetail: React.FC = () => {
       await api.delete(`/leads/${id}`);
       navigate('/leads');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete lead.');
+      notifyError('Failed to Delete Lead', err.response?.data?.message || 'Failed to delete lead.');
     } finally {
       setIsDeleting(false);
       setIsDeleteOpen(false);
@@ -105,7 +106,7 @@ export const LeadDetail: React.FC = () => {
       setIsConvertOpen(false);
       navigate(`/bookings/${res.data.id}`);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to convert lead to booking.');
+      notifyError('Conversion Failed', err.response?.data?.message || 'Failed to convert lead to booking.');
     } finally {
       setIsConverting(false);
     }
@@ -128,7 +129,7 @@ export const LeadDetail: React.FC = () => {
       setFollowUpDate('');
       fetchLead();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to schedule follow-up.');
+      notifyError('Schedule Failed', err.response?.data?.message || 'Failed to schedule follow-up.');
     } finally {
       setIsScheduling(false);
     }

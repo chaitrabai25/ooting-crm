@@ -30,6 +30,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { BookingInvoiceModal } from './BookingInvoiceModal.js';
 import { PaymentOcrModal } from '../../components/payments/PaymentOcrModal.js';
 import { PassengerImportModal } from '../../components/passengers/PassengerImportModal.js';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export const BookingDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -97,7 +98,7 @@ export const BookingDetail: React.FC = () => {
       await api.delete(`/bookings/${booking.id}`);
       navigate('/bookings');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete booking.');
+      notifyError('Failed to Delete Booking', err.response?.data?.message || 'Failed to delete booking.');
     } finally {
       setIsDeleting(false);
       setIsDeleteOpen(false);
@@ -145,7 +146,7 @@ export const BookingDetail: React.FC = () => {
       setExpenseDesc('');
       fetchBooking();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to record expense.');
+      notifyError('Failed to Record Expense', err.response?.data?.message || 'Failed to record expense.');
     } finally {
       setIsSavingExpense(false);
     }

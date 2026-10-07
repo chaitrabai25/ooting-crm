@@ -23,6 +23,7 @@ import { StatCard } from '../../components/ui/StatCard.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { AgentModal } from './AgentModal.js';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export const AgentDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -58,7 +59,7 @@ export const AgentDetail: React.FC = () => {
       navigate('/agents');
     } catch (err: any) {
       console.error('Failed to delete agent:', err);
-      alert(err.response?.data?.message || 'Failed to delete agent.');
+      notifyError('Failed to Delete Agent', err.response?.data?.message || 'Failed to delete agent.');
     } finally {
       setIsDeleting(false);
       setIsDeleteOpen(false);

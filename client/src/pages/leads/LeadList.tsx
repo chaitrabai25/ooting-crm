@@ -38,6 +38,7 @@ import { Lead } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export const LeadList: React.FC = () => {
   const navigate = useNavigate();
@@ -220,7 +221,7 @@ export const LeadList: React.FC = () => {
       fetchLeads();
       setTimeout(() => setActionMessage(null), 4000);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete lead.');
+      notifyError('Failed to Delete Lead', err.response?.data?.message || 'Failed to delete lead.');
     } finally {
       setIsDeleting(false);
     }

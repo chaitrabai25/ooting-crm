@@ -33,6 +33,7 @@ import { useLiveSync } from '../../utils/useLiveSync.js';
 import { AgentModal } from './AgentModal.js';
 import { AgentImportModal } from './AgentImportModal.js';
 import { Agent } from '../../types/index.js';
+import { notifyError } from '../../utils/sweetalert.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { ModuleSubNav } from '../../components/ui/ModuleSubNav.js';
@@ -128,7 +129,7 @@ export const AgentList: React.FC = () => {
       setDeletingAgent(null);
       fetchAgents();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete agent.');
+      notifyError('Failed to Delete Agent', err.response?.data?.message || 'Failed to delete agent.');
     } finally {
       setIsDeleting(false);
     }

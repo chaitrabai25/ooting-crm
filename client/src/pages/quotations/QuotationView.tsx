@@ -349,7 +349,7 @@ export const QuotationView: React.FC = () => {
           maxHeight: '1050px',
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
-          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         }}
       >
         {/* Top Header Wave Accent */}

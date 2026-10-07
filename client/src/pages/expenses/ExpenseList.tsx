@@ -15,6 +15,7 @@ import { Expense } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useLiveSync } from '../../utils/useLiveSync.js';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export const ExpenseList: React.FC = () => {
   const { can, isSuperAdmin } = useAuth();
@@ -73,7 +74,7 @@ export const ExpenseList: React.FC = () => {
       setDeletingExpense(null);
       fetchExpenses();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete expense record.');
+      notifyError('Failed to Delete Expense', err.response?.data?.message || 'Failed to delete expense record.');
     } finally {
       setIsDeleting(false);
     }

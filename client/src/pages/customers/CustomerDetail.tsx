@@ -21,6 +21,7 @@ import { StatCard } from '../../components/ui/StatCard.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { CustomerModal } from './CustomerModal.js';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export const CustomerDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -52,7 +53,7 @@ export const CustomerDetail: React.FC = () => {
       await api.delete(`/customers/${customer.id}`);
       navigate('/customers');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete customer.');
+      notifyError('Failed to Delete Customer', err.response?.data?.message || 'Failed to delete customer.');
     } finally {
       setIsDeleting(false);
       setIsDeleteOpen(false);

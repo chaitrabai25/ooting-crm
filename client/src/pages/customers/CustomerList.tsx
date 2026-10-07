@@ -35,6 +35,7 @@ import { CustomerImportModal } from './CustomerImportModal.js';
 import { ForwardCustomerModal } from './ForwardCustomerModal.js';
 import { Customer } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export const CustomerList: React.FC = () => {
   const navigate = useNavigate();
@@ -161,7 +162,7 @@ export const CustomerList: React.FC = () => {
       fetchCustomers();
       setSelectedIds((prev) => prev.filter((id) => id !== target.id));
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete customer.');
+      notifyError('Failed to Delete Customer', err.response?.data?.message || 'Failed to delete customer.');
     } finally {
       setDeleteDialog({ isOpen: false, customer: null });
       setTimeout(() => setFeedback(null), 5000);
