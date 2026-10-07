@@ -7,6 +7,7 @@ import {
   getDistrictsForState,
 } from '../../data/indiaLocations.js';
 import { api } from '../../api/client.js';
+import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
 
 interface LocationSelectorProps {
   selectedState: string;
@@ -130,12 +131,13 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
         if (onPlaceChange) {
           onPlaceChange(created.name);
         }
+        notifySuccess('Place Saved', `"${created.name}" has been added to master database.`);
       }
       setIsAddModalOpen(false);
       setNewPlaceName('');
       setNewPlaceDesc('');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to save place to database.');
+      notifyError('Failed to Save Place', err.response?.data?.message || 'Failed to save place to database.');
     } finally {
       setIsSavingPlace(false);
     }

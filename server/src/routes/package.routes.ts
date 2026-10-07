@@ -46,6 +46,11 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         where,
         include: {
           _count: { select: { itineraries: true, bookings: true, leads: true } },
+          itineraries: {
+            select: { id: true, dayNumber: true, imageUrl: true, images: true },
+            take: 1,
+            orderBy: { dayNumber: 'asc' },
+          },
         },
         skip: (page - 1) * limit,
         take: limit,

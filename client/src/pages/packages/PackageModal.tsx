@@ -24,6 +24,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({
   const [description, setDescription] = useState(initialData?.description || '');
   const [inclusions, setInclusions] = useState(initialData?.inclusions || '');
   const [exclusions, setExclusions] = useState(initialData?.exclusions || '');
+  const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || '');
   const [status, setStatus] = useState(initialData?.status || 'ACTIVE');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,6 +42,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({
         duration,
         price: Number(price),
         packageType,
+        imageUrl: imageUrl.trim() || null,
         description,
         inclusions: inclusions || null,
         exclusions: exclusions || null,
@@ -154,6 +156,32 @@ export const PackageModal: React.FC<PackageModalProps> = ({
               <option value="INACTIVE">Inactive</option>
               <option value="DRAFT">Draft</option>
             </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+            <span>Major Package Cover Image (URL)</span>
+            <span className="text-[10px] text-slate-400 font-normal">Displayed on package cards for easy identification</span>
+          </label>
+          <div className="mt-1 flex items-center gap-3">
+            <input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://images.unsplash.com/... (or image URL)"
+              className="flex-1 p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+            />
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="Preview"
+                className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            )}
           </div>
         </div>
 

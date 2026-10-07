@@ -25,6 +25,7 @@ import {
 import { api } from '../../api/client.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { downloadExcelTemplate, parseExcelDate, parseExcelNumber, cleanPhoneNumber, parseSpreadsheetSafely, safeIncludes, safeStr } from '../../utils/excel.js';
+import { notifyWarning, notifyError } from '../../utils/sweetalert.js';
 
 type ModuleKey = 'leads' | 'enquiries' | 'followups' | 'customers' | 'bookings' | 'cabs' | 'agents' | 'suppliers' | 'places';
 
@@ -442,7 +443,7 @@ export const ImportExportPage: React.FC = () => {
     if (!file) return;
 
     if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
-      alert('Please upload a valid spreadsheet file (.xlsx, .xls, or .csv).');
+      notifyWarning('Invalid File', 'Please upload a valid spreadsheet file (.xlsx, .xls, or .csv).');
       return;
     }
 
@@ -456,7 +457,7 @@ export const ImportExportPage: React.FC = () => {
       const rawJson = parsed.jsonRows;
 
       if (!rawJson || rawJson.length === 0) {
-        alert('Spreadsheet file contains no data rows.');
+        notifyWarning('Empty Spreadsheet', 'Spreadsheet file contains no data rows.');
         return;
       }
 
@@ -543,19 +544,19 @@ export const ImportExportPage: React.FC = () => {
       });
     } catch (err: any) {
       console.error('Error parsing spreadsheet:', err);
-      alert(err?.message || 'Failed to parse spreadsheet file. Please ensure it is a valid, uncorrupted .xlsx, .xls, or .csv file.');
+      notifyError('Parse Error', err?.message || 'Failed to parse spreadsheet file. Please ensure it is a valid, uncorrupted .xlsx, .xls, or .csv file.');
     }
   };
 
   // Submit Bulk Import to Server
   const handleConfirmImport = async () => {
     if (!selectedModule.importUrl) {
-      alert('Import is not supported for this module.');
+      notifyWarning('Unsupported', 'Import is not supported for this module.');
       return;
     }
 
     if (parsedRows.length === 0) {
-      alert('No data rows to import.');
+      notifyWarning('No Data', 'No data rows to import.');
       return;
     }
 
@@ -585,7 +586,7 @@ export const ImportExportPage: React.FC = () => {
     } catch (err: any) {
       console.error('Import error:', err);
       const msg = err.response?.data?.message || 'Import operation failed. Please check server logs.';
-      alert(msg);
+      notifyError('Import Failed', msg);
     } finally {
       setIsImporting(false);
     }

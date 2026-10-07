@@ -22,6 +22,7 @@ import { Place } from '../../types/index.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { PlaceModal } from './PlaceModal.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
+import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
 
 export const PlaceList: React.FC = () => {
   const [places, setPlaces] = useState<Place[]>([]);
@@ -95,7 +96,7 @@ export const PlaceList: React.FC = () => {
       setDeletingPlace(null);
     } catch (err: any) {
       console.error('Failed to delete place:', err);
-      alert(err.response?.data?.message || 'Failed to remove place.');
+      notifyError('Failed to Remove Place', err.response?.data?.message || 'Failed to remove place.');
     } finally {
       setIsDeleting(false);
     }
@@ -126,7 +127,7 @@ export const PlaceList: React.FC = () => {
       })
       .catch((err) => {
         console.error('Export failed:', err);
-        alert('Failed to export places to Excel.');
+        notifyError('Export Failed', 'Failed to export places to Excel.');
       });
   };
 

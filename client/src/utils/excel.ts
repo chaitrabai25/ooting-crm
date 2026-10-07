@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { notifyWarning } from './sweetalert.js';
 
 /**
  * Exports an array of JavaScript objects to a downloadable Excel (.xlsx) file.
@@ -9,7 +10,7 @@ export function exportToExcel(
   sheetName: string = 'Sheet1'
 ) {
   if (!data || data.length === 0) {
-    alert('No data available to export.');
+    notifyWarning('Export Notice', 'No data available to export.');
     return;
   }
 

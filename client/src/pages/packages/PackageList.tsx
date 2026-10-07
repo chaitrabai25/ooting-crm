@@ -27,6 +27,43 @@ import { Package } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useLiveSync } from '../../utils/useLiveSync.js';
+import { notifyError } from '../../utils/sweetalert.js';
+
+const DESTINATION_FALLBACKS: Record<string, string> = {
+  ooty: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=800&auto=format&fit=crop&q=80',
+  coorg: 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800&auto=format&fit=crop&q=80',
+  mysore: 'https://images.unsplash.com/photo-1600100397608-f010f444f434?w=800&auto=format&fit=crop&q=80',
+  andaman: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&auto=format&fit=crop&q=80',
+  kerala: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=800&auto=format&fit=crop&q=80',
+  wayanad: 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800&auto=format&fit=crop&q=80',
+  haridwar: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80',
+  gokarna: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80',
+  shivamogga: 'https://images.unsplash.com/photo-1511497584788-87676104235f?w=800&auto=format&fit=crop&q=80',
+  solapur: 'https://images.unsplash.com/photo-1566837945700-30057527ade0?w=800&auto=format&fit=crop&q=80',
+  default: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&auto=format&fit=crop&q=80',
+};
+
+function getPackageCoverImage(pkg: any): string {
+  if (pkg.imageUrl && pkg.imageUrl.trim()) return pkg.imageUrl.trim();
+  if (pkg.itineraries?.[0]?.imageUrl && pkg.itineraries[0].imageUrl.trim()) {
+    return pkg.itineraries[0].imageUrl.trim();
+  }
+  if (pkg.itineraries?.[0]?.images) {
+    try {
+      const parsed = JSON.parse(pkg.itineraries[0].images);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const first = parsed[0];
+        const url = typeof first === 'string' ? first : first?.url || first?.imageUrl;
+        if (url) return url;
+      }
+    } catch {}
+  }
+  const destLower = (pkg.destination || '').toLowerCase();
+  for (const [key, url] of Object.entries(DESTINATION_FALLBACKS)) {
+    if (key !== 'default' && destLower.includes(key)) return url;
+  }
+  return DESTINATION_FALLBACKS.default;
+}
 
 export const PackageList: React.FC = () => {
   const navigate = useNavigate();
@@ -85,7 +122,7 @@ export const PackageList: React.FC = () => {
       setDeletingPackage(null);
       fetchPackages();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete package.');
+      notifyError('Failed to Delete Package', err.response?.data?.message || 'Failed to delete package.');
     } finally {
       setIsDeleting(false);
     }
@@ -198,36 +235,59 @@ export const PackageList: React.FC = () => {
           {packages.map((pkg) => (
             <div
               key={pkg.id}
-              className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-lg transition-all flex flex-col justify-between overflow-hidden group"
             >
-              <div className="p-5">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-1 text-xs font-semibold text-brand-600 dark:text-brand-400">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>{pkg.destination}</span>
-                  </div>
+              {/* Major Package Hero Image Banner */}
+              <div
+                onClick={() => navigate(`/packages/${pkg.id}`)}
+                className="relative h-48 w-full overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-pointer"
+              >
+                <img
+                  src={getPackageCoverImage(pkg)}
+                  alt={pkg.packageName}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  onError={(e) => {
+                    const fallback = DESTINATION_FALLBACKS.default;
+                    if ((e.target as HTMLImageElement).src !== fallback) {
+                      (e.target as HTMLImageElement).src = fallback;
+                    }
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
+
+                {/* Floating Top Destination & Status Badges */}
+                <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs text-[11px] font-bold text-slate-900 dark:text-white shadow-xs">
+                    <MapPin className="w-3.5 h-3.5 text-[#C91F28]" />
+                    <span className="truncate max-w-[150px]">{pkg.destination}</span>
+                  </span>
                   <Badge status={pkg.status} />
                 </div>
 
-                <h3
-                  onClick={() => navigate(`/packages/${pkg.id}`)}
-                  className="font-bold text-slate-900 dark:text-slate-100 text-base group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors cursor-pointer"
-                >
-                  {pkg.packageName}
-                </h3>
-
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2 leading-relaxed">
-                  {pkg.description}
-                </p>
-
-                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
-                  <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-200">
-                    <Clock className="w-3.5 h-3.5 text-brand-500" />
+                {/* Floating Bottom Duration & Type Badges */}
+                <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-white text-[11px]">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-black/60 backdrop-blur-xs font-semibold text-white">
+                    <Clock className="w-3 h-3 text-amber-300" />
                     <span>{pkg.duration}</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-[#C91F28] font-bold text-[10px] uppercase tracking-wider text-white shadow-xs">
                     {pkg.packageType || 'Tour'}
                   </span>
+                </div>
+              </div>
+
+              <div className="p-4 flex-1 flex flex-col justify-between">
+                <div>
+                  <h3
+                    onClick={() => navigate(`/packages/${pkg.id}`)}
+                    className="font-display font-bold text-slate-900 dark:text-slate-100 text-base group-hover:text-[#C91F28] dark:group-hover:text-red-400 transition-colors cursor-pointer leading-snug line-clamp-2"
+                  >
+                    {pkg.packageName}
+                  </h3>
+
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2 leading-relaxed">
+                    {pkg.description}
+                  </p>
                 </div>
               </div>
 

@@ -17,6 +17,7 @@ import {
   ImageStandardSpec,
   calculateAspectRatioDisplay,
 } from '../../config/imageStandards.js';
+import { notifyWarning } from '../../utils/sweetalert.js';
 
 export interface UploadedImageMeta {
   id: string;
@@ -109,7 +110,8 @@ export const ProfessionalImageUploader: React.FC<ProfessionalImageUploaderProps>
     return new Promise((resolve, reject) => {
       // Size check
       if (file.size > spec.maxSizeBytes) {
-        alert(
+        notifyWarning(
+          'File Too Large',
           `File "${file.name}" exceeds the maximum limit of ${spec.maxSizeDisplay} (${(
             file.size /
             (1024 * 1024)

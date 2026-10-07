@@ -40,6 +40,7 @@ import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { PlaceModal } from '../places/PlaceModal.js';
 import { HotelModal } from '../hotels/HotelModal.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { confirmAction, notifyError, notifySuccess, notifyWarning } from '../../utils/sweetalert.js';
 
 export const PackageDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -161,7 +162,7 @@ export const PackageDetail: React.FC = () => {
       await api.delete('/packages/' + id);
       navigate('/packages');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete package.');
+      notifyError('Failed to Delete Package', err.response?.data?.message || 'Failed to delete package.');
     } finally {
       setIsDeleting(false);
       setIsDeleteOpen(false);
@@ -747,7 +748,7 @@ export const PackageDetail: React.FC = () => {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (file.size > 20 * 1024 * 1024) {
-        alert(`File "${file.name}" exceeds 20 MB and was skipped.`);
+        notifyWarning('File Too Large', `File "${file.name}" exceeds 20 MB and was skipped.`);
         continue;
       }
 
@@ -881,7 +882,7 @@ export const PackageDetail: React.FC = () => {
       showToast(dayIndex !== null ? 'Day itinerary updated successfully!' : 'Day itinerary added successfully!');
     } catch (err: any) {
       console.error('Failed to save day itinerary:', err);
-      alert(err.response?.data?.message || 'Failed to save itinerary changes to database.');
+      notifyError('Failed to Save Itinerary Day', err.response?.data?.message || 'Failed to save itinerary changes to database.');
     } finally {
       setIsSavingDay(false);
     }
@@ -889,8 +890,15 @@ export const PackageDetail: React.FC = () => {
 
   const handleDeleteDay = async (index: number) => {
     const targetDay = itineraries[index];
-    const confirmMsg = `Are you sure you want to delete ${targetDay?.title || `Day ${targetDay?.dayNumber || index + 1}`} from the itinerary?`;
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await confirmAction({
+      title: 'Delete Itinerary Day?',
+      text: `Are you sure you want to delete ${targetDay?.title || `Day ${targetDay?.dayNumber || index + 1}`} from the itinerary?`,
+      confirmText: 'Yes, Delete Day',
+      cancelText: 'Cancel',
+      isDangerous: true,
+      icon: 'warning',
+    });
+    if (!confirmed) return;
 
     setIsSaving(true);
     try {
@@ -907,7 +915,7 @@ export const PackageDetail: React.FC = () => {
       showToast('Itinerary day removed and updated in database!');
     } catch (err: any) {
       console.error('Failed to delete itinerary day:', err);
-      alert(err.response?.data?.message || 'Failed to save itinerary changes.');
+      notifyError('Failed to Delete Day', err.response?.data?.message || 'Failed to save itinerary changes.');
       fetchPackage();
     } finally {
       setIsSaving(false);
@@ -951,7 +959,7 @@ export const PackageDetail: React.FC = () => {
       showToast('Itinerary changes saved successfully to database!');
     } catch (err: any) {
       console.error('Failed to persist itineraries:', err);
-      alert(err.response?.data?.message || 'Failed to save itinerary changes to database.');
+      notifyError('Failed to Save Itinerary', err.response?.data?.message || 'Failed to save itinerary changes to database.');
     } finally {
       setIsSaving(false);
     }
@@ -1232,40 +1240,49 @@ export const PackageDetail: React.FC = () => {
                 </div>
 
                 <div className="flex items-start gap-3.5 flex-1 w-full">
-                  <div className="w-9 h-9 rounded-xl bg-[#C91F28] text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-xs">
-                    D{day.dayNumber}
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#C91F28] to-[#991B1B] text-white font-extrabold text-xs flex flex-col items-center justify-center flex-shrink-0 shadow-sm border border-red-400/30">
+                    <span className="text-[9px] uppercase tracking-wider opacity-90 leading-none">DAY</span>
+                    <span className="text-sm font-black leading-none mt-0.5">{day.dayNumber}</span>
                   </div>
 
-                  <div className="space-y-1.5 text-xs flex-1">
-                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">{day.title}</h4>
+                  <div className="space-y-2 text-xs flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-md bg-red-100 dark:bg-red-950/60 text-[#C91F28] dark:text-red-400 font-extrabold text-xs uppercase tracking-wider border border-red-200 dark:border-red-900/40">
+                        Day {day.dayNumber}
+                      </span>
+                      <h4 className="font-display font-bold text-slate-900 dark:text-white text-base leading-snug">
+                        {day.title.replace(/^Day\s*\d+:\s*/i, '')}
+                      </h4>
+                    </div>
                     <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                       {day.description}
                     </p>
 
                     {(day.places || day.activities || (day as any).date || (day as any).highlights || (day as any).travelDetails) && (
-                      <div className="space-y-1.5 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                        <div className="flex flex-wrap items-center gap-3">
+                      <div className="space-y-2 pt-1 text-[11px]">
+                        <div className="flex flex-wrap items-center gap-2">
                           {(day as any).date && (
-                            <div className="flex items-center gap-1 text-[#C91F28] font-bold">
-                              <Calendar className="w-3 h-3 text-[#C91F28]" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-[#C91F28] dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 font-bold text-[11px] shadow-2xs">
+                              <Calendar className="w-3.5 h-3.5 text-[#C91F28]" />
                               <span>{(day as any).date}</span>
-                            </div>
+                            </span>
                           )}
                           {day.places && (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-[#C91F28]" />
-                              <span className="font-medium text-slate-700 dark:text-slate-300">{day.places}</span>
-                            </div>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 font-semibold text-[11px] shadow-2xs">
+                              <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>{day.places}</span>
+                            </span>
                           )}
                           {day.activities && (
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-slate-400" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-900/50 font-medium text-[11px] shadow-2xs">
+                              <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                               <span>{day.activities}</span>
-                            </div>
+                            </span>
                           )}
                           {(day.startTime || day.endTime) && (
-                            <span className="text-[#C91F28] font-medium">
-                              {day.startTime} - {day.endTime}
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-900/50 font-semibold text-[11px] shadow-2xs">
+                              <Clock className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                              <span>{day.startTime} - {day.endTime}</span>
                             </span>
                           )}
                         </div>

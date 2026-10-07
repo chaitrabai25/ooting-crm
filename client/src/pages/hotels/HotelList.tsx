@@ -22,6 +22,7 @@ import { Hotel } from '../../types/index.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { HotelModal } from './HotelModal.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
+import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
 
 const STAR_CATEGORIES = [
   'All Star Categories',
@@ -111,7 +112,7 @@ export const HotelList: React.FC = () => {
       setDeletingHotel(null);
     } catch (err: any) {
       console.error('Failed to delete hotel:', err);
-      alert(err.response?.data?.message || 'Failed to remove hotel.');
+      notifyError('Failed to Remove Hotel', err.response?.data?.message || 'Failed to remove hotel.');
     } finally {
       setIsDeleting(false);
     }
@@ -132,7 +133,7 @@ export const HotelList: React.FC = () => {
       })
       .catch((err) => {
         console.error('Export failed:', err);
-        alert('Failed to export hotels to Excel.');
+        notifyError('Export Failed', 'Failed to export hotels to Excel.');
       });
   };
 

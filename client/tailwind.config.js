@@ -26,7 +26,8 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"Outfit"', '"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
         serif: ['"Times New Roman"', 'Times', 'serif'],
         formal: ['"Times New Roman"', 'Times', 'serif'],
       },

@@ -25,6 +25,7 @@ import { Badge } from '../../components/ui/Badge.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
+import { confirmAction, notifyError, notifySuccess } from '../../utils/sweetalert.js';
 
 const parseListItems = (text: string | undefined | null, fallback: string[]): string[] => {
   if (!text || !text.trim()) return fallback;
@@ -83,7 +84,7 @@ export const QuotationView: React.FC = () => {
       await download();
     } catch (err) {
       console.error('Failed to generate Quotation PDF:', err);
-      alert('Could not generate PDF. Please try the Print button.');
+      notifyError('PDF Generation Notice', 'Could not generate PDF directly. Please use the Print button to export as PDF.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -157,7 +158,14 @@ export const QuotationView: React.FC = () => {
 
   const handleApprove = async () => {
     if (!quotation) return;
-    if (!window.confirm(`Are you sure you want to approve Quotation #${quotation.quotationNumber} and create a confirmed booking?`)) {
+    const confirmed = await confirmAction({
+      title: 'Approve Quotation & Confirm Booking?',
+      text: `Are you sure you want to approve Quotation #${quotation.quotationNumber} and create a confirmed booking for ${quotation.customer?.fullName || 'this client'}?`,
+      confirmText: 'Yes, Approve & Book',
+      cancelText: 'Cancel',
+      icon: 'question',
+    });
+    if (!confirmed) {
       return;
     }
 

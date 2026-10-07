@@ -31,6 +31,7 @@ import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
+import { notifyError } from '../../utils/sweetalert.js';
 
 export interface HotelPhotoDisplay {
   url: string;
@@ -182,7 +183,7 @@ export const ItineraryPdfView: React.FC = () => {
       await download();
     } catch (err) {
       console.error('Failed to download itinerary PDF:', err);
-      alert('PDF generation error. Please try the Print button.');
+      notifyError('PDF Generation Error', 'Could not generate PDF directly. Please use the Print button to export as PDF.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -482,15 +483,17 @@ export const ItineraryPdfView: React.FC = () => {
                   className={`itinerary-day-card ${idx === 0 ? 'itinerary-day-1' : 'page-break-avoid'} border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white`}
                 >
                   {/* Day Header Bar */}
-                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-lg bg-[#C91F28] text-white font-black text-sm flex items-center justify-center shadow-xs">
-                        {day.dayNumber}
+                  <div className="px-4 py-3 bg-gradient-to-r from-red-50/70 via-white to-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#C91F28] to-[#991B1B] text-white font-extrabold text-xs uppercase tracking-wider shadow-xs">
+                        Day {day.dayNumber}
                       </span>
                       <div>
-                        <h3 className="font-bold text-sm sm:text-base text-slate-900">{day.title}</h3>
+                        <h3 className="font-display font-bold text-sm sm:text-base text-slate-900 leading-tight">
+                          {day.title.replace(/^Day\s*\d+:\s*/i, '')}
+                        </h3>
                         {(day as any).date && (
-                          <span className="text-[11px] text-[#C91F28] font-bold block">
+                          <span className="text-[11px] text-[#C91F28] font-bold block mt-0.5">
                             {(day as any).date}
                           </span>
                         )}
@@ -498,7 +501,7 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
 
                     {(day.startTime || day.endTime) && (
-                      <div className="text-xs text-slate-600 flex items-center gap-1.5 font-medium">
+                      <div className="text-xs text-slate-700 flex items-center gap-1.5 font-semibold bg-white/80 px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
                         <Clock className="w-3.5 h-3.5 text-[#C91F28]" />
                         <span>
                           {day.startTime || 'Start'} {day.endTime ? `– ${day.endTime}` : ''}

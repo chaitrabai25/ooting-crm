@@ -25,6 +25,8 @@ import {
   Mail,
   Phone,
   Copy,
+  Building,
+  Hotel as HotelIcon,
 } from 'lucide-react';
 import { Modal } from '../ui/Modal.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
@@ -34,6 +36,7 @@ import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { api } from '../../api/client.js';
 import { LocationSelector } from '../common/LocationSelector.js';
 import { ProfessionalImageUploader } from '../common/ProfessionalImageUploader.js';
+import { notifySuccess, notifyError, notifyWarning, confirmAction } from '../../utils/sweetalert.js';
 
 interface CustomItineraryModalProps {
   isOpen: boolean;
@@ -72,6 +75,9 @@ interface ItineraryDayPlan {
   imageUrls?: string[];
   hotelName?: string;
   hotelType?: string;
+  hotelStarCategory?: string;
+  hotelImageUrl?: string;
+  hotelLocation?: string;
   mealPlan?: string;
   notes?: string;
 }
@@ -99,6 +105,13 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
   // Destination Database & AI Suggestions
   const [destinationCards, setDestinationCards] = useState<DestinationPlaceItem[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // Master Data Access (Places Master & Hotels Master)
+  const [activeCatalogTab, setActiveCatalogTab] = useState<'places' | 'hotels' | 'ai'>('places');
+  const [masterPlaces, setMasterPlaces] = useState<any[]>([]);
+  const [masterHotels, setMasterHotels] = useState<any[]>([]);
+  const [isLoadingMaster, setIsLoadingMaster] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   // Custom Place Dialog
   const [isCustomPlaceOpen, setIsCustomPlaceOpen] = useState(false);
@@ -162,19 +175,34 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
     }
   }, [selectedState]);
 
-  // Load AI suggestions and saved places for selected district
+  // Load AI suggestions and master data for selected district
   const loadPlacesForLocation = async (state: string, district: string) => {
     setIsAiLoading(true);
+    setIsLoadingMaster(true);
     try {
-      const [aiRes, customRes] = await Promise.all([
-        api.post('/packages/ai-suggest', { state, district }),
-        api.get(`/packages/destinations/places?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district)}`),
+      let pUrl = `/places?state=${encodeURIComponent(state)}`;
+      let hUrl = `/hotels?state=${encodeURIComponent(state)}`;
+      if (district) {
+        pUrl += `&district=${encodeURIComponent(district)}`;
+        hUrl += `&district=${encodeURIComponent(district)}`;
+      }
+
+      const [aiRes, customRes, placesRes, hotelsRes] = await Promise.all([
+        api.post('/packages/ai-suggest', { state, district }).catch(() => ({ data: { places: [] } })),
+        api.get(`/packages/destinations/places?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district)}`).catch(() => ({ data: { places: [] } })),
+        api.get(pUrl).catch(() => ({ data: { places: [] } })),
+        api.get(hUrl).catch(() => ({ data: { hotels: [] } })),
       ]);
 
       const aiPlaces: DestinationPlaceItem[] = aiRes.data?.places || [];
       const customPlaces: DestinationPlaceItem[] = customRes.data?.places || [];
+      const mPlaces: any[] = placesRes.data?.places || [];
+      const mHotels: any[] = hotelsRes.data?.hotels || [];
 
-      // Merge avoiding duplicate IDs
+      setMasterPlaces(mPlaces);
+      setMasterHotels(mHotels);
+
+      // Merge avoiding duplicate names
       const map = new Map<string, DestinationPlaceItem>();
       customPlaces.forEach((p) => map.set(p.name.toLowerCase(), p));
       aiPlaces.forEach((p) => {
@@ -182,13 +210,75 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
           map.set(p.name.toLowerCase(), p);
         }
       });
+      mPlaces.forEach((p) => {
+        if (!map.has(p.name.toLowerCase())) {
+          map.set(p.name.toLowerCase(), {
+            id: p.id,
+            name: p.name,
+            state: p.state,
+            district: p.district,
+            category: p.category || 'Sightseeing',
+            famousReason: p.description || p.famousReason || p.name,
+            suggestedDuration: p.suggestedDuration || '2 Hours',
+            distanceFromCenter: p.distanceFromCenter,
+            imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
+            activities: p.activities ? (typeof p.activities === 'string' ? p.activities.split(',').map((a: string) => a.trim()) : p.activities) : ['Sightseeing', 'Photography'],
+          });
+        }
+      });
 
       setDestinationCards(Array.from(map.values()));
     } catch (err) {
-      console.error('Failed to fetch destination suggestions:', err);
+      console.error('Failed to fetch destination suggestions and master data:', err);
     } finally {
       setIsAiLoading(false);
+      setIsLoadingMaster(false);
     }
+  };
+
+  const handleAssignMasterHotel = (hotel: any) => {
+    const updated = [...days];
+    const curDay = updated[activeDayIndex];
+    if (!curDay) return;
+    curDay.hotelName = hotel.name;
+    curDay.hotelStarCategory = hotel.starCategory || '3 Star';
+    curDay.hotelImageUrl = hotel.imageUrl || undefined;
+    curDay.hotelLocation = hotel.city || hotel.district || hotel.address || undefined;
+    curDay.mealPlan = curDay.mealPlan || 'Breakfast & Dinner (MAP)';
+    setDays(updated);
+    notifySuccess('Hotel Assigned!', `Assigned ${hotel.name} to Day ${activeDayIndex + 1}.`);
+  };
+
+  const handleAddMasterPlace = (place: any) => {
+    const updated = [...days];
+    const curDay = updated[activeDayIndex];
+    if (!curDay) return;
+
+    const currentPlaces = curDay.places ? curDay.places.split(',').map((p) => p.trim()) : [];
+    if (!currentPlaces.includes(place.name)) {
+      currentPlaces.push(place.name);
+      curDay.places = currentPlaces.join(', ');
+    }
+
+    if (place.activities) {
+      const actList = typeof place.activities === 'string' ? place.activities.split(',').map((a: string) => a.trim()) : place.activities;
+      const currentActs = curDay.activities ? curDay.activities.split(',').map((a) => a.trim()) : [];
+      actList.forEach((act: string) => {
+        if (!currentActs.includes(act)) currentActs.push(act);
+      });
+      curDay.activities = currentActs.join(', ');
+    }
+
+    if (place.imageUrl) {
+      const existing = curDay.imageUrls || (curDay.imageUrl ? [curDay.imageUrl] : []);
+      if (!existing.includes(place.imageUrl)) {
+        curDay.imageUrls = [...existing, place.imageUrl];
+      }
+      if (!curDay.imageUrl) curDay.imageUrl = place.imageUrl;
+    }
+
+    setDays(updated);
+    notifySuccess('Place Added!', `Added ${place.name} to Day ${activeDayIndex + 1}.`);
   };
 
   useEffect(() => {
@@ -290,7 +380,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
       setIsCustomPlaceOpen(false);
     } catch (err) {
       console.error('Failed to save custom place:', err);
-      alert('Could not save place to database. Added to itinerary only.');
+      notifyWarning('Place Added Locally', 'Could not save place to database. Added to itinerary only.');
     } finally {
       setIsSavingCustomPlace(false);
     }
@@ -315,7 +405,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
 
   const handleRemoveDay = (index: number) => {
     if (days.length <= 1) {
-      alert('An itinerary must contain at least 1 day.');
+      notifyWarning('Validation', 'An itinerary must contain at least 1 day.');
       return;
     }
     const filtered = days
@@ -417,10 +507,10 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
 
       await api.post('/packages', payload);
       if (onSuccess) onSuccess();
-      alert(`Itinerary successfully saved to CRM Package catalog as "${payload.packageName}"!`);
+      notifySuccess('Itinerary Saved!', `Itinerary successfully saved to CRM Package catalog as "${payload.packageName}"!`);
       onClose();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to save itinerary to CRM database.');
+      notifyError('Save Failed', err.response?.data?.message || 'Failed to save itinerary to CRM database.');
     } finally {
       setIsSaving(false);
     }
@@ -450,7 +540,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
       await download();
     } catch (err) {
       console.error('Failed to download itinerary PDF:', err);
-      alert('PDF generation error. Please try again.');
+      notifyError('PDF Generation Error', 'PDF generation error. Please try the Print button.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -573,27 +663,74 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                   </div>
                 </div>
 
-              {/* Destination Catalog & AI Suggestions */}
+              {/* Destination Catalog, Master Data & AI Suggestions */}
               <div className="p-3.5 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    Famous Places in {selectedDistrict} ({destinationCards.length} Attractions)
-                  </span>
+                {/* Catalog Navigation Tabs & Actions */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+                    <button
+                      type="button"
+                      onClick={() => setActiveCatalogTab('places')}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        activeCatalogTab === 'places'
+                          ? 'bg-[#C91F28] text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Places Master ({masterPlaces.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveCatalogTab('hotels')}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        activeCatalogTab === 'hotels'
+                          ? 'bg-[#C91F28] text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <HotelIcon className="w-3.5 h-3.5" />
+                      <span>Hotels Master ({masterHotels.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveCatalogTab('ai')}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        activeCatalogTab === 'ai'
+                          ? 'bg-[#C91F28] text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>AI / Catalog ({destinationCards.length})</span>
+                    </button>
+                  </div>
 
-                  <div className="flex items-center gap-2">
+                  {/* Filter and action tools */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={catalogSearch}
+                        onChange={(e) => setCatalogSearch(e.target.value)}
+                        placeholder="Search places / hotels..."
+                        className="pl-8 pr-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#C91F28] w-40 sm:w-48"
+                      />
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => loadPlacesForLocation(selectedState, selectedDistrict)}
-                      disabled={isAiLoading}
+                      disabled={isAiLoading || isLoadingMaster}
                       className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg transition-colors text-[11px] shadow-2xs cursor-pointer"
                     >
-                      {isAiLoading ? (
+                      {isAiLoading || isLoadingMaster ? (
                         <Loader2 className="w-3 h-3 animate-spin" />
                       ) : (
                         <Sparkles className="w-3 h-3" />
                       )}
-                      <span>{isAiLoading ? 'Analyzing Places...' : '✨ AI Suggest Places'}</span>
+                      <span>{isAiLoading ? 'Analyzing...' : 'Refresh Data'}</span>
                     </button>
 
                     <button
@@ -602,72 +739,235 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] cursor-pointer"
                     >
                       <Plus className="w-3 h-3 text-[#C91F28]" />
-                      <span>+ Add Custom Place</span>
+                      <span>+ Custom Place</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Destination Cards Carousel / Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto pr-1">
-                  {destinationCards.map((place) => (
-                    <div
-                      key={place.id}
-                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 flex flex-col justify-between hover:shadow-md transition-shadow"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div
-                            onClick={() => handleOpenGallery(place)}
-                            className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer group"
-                            title="Click to view photo gallery & angles"
-                          >
-                            <img
-                              src={place.imageUrl}
-                              alt={place.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              onError={(e: any) => {
-                                e.target.src =
-                                  'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                              <Camera className="w-3.5 h-3.5 text-white" />
-                            </div>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <span className="font-bold text-slate-900 dark:text-white text-xs block truncate">
-                              {place.name}
-                            </span>
-                            <span className="text-[10px] text-[#C91F28] font-semibold block">
-                              {place.category} • {place.suggestedDuration}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">
-                          {place.famousReason}
+                {/* Tab 1: Places Master Content */}
+                {activeCatalogTab === 'places' && (
+                  <div>
+                    {masterPlaces.length === 0 ? (
+                      <div className="text-center py-6 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                        <MapPin className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          No places found in master database for {selectedDistrict || selectedState}.
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Switch to AI / Catalog tab or click "+ Custom Place" to add new places.
                         </p>
                       </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto pr-1">
+                        {masterPlaces
+                          .filter((p: any) => {
+                            if (!catalogSearch) return true;
+                            const q = catalogSearch.toLowerCase();
+                            return (
+                              p.name?.toLowerCase().includes(q) ||
+                              p.category?.toLowerCase().includes(q) ||
+                              p.description?.toLowerCase().includes(q)
+                            );
+                          })
+                          .map((place: any) => (
+                            <div
+                              key={place.id || place.name}
+                              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 flex flex-col justify-between hover:shadow-md transition-shadow"
+                            >
+                              <div>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-slate-800">
+                                    <img
+                                      src={place.imageUrl || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80'}
+                                      alt={place.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e: any) => {
+                                        e.target.src = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <span className="font-bold text-slate-900 dark:text-white text-xs block truncate">
+                                      {place.name}
+                                    </span>
+                                    <span className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold block">
+                                      {place.category || 'Attraction'} • {place.suggestedDuration || '2 Hours'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">
+                                  {place.description || place.famousReason || `Scenic landmark in ${place.district || selectedDistrict}`}
+                                </p>
+                              </div>
 
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-2">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenGallery(place)}
-                          className="text-[10px] text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1 cursor-pointer"
-                        >
-                          <ImageIcon className="w-3 h-3" />
-                          <span>Photo Views</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleAddPlaceToDay(place)}
-                          className="px-2 py-0.5 bg-[#C91F28] hover:bg-[#a81920] text-white text-[10px] font-bold rounded-md transition-colors cursor-pointer"
-                        >
-                          + Add to Day {activeDayIndex + 1}
-                        </button>
+                              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-2">
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                  {place.district || selectedDistrict}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddMasterPlace(place)}
+                                  className="px-2 py-0.5 bg-[#C91F28] hover:bg-[#a81920] text-white text-[10px] font-bold rounded-md transition-colors cursor-pointer"
+                                >
+                                  + Add to Day {activeDayIndex + 1}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab 2: Hotels Master Content */}
+                {activeCatalogTab === 'hotels' && (
+                  <div>
+                    {masterHotels.length === 0 ? (
+                      <div className="text-center py-6 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                        <HotelIcon className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          No hotels registered in master database for {selectedDistrict || selectedState}.
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Hotels can be registered under Master Data &gt; Hotels.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto pr-1">
+                        {masterHotels
+                          .filter((h: any) => {
+                            if (!catalogSearch) return true;
+                            const q = catalogSearch.toLowerCase();
+                            return (
+                              h.name?.toLowerCase().includes(q) ||
+                              h.starCategory?.toLowerCase().includes(q) ||
+                              h.city?.toLowerCase().includes(q) ||
+                              h.district?.toLowerCase().includes(q)
+                            );
+                          })
+                          .map((hotel: any) => (
+                            <div
+                              key={hotel.id || hotel.name}
+                              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 flex flex-col justify-between hover:shadow-md transition-shadow"
+                            >
+                              <div>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-slate-800">
+                                    <img
+                                      src={hotel.imageUrl || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop&q=80'}
+                                      alt={hotel.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e: any) => {
+                                        e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop&q=80';
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <span className="font-bold text-slate-900 dark:text-white text-xs block truncate">
+                                      {hotel.name}
+                                    </span>
+                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold block">
+                                      ⭐ {hotel.starCategory || '3 Star'} • {hotel.city || hotel.district || selectedDistrict}
+                                    </span>
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">
+                                  {hotel.address || hotel.description || `Premium hospitality partner in ${hotel.city || selectedDistrict}`}
+                                </p>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-2">
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                  {hotel.amenities ? hotel.amenities.slice(0, 20) + '...' : 'WiFi, Restaurant'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAssignMasterHotel(hotel)}
+                                  className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-md transition-colors cursor-pointer"
+                                >
+                                  🏨 Assign to Day {activeDayIndex + 1}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab 3: AI & Famous Places Content */}
+                {activeCatalogTab === 'ai' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto pr-1">
+                    {destinationCards
+                      .filter((p) => {
+                        if (!catalogSearch) return true;
+                        const q = catalogSearch.toLowerCase();
+                        return (
+                          p.name?.toLowerCase().includes(q) ||
+                          p.category?.toLowerCase().includes(q) ||
+                          p.famousReason?.toLowerCase().includes(q)
+                        );
+                      })
+                      .map((place) => (
+                        <div
+                          key={place.id}
+                          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 flex flex-col justify-between hover:shadow-md transition-shadow"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <div
+                                onClick={() => handleOpenGallery(place)}
+                                className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer group"
+                                title="Click to view photo gallery & angles"
+                              >
+                                <img
+                                  src={place.imageUrl}
+                                  alt={place.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  onError={(e: any) => {
+                                    e.target.src =
+                                      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80';
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <Camera className="w-3.5 h-3.5 text-white" />
+                                </div>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="font-bold text-slate-900 dark:text-white text-xs block truncate">
+                                  {place.name}
+                                </span>
+                                <span className="text-[10px] text-[#C91F28] font-semibold block">
+                                  {place.category} • {place.suggestedDuration}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">
+                              {place.famousReason}
+                            </p>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-2">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenGallery(place)}
+                              className="text-[10px] text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1 cursor-pointer"
+                            >
+                              <ImageIcon className="w-3 h-3" />
+                              <span>Photo Views</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAddPlaceToDay(place)}
+                              className="px-2 py-0.5 bg-[#C91F28] hover:bg-[#a81920] text-white text-[10px] font-bold rounded-md transition-colors cursor-pointer"
+                            >
+                              + Add to Day {activeDayIndex + 1}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
 
               {/* Custom Place Modal Form */}

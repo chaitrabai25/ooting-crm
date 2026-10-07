@@ -32,6 +32,9 @@ export default defineConfig({
             if (id.includes('lucide-react')) {
               return 'vendor-icons';
             }
+            if (id.includes('sweetalert2')) {
+              return 'vendor-sweetalert';
+            }
             if (
               id.includes('react') ||
               id.includes('react-dom') ||

@@ -1,4 +1,5 @@
 import { api } from '../api/client.js';
+import { notifyError } from './sweetalert.js';
 
 /**
  * Downloads an Excel or binary file using authenticated Axios client.
@@ -27,7 +28,7 @@ export async function downloadExcel(url: string, defaultFilename: string): Promi
   } catch (error: any) {
     console.error(`Export failed for ${url}:`, error);
     const message = error.response?.data?.message || 'Failed to download Excel file. Please try again.';
-    alert(message);
+    notifyError('Export Failed', message);
     throw error;
   }
 }
@@ -58,7 +59,7 @@ export async function downloadCsv(url: string, defaultFilename: string): Promise
   } catch (error: any) {
     console.error(`CSV Export failed for ${url}:`, error);
     const message = error.response?.data?.message || 'Failed to download CSV file. Please try again.';
-    alert(message);
+    notifyError('CSV Export Failed', message);
     throw error;
   }
 }

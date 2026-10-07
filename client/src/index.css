@@ -451,20 +451,46 @@ html.dark select:-webkit-autofill,
   box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #64748b;
 }
 
-/* Accessibility: Respect Reduced-Motion Preference */
-@media (prefers-reduced-motion: reduce) {
-  .crm-card-interactive,
-  .crm-card-interactive:hover,
-  .crm-card-interactive .crm-card-icon,
-  .crm-card-interactive:hover .crm-card-icon,
-  .crm-btn-primary,
-  .crm-btn-primary:hover,
-  .crm-btn-primary:active,
-  .crm-btn-secondary,
-  .crm-btn-secondary:hover,
-  .crm-btn-secondary:active {
-    transform: none !important;
-    transition: none !important;
-  }
+/* SweetAlert2 Modern Styling & Theme Alignment */
+.swal2-container {
+  z-index: 99999 !important;
+  backdrop-filter: blur(4px);
+}
+
+.ooting-swal-popup {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  border-radius: 1rem !important;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+}
+
+.dark .swal2-popup {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #1e293b !important;
+}
+
+.dark .swal2-title {
+  color: #ffffff !important;
+}
+
+.dark .swal2-html-container {
+  color: #cbd5e1 !important;
+}
+
+.swal2-icon.swal2-question {
+  border-color: #C91F28 !important;
+  color: #C91F28 !important;
+}
+
+.swal2-icon.swal2-success {
+  border-color: #10b981 !important;
+}
+
+.swal2-icon.swal2-success [class^='swal2-success-line'] {
+  background-color: #10b981 !important;
+}
+
+.swal2-icon.swal2-success .swal2-success-ring {
+  border-color: rgba(16, 185, 129, 0.3) !important;
 }
 
