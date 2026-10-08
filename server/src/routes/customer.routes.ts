@@ -26,7 +26,10 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const sortBy = ALLOWED_CUSTOMER_SORT_FIELDS.includes(sortByParam) ? sortByParam : 'createdAt';
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
-    const where: any = { isDeleted: false };
+    const where: any = {
+      isDeleted: false,
+      companyId: req.user!.companyId,
+    };
     if (search) {
       where.OR = [
         { fullName: { contains: search } },
@@ -78,8 +81,11 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
-    const customer = await prisma.customer.findUnique({
-      where: { id },
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id,
+        companyId: req.user!.companyId,
+      },
       include: {
         assignedTo: { select: { id: true, name: true, email: true } },
         leads: {
@@ -154,9 +160,13 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = customerSchema.parse(req.body);
 
-    // Duplicate check by phone
+    // Duplicate check by phone within the tenant
     const existing = await prisma.customer.findFirst({
-      where: { phone: data.phone.trim() },
+      where: {
+        phone: data.phone.trim(),
+        companyId: req.user!.companyId,
+        isDeleted: false,
+      },
     });
 
     if (existing) {
@@ -180,6 +190,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         assignedToId: data.assignedToId || req.user!.id,
         createdById: req.user!.id,
         updatedById: req.user!.id,
+        companyId: req.user!.companyId,
         status: data.status || 'ACTIVE',
         isDeleted: false,
       },
@@ -193,6 +204,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId: req.user!.companyId,
       action: 'CREATE',
       entity: 'CUSTOMER',
       entityId: customer.id,
@@ -213,7 +225,12 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const id = req.params.id as string;
     const data = customerSchema.partial().parse(req.body);
 
-    const previous = await prisma.customer.findUnique({ where: { id } });
+    const previous = await prisma.customer.findFirst({
+      where: {
+        id,
+        companyId: req.user!.companyId,
+      },
+    });
     if (!previous || previous.isDeleted) {
       res.status(404).json({ message: 'Customer not found.' });
       return;
@@ -247,6 +264,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId: req.user!.companyId,
       action: 'UPDATE',
       entity: 'CUSTOMER',
       entityId: customer.id,
@@ -272,8 +290,11 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
-    const customer = await prisma.customer.findUnique({
-      where: { id },
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id,
+        companyId: req.user!.companyId,
+      },
       include: {
         _count: {
           select: { bookings: true, leads: true, quotations: true },
@@ -300,6 +321,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId: req.user!.companyId,
       action: 'DELETE',
       entity: 'CUSTOMER',
       entityId: customer.id,
@@ -331,8 +353,11 @@ router.post('/forward', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
-    const targetUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        id: targetUserId,
+        companyId: req.user!.companyId,
+      },
       select: { id: true, name: true, email: true },
     });
 
@@ -342,13 +367,17 @@ router.post('/forward', async (req: AuthRequest, res: Response, next) => {
     }
 
     const result = await prisma.customer.updateMany({
-      where: { id: { in: customerIds } },
+      where: {
+        id: { in: customerIds },
+        companyId: req.user!.companyId,
+      },
       data: { assignedToId: targetUserId },
     });
 
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId: req.user!.companyId,
       action: 'UPDATE',
       entity: 'CUSTOMER',
       details: `Reassigned ${result.count} customer(s) to user ${targetUser.name} (${targetUser.email})`,
@@ -368,6 +397,10 @@ router.post('/forward', async (req: AuthRequest, res: Response, next) => {
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
     const customers = await prisma.customer.findMany({
+      where: {
+        isDeleted: false,
+        companyId: req.user!.companyId,
+      },
       include: { assignedTo: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -395,6 +428,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId: req.user!.companyId,
       action: 'EXPORT',
       entity: 'CUSTOMER',
       details: `Exported ${customers.length} customer records to Excel (.xlsx)`,
@@ -402,7 +436,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-customers-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=customers-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);
@@ -413,6 +447,10 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
   try {
     const customers = await prisma.customer.findMany({
+      where: {
+        isDeleted: false,
+        companyId: req.user!.companyId,
+      },
       include: { assignedTo: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -519,11 +557,11 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       let existing = null;
       if (finalPhone !== 'N/A') {
         existing = await prisma.customer.findFirst({
-          where: { phone: finalPhone, isDeleted: false },
+          where: { phone: finalPhone, companyId: req.user!.companyId, isDeleted: false },
         });
       } else if (finalEmail) {
         existing = await prisma.customer.findFirst({
-          where: { email: finalEmail, isDeleted: false },
+          where: { email: finalEmail, companyId: req.user!.companyId, isDeleted: false },
         });
       }
 
@@ -562,6 +600,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
           source: item.source || item['Source'] ? String(item.source || item['Source']).trim() : 'DIRECT',
           notes: item.notes || item['Notes'] ? String(item.notes || item['Notes']).trim() : null,
           assignedToId: req.user!.id,
+          companyId: req.user!.companyId,
           status: 'ACTIVE',
         },
       });
@@ -571,6 +610,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId: req.user!.companyId,
       action: 'IMPORT',
       entity: 'CUSTOMER',
       details: `Imported ${imported} customers, skipped ${skipped}`,

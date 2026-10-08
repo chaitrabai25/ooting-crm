@@ -21,6 +21,8 @@ export interface User {
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   permissions?: string | null;
   lastLoginAt?: string | null;
+  companyId?: string | null;
+  company?: Company | null;
   createdAt: string;
 }
 
@@ -467,6 +469,7 @@ export interface Supplier {
 }
 
 export interface CompanySettings {
+  companyId?: string;
   name: string;
   tagline: string;
   email: string;
@@ -475,6 +478,11 @@ export interface CompanySettings {
   website: string;
   gstin: string;
   logoUrl: string;
+  faviconUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  prefixTag?: string;
+  isOoting?: boolean;
   bankName?: string;
   accountHolderName?: string;
   accountNumber?: string;
@@ -483,6 +491,33 @@ export interface CompanySettings {
   branch?: string;
   upiId?: string;
   paymentNotes?: string;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  slug: string;
+  domain?: string | null;
+  logoUrl?: string | null;
+  faviconUrl?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  website?: string | null;
+  gstin?: string | null;
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  isOoting: boolean;
+  plan: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    users: number;
+    leads: number;
+    bookings: number;
+    customers: number;
+  };
 }
 
 export interface Place {

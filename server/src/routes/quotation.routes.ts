@@ -19,8 +19,9 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     const customerId = (req.query.customerId as string || '').trim();
     const packageId = (req.query.packageId as string || '').trim();
     const createdById = (req.query.createdById as string || '').trim();
+    const companyId = req.user!.companyId;
 
-    const where: any = { isDeleted: false };
+    const where: any = { isDeleted: false, companyId };
     if (search) {
       where.OR = [
         { quotationNumber: { contains: search } },
@@ -77,14 +78,16 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'QUOTATION',
       details: `Exported ${quotations.length} quotation records to Excel (.xlsx)`,
       ipAddress: req.ip,
     });
 
+    const filePrefix = req.user?.company?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'quotations';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-quotations-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${filePrefix}-quotations-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);
@@ -103,8 +106,9 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const createdById = (req.query.createdById as string || '').trim();
     const startDate = (req.query.startDate as string || '').trim();
     const endDate = (req.query.endDate as string || '').trim();
+    const companyId = req.user!.companyId;
 
-    const where: any = { isDeleted: false };
+    const where: any = { isDeleted: false, companyId };
     if (search) {
       where.OR = [
         { quotationNumber: { contains: search } },
@@ -162,6 +166,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const quotation = await prisma.quotation.findUnique({
       where: { id },
       include: {
@@ -176,12 +181,12 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!quotation || quotation.isDeleted) {
+    if (!quotation || quotation.isDeleted || (quotation.companyId && quotation.companyId !== companyId)) {
       res.status(404).json({ message: 'Quotation not found.' });
       return;
     }
 
-    const company = await getCompanySettings();
+    const company = await getCompanySettings(companyId);
 
     res.json({
       quotation,
@@ -227,24 +232,28 @@ const quotationSchema = z.object({
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = quotationSchema.parse(req.body);
+    const companyId = req.user!.companyId;
 
     // Calculate final amount strictly: (basePrice - discount) + tax + additionalCharges
     const additionalCharges = data.additionalCharges || 0;
     const finalAmount = Math.max(0, (data.basePrice - data.discount) + data.tax + additionalCharges);
 
-    // Generate unique Quotation Number: OOT-QT-YYYYMM-XXXX
+    // Generate unique Quotation Number with company prefix
+    const tag = (req.user?.company?.name || 'CRM').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'CRM';
+    const prefix = req.user?.company?.isOoting ? 'OOT' : tag;
     const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
-    const count = await prisma.quotation.count();
-    const quotationNumber = `OOT-QT-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+    const count = await prisma.quotation.count({ where: { companyId } });
+    const quotationNumber = `${prefix}-QT-${dateStr}-${String(count + 1).padStart(4, '0')}`;
 
     const defaultTerms = `1. 50% advance payment required to confirm booking.
 2. Balance payment to be cleared 7 days prior to travel date.
 3. Cancellations within 48 hours of travel are non-refundable.
 4. Itinerary sequence may change based on local weather and operational conditions.
-5. All disputes subject to Bangalore jurisdiction.`;
+5. All disputes subject to jurisdiction.`;
 
     const quotation = await prisma.quotation.create({
       data: {
+        companyId,
         quotationNumber,
         leadId: data.leadId || null,
         customerId: data.customerId,
@@ -296,6 +305,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'QUOTATION',
       entityId: quotation.id,
@@ -314,10 +324,11 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const data = quotationSchema.parse(req.body);
 
     const existing = await prisma.quotation.findUnique({ where: { id } });
-    if (!existing || existing.isDeleted) {
+    if (!existing || existing.isDeleted || (existing.companyId && existing.companyId !== companyId)) {
       res.status(404).json({ message: 'Quotation not found.' });
       return;
     }
@@ -369,6 +380,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'UPDATE',
       entity: 'QUOTATION',
       entityId: id,
@@ -388,22 +400,26 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 router.post('/:id/duplicate', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const source = await prisma.quotation.findUnique({
       where: { id },
       include: { customer: true },
     });
 
-    if (!source || source.isDeleted) {
+    if (!source || source.isDeleted || (source.companyId && source.companyId !== companyId)) {
       res.status(404).json({ message: 'Source quotation not found.' });
       return;
     }
 
+    const tag = (req.user?.company?.name || 'CRM').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'CRM';
+    const prefix = req.user?.company?.isOoting ? 'OOT' : tag;
     const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
-    const count = await prisma.quotation.count();
-    const quotationNumber = `OOT-QT-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+    const count = await prisma.quotation.count({ where: { companyId } });
+    const quotationNumber = `${prefix}-QT-${dateStr}-${String(count + 1).padStart(4, '0')}`;
 
     const duplicate = await prisma.quotation.create({
       data: {
+        companyId,
         quotationNumber,
         leadId: source.leadId,
         customerId: source.customerId,
@@ -443,6 +459,7 @@ router.post('/:id/duplicate', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'QUOTATION',
       entityId: duplicate.id,
@@ -461,10 +478,11 @@ router.post('/:id/duplicate', async (req: AuthRequest, res: Response, next) => {
 router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const { status } = req.body;
 
     const existing = await prisma.quotation.findUnique({ where: { id } });
-    if (!existing || existing.isDeleted) {
+    if (!existing || existing.isDeleted || (existing.companyId && existing.companyId !== companyId)) {
       res.status(404).json({ message: 'Quotation not found.' });
       return;
     }
@@ -478,6 +496,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'STATUS_CHANGE',
       entity: 'QUOTATION',
       entityId: id,
@@ -497,12 +516,13 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const existing = await prisma.quotation.findUnique({
       where: { id },
       include: { customer: true },
     });
 
-    if (!existing || existing.isDeleted) {
+    if (!existing || existing.isDeleted || (existing.companyId && existing.companyId !== companyId)) {
       res.status(404).json({ message: 'Quotation not found.' });
       return;
     }
@@ -519,6 +539,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'DELETE',
       entity: 'QUOTATION',
       entityId: id,
@@ -538,6 +559,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
 router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const quotation = await prisma.quotation.findUnique({
       where: { id },
       include: {
@@ -546,12 +568,12 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!quotation || quotation.isDeleted) {
+    if (!quotation || quotation.isDeleted || (quotation.companyId && quotation.companyId !== companyId)) {
       res.status(404).json({ message: 'Quotation not found.' });
       return;
     }
 
-    // Check if a booking already exists for this quotation
+    // Check if a booking already exists for this quotation within tenant
     const existingBooking = await prisma.booking.findFirst({
       where: {
         OR: [
@@ -559,6 +581,7 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
           ...(quotation.leadId ? [{ leadId: quotation.leadId }] : []),
         ],
         isDeleted: false,
+        companyId,
       },
       include: { customer: true, package: true },
     });
@@ -576,8 +599,10 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
-    // Generate collision-free booking number
-    const bookingNumber = await generateUniqueBookingNumber(prisma);
+    // Generate collision-free booking number with company prefix
+    const tag = (req.user?.company?.name || 'CRM').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'CRM';
+    const companyPrefix = req.user?.company?.isOoting ? 'OOT' : tag;
+    const bookingNumber = await generateUniqueBookingNumber(prisma, companyPrefix);
 
     const travelStart = quotation.travelStartDate || new Date();
     const travelEnd = quotation.travelEndDate || new Date(Date.now() + 86400000 * 3);
@@ -585,6 +610,7 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
 
     const booking = await prisma.booking.create({
       data: {
+        companyId,
         bookingNumber,
         customerId: quotation.customerId,
         leadId: quotation.leadId || null,
@@ -625,6 +651,7 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'STATUS_CHANGE',
       entity: 'QUOTATION',
       entityId: id,

@@ -13,6 +13,7 @@ router.use(authenticate);
 // Export Cab Bookings to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const search = (req.query.search as string || '').trim();
     const bookingStatus = (req.query.bookingStatus as string || '').trim();
     const paymentStatus = (req.query.paymentStatus as string || '').trim();
@@ -21,6 +22,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     const assignedStaffId = (req.query.assignedStaffId as string || '').trim();
 
     const where: any = { isDeleted: false };
+    if (companyId) where.companyId = companyId;
     if (search) {
       where.OR = [
         { bookingReference: { contains: search } },
@@ -88,14 +90,16 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'CAB_BOOKING',
       details: `Exported ${cabs.length} cab booking records to Excel (.xlsx)`,
       ipAddress: req.ip,
     });
 
+    const prefix = req.user?.company?.slug || 'crm';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-cabs-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${prefix}-cabs-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);
@@ -105,14 +109,18 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 // Summary Stats for Cabs
 router.get('/stats', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
+    const baseWhere: any = { isDeleted: false };
+    if (companyId) baseWhere.companyId = companyId;
+
     const [total, confirmed, onTrip, completed, cancelled, allBookings] = await Promise.all([
-      prisma.cabBooking.count({ where: { isDeleted: false } }),
-      prisma.cabBooking.count({ where: { isDeleted: false, bookingStatus: 'CONFIRMED' } }),
-      prisma.cabBooking.count({ where: { isDeleted: false, bookingStatus: 'ON_TRIP' } }),
-      prisma.cabBooking.count({ where: { isDeleted: false, bookingStatus: 'COMPLETED' } }),
-      prisma.cabBooking.count({ where: { isDeleted: false, bookingStatus: 'CANCELLED' } }),
+      prisma.cabBooking.count({ where: { ...baseWhere } }),
+      prisma.cabBooking.count({ where: { ...baseWhere, bookingStatus: 'CONFIRMED' } }),
+      prisma.cabBooking.count({ where: { ...baseWhere, bookingStatus: 'ON_TRIP' } }),
+      prisma.cabBooking.count({ where: { ...baseWhere, bookingStatus: 'COMPLETED' } }),
+      prisma.cabBooking.count({ where: { ...baseWhere, bookingStatus: 'CANCELLED' } }),
       prisma.cabBooking.findMany({
-        where: { isDeleted: false },
+        where: baseWhere,
         select: { cabAmount: true, balanceAmount: true, advanceAmount: true },
       }),
     ]);
@@ -139,6 +147,7 @@ router.get('/stats', async (req: AuthRequest, res: Response, next) => {
 // List Cab Bookings (default 10 per page)
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
@@ -151,6 +160,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const endDate = (req.query.endDate as string || '').trim();
 
     const where: any = { isDeleted: false };
+    if (companyId) where.companyId = companyId;
     if (search) {
       where.OR = [
         { bookingReference: { contains: search } },
@@ -211,9 +221,14 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 // Single Cab Booking
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
-    const cab = await prisma.cabBooking.findUnique({
-      where: { id },
+    const cab = await prisma.cabBooking.findFirst({
+      where: {
+        id,
+        isDeleted: false,
+        ...(companyId ? { companyId } : {}),
+      },
       include: {
         customer: true,
         package: true,
@@ -222,7 +237,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!cab || cab.isDeleted) {
+    if (!cab) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
@@ -236,9 +251,14 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
 // Voucher / Duty Slip View
 router.get('/:id/voucher', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
-    const cab = await prisma.cabBooking.findUnique({
-      where: { id },
+    const cab = await prisma.cabBooking.findFirst({
+      where: {
+        id,
+        isDeleted: false,
+        ...(companyId ? { companyId } : {}),
+      },
       include: {
         customer: true,
         package: true,
@@ -247,12 +267,12 @@ router.get('/:id/voucher', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!cab || cab.isDeleted) {
+    if (!cab) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
 
-    const company = await getCompanySettings();
+    const company = await getCompanySettings(companyId);
 
     res.json({
       cab,
@@ -305,11 +325,17 @@ const cabBookingSchema = z.object({
 // Create Cab Booking
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const data = cabBookingSchema.parse(req.body);
 
     const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
-    const count = await prisma.cabBooking.count();
-    const bookingReference = `OOT-CAB-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+    const count = await prisma.cabBooking.count({
+      where: companyId ? { companyId } : {},
+    });
+    const prefixTag = req.user?.company?.slug
+      ? req.user.company.slug.toUpperCase().slice(0, 4)
+      : (req.user?.company?.isOoting !== false ? 'OOT' : 'CAB');
+    const bookingReference = `${prefixTag}-CAB-${dateStr}-${String(count + 1).padStart(4, '0')}`;
 
     const cabAmount = data.cabAmount || 0;
     const advanceAmount = data.advanceAmount || 0;
@@ -343,6 +369,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     }
 
     const createPayload: any = {
+      companyId: companyId || null,
       bookingReference,
       customerId: data.customerId || null,
       customerName: data.customerName.trim(),
@@ -399,6 +426,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'CAB_BOOKING',
       entityId: cab.id,
@@ -416,11 +444,18 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 // Update Cab Booking (Full Edit)
 router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
     const data = cabBookingSchema.parse(req.body);
 
-    const existing = await prisma.cabBooking.findUnique({ where: { id } });
-    if (!existing || existing.isDeleted) {
+    const existing = await prisma.cabBooking.findFirst({
+      where: {
+        id,
+        isDeleted: false,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+    if (!existing) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
@@ -511,6 +546,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'UPDATE',
       entity: 'CAB_BOOKING',
       entityId: id,
@@ -529,11 +565,18 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 // Update Status (Quick Status Toggle)
 router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
     const { bookingStatus, paymentStatus } = req.body;
 
-    const existing = await prisma.cabBooking.findUnique({ where: { id } });
-    if (!existing || existing.isDeleted) {
+    const existing = await prisma.cabBooking.findFirst({
+      where: {
+        id,
+        isDeleted: false,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+    if (!existing) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
@@ -552,6 +595,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'STATUS_CHANGE',
       entity: 'CAB_BOOKING',
       entityId: id,
@@ -570,11 +614,18 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
 // Update Custom Table Rows on Duty Slip
 router.patch('/:id/table-rows', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
     const { customTableRows } = req.body;
 
-    const existing = await prisma.cabBooking.findUnique({ where: { id } });
-    if (!existing || existing.isDeleted) {
+    const existing = await prisma.cabBooking.findFirst({
+      where: {
+        id,
+        isDeleted: false,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+    if (!existing) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
@@ -596,10 +647,17 @@ router.patch('/:id/table-rows', async (req: AuthRequest, res: Response, next) =>
 // Delete Cab Booking (Soft-delete with Audit)
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
-    const existing = await prisma.cabBooking.findUnique({ where: { id } });
+    const existing = await prisma.cabBooking.findFirst({
+      where: {
+        id,
+        isDeleted: false,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
 
-    if (!existing || existing.isDeleted) {
+    if (!existing) {
       res.status(404).json({ message: 'Cab booking not found.' });
       return;
     }
@@ -616,6 +674,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'DELETE',
       entity: 'CAB_BOOKING',
       entityId: id,
@@ -634,6 +693,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
 // Import Cab Bookings from parsed Excel array
 router.post('/import', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No cab booking records provided for import.' });
@@ -736,6 +796,8 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
           customerPhone: rawPhone,
           pickupPlace,
           dropPlace,
+          isDeleted: false,
+          ...(companyId ? { companyId } : {}),
         },
       });
 
@@ -764,11 +826,15 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       }
 
       const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
-      const count = (await prisma.cabBooking.count()) + imported;
-      const bookingReference = `OOT-CAB-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+      const count = (await prisma.cabBooking.count({ where: companyId ? { companyId } : {} })) + imported;
+      const prefixTag = req.user?.company?.slug
+        ? req.user.company.slug.toUpperCase().slice(0, 4)
+        : (req.user?.company?.isOoting !== false ? 'OOT' : 'CAB');
+      const bookingReference = `${prefixTag}-CAB-${dateStr}-${String(count + 1).padStart(4, '0')}`;
 
       await prisma.cabBooking.create({
         data: {
+          companyId: companyId || null,
           bookingReference,
           customerName,
           customerPhone: rawPhone,
@@ -801,6 +867,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'IMPORT',
       entity: 'CAB_BOOKING',
       details: `Imported ${imported} cab bookings, skipped ${skipped}`,

@@ -159,7 +159,8 @@ function setCached(key: string, data: any): void {
 // Main Dashboard KPIs & Today's Tasks
 router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
   try {
-    const cacheKey = `dashboard:${req.originalUrl || req.url}`;
+    const companyId = req.user?.companyId;
+    const cacheKey = `dashboard:${companyId || 'global'}:${req.originalUrl || req.url}`;
     const cached = getCached(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -187,6 +188,15 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
     const cabDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { pickupDate: dateFilter } : {}) };
     const customerDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { createdAt: dateFilter } : {}) };
     const paymentDateWhere: any = hasDateFilter ? { paymentDate: dateFilter } : {};
+
+    if (companyId) {
+      leadDateWhere.companyId = companyId;
+      bookingDateWhere.companyId = companyId;
+      quotationDateWhere.companyId = companyId;
+      cabDateWhere.companyId = companyId;
+      customerDateWhere.companyId = companyId;
+      paymentDateWhere.companyId = companyId;
+    }
 
     // Search conditions if search query provided
     if (search) {
@@ -277,7 +287,10 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
 
       // B2B Bookings (respect date range)
       prisma.agentBooking.count({
-        where: hasDateFilter ? { createdAt: dateFilter } : {},
+        where: {
+          ...(companyId ? { agent: { companyId } } : {}),
+          ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+        },
       }),
 
       // TODAY'S TASKS
@@ -286,7 +299,8 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         where: {
           status: 'PENDING',
           scheduledAt: { gte: startOfToday, lte: endOfToday },
-          lead: { isDeleted: false },
+          ...(companyId ? { companyId } : {}),
+          lead: { isDeleted: false, ...(companyId ? { companyId } : {}) },
         },
         include: {
           lead: { include: { customer: { select: { fullName: true, phone: true } } } },
@@ -301,7 +315,8 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
         where: {
           status: 'PENDING',
           scheduledAt: { lt: startOfToday },
-          lead: { isDeleted: false },
+          ...(companyId ? { companyId } : {}),
+          lead: { isDeleted: false, ...(companyId ? { companyId } : {}) },
         },
         include: {
           lead: { include: { customer: { select: { fullName: true, phone: true } } } },
@@ -317,6 +332,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
           travelStartDate: { gte: startOfToday, lte: endOfToday },
           bookingStatus: { not: 'CANCELLED' },
           isDeleted: false,
+          ...(companyId ? { companyId } : {}),
         },
         include: {
           customer: { select: { fullName: true, phone: true } },
@@ -332,6 +348,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
           pickupDate: { gte: startOfToday, lte: endOfToday },
           bookingStatus: { not: 'CANCELLED' },
           isDeleted: false,
+          ...(companyId ? { companyId } : {}),
         },
         include: {
           assignedStaff: { select: { name: true } },
@@ -346,6 +363,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
           status: { in: ['SENT', 'DRAFT'] },
           createdAt: { lt: new Date(Date.now() - 5 * 86400000) },
           isDeleted: false,
+          ...(companyId ? { companyId } : {}),
         },
         include: {
           customer: { select: { fullName: true, phone: true } },
@@ -436,7 +454,8 @@ router.get('/dashboard', async (req: AuthRequest, res: Response, next) => {
 // Detailed Analytics: Trends, Funnel, Destinations, Staff Rankings, Quotations, Cabs
 router.get('/charts', async (req: AuthRequest, res: Response, next) => {
   try {
-    const cacheKey = `charts:${req.originalUrl || req.url}`;
+    const companyId = req.user?.companyId;
+    const cacheKey = `charts:${companyId || 'global'}:${req.originalUrl || req.url}`;
     const cached = getCached(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -456,6 +475,15 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
     const cabDateWhere: any = { isDeleted: false, ...(hasDateFilter ? { pickupDate: dateFilter } : {}) };
     const paymentDateWhere: any = hasDateFilter ? { paymentDate: dateFilter } : {};
     const expenseDateWhere: any = hasDateFilter ? { expenseDate: dateFilter } : {};
+
+    if (companyId) {
+      leadDateWhere.companyId = companyId;
+      bookingDateWhere.companyId = companyId;
+      quotationDateWhere.companyId = companyId;
+      cabDateWhere.companyId = companyId;
+      paymentDateWhere.companyId = companyId;
+      expenseDateWhere.companyId = companyId;
+    }
 
     const [allLeads, allBookings, allPayments, allExpenses, allStaff, allQuotations, allCabs] = await Promise.all([
       prisma.lead.findMany({
@@ -491,7 +519,7 @@ router.get('/charts', async (req: AuthRequest, res: Response, next) => {
         select: { amount: true, category: true, expenseDate: true },
       }),
       prisma.user.findMany({
-        where: { status: 'ACTIVE' },
+        where: { status: 'ACTIVE', ...(companyId ? { companyId } : {}) },
         select: { id: true, name: true, role: true },
       }),
       prisma.quotation.findMany({

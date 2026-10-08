@@ -13,6 +13,7 @@ const ALLOWED_AGENT_SORT_FIELDS = ['companyName', 'contactPerson', 'city', 'stat
 // List B2B agents with aggregated revenue & commission metrics
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
@@ -24,6 +25,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
     const where: any = {};
+    if (companyId) where.companyId = companyId;
     if (search) {
       where.OR = [
         { companyName: { contains: search } },
@@ -104,9 +106,13 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 // Single Agent profile with complete booking history
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
-    const agent = await prisma.agent.findUnique({
-      where: { id },
+    const agent = await prisma.agent.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
       include: {
         agentBookings: {
           include: {
@@ -179,10 +185,12 @@ const agentSchema = z.object({
 // Create Agent
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const data = agentSchema.parse(req.body);
 
     const agent = await prisma.agent.create({
       data: {
+        companyId: companyId || null,
         companyName: data.companyName.trim(),
         contactPerson: data.contactPerson.trim(),
         phone: data.phone.trim(),
@@ -203,6 +211,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'AGENT',
       entityId: agent.id,
@@ -219,8 +228,20 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 // Update Agent
 router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
     const data = agentSchema.partial().parse(req.body);
+
+    const existing = await prisma.agent.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+    if (!existing) {
+      res.status(404).json({ message: 'B2B Agent not found.' });
+      return;
+    }
 
     const updatePayload: any = { ...data };
     if (data.companyName) updatePayload.companyName = data.companyName.trim();
@@ -245,6 +266,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'UPDATE',
       entity: 'AGENT',
       entityId: id,
@@ -261,6 +283,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 // Bulk Import Agents from Excel / JSON
 router.post('/import', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No agent records provided for import.' });
@@ -286,13 +309,16 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       const phone = rawPhone.replace(/[^\d+]/g, '');
       const email = item.email || item['Email'] ? String(item.email || item['Email']).trim().toLowerCase() : null;
 
+      const dupOrConditions: any[] = [
+        { phone },
+        { companyName: { equals: companyName } },
+      ];
+      if (email) dupOrConditions.push({ email: { equals: email } });
+
       const existing = await prisma.agent.findFirst({
         where: {
-          OR: [
-            { phone },
-            { companyName: { equals: companyName } },
-            ...(email ? [{ email: { equals: email } }] : []),
-          ],
+          ...(companyId ? { companyId } : {}),
+          OR: dupOrConditions,
         },
       });
 
@@ -322,6 +348,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 
       await prisma.agent.create({
         data: {
+          companyId: companyId || null,
           companyName: duplicateAction === 'new' && existing ? `${companyName} (Copy)` : companyName,
           contactPerson: String(item.contactPerson).trim(),
           phone,
@@ -342,6 +369,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'IMPORT',
       entity: 'AGENT',
       details: `Imported ${imported} B2B agents, skipped ${skipped}`,
@@ -362,8 +390,22 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 // Update Commission Payout Status
 router.patch('/bookings/:agentBookingId/payout', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const agentBookingId = req.params.agentBookingId as string;
     const { payoutStatus } = req.body;
+
+    const existing = await prisma.agentBooking.findFirst({
+      where: {
+        id: agentBookingId,
+        ...(companyId ? { agent: { companyId } } : {}),
+      },
+      include: { agent: true, booking: true },
+    });
+
+    if (!existing) {
+      res.status(404).json({ message: 'Agent booking not found.' });
+      return;
+    }
 
     const updated = await prisma.agentBooking.update({
       where: { id: agentBookingId },
@@ -374,6 +416,7 @@ router.patch('/bookings/:agentBookingId/payout', async (req: AuthRequest, res: R
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'STATUS_CHANGE',
       entity: 'AGENT',
       entityId: updated.agentId,
@@ -390,7 +433,11 @@ router.patch('/bookings/:agentBookingId/payout', async (req: AuthRequest, res: R
 // Export agents to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
+    const where: any = companyId ? { companyId } : {};
+
     const agents = await prisma.agent.findMany({
+      where,
       include: {
         agentBookings: {
           include: {
@@ -441,14 +488,16 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'AGENT',
       details: `Exported ${agents.length} agent records to Excel (.xlsx)`,
       ipAddress: req.ip,
     });
 
+    const prefix = req.user?.company?.slug || 'crm';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-agents-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${prefix}-agents-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);
@@ -458,9 +507,13 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 // Delete Agent safely
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = String(req.params.id);
-    const agent = await prisma.agent.findUnique({
-      where: { id },
+    const agent = await prisma.agent.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
       include: {
         agentBookings: { select: { id: true } },
       },
@@ -483,6 +536,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'DELETE',
       entity: 'AGENT',
       entityId: id,

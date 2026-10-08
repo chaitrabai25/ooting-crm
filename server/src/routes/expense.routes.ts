@@ -11,6 +11,7 @@ router.use(authenticate);
 // List expenses with category and date filtering
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const category = (req.query.category as string || '').trim();
@@ -19,6 +20,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const endDate = (req.query.endDate as string || '').trim();
 
     const where: any = {};
+    if (companyId) where.companyId = companyId;
     if (category) where.category = category;
     if (bookingId) where.bookingId = bookingId;
     if (startDate || endDate) {
@@ -73,10 +75,12 @@ const expenseSchema = z.object({
 // Create Expense
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const data = expenseSchema.parse(req.body);
 
     const expense = await prisma.expense.create({
       data: {
+        companyId: companyId || null,
         category: data.category,
         amount: data.amount,
         expenseDate: data.expenseDate ? new Date(data.expenseDate) : new Date(),
@@ -93,6 +97,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'EXPENSE',
       entityId: expense.id,
@@ -106,39 +111,14 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Delete Expense
-router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
-  try {
-    const id = req.params.id as string;
-    const expense = await prisma.expense.findUnique({ where: { id } });
-
-    if (!expense) {
-      res.status(404).json({ message: 'Expense record not found.' });
-      return;
-    }
-
-    await prisma.expense.delete({ where: { id } });
-
-    await logAudit({
-      userId: req.user!.id,
-      userName: req.user!.name,
-      action: 'DELETE',
-      entity: 'EXPENSE',
-      entityId: id,
-      details: `Deleted expense of ₹${expense.amount} (${expense.category})`,
-      ipAddress: req.ip,
-    });
-
-    res.json({ message: 'Expense deleted successfully.' });
-  } catch (error) {
-    next(error);
-  }
-});
-
 // Export expenses to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
+    const where: any = companyId ? { companyId } : {};
+
     const expenses = await prisma.expense.findMany({
+      where,
       include: {
         booking: { select: { bookingNumber: true, customer: { select: { fullName: true } } } },
         createdBy: { select: { name: true } },
@@ -165,15 +145,53 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'EXPENSE',
       details: `Exported ${expenses.length} expense records to Excel (.xlsx)`,
       ipAddress: req.ip,
     });
 
+    const prefix = req.user?.company?.slug || 'crm';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-expenses-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${prefix}-expenses-${Date.now()}.xlsx`);
     res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete Expense
+router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const companyId = req.user?.companyId;
+    const id = req.params.id as string;
+    const expense = await prisma.expense.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+
+    if (!expense) {
+      res.status(404).json({ message: 'Expense record not found.' });
+      return;
+    }
+
+    await prisma.expense.delete({ where: { id } });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      companyId,
+      action: 'DELETE',
+      entity: 'EXPENSE',
+      entityId: id,
+      details: `Deleted expense of ₹${expense.amount} (${expense.category})`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: 'Expense deleted successfully.' });
   } catch (error) {
     next(error);
   }

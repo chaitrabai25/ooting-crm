@@ -55,7 +55,10 @@ router.get('/template/excel', authenticate, async (req: AuthRequest, res: Respon
 router.get('/crm-recipients', authenticate, async (req: AuthRequest, res: Response, next) => {
   try {
     const customers: any[] = await prisma.customer.findMany({
-      where: { isDeleted: false },
+      where: {
+        isDeleted: false,
+        ...(req.user?.companyId ? { companyId: req.user.companyId } : {}),
+      },
       select: {
         id: true,
         fullName: true,

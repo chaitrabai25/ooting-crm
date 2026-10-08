@@ -12,6 +12,7 @@ const ALLOWED_SORT_FIELDS = ['name', 'supplierType', 'contactPerson', 'city', 'd
 // List B2B Suppliers with pagination, search, status, and type filters
 router.get('/', requirePermission('suppliers', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
@@ -29,6 +30,7 @@ router.get('/', requirePermission('suppliers', 'view'), async (req: AuthRequest,
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
     const where: any = {};
+    if (companyId) where.companyId = companyId;
 
     if (search) {
       where.OR = [
@@ -87,11 +89,13 @@ router.get('/', requirePermission('suppliers', 'view'), async (req: AuthRequest,
 // Export Suppliers to Excel (.xlsx)
 router.get('/export/excel', requirePermission('suppliers', 'export'), async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const search = (req.query.search as string || '').trim();
     const status = (req.query.status as string || '').trim();
     const supplierType = (req.query.supplierType as string || '').trim();
 
     const where: any = {};
+    if (companyId) where.companyId = companyId;
     if (search) {
       where.OR = [
         { name: { contains: search } },
@@ -144,7 +148,8 @@ router.get('/export/excel', requirePermission('suppliers', 'export'), async (req
     worksheet['!cols'] = maxCols;
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    const filename = `Ooting_Suppliers_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const prefix = req.user?.company?.slug || 'crm';
+    const filename = `${prefix}_Suppliers_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -157,13 +162,16 @@ router.get('/export/excel', requirePermission('suppliers', 'export'), async (req
 // Supplier statistics
 router.get('/stats', requirePermission('suppliers', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
+    const baseWhere: any = companyId ? { companyId } : {};
+
     const [total, hotels, cabs, transport, active, suppliers] = await Promise.all([
-      prisma.supplier.count(),
-      prisma.supplier.count({ where: { supplierType: 'HOTEL' } }),
-      prisma.supplier.count({ where: { supplierType: 'CAB_VENDOR' } }),
-      prisma.supplier.count({ where: { supplierType: 'TRANSPORT' } }),
-      prisma.supplier.count({ where: { status: 'ACTIVE' } }),
-      prisma.supplier.findMany({ select: { creditLimit: true } }),
+      prisma.supplier.count({ where: baseWhere }),
+      prisma.supplier.count({ where: { ...baseWhere, supplierType: 'HOTEL' } }),
+      prisma.supplier.count({ where: { ...baseWhere, supplierType: 'CAB_VENDOR' } }),
+      prisma.supplier.count({ where: { ...baseWhere, supplierType: 'TRANSPORT' } }),
+      prisma.supplier.count({ where: { ...baseWhere, status: 'ACTIVE' } }),
+      prisma.supplier.findMany({ where: baseWhere, select: { creditLimit: true } }),
     ]);
 
     const totalCreditLimit = suppliers.reduce((sum, s) => sum + Number(s.creditLimit || 0), 0);
@@ -184,9 +192,13 @@ router.get('/stats', requirePermission('suppliers', 'view'), async (req: AuthReq
 // Retrieve single supplier
 router.get('/:id', requirePermission('suppliers', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = String(req.params.id);
-    const supplier = await prisma.supplier.findUnique({
-      where: { id },
+    const supplier = await prisma.supplier.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
       include: {
         assignedUser: { select: { id: true, name: true, email: true, phone: true } },
       },
@@ -206,6 +218,7 @@ router.get('/:id', requirePermission('suppliers', 'view'), async (req: AuthReque
 // Create Supplier
 router.post('/', requirePermission('suppliers', 'create'), async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const {
       name,
       supplierType,
@@ -255,6 +268,7 @@ router.post('/', requirePermission('suppliers', 'create'), async (req: AuthReque
 
     const supplier = await prisma.supplier.create({
       data: {
+        companyId: companyId || null,
         name: name.trim(),
         supplierType: supplierType.trim().toUpperCase(),
         contactPerson: contactPerson ? contactPerson.trim() : null,
@@ -295,6 +309,7 @@ router.post('/', requirePermission('suppliers', 'create'), async (req: AuthReque
     await logAudit({
       userId: req.user?.id,
       userName: req.user?.name,
+      companyId,
       action: 'CREATE',
       entity: 'SUPPLIER',
       entityId: supplier.id,
@@ -311,8 +326,14 @@ router.post('/', requirePermission('suppliers', 'create'), async (req: AuthReque
 // Update Supplier
 router.put('/:id', requirePermission('suppliers', 'edit'), async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = String(req.params.id);
-    const existing = await prisma.supplier.findUnique({ where: { id } });
+    const existing = await prisma.supplier.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
     if (!existing) {
       res.status(404).json({ message: 'Supplier not found.' });
       return;
@@ -395,6 +416,7 @@ router.put('/:id', requirePermission('suppliers', 'edit'), async (req: AuthReque
     await logAudit({
       userId: req.user?.id,
       userName: req.user?.name,
+      companyId,
       action: 'UPDATE',
       entity: 'SUPPLIER',
       entityId: updated.id,
@@ -411,6 +433,7 @@ router.put('/:id', requirePermission('suppliers', 'edit'), async (req: AuthReque
 // Bulk Import Suppliers from Excel / JSON
 router.post('/import', requirePermission('suppliers', 'create'), async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No supplier records provided for import.' });
@@ -438,13 +461,16 @@ router.post('/import', requirePermission('suppliers', 'create'), async (req: Aut
       const supplierType = validTypes.includes(rawSupplierType) ? rawSupplierType : 'OTHER';
       const email = item.email || item['Email'] ? String(item.email || item['Email']).trim().toLowerCase() : null;
 
+      const dupOrConditions: any[] = [
+        { phone },
+        { name: { equals: name } },
+      ];
+      if (email) dupOrConditions.push({ email: { equals: email } });
+
       const existing = await prisma.supplier.findFirst({
         where: {
-          OR: [
-            { phone },
-            { name: { equals: name } },
-            ...(email ? [{ email: { equals: email } }] : []),
-          ],
+          ...(companyId ? { companyId } : {}),
+          OR: dupOrConditions,
         },
       });
 
@@ -474,6 +500,7 @@ router.post('/import', requirePermission('suppliers', 'create'), async (req: Aut
 
       await prisma.supplier.create({
         data: {
+          companyId: companyId || null,
           name: duplicateAction === 'new' && existing ? `${name} (Copy)` : name,
           supplierType,
           contactPerson: item.contactPerson || item['Contact Person'] ? String(item.contactPerson || item['Contact Person']).trim() : null,
@@ -497,6 +524,7 @@ router.post('/import', requirePermission('suppliers', 'create'), async (req: Aut
     await logAudit({
       userId: req.user?.id,
       userName: req.user?.name,
+      companyId,
       action: 'IMPORT',
       entity: 'SUPPLIER',
       details: `Imported ${imported} suppliers, skipped ${skipped} (Duplicate Action: ${duplicateAction})`,
@@ -517,8 +545,14 @@ router.post('/import', requirePermission('suppliers', 'create'), async (req: Aut
 // Delete Supplier
 router.delete('/:id', requirePermission('suppliers', 'delete'), async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = String(req.params.id);
-    const existing = await prisma.supplier.findUnique({ where: { id } });
+    const existing = await prisma.supplier.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
     if (!existing) {
       res.status(404).json({ message: 'Supplier not found.' });
       return;
@@ -529,6 +563,7 @@ router.delete('/:id', requirePermission('suppliers', 'delete'), async (req: Auth
     await logAudit({
       userId: req.user?.id,
       userName: req.user?.name,
+      companyId,
       action: 'DELETE',
       entity: 'SUPPLIER',
       entityId: id,

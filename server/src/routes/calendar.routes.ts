@@ -10,6 +10,7 @@ router.use(authenticate);
 // Aggregated CRM Events for Calendar
 router.get('/events', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const startDateQuery = (req.query.startDate as string || '').trim();
     const endDateQuery = (req.query.endDate as string || '').trim();
     const eventType = (req.query.eventType as string || '').trim(); // optional filter
@@ -40,6 +41,7 @@ router.get('/events', async (req: AuthRequest, res: Response, next) => {
     const calEventWhere: any = {
       startDate: { gte: start, lte: end },
     };
+    if (companyId) calEventWhere.companyId = companyId;
     if (userId) calEventWhere.userId = userId;
     if (eventType && !['FOLLOW_UP', 'DEPARTURE', 'CAB_TRIP', 'QUOTATION'].includes(eventType)) {
       calEventWhere.eventType = eventType;
@@ -75,6 +77,7 @@ router.get('/events', async (req: AuthRequest, res: Response, next) => {
       const followUpWhere: any = {
         scheduledAt: { gte: start, lte: end },
       };
+      if (companyId) followUpWhere.companyId = companyId;
       if (userId) followUpWhere.assignedUserId = userId;
 
       const followUps = await prisma.followUp.findMany({
@@ -119,6 +122,7 @@ router.get('/events', async (req: AuthRequest, res: Response, next) => {
         travelStartDate: { gte: start, lte: end },
         bookingStatus: { not: 'CANCELLED' },
       };
+      if (companyId) bookingWhere.companyId = companyId;
       if (userId) bookingWhere.assignedUserId = userId;
 
       const departures = await prisma.booking.findMany({
@@ -161,6 +165,7 @@ router.get('/events', async (req: AuthRequest, res: Response, next) => {
         pickupDate: { gte: start, lte: end },
         bookingStatus: { not: 'CANCELLED' },
       };
+      if (companyId) cabWhere.companyId = companyId;
       if (userId) cabWhere.assignedStaffId = userId;
 
       const cabTrips = await prisma.cabBooking.findMany({
@@ -210,13 +215,17 @@ router.get('/events', async (req: AuthRequest, res: Response, next) => {
 // Staff Workload & Availability
 router.get('/staff-availability', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    const staffWhere: any = { status: 'ACTIVE' };
+    if (companyId) staffWhere.companyId = companyId;
+
     const staffMembers = await prisma.user.findMany({
-      where: { status: 'ACTIVE' },
+      where: staffWhere,
       select: {
         id: true,
         name: true,
@@ -231,23 +240,42 @@ router.get('/staff-availability', async (req: AuthRequest, res: Response, next) 
       staffMembers.map(async staff => {
         const [activeLeads, todayFollowUps, activeBookings, upcomingCabs, todayEvents] = await Promise.all([
           prisma.lead.count({
-            where: { assignedUserId: staff.id, enquiryStatus: { in: ['NEW', 'CONTACTED', 'QUOTATION_SENT'] } },
+            where: {
+              assignedUserId: staff.id,
+              enquiryStatus: { in: ['NEW', 'CONTACTED', 'QUOTATION_SENT'] },
+              ...(companyId ? { companyId } : {}),
+            },
           }),
           prisma.followUp.count({
             where: {
               assignedUserId: staff.id,
               scheduledAt: { gte: today, lt: tomorrow },
               status: 'PENDING',
+              ...(companyId ? { companyId } : {}),
             },
           }),
           prisma.booking.count({
-            where: { assignedUserId: staff.id, bookingStatus: { in: ['CONFIRMED', 'HOLD'] } },
+            where: {
+              assignedUserId: staff.id,
+              bookingStatus: { in: ['CONFIRMED', 'HOLD'] },
+              ...(companyId ? { companyId } : {}),
+            },
           }),
           prisma.cabBooking.count({
-            where: { assignedStaffId: staff.id, pickupDate: { gte: today }, bookingStatus: { in: ['CONFIRMED', 'ON_TRIP'] } },
+            where: {
+              assignedStaffId: staff.id,
+              pickupDate: { gte: today },
+              bookingStatus: { in: ['CONFIRMED', 'ON_TRIP'] },
+              ...(companyId ? { companyId } : {}),
+            },
           }),
           prisma.calendarEvent.count({
-            where: { userId: staff.id, startDate: { gte: today, lt: tomorrow }, status: { not: 'COMPLETED' } },
+            where: {
+              userId: staff.id,
+              startDate: { gte: today, lt: tomorrow },
+              status: { not: 'COMPLETED' },
+              ...(companyId ? { companyId } : {}),
+            },
           }),
         ]);
 
@@ -300,10 +328,12 @@ const calendarEventSchema = z.object({
 // Create Calendar Event
 router.post('/events', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const data = calendarEventSchema.parse(req.body);
 
     const event = await prisma.calendarEvent.create({
       data: {
+        companyId: companyId || null,
         title: data.title.trim(),
         description: data.description ? data.description.trim() : null,
         eventType: data.eventType,
@@ -326,6 +356,7 @@ router.post('/events', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'CALENDAR_EVENT',
       entityId: event.id,
@@ -342,10 +373,16 @@ router.post('/events', async (req: AuthRequest, res: Response, next) => {
 // Update Calendar Event
 router.put('/events/:id', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
     const data = calendarEventSchema.parse(req.body);
 
-    const existing = await prisma.calendarEvent.findUnique({ where: { id } });
+    const existing = await prisma.calendarEvent.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
     if (!existing) {
       res.status(404).json({ message: 'Event not found.' });
       return;
@@ -376,6 +413,7 @@ router.put('/events/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'UPDATE',
       entity: 'CALENDAR_EVENT',
       entityId: id,
@@ -392,8 +430,14 @@ router.put('/events/:id', async (req: AuthRequest, res: Response, next) => {
 // Delete Calendar Event
 router.delete('/events/:id', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
-    const existing = await prisma.calendarEvent.findUnique({ where: { id } });
+    const existing = await prisma.calendarEvent.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
 
     if (!existing) {
       res.status(404).json({ message: 'Event not found.' });
@@ -405,6 +449,7 @@ router.delete('/events/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'DELETE',
       entity: 'CALENDAR_EVENT',
       entityId: id,

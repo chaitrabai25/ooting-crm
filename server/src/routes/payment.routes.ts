@@ -11,6 +11,7 @@ router.use(authenticate);
 // List payments
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
     const search = (req.query.search as string || '').trim();
@@ -28,6 +29,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     }
 
     const where: any = {};
+    if (companyId) where.companyId = companyId;
     if (search) {
       where.OR = [
         { transactionReference: { contains: search } },
@@ -87,15 +89,17 @@ const paymentCreateSchema = z.object({
 // Check UTR uniqueness endpoint
 router.get('/check-utr', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const utr = (req.query.utr as string || '').trim();
     if (!utr) {
       res.json({ exists: false });
       return;
     }
+    const whereUtr: any = { transactionReference: utr };
+    if (companyId) whereUtr.companyId = companyId;
+
     const existing = await prisma.payment.findFirst({
-      where: {
-        transactionReference: utr,
-      },
+      where: whereUtr,
       include: {
         booking: {
           include: { customer: true },
@@ -117,6 +121,7 @@ router.get('/check-utr', async (req: AuthRequest, res: Response, next) => {
 // Record new Payment
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const data = paymentCreateSchema.parse(req.body);
 
     // Enforce Method-Specific UTR Requirements
@@ -134,10 +139,11 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 
     // Enforce Unique UTR check whenever reference is provided
     if (cleanRef) {
+      const dupWhere: any = { transactionReference: cleanRef };
+      if (companyId) dupWhere.companyId = companyId;
+
       const duplicate = await prisma.payment.findFirst({
-        where: {
-          transactionReference: cleanRef,
-        },
+        where: dupWhere,
         include: {
           booking: {
             include: { customer: true },
@@ -155,8 +161,11 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       }
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: { id: data.bookingId },
+    const bookingWhere: any = { id: data.bookingId };
+    if (companyId) bookingWhere.companyId = companyId;
+
+    const booking = await prisma.booking.findFirst({
+      where: bookingWhere,
       include: {
         customer: true,
         payments: { where: { paymentStatus: 'SUCCESS' } },
@@ -182,6 +191,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 
     const payment = await prisma.payment.create({
       data: {
+        companyId: companyId || booking.companyId || null,
         bookingId: data.bookingId,
         customerId: data.customerId || booking.customerId || null,
         amount: data.amount,
@@ -204,6 +214,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'PAYMENT',
       entityId: payment.id,
@@ -226,8 +237,22 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 // Update Payment Status
 router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const id = req.params.id as string;
     const { paymentStatus } = req.body;
+
+    const existingWhere: any = { id };
+    if (companyId) existingWhere.companyId = companyId;
+
+    const existingPayment = await prisma.payment.findFirst({
+      where: existingWhere,
+      include: { booking: true },
+    });
+
+    if (!existingPayment) {
+      res.status(404).json({ message: 'Payment not found.' });
+      return;
+    }
 
     const payment = await prisma.payment.update({
       where: { id },
@@ -238,6 +263,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'STATUS_CHANGE',
       entity: 'PAYMENT',
       entityId: id,
@@ -254,7 +280,12 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
 // Export payments to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
+    const where: any = {};
+    if (companyId) where.companyId = companyId;
+
     const payments = await prisma.payment.findMany({
+      where,
       include: {
         booking: {
           include: {
@@ -286,14 +317,16 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'PAYMENT',
       details: `Exported ${payments.length} payment records to Excel (.xlsx)`,
       ipAddress: req.ip,
     });
 
+    const prefix = req.user?.company?.slug || 'crm';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-payments-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${prefix}-payments-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);

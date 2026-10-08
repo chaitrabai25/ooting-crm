@@ -29,22 +29,26 @@ function getTodayISTBounds() {
 router.get('/counts', async (req: AuthRequest, res: Response, next) => {
   try {
     const { startOfToday, endOfToday } = getTodayISTBounds();
+    const companyId = req.user!.companyId;
 
     const [todayCount, overdueCount, upcomingCount] = await Promise.all([
       prisma.followUp.count({
         where: {
+          companyId,
           status: 'PENDING',
           scheduledAt: { gte: startOfToday, lte: endOfToday },
         },
       }),
       prisma.followUp.count({
         where: {
+          companyId,
           status: 'PENDING',
           scheduledAt: { lt: startOfToday },
         },
       }),
       prisma.followUp.count({
         where: {
+          companyId,
           status: 'PENDING',
           scheduledAt: { gt: endOfToday },
         },
@@ -70,10 +74,11 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const status = (req.query.status as string || '').trim();
     const assignedUserId = (req.query.assignedUserId as string || '').trim();
     const dateParam = (req.query.date as string || '').trim();
+    const companyId = req.user!.companyId;
 
     const { startOfToday, endOfToday } = getTodayISTBounds();
 
-    const where: any = {};
+    const where: any = { companyId };
     if (status) {
       where.status = status;
     } else if (filter !== 'all' && !dateParam) {
@@ -135,7 +140,9 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 // Export follow-ups to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const followUps = await prisma.followUp.findMany({
+      where: { companyId },
       include: {
         lead: {
           include: { customer: { select: { fullName: true, phone: true, email: true } } },
@@ -162,8 +169,9 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'FollowUps');
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
+    const filePrefix = req.user?.company?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'followups';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-followups-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${filePrefix}-followups-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);
@@ -182,9 +190,22 @@ const followUpCreateSchema = z.object({
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = followUpCreateSchema.parse(req.body);
+    const companyId = req.user!.companyId;
+
+    // Verify lead belongs to this company
+    const leadExists = await prisma.lead.findFirst({
+      where: { id: data.leadId, ...(companyId ? { companyId } : {}) },
+      include: { customer: true },
+    });
+
+    if (!leadExists) {
+      res.status(404).json({ message: 'Lead not found.' });
+      return;
+    }
 
     const followUp = await prisma.followUp.create({
       data: {
+        companyId,
         leadId: data.leadId,
         scheduledAt: new Date(data.scheduledAt),
         type: data.type,
@@ -207,10 +228,11 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'LEAD',
       entityId: data.leadId,
-      details: `Scheduled ${data.type} follow-up for ${followUp.lead.customer.fullName} at ${new Date(data.scheduledAt).toLocaleString()}`,
+      details: `Scheduled ${data.type} follow-up for ${followUp.lead?.customer?.fullName || 'customer'} at ${new Date(data.scheduledAt).toLocaleString()}`,
       ipAddress: req.ip,
     });
 
@@ -225,13 +247,14 @@ router.patch('/:id/complete', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const { notes } = req.body;
+    const companyId = req.user!.companyId;
 
     const followUp = await prisma.followUp.findUnique({
       where: { id },
       include: { lead: { include: { customer: true } } },
     });
 
-    if (!followUp) {
+    if (!followUp || (followUp.companyId && followUp.companyId !== companyId)) {
       res.status(404).json({ message: 'Follow-up not found.' });
       return;
     }
@@ -248,10 +271,11 @@ router.patch('/:id/complete', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'STATUS_CHANGE',
       entity: 'LEAD',
       entityId: followUp.leadId,
-      details: `Completed ${followUp.type} follow-up with ${followUp.lead.customer.fullName}`,
+      details: `Completed ${followUp.type} follow-up with ${followUp.lead?.customer?.fullName || 'customer'}`,
       ipAddress: req.ip,
     });
 
@@ -266,6 +290,7 @@ router.patch('/:id/reschedule', async (req: AuthRequest, res: Response, next) =>
   try {
     const id = req.params.id as string;
     const { scheduledAt, notes } = req.body;
+    const companyId = req.user!.companyId;
 
     if (!scheduledAt) {
       res.status(400).json({ message: 'New scheduled date/time is required.' });
@@ -277,7 +302,7 @@ router.patch('/:id/reschedule', async (req: AuthRequest, res: Response, next) =>
       include: { lead: { include: { customer: true } } },
     });
 
-    if (!followUp) {
+    if (!followUp || (followUp.companyId && followUp.companyId !== companyId)) {
       res.status(404).json({ message: 'Follow-up not found.' });
       return;
     }
@@ -300,6 +325,7 @@ router.patch('/:id/reschedule', async (req: AuthRequest, res: Response, next) =>
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'UPDATE',
       entity: 'LEAD',
       entityId: followUp.leadId,

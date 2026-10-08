@@ -44,8 +44,9 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Hotels');
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const prefix = req.user?.company?.slug || 'crm';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-hotels-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${prefix}-hotels-${Date.now()}.xlsx`);
     res.send(Buffer.from(buffer));
   } catch (error) {
     next(error);

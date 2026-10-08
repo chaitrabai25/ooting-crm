@@ -85,8 +85,9 @@ router.post('/login', async (req, res, next) => {
       },
     });
 
+    const companyId = updatedUser.companyId || 'c0000000-0000-0000-0000-000000000001';
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role, companyId },
       config.jwtSecret,
       { expiresIn: config.jwtExpiresIn as any }
     );
@@ -94,6 +95,7 @@ router.post('/login', async (req, res, next) => {
     await logAudit({
       userId: user.id,
       userName: user.name,
+      companyId,
       action: 'LOGIN',
       entity: 'USER',
       entityId: user.id,
@@ -110,10 +112,11 @@ router.post('/login', async (req, res, next) => {
         role: updatedUser.role,
         phone: updatedUser.phone,
         status: updatedUser.status,
+        companyId,
         permissions: updatedUser.permissions,
         lastLoginAt: updatedUser.lastLoginAt,
       },
-      company: await getCompanySettings(),
+      company: await getCompanySettings(companyId),
     });
   } catch (error) {
     next(error);
@@ -180,8 +183,9 @@ router.post('/verify-otp', async (req, res, next) => {
       },
     });
 
+    const companyId = updatedUser.companyId || 'c0000000-0000-0000-0000-000000000001';
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role, companyId },
       config.jwtSecret,
       { expiresIn: config.jwtExpiresIn as any }
     );
@@ -189,6 +193,7 @@ router.post('/verify-otp', async (req, res, next) => {
     await logAudit({
       userId: user.id,
       userName: user.name,
+      companyId,
       action: 'LOGIN',
       entity: 'USER',
       entityId: user.id,
@@ -205,9 +210,11 @@ router.post('/verify-otp', async (req, res, next) => {
         role: updatedUser.role,
         phone: updatedUser.phone,
         status: updatedUser.status,
+        companyId,
+        permissions: updatedUser.permissions,
         lastLoginAt: updatedUser.lastLoginAt,
       },
-      company: await getCompanySettings(),
+      company: await getCompanySettings(companyId),
     });
   } catch (error) {
     next(error);
@@ -276,12 +283,15 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response, next) =>
         role: true,
         phone: true,
         status: true,
+        companyId: true,
+        permissions: true,
         lastLoginAt: true,
         createdAt: true,
       },
     });
 
-    const company = await getCompanySettings();
+    const companyId = req.user!.companyId || 'c0000000-0000-0000-0000-000000000001';
+    const company = await getCompanySettings(companyId);
     res.json({ user, company });
   } catch (error) {
     next(error);

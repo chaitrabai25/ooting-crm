@@ -9,9 +9,11 @@ router.use(authenticate);
 // Lead Report
 router.get('/leads', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const { startDate, endDate, status, source, format } = req.query;
 
     const where: any = {};
+    if (companyId) where.companyId = companyId;
     if (status) where.enquiryStatus = String(status);
     if (source) where.source = String(source);
     if (startDate || endDate) {
@@ -34,6 +36,8 @@ router.get('/leads', async (req: AuthRequest, res: Response, next) => {
       orderBy: { createdAt: 'desc' },
     });
 
+    const prefix = req.user?.company?.slug || 'crm';
+
     if (format === 'xlsx' || format === 'excel') {
       const rows = leads.map(l => ({
         'Lead ID': l.id,
@@ -54,7 +58,7 @@ router.get('/leads', async (req: AuthRequest, res: Response, next) => {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads Report');
       const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=leads-report-${Date.now()}.xlsx`);
+      res.setHeader('Content-Disposition', `attachment; filename=${prefix}-leads-report-${Date.now()}.xlsx`);
       res.send(buffer);
       return;
     }
@@ -75,7 +79,7 @@ router.get('/leads', async (req: AuthRequest, res: Response, next) => {
       ]);
       const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename=leads-report-${Date.now()}.csv`);
+      res.setHeader('Content-Disposition', `attachment; filename=${prefix}-leads-report-${Date.now()}.csv`);
       res.send(csv);
       return;
     }
@@ -87,12 +91,13 @@ router.get('/leads', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Booking Report
-// Booking Report
 router.get('/bookings', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const { startDate, endDate, status, format } = req.query;
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
+    if (companyId) where.companyId = companyId;
     if (status) where.bookingStatus = String(status);
     if (startDate || endDate) {
       where.bookingDate = {};
@@ -137,6 +142,8 @@ router.get('/bookings', async (req: AuthRequest, res: Response, next) => {
       };
     });
 
+    const prefix = req.user?.company?.slug || 'crm';
+
     if (format === 'xlsx' || format === 'excel') {
       const rows = data.map(d => ({
         'Booking No': d.bookingNumber,
@@ -159,7 +166,7 @@ router.get('/bookings', async (req: AuthRequest, res: Response, next) => {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Bookings Report');
       const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=bookings-report-${Date.now()}.xlsx`);
+      res.setHeader('Content-Disposition', `attachment; filename=${prefix}-bookings-report-${Date.now()}.xlsx`);
       res.send(buffer);
       return;
     }
@@ -183,7 +190,7 @@ router.get('/bookings', async (req: AuthRequest, res: Response, next) => {
       ]);
       const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename=bookings-report-${Date.now()}.csv`);
+      res.setHeader('Content-Disposition', `attachment; filename=${prefix}-bookings-report-${Date.now()}.csv`);
       res.send(csv);
       return;
     }
@@ -197,9 +204,11 @@ router.get('/bookings', async (req: AuthRequest, res: Response, next) => {
 // Payments Report
 router.get('/payments', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const { startDate, endDate, method, status, format } = req.query;
 
     const where: any = {};
+    if (companyId) where.companyId = companyId;
     if (method) where.paymentMethod = String(method);
     if (status) where.paymentStatus = String(status);
     if (startDate || endDate) {
@@ -233,6 +242,8 @@ router.get('/payments', async (req: AuthRequest, res: Response, next) => {
       paymentDate: p.paymentDate ? p.paymentDate.toISOString().split('T')[0] : '-',
     }));
 
+    const prefix = req.user?.company?.slug || 'crm';
+
     if (format === 'xlsx' || format === 'excel') {
       const rows = data.map(d => ({
         'Booking No': d.bookingNumber,
@@ -248,7 +259,7 @@ router.get('/payments', async (req: AuthRequest, res: Response, next) => {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Payments Report');
       const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=payments-report-${Date.now()}.xlsx`);
+      res.setHeader('Content-Disposition', `attachment; filename=${prefix}-payments-report-${Date.now()}.xlsx`);
       res.send(buffer);
       return;
     }
@@ -266,7 +277,7 @@ router.get('/payments', async (req: AuthRequest, res: Response, next) => {
       ]);
       const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename=payments-report-${Date.now()}.csv`);
+      res.setHeader('Content-Disposition', `attachment; filename=${prefix}-payments-report-${Date.now()}.csv`);
       res.send(csv);
       return;
     }
@@ -280,11 +291,21 @@ router.get('/payments', async (req: AuthRequest, res: Response, next) => {
 // Financial Profit & Loss / Revenue Report
 router.get('/revenue', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const { startDate, endDate, format } = req.query;
 
-    const bookingDateWhere: any = { bookingStatus: { in: ['CONFIRMED', 'COMPLETED'] } };
-    const paymentDateWhere: any = { paymentStatus: 'SUCCESS' };
-    const expenseDateWhere: any = {};
+    const bookingDateWhere: any = {
+      bookingStatus: { in: ['CONFIRMED', 'COMPLETED'] },
+      isDeleted: false,
+      ...(companyId ? { companyId } : {}),
+    };
+    const paymentDateWhere: any = {
+      paymentStatus: 'SUCCESS',
+      ...(companyId ? { companyId } : {}),
+    };
+    const expenseDateWhere: any = {
+      ...(companyId ? { companyId } : {}),
+    };
 
     if (startDate || endDate) {
       const dateFilter: any = {};
@@ -320,6 +341,8 @@ router.get('/revenue', async (req: AuthRequest, res: Response, next) => {
     const outstanding = Math.max(0, totalBookingValue - totalCollected);
     const recordedProfit = totalCollected - totalExpenses;
 
+    const prefix = req.user?.company?.slug || 'crm';
+
     if (format === 'xlsx' || format === 'excel') {
       const summaryRows = [
         { 'Metric': 'Total Confirmed Bookings Value', 'Amount (INR)': totalBookingValue },
@@ -333,7 +356,7 @@ router.get('/revenue', async (req: AuthRequest, res: Response, next) => {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Revenue & PnL');
       const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=revenue-report-${Date.now()}.xlsx`);
+      res.setHeader('Content-Disposition', `attachment; filename=${prefix}-revenue-report-${Date.now()}.xlsx`);
       res.send(buffer);
       return;
     }

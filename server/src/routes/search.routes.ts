@@ -8,6 +8,7 @@ router.use(authenticate);
 // Global Search endpoint
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user?.companyId;
     const q = (req.query.q as string || '').trim();
     if (!q || q.length < 2) {
       res.json({
@@ -24,6 +25,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       // Customers
       prisma.customer.findMany({
         where: {
+          ...(companyId ? { companyId } : {}),
           OR: [
             { fullName: { contains: q } },
             { phone: { contains: q } },
@@ -36,6 +38,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       // Leads
       prisma.lead.findMany({
         where: {
+          ...(companyId ? { companyId } : {}),
           OR: [
             { destination: { contains: q } },
             { customer: { fullName: { contains: q } } },
@@ -49,6 +52,8 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       // Bookings
       prisma.booking.findMany({
         where: {
+          ...(companyId ? { companyId } : {}),
+          isDeleted: false,
           OR: [
             { bookingNumber: { contains: q } },
             { customer: { fullName: { contains: q } } },
@@ -62,6 +67,8 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       // Packages
       prisma.package.findMany({
         where: {
+          ...(companyId ? { companyId } : {}),
+          status: 'ACTIVE',
           OR: [
             { packageName: { contains: q } },
             { destination: { contains: q } },
@@ -73,6 +80,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       // Agents
       prisma.agent.findMany({
         where: {
+          ...(companyId ? { companyId } : {}),
           OR: [
             { companyName: { contains: q } },
             { contactPerson: { contains: q } },

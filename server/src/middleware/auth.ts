@@ -10,6 +10,8 @@ export interface AuthRequest extends Request {
     email: string;
     role: string;
     status: string;
+    companyId: string;
+    company?: any;
     permissions?: string | null;
   };
 }
@@ -30,10 +32,19 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
   }
 
   try {
-    const decoded = jwt.verify(token, config.jwtSecret) as { id: string };
+    const decoded = jwt.verify(token, config.jwtSecret) as { id: string; companyId?: string };
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, name: true, email: true, role: true, status: true, permissions: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        permissions: true,
+        companyId: true,
+        company: true,
+      },
     });
 
     if (!user) {
@@ -46,7 +57,17 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
       return;
     }
 
-    req.user = user;
+    const companyId = user.companyId || 'c0000000-0000-0000-0000-000000000001';
+
+    if (user.company && user.company.status === 'SUSPENDED') {
+      res.status(403).json({ message: 'Company account is suspended. Please contact support.' });
+      return;
+    }
+
+    req.user = {
+      ...user,
+      companyId,
+    };
     next();
   } catch (error) {
     res.status(401).json({ message: 'Invalid or expired session. Please log in again.' });

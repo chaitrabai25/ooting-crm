@@ -16,7 +16,66 @@ datasource db {
 // ------------------------------------------------------------------------------
 // 1. User & Authentication
 // ------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------
+// 0. Multi-Tenant Companies & White-Label Brands
+// ------------------------------------------------------------------------------
+model Company {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  name              String    @db.VarChar(191)
+  slug              String    @unique @db.VarChar(100)
+  status            String    @default("ACTIVE") @db.VarChar(50) // ACTIVE, SUSPENDED, INACTIVE
+  logoUrl           String?   @db.LongText
+  faviconUrl        String?   @db.LongText
+  tagline           String?   @db.VarChar(255)
+  primaryColor      String?   @default("#1E3A8A") @db.VarChar(50)
+  secondaryColor    String?   @default("#E11D48") @db.VarChar(50)
+  phone             String?   @db.VarChar(50)
+  email             String?   @db.VarChar(191)
+  website           String?   @db.VarChar(191)
+  address           String?   @db.Text
+  city              String?   @db.VarChar(100)
+  state             String?   @db.VarChar(100)
+  country           String?   @default("India") @db.VarChar(100)
+  pincode           String?   @db.VarChar(20)
+  gstin             String?   @db.VarChar(50)
+  bankName          String?   @db.VarChar(191)
+  accountHolderName String?   @db.VarChar(191)
+  accountNumber     String?   @db.VarChar(100)
+  accountType       String?   @default("CURRENT") @db.VarChar(50)
+  ifsc              String?   @db.VarChar(50)
+  branch            String?   @db.VarChar(100)
+  upiId             String?   @db.VarChar(100)
+  paymentNotes      String?   @db.Text
+  isOoting          Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  users             User[]
+  customers         Customer[]
+  leads             Lead[]
+  followUps         FollowUp[]
+  packages          Package[]
+  quotations        Quotation[]
+  bookings          Booking[]
+  payments          Payment[]
+  cabBookings       CabBooking[]
+  agents            Agent[]
+  suppliers         Supplier[]
+  expenses          Expense[]
+  calendarEvents    CalendarEvent[]
+  whatsAppMessages  WhatsAppMessage[]
+  auditLogs         AuditLog[]
+  places            Place[]
+  hotels            Hotel[]
+  companySettings   CompanySetting[]
+
+  @@index([status])
+  @@index([slug])
+  @@index([isOoting])
+}
+
 model User {
+  companyId          String?   @db.VarChar(36)
   id                 String    @id @default(uuid()) @db.VarChar(36)
   name               String    @db.VarChar(191)
   email              String    @unique @db.VarChar(191)
@@ -60,12 +119,17 @@ model User {
   @@index([phone])
   @@index([role])
   @@index([status])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 2. Customer Directory
 // ------------------------------------------------------------------------------
 model Customer {
+  companyId          String?   @db.VarChar(36)
   id             String    @id @default(uuid()) @db.VarChar(36)
   fullName       String    @db.VarChar(191)
   phone          String    @db.VarChar(50)
@@ -102,12 +166,17 @@ model Customer {
   @@index([fullName])
   @@index([assignedToId])
   @@index([isDeleted])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 3. Leads & Enquiries
 // ------------------------------------------------------------------------------
 model Lead {
+  companyId          String?   @db.VarChar(36)
   id              String    @id @default(uuid()) @db.VarChar(36)
   customerId      String    @db.VarChar(36)
   assignedUserId  String?   @db.VarChar(36)
@@ -151,12 +220,17 @@ model Lead {
   @@index([createdAt])
   @@index([nextFollowUpAt])
   @@index([isDeleted])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 4. Follow-ups & Reminders
 // ------------------------------------------------------------------------------
 model FollowUp {
+  companyId          String?   @db.VarChar(36)
   id             String    @id @default(uuid()) @db.VarChar(36)
   leadId         String    @db.VarChar(36)
   assignedUserId String?   @db.VarChar(36)
@@ -175,12 +249,17 @@ model FollowUp {
   @@index([assignedUserId])
   @@index([scheduledAt])
   @@index([status])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 5. Tour Packages & Catalog
 // ------------------------------------------------------------------------------
 model Package {
+  companyId          String?   @db.VarChar(36)
   id          String   @id @default(uuid()) @db.VarChar(36)
   packageName String   @db.VarChar(191)
   destination String   @db.VarChar(191)
@@ -205,6 +284,10 @@ model Package {
   @@index([destination])
   @@index([packageType])
   @@index([status])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
@@ -247,6 +330,7 @@ model ItineraryDay {
 // 7. Quotations & Proposals
 // ------------------------------------------------------------------------------
 model Quotation {
+  companyId          String?   @db.VarChar(36)
   id                 String    @id @default(uuid()) @db.VarChar(36)
   quotationNumber    String    @unique @db.VarChar(100)
   leadId             String?   @db.VarChar(36)
@@ -300,12 +384,17 @@ model Quotation {
   @@index([status])
   @@index([createdById])
   @@index([isDeleted])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 8. Bookings
 // ------------------------------------------------------------------------------
 model Booking {
+  companyId          String?   @db.VarChar(36)
   id               String    @id @default(uuid()) @db.VarChar(36)
   bookingNumber    String    @unique @db.VarChar(100)
   customerId       String    @db.VarChar(36)
@@ -354,6 +443,10 @@ model Booking {
   @@index([bookingStatus])
   @@index([bookingDate])
   @@index([isDeleted])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
@@ -382,6 +475,7 @@ model Traveller {
 // 10. Payments & Receipts
 // ------------------------------------------------------------------------------
 model Payment {
+  companyId          String?   @db.VarChar(36)
   id                   String   @id @default(uuid()) @db.VarChar(36)
   bookingId            String   @db.VarChar(36)
   customerId           String?  @db.VarChar(36)
@@ -404,12 +498,17 @@ model Payment {
   @@index([paymentStatus])
   @@index([paymentDate])
   @@index([transactionReference])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 11. B2B Travel Agents & Partners
 // ------------------------------------------------------------------------------
 model Agent {
+  companyId          String?   @db.VarChar(36)
   id                 String   @id @default(uuid()) @db.VarChar(36)
   companyName        String   @db.VarChar(191)
   contactPerson      String   @db.VarChar(191)
@@ -434,6 +533,10 @@ model Agent {
   @@index([phone])
   @@index([email])
   @@index([status])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 model AgentBooking {
@@ -459,6 +562,7 @@ model AgentBooking {
 // 12. Office & Tour Expenses
 // ------------------------------------------------------------------------------
 model Expense {
+  companyId          String?   @db.VarChar(36)
   id          String   @id @default(uuid()) @db.VarChar(36)
   category    String   @db.VarChar(50)
   amount      Float    @default(0)
@@ -475,12 +579,17 @@ model Expense {
   @@index([category])
   @@index([bookingId])
   @@index([expenseDate])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 13. System Audit Logs
 // ------------------------------------------------------------------------------
 model AuditLog {
+  companyId          String?   @db.VarChar(36)
   id          String   @id @default(uuid()) @db.VarChar(36)
   userId      String?  @db.VarChar(36)
   userName    String?  @db.VarChar(191)
@@ -500,12 +609,17 @@ model AuditLog {
   @@index([entityId])
   @@index([userId])
   @@index([createdAt])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 14. Company Branding & Settings
 // ------------------------------------------------------------------------------
 model CompanySetting {
+  companyId          String?   @db.VarChar(36)
   id          String   @id @default(uuid()) @db.VarChar(36)
   key         String   @unique @db.VarChar(100)
   value       String   @db.Text
@@ -513,12 +627,17 @@ model CompanySetting {
   updatedAt   DateTime @updatedAt
 
   @@index([key])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 15. WhatsApp Logs
 // ------------------------------------------------------------------------------
 model WhatsAppMessage {
+  companyId          String?   @db.VarChar(36)
   id             String    @id @default(uuid()) @db.VarChar(36)
   customerId     String?   @db.VarChar(36)
   phone          String    @db.VarChar(50)
@@ -534,12 +653,17 @@ model WhatsAppMessage {
   @@index([customerId])
   @@index([phone])
   @@index([createdAt])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 16. Cab Bookings & Fleet Transfers
 // ------------------------------------------------------------------------------
 model CabBooking {
+  companyId          String?   @db.VarChar(36)
   id                   String    @id @default(uuid()) @db.VarChar(36)
   bookingReference     String    @unique @db.VarChar(100)
   customerId           String?   @db.VarChar(36)
@@ -602,12 +726,17 @@ model CabBooking {
   @@index([bookingStatus])
   @@index([assignedStaffId])
   @@index([isDeleted])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 17. Calendar & Tasks
 // ------------------------------------------------------------------------------
 model CalendarEvent {
+  companyId          String?   @db.VarChar(36)
   id          String    @id @default(uuid()) @db.VarChar(36)
   title       String    @db.VarChar(191)
   description String?   @db.Text
@@ -631,12 +760,17 @@ model CalendarEvent {
   @@index([startDate])
   @@index([eventType])
   @@index([status])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 18. B2B Suppliers Directory
 // ------------------------------------------------------------------------------
 model Supplier {
+  companyId          String?   @db.VarChar(36)
   id                  String    @id @default(uuid()) @db.VarChar(36)
   name                String    @db.VarChar(191)
   supplierType        String    @default("HOTEL") @db.VarChar(50)
@@ -680,12 +814,17 @@ model Supplier {
   @@index([city])
   @@index([status])
   @@index([assignedToId])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 19. Destinations & Places Directory
 // ------------------------------------------------------------------------------
 model Place {
+  companyId          String?   @db.VarChar(36)
   id                 String    @id @default(uuid()) @db.VarChar(36)
   name               String    @db.VarChar(191)
   state              String    @db.VarChar(100)
@@ -710,12 +849,17 @@ model Place {
   @@index([district])
   @@index([name])
   @@index([isDeleted])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
 }
 
 // ------------------------------------------------------------------------------
 // 20. Hotels & Accommodations Master Library
 // ------------------------------------------------------------------------------
 model Hotel {
+  companyId          String?   @db.VarChar(36)
   id                 String    @id @default(uuid()) @db.VarChar(36)
   name               String    @db.VarChar(191)
   state              String    @db.VarChar(100)
@@ -743,5 +887,9 @@ model Hotel {
   @@index([name])
   @@index([starCategory])
   @@index([isDeleted])
+
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
 }
 

@@ -362,8 +362,8 @@ export const SettingsPage: React.FC = () => {
                   className="flex-1 min-w-[240px] p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
                 />
 
-                {/* Quick Presets */}
-                {isAdmin && (
+                {/* Quick Presets (Only displayed for master instance) */}
+                {isAdmin && (company as any).isOoting && (
                   <div className="flex gap-1.5 shrink-0">
                     <button
                       type="button"
@@ -412,7 +412,7 @@ export const SettingsPage: React.FC = () => {
                   {isAdmin && (
                     <button
                       type="button"
-                      onClick={() => setCompany({ ...company, logoUrl: '/assets/ooting-logo.jpg' })}
+                      onClick={() => setCompany({ ...company, logoUrl: (company as any).isOoting ? '/assets/ooting-logo.jpg' : '' })}
                       className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 transition shrink-0 cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3" />
@@ -421,6 +421,61 @@ export const SettingsPage: React.FC = () => {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* White-Label Customization (Favicon & Brand Colors) */}
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Favicon URL</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.faviconUrl || ''}
+                  onChange={(e) => setCompany({ ...company, faviconUrl: e.target.value })}
+                  placeholder="https://.../favicon.ico"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Primary Brand Accent</label>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="color"
+                    disabled={!isAdmin}
+                    value={company.primaryColor || '#2563eb'}
+                    onChange={(e) => setCompany({ ...company, primaryColor: e.target.value })}
+                    className="w-9 h-9 rounded border border-slate-300 dark:border-slate-700 bg-transparent cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    disabled={!isAdmin}
+                    value={company.primaryColor || '#2563eb'}
+                    onChange={(e) => setCompany({ ...company, primaryColor: e.target.value })}
+                    placeholder="#2563eb"
+                    className="flex-1 p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-mono text-xs"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Secondary Accent</label>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="color"
+                    disabled={!isAdmin}
+                    value={company.secondaryColor || '#1e40af'}
+                    onChange={(e) => setCompany({ ...company, secondaryColor: e.target.value })}
+                    className="w-9 h-9 rounded border border-slate-300 dark:border-slate-700 bg-transparent cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    disabled={!isAdmin}
+                    value={company.secondaryColor || '#1e40af'}
+                    onChange={(e) => setCompany({ ...company, secondaryColor: e.target.value })}
+                    placeholder="#1e40af"
+                    className="flex-1 p-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none font-mono text-xs"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

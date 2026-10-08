@@ -96,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       localStorage.removeItem('ooting_crm_token');
       localStorage.removeItem('ooting_crm_user');
+      localStorage.removeItem('ooting_company_settings');
       setToken(null);
       setUser(null);
       window.location.href = '/login';

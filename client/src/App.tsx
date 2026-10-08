@@ -59,6 +59,7 @@ const AnalyticsPage = lazy(() => import('./pages/analytics/AnalyticsPage.js').th
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage.js').then(m => ({ default: m.ReportsPage })));
 
 const UserList = lazy(() => import('./pages/users/UserList.js').then(m => ({ default: m.UserList })));
+const CompanyList = lazy(() => import('./pages/companies/CompanyList.js').then(m => ({ default: m.CompanyList })));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage.js').then(m => ({ default: m.SettingsPage })));
 const AuditLogsPage = lazy(() => import('./pages/audit-logs/AuditLogsPage.js').then(m => ({ default: m.AuditLogsPage })));
 const ImportExportPage = lazy(() => import('./pages/import-export/ImportExportPage.js').then(m => ({ default: m.ImportExportPage })));
@@ -140,6 +141,11 @@ export const App: React.FC = () => {
 
                     {/* Import & Export Center */}
                     <Route path="/import-export" element={<ImportExportPage />} />
+
+                    {/* SaaS Multi-Tenant Management (Super Admin only) */}
+                    <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+                      <Route path="/companies" element={<CompanyList />} />
+                    </Route>
 
                     {/* Administration (Admin & Super Admin only) */}
                     <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']} />}>

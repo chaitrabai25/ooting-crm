@@ -21,44 +21,67 @@ export function invalidateCompanySettingsCache(): void {
   cachedCompanySettings = null;
 }
 
-export async function getCompanySettings() {
+const OOTING_COMPANY_ID = 'c0000000-0000-0000-0000-000000000001';
+
+export async function getCompanySettings(targetCompanyId?: string) {
   try {
-    const settings = await prisma.companySetting.findMany();
-    const settingsMap: Record<string, string> = {};
-    settings.forEach(s => {
-      settingsMap[s.key] = s.value;
+    const id = targetCompanyId || OOTING_COMPANY_ID;
+    const company = await prisma.company.findUnique({
+      where: { id },
     });
 
-    const result = {
-      name: settingsMap['company_name'] || config.company.name,
-      tagline: settingsMap['company_tagline'] || config.company.tagline,
-      email: settingsMap['company_email'] || config.company.email,
-      phone: settingsMap['company_phone'] || config.company.phone,
-      address: settingsMap['company_address'] || config.company.address,
-      website: settingsMap['company_website'] || (config.company as any).website || 'https://ooting.in',
-      gstin: normalizeGstin(settingsMap['company_gstin'] || config.company.gstin),
-      logoUrl: settingsMap['company_logo_url'] || '/assets/ooting-logo.jpg',
-      bankName: settingsMap['bank_name'] || '',
-      accountHolderName: settingsMap['account_holder_name'] || '',
-      accountNumber: settingsMap['account_number'] || '',
-      accountType: settingsMap['account_type'] || 'Current Account',
-      ifsc: settingsMap['ifsc'] || '',
-      branch: settingsMap['branch'] || '',
-      upiId: settingsMap['upi_id'] || '',
-      paymentNotes: settingsMap['payment_notes'] || '',
-    };
+    if (company) {
+      return {
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+        status: company.status,
+        tagline: company.tagline || (company.isOoting ? config.company.tagline : ''),
+        email: company.email || (company.isOoting ? config.company.email : ''),
+        phone: company.phone || (company.isOoting ? config.company.phone : ''),
+        address: company.address || (company.isOoting ? config.company.address : ''),
+        city: company.city || '',
+        state: company.state || '',
+        country: company.country || 'India',
+        pincode: company.pincode || '',
+        website: company.website || (company.isOoting ? (config.company as any).website || 'https://ooting.in' : ''),
+        gstin: normalizeGstin(company.gstin || (company.isOoting ? config.company.gstin : '')),
+        logoUrl: company.logoUrl || (company.isOoting ? '/assets/ooting-logo.jpg' : ''),
+        faviconUrl: company.faviconUrl || '',
+        primaryColor: company.primaryColor || '#1E3A8A',
+        secondaryColor: company.secondaryColor || '#E11D48',
+        bankName: company.bankName || '',
+        accountHolderName: company.accountHolderName || '',
+        accountNumber: company.accountNumber || '',
+        accountType: company.accountType || 'Current Account',
+        ifsc: company.ifsc || '',
+        branch: company.branch || '',
+        upiId: company.upiId || '',
+        paymentNotes: company.paymentNotes || '',
+        isOoting: company.isOoting,
+      };
+    }
 
-    return result;
-  } catch (error) {
+    // Fallback to Ooting default configuration
     return {
+      id: OOTING_COMPANY_ID,
       name: config.company.name,
+      slug: 'ooting',
+      status: 'ACTIVE',
       tagline: config.company.tagline,
       email: config.company.email,
       phone: config.company.phone,
       address: config.company.address,
+      city: 'Shivamogga',
+      state: 'Karnataka',
+      country: 'India',
+      pincode: '577222',
       website: (config.company as any).website || 'https://ooting.in',
       gstin: normalizeGstin(config.company.gstin),
       logoUrl: '/assets/ooting-logo.jpg',
+      faviconUrl: '/favicon.ico',
+      primaryColor: '#1E3A8A',
+      secondaryColor: '#E11D48',
       bankName: '',
       accountHolderName: '',
       accountNumber: '',
@@ -67,14 +90,46 @@ export async function getCompanySettings() {
       branch: '',
       upiId: '',
       paymentNotes: '',
+      isOoting: true,
+    };
+  } catch (error) {
+    return {
+      id: OOTING_COMPANY_ID,
+      name: config.company.name,
+      slug: 'ooting',
+      status: 'ACTIVE',
+      tagline: config.company.tagline,
+      email: config.company.email,
+      phone: config.company.phone,
+      address: config.company.address,
+      city: 'Shivamogga',
+      state: 'Karnataka',
+      country: 'India',
+      pincode: '577222',
+      website: (config.company as any).website || 'https://ooting.in',
+      gstin: normalizeGstin(config.company.gstin),
+      logoUrl: '/assets/ooting-logo.jpg',
+      faviconUrl: '/favicon.ico',
+      primaryColor: '#1E3A8A',
+      secondaryColor: '#E11D48',
+      bankName: '',
+      accountHolderName: '',
+      accountNumber: '',
+      accountType: 'Current Account',
+      ifsc: '',
+      branch: '',
+      upiId: '',
+      paymentNotes: '',
+      isOoting: true,
     };
   }
 }
 
 // Get Public / Authenticated Company Settings
-router.get('/company', async (_req: AuthRequest, res: Response, next) => {
+router.get('/company', async (req: AuthRequest, res: Response, next) => {
   try {
-    const company = await getCompanySettings();
+    const companyId = req.user?.companyId || OOTING_COMPANY_ID;
+    const company = await getCompanySettings(companyId);
     res.json({ company });
   } catch (error) {
     next(error);
@@ -84,7 +139,8 @@ router.get('/company', async (_req: AuthRequest, res: Response, next) => {
 // Get All Settings
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
-    const company = await getCompanySettings();
+    const companyId = req.user?.companyId || OOTING_COMPANY_ID;
+    const company = await getCompanySettings(companyId);
 
     res.json({
       company,
@@ -107,9 +163,16 @@ const updateSettingsSchema = z.object({
   email: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  country: z.string().optional(),
+  pincode: z.string().optional(),
   website: z.string().optional(),
   gstin: z.string().optional(),
   logoUrl: z.string().optional(),
+  faviconUrl: z.string().optional(),
+  primaryColor: z.string().optional(),
+  secondaryColor: z.string().optional(),
   bankName: z.string().optional(),
   accountHolderName: z.string().optional(),
   accountNumber: z.string().optional(),
@@ -120,36 +183,70 @@ const updateSettingsSchema = z.object({
   paymentNotes: z.string().optional(),
 });
 
-// Update Company Settings (Admin only)
-router.put('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Update Company Settings (Admin & Super Admin)
+router.put('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = updateSettingsSchema.parse(req.body);
+    const companyId = req.user?.companyId || OOTING_COMPANY_ID;
 
-    const updates = [
-      { key: 'company_name', value: data.name },
-      { key: 'company_tagline', value: data.tagline },
-      { key: 'company_email', value: data.email },
-      { key: 'company_phone', value: data.phone },
-      { key: 'company_address', value: data.address },
-      { key: 'company_website', value: data.website },
-      { key: 'company_gstin', value: data.gstin },
-      { key: 'company_logo_url', value: data.logoUrl },
-      { key: 'bank_name', value: data.bankName },
-      { key: 'account_holder_name', value: data.accountHolderName },
-      { key: 'account_number', value: data.accountNumber },
-      { key: 'account_type', value: data.accountType },
-      { key: 'ifsc', value: data.ifsc },
-      { key: 'branch', value: data.branch },
-      { key: 'upi_id', value: data.upiId },
-      { key: 'payment_notes', value: data.paymentNotes },
-    ].filter(u => u.value !== undefined);
+    // Update Company record directly
+    await prisma.company.update({
+      where: { id: companyId },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.tagline !== undefined && { tagline: data.tagline }),
+        ...(data.email !== undefined && { email: data.email }),
+        ...(data.phone !== undefined && { phone: data.phone }),
+        ...(data.address !== undefined && { address: data.address }),
+        ...(data.city !== undefined && { city: data.city }),
+        ...(data.state !== undefined && { state: data.state }),
+        ...(data.country !== undefined && { country: data.country }),
+        ...(data.pincode !== undefined && { pincode: data.pincode }),
+        ...(data.website !== undefined && { website: data.website }),
+        ...(data.gstin !== undefined && { gstin: data.gstin }),
+        ...(data.logoUrl !== undefined && { logoUrl: data.logoUrl }),
+        ...(data.faviconUrl !== undefined && { faviconUrl: data.faviconUrl }),
+        ...(data.primaryColor !== undefined && { primaryColor: data.primaryColor }),
+        ...(data.secondaryColor !== undefined && { secondaryColor: data.secondaryColor }),
+        ...(data.bankName !== undefined && { bankName: data.bankName }),
+        ...(data.accountHolderName !== undefined && { accountHolderName: data.accountHolderName }),
+        ...(data.accountNumber !== undefined && { accountNumber: data.accountNumber }),
+        ...(data.accountType !== undefined && { accountType: data.accountType }),
+        ...(data.ifsc !== undefined && { ifsc: data.ifsc }),
+        ...(data.branch !== undefined && { branch: data.branch }),
+        ...(data.upiId !== undefined && { upiId: data.upiId }),
+        ...(data.paymentNotes !== undefined && { paymentNotes: data.paymentNotes }),
+      },
+    });
 
-    for (const item of updates) {
-      await prisma.companySetting.upsert({
-        where: { key: item.key },
-        update: { value: item.value! },
-        create: { key: item.key, value: item.value! },
-      });
+    // Also update legacy CompanySetting rows if Ooting instance for backwards compatibility
+    if (companyId === OOTING_COMPANY_ID) {
+      const updates = [
+        { key: 'company_name', value: data.name },
+        { key: 'company_tagline', value: data.tagline },
+        { key: 'company_email', value: data.email },
+        { key: 'company_phone', value: data.phone },
+        { key: 'company_address', value: data.address },
+        { key: 'company_website', value: data.website },
+        { key: 'company_gstin', value: data.gstin },
+        { key: 'company_logo_url', value: data.logoUrl },
+        { key: 'bank_name', value: data.bankName },
+        { key: 'account_holder_name', value: data.accountHolderName },
+        { key: 'account_number', value: data.accountNumber },
+        { key: 'account_type', value: data.accountType },
+        { key: 'ifsc', value: data.ifsc },
+        { key: 'branch', value: data.branch },
+        { key: 'upi_id', value: data.upiId },
+        { key: 'payment_notes', value: data.paymentNotes },
+      ].filter(u => u.value !== undefined);
+
+      for (const item of updates) {
+        await prisma.companySetting.upsert({
+          where: { key: item.key },
+          update: { value: item.value! },
+          create: { key: item.key, value: item.value!, companyId: OOTING_COMPANY_ID },
+        });
+      }
     }
 
     invalidateCompanySettingsCache();
@@ -157,13 +254,15 @@ router.put('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'UPDATE',
       entity: 'SETTING',
-      details: 'Updated company profile settings',
+      details: 'Updated company profile and white-label settings',
       ipAddress: req.ip,
     });
 
-    res.json({ message: 'Settings saved successfully.' });
+    const updatedCompany = await getCompanySettings(companyId);
+    res.json({ message: 'Settings saved successfully.', company: updatedCompany });
   } catch (error) {
     next(error);
   }
@@ -181,7 +280,9 @@ router.get('/audit-logs', authorize('ADMIN'), async (req: AuthRequest, res: Resp
     const endDateParam = (req.query.endDate as string || '').trim();
     const search = (req.query.search as string || '').trim();
 
-    const where: any = {};
+    const where: any = {
+      companyId: req.user!.companyId,
+    };
     if (entity) where.entity = entity;
     if (action) where.action = action;
 

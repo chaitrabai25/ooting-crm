@@ -10,6 +10,7 @@ interface AuditParams {
   oldValue?: any;
   newValue?: any;
   ipAddress?: string;
+  companyId?: string;
 }
 
 export async function logAudit(params: AuditParams): Promise<void> {
@@ -26,6 +27,7 @@ export async function logAudit(params: AuditParams): Promise<void> {
       data: {
         userId: params.userId,
         userName: params.userName,
+        companyId: params.companyId || undefined,
         action: params.action,
         entity: params.entity,
         entityId: params.entityId,

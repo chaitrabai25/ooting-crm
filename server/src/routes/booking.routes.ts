@@ -21,12 +21,12 @@ const ALLOWED_SORT_FIELDS = [
 ];
 
 /**
- * Safely generates a unique, sequential, collision-free booking number: OOT-BK-YYYYMM-XXXX
+ * Safely generates a unique, sequential, collision-free booking number: PREFIX-BK-YYYYMM-XXXX
  */
-export async function generateUniqueBookingNumber(txOrPrisma: any): Promise<string> {
+export async function generateUniqueBookingNumber(txOrPrisma: any, prefixTag = 'OOT'): Promise<string> {
   const now = new Date();
   const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const prefix = `OOT-BK-${dateStr}-`;
+  const prefix = `${prefixTag}-BK-${dateStr}-`;
 
   const lastBooking = await txOrPrisma.booking.findFirst({
     where: { bookingNumber: { startsWith: prefix } },
@@ -66,11 +66,12 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const assignedUserId = (req.query.assignedUserId as string || '').trim();
     const sortByParam = (req.query.sortBy as string || 'createdAt').trim();
     const sortOrderParam = (req.query.sortOrder as string || 'desc').toLowerCase();
+    const companyId = req.user!.companyId;
 
     const sortBy = ALLOWED_SORT_FIELDS.includes(sortByParam) ? sortByParam : 'createdAt';
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
-    const where: any = { isDeleted: false };
+    const where: any = { isDeleted: false, companyId };
     if (search) {
       where.OR = [
         { bookingNumber: { contains: search } },
@@ -144,11 +145,12 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
     const status = (req.query.status as string || '').trim();
     const sortByParam = (req.query.sortBy as string || 'travelStartDate').trim();
     const sortOrderParam = (req.query.sortOrder as string || 'desc').toLowerCase();
+    const companyId = req.user!.companyId;
 
     const sortBy = ALLOWED_SORT_FIELDS.includes(sortByParam) ? sortByParam : 'travelStartDate';
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
-    const where: any = { isDeleted: false };
+    const where: any = { isDeleted: false, companyId };
     if (packageId) where.packageId = packageId;
     if (status) where.bookingStatus = status;
     if (search) {
@@ -261,6 +263,7 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const booking = await prisma.booking.findUnique({
       where: { id },
       include: {
@@ -281,7 +284,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!booking || booking.isDeleted) {
+    if (!booking || booking.isDeleted || (booking.companyId && booking.companyId !== companyId)) {
       res.status(404).json({ message: 'Booking not found.' });
       return;
     }
@@ -353,18 +356,22 @@ const bookingCreateSchema = z.object({
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = bookingCreateSchema.parse(req.body);
+    const companyId = req.user!.companyId;
 
     const finalAmount = Math.max(0, data.totalAmount - data.discount);
 
     const booking = await prisma.$transaction(async (tx) => {
-      // Generate unique Booking Number: OOT-BK-YYYYMM-XXXX
-      const bookingNumber = await generateUniqueBookingNumber(tx);
-      // Resolve Customer ID (find existing, create on-the-fly, or use provided)
+      // Generate unique Booking Number with company prefix
+      const tag = (req.user?.company?.name || 'CRM').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'CRM';
+      const companyPrefix = req.user?.company?.isOoting ? 'OOT' : tag;
+      const bookingNumber = await generateUniqueBookingNumber(tx, companyPrefix);
+
+      // Resolve Customer ID within tenant (find existing, create on-the-fly, or use provided)
       let finalCustomerId = data.customerId;
       if (!finalCustomerId) {
         if (data.customerName && data.customerPhone) {
           let customer = await tx.customer.findFirst({
-            where: { phone: data.customerPhone.trim() },
+            where: { phone: data.customerPhone.trim(), ...(companyId ? { companyId } : {}) },
           });
           if (!customer) {
             customer = await tx.customer.create({
@@ -373,6 +380,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
                 phone: data.customerPhone.trim(),
                 email: data.customerEmail?.trim() || null,
                 city: data.customerCity?.trim() || null,
+                companyId,
                 createdById: req.user?.id || null,
                 updatedById: req.user?.id || null,
               },
@@ -387,8 +395,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       // Prepare traveller records
       let travellersToCreate = data.travellersList || [];
       if (travellersToCreate.length === 0) {
-        const customer = await tx.customer.findUnique({
-          where: { id: finalCustomerId },
+        const customer = await tx.customer.findFirst({
+          where: { id: finalCustomerId, ...(companyId ? { companyId } : {}) },
         });
         if (customer) {
           travellersToCreate = [
@@ -404,6 +412,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 
       const createdBooking = await tx.booking.create({
         data: {
+          companyId,
           bookingNumber,
           customerId: finalCustomerId,
           leadId: data.leadId || null,
@@ -467,6 +476,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'BOOKING',
       entityId: booking.id,
@@ -489,10 +499,11 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const data = bookingCreateSchema.partial().parse(req.body);
 
     const currentBooking = await prisma.booking.findUnique({ where: { id } });
-    if (!currentBooking || currentBooking.isDeleted) {
+    if (!currentBooking || currentBooking.isDeleted || (currentBooking.companyId && currentBooking.companyId !== companyId)) {
       res.status(404).json({ message: 'Booking not found.' });
       return;
     }
@@ -558,6 +569,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'UPDATE',
       entity: 'BOOKING',
       entityId: id,
@@ -577,6 +589,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 router.post('/:id/passengers/import', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const { passengers, replaceExisting = false } = req.body;
 
     if (!Array.isArray(passengers) || passengers.length === 0) {
@@ -589,7 +602,7 @@ router.post('/:id/passengers/import', async (req: AuthRequest, res: Response, ne
       include: { travellersList: true },
     });
 
-    if (!booking) {
+    if (!booking || (booking.companyId && booking.companyId !== companyId)) {
       res.status(404).json({ message: 'Booking not found.' });
       return;
     }
@@ -626,6 +639,7 @@ router.post('/:id/passengers/import', async (req: AuthRequest, res: Response, ne
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'IMPORT',
       entity: 'BOOKING',
       entityId: id,
@@ -656,10 +670,11 @@ router.post('/:id/passengers/import', async (req: AuthRequest, res: Response, ne
 router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const { status } = req.body;
 
     const currentBooking = await prisma.booking.findUnique({ where: { id } });
-    if (!currentBooking || currentBooking.isDeleted) {
+    if (!currentBooking || currentBooking.isDeleted || (currentBooking.companyId && currentBooking.companyId !== companyId)) {
       res.status(404).json({ message: 'Booking not found.' });
       return;
     }
@@ -673,6 +688,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'STATUS_CHANGE',
       entity: 'BOOKING',
       entityId: id,
@@ -691,8 +707,9 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
 // Export Bookings to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const bookings = await prisma.booking.findMany({
-      where: { isDeleted: false },
+      where: { isDeleted: false, companyId },
       include: {
         customer: true,
         package: true,
@@ -733,14 +750,16 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'BOOKING',
       details: `Exported ${bookings.length} booking records to Excel (.xlsx)`,
       ipAddress: req.ip,
     });
 
+    const filePrefix = req.user?.company?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'bookings';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-bookings-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${filePrefix}-bookings-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);
@@ -750,8 +769,9 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 // Export Bookings to CSV
 router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const bookings = await prisma.booking.findMany({
-      where: { isDeleted: false },
+      where: { isDeleted: false, companyId },
       include: {
         customer: true,
         package: true,
@@ -789,14 +809,16 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'BOOKING',
       details: `Exported ${bookings.length} booking records to CSV`,
       ipAddress: req.ip,
     });
 
+    const filePrefix = req.user?.company?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'bookings';
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-bookings-${Date.now()}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename=${filePrefix}-bookings-${Date.now()}.csv`);
     res.send(csvContent);
   } catch (error) {
     next(error);
@@ -807,7 +829,8 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
 router.get('/export/passengers/excel', async (req: AuthRequest, res: Response, next) => {
   try {
     const packageId = (req.query.packageId as string || '').trim();
-    const where: any = { isDeleted: false };
+    const companyId = req.user!.companyId;
+    const where: any = { isDeleted: false, companyId };
     if (packageId) where.packageId = packageId;
 
     const bookings = await prisma.booking.findMany({
@@ -870,14 +893,16 @@ router.get('/export/passengers/excel', async (req: AuthRequest, res: Response, n
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'BOOKING',
       details: `Exported ${rows.length} passenger records to Excel (.xlsx)`,
       ipAddress: req.ip,
     });
 
+    const filePrefix = req.user?.company?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'passengers';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-passengers-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${filePrefix}-passengers-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);
@@ -888,7 +913,8 @@ router.get('/export/passengers/excel', async (req: AuthRequest, res: Response, n
 router.get('/export/passengers', async (req: AuthRequest, res: Response, next) => {
   try {
     const packageId = (req.query.packageId as string || '').trim();
-    const where: any = { isDeleted: false };
+    const companyId = req.user!.companyId;
+    const where: any = { isDeleted: false, companyId };
     if (packageId) where.packageId = packageId;
 
     const bookings = await prisma.booking.findMany({
@@ -965,14 +991,16 @@ router.get('/export/passengers', async (req: AuthRequest, res: Response, next) =
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'BOOKING',
       details: `Exported ${rows.length} passenger records to CSV`,
       ipAddress: req.ip,
     });
 
+    const filePrefix = req.user?.company?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'passengers';
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-passengers-${Date.now()}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename=${filePrefix}-passengers-${Date.now()}.csv`);
     res.send(csvContent);
   } catch (error) {
     next(error);
@@ -982,6 +1010,7 @@ router.get('/export/passengers', async (req: AuthRequest, res: Response, next) =
 // Import Bookings from Excel
 router.post('/import', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No booking data provided for import.' });
@@ -1005,8 +1034,8 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 
       const phone = rawPhone.replace(/[^\d+]/g, '');
 
-      // Find or create customer
-      let customer = await prisma.customer.findFirst({ where: { phone } });
+      // Find or create customer within tenant
+      let customer = await prisma.customer.findFirst({ where: { phone, ...(companyId ? { companyId } : {}) } });
       if (!customer) {
         customer = await prisma.customer.create({
           data: {
@@ -1016,6 +1045,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
             city: item.customerCity || item['Customer City'] || item.city || item['City'] ? String(item.customerCity || item['Customer City'] || item.city || item['City']).trim() : null,
             assignedToId: req.user!.id,
             status: 'ACTIVE',
+            companyId,
           },
         });
       }
@@ -1035,6 +1065,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
             gte: new Date(travelStartDate.getTime() - 86400000),
             lte: new Date(travelStartDate.getTime() + 86400000),
           },
+          ...(companyId ? { companyId } : {}),
         },
       });
 
@@ -1059,11 +1090,14 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
         }
       }
 
-      // Generate guaranteed unique booking number
-      const bookingNumber = await generateUniqueBookingNumber(prisma);
+      // Generate guaranteed unique booking number with company prefix
+      const tag = (req.user?.company?.name || 'CRM').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'CRM';
+      const companyPrefix = req.user?.company?.isOoting ? 'OOT' : tag;
+      const bookingNumber = await generateUniqueBookingNumber(prisma, companyPrefix);
 
       const booking = await prisma.booking.create({
         data: {
+          companyId,
           bookingNumber,
           customerId: customer.id,
           assignedUserId: req.user!.id,
@@ -1094,6 +1128,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'IMPORT',
       entity: 'BOOKING',
       details: `Imported ${imported} bookings, skipped ${skipped}`,
@@ -1115,6 +1150,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const existing = await prisma.booking.findUnique({
       where: { id },
       include: {
@@ -1123,7 +1159,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!existing || existing.isDeleted) {
+    if (!existing || existing.isDeleted || (existing.companyId && existing.companyId !== companyId)) {
       res.status(404).json({ message: 'Booking not found.' });
       return;
     }
@@ -1148,6 +1184,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'DELETE',
       entity: 'BOOKING',
       entityId: id,

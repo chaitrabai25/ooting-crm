@@ -21,8 +21,24 @@ const defaultSettings: CompanySettings = {
   paymentNotes: 'Please quote your booking or quotation reference number during bank fund transfer.',
 };
 
+export const NEUTRAL_TENANT_LOGO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="%232563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+
+export const getEffectiveLogoUrl = (company: CompanySettings): string => {
+  if (company.logoUrl && company.logoUrl.trim() !== '') {
+    if (!company.isOoting && company.logoUrl.includes('ooting')) {
+      return NEUTRAL_TENANT_LOGO;
+    }
+    return company.logoUrl;
+  }
+  if (company.isOoting) {
+    return '/assets/ooting-logo.jpg';
+  }
+  return NEUTRAL_TENANT_LOGO;
+};
+
 interface CompanySettingsContextType {
   company: CompanySettings;
+  effectiveLogoUrl: string;
   isLoading: boolean;
   refreshCompany: () => Promise<void>;
   updateCompany: (updates: Partial<CompanySettings>) => void;
@@ -72,8 +88,29 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
     refreshCompany();
   }, [refreshCompany]);
 
+  // Synchronize document title, favicon, and brand accents dynamically
+  useEffect(() => {
+    if (company?.name) {
+      document.title = `${company.name} - CRM`;
+    }
+    if (company?.faviconUrl) {
+      let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = company.faviconUrl;
+    }
+    if (company?.primaryColor) {
+      document.documentElement.style.setProperty('--tenant-primary', company.primaryColor);
+    }
+  }, [company?.name, company?.faviconUrl, company?.primaryColor]);
+
+  const effectiveLogoUrl = getEffectiveLogoUrl(company);
+
   return (
-    <CompanySettingsContext.Provider value={{ company, isLoading, refreshCompany, updateCompany }}>
+    <CompanySettingsContext.Provider value={{ company, effectiveLogoUrl, isLoading, refreshCompany, updateCompany }}>
       {children}
     </CompanySettingsContext.Provider>
   );

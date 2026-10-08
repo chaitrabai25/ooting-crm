@@ -67,7 +67,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
   const { user, logout, can } = useAuth();
-  const { company } = useCompanySettings();
+  const { company, effectiveLogoUrl } = useCompanySettings();
   const location = useLocation();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -301,6 +301,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       title: 'Administration',
       adminOnly: true,
       items: [
+        ...(user?.role === 'SUPER_ADMIN'
+          ? [{ type: 'link' as const, name: 'Companies (SaaS)', path: '/companies', icon: Building2, module: 'companies' }]
+          : []),
         { type: 'link', name: 'Staff Users', path: '/users', icon: ShieldCheck, module: 'users' },
         { type: 'link', name: 'Settings', path: '/settings', icon: Settings, module: 'settings' },
         { type: 'link', name: 'Audit Logs', path: '/audit-logs', icon: History, module: 'audit-logs' },
@@ -321,11 +324,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
             title={company?.name ? `${company.name} - Expand sidebar` : 'Expand sidebar'}
           >
             <img
-              src={company?.logoUrl || '/assets/ooting-logo.jpg'}
-              alt={company?.name || 'Ooting'}
+              src={effectiveLogoUrl}
+              alt={company?.name || 'CRM'}
               className="w-full h-full object-contain"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                (e.target as HTMLImageElement).src = effectiveLogoUrl;
               }}
             />
           </div>
@@ -333,20 +336,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white p-0.5 shadow-sm border border-slate-750 flex-shrink-0">
               <img
-                src={company?.logoUrl || '/assets/ooting-logo.jpg'}
-                alt={company?.name || 'Ooting'}
+                src={effectiveLogoUrl}
+                alt={company?.name || 'CRM'}
                 className="w-full h-full object-contain"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                  (e.target as HTMLImageElement).src = effectiveLogoUrl;
                 }}
               />
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-black text-sm tracking-wide text-white truncate uppercase">
-                {(company?.name || 'OOTING').toUpperCase()} CRM
+                {(company?.name || (company?.isOoting ? 'OOTING' : 'CRM')).toUpperCase()} CRM
               </span>
               <span className="text-[10px] text-red-400 font-semibold tracking-tight truncate">
-                {company?.tagline || 'Journeys Beyond Ordinary'}
+                {company?.tagline || (company?.isOoting ? 'Journeys Beyond Ordinary' : 'Travel Management')}
               </span>
             </div>
           </div>

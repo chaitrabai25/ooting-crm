@@ -2,6 +2,63 @@ import { prisma } from './prisma.js';
 
 export async function ensureColumns() {
   const mysqlMigrations = [
+      // Multi-Tenant Company Table
+      `CREATE TABLE IF NOT EXISTS \`Company\` (
+        \`id\` VARCHAR(36) NOT NULL,
+        \`name\` VARCHAR(191) NOT NULL,
+        \`slug\` VARCHAR(100) NOT NULL,
+        \`status\` VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+        \`logoUrl\` LONGTEXT NULL,
+        \`faviconUrl\` LONGTEXT NULL,
+        \`tagline\` VARCHAR(255) NULL,
+        \`primaryColor\` VARCHAR(50) NULL DEFAULT '#1E3A8A',
+        \`secondaryColor\` VARCHAR(50) NULL DEFAULT '#E11D48',
+        \`phone\` VARCHAR(50) NULL,
+        \`email\` VARCHAR(191) NULL,
+        \`website\` VARCHAR(191) NULL,
+        \`address\` TEXT NULL,
+        \`city\` VARCHAR(100) NULL,
+        \`state\` VARCHAR(100) NULL,
+        \`country\` VARCHAR(100) NULL DEFAULT 'India',
+        \`pincode\` VARCHAR(20) NULL,
+        \`gstin\` VARCHAR(50) NULL,
+        \`bankName\` VARCHAR(191) NULL,
+        \`accountHolderName\` VARCHAR(191) NULL,
+        \`accountNumber\` VARCHAR(100) NULL,
+        \`accountType\` VARCHAR(50) NULL DEFAULT 'CURRENT',
+        \`ifsc\` VARCHAR(50) NULL,
+        \`branch\` VARCHAR(100) NULL,
+        \`upiId\` VARCHAR(100) NULL,
+        \`paymentNotes\` TEXT NULL,
+        \`isOoting\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`createdAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (\`id\`),
+        UNIQUE KEY \`Company_slug_key\` (\`slug\`),
+        INDEX \`Company_status_idx\` (\`status\`),
+        INDEX \`Company_isOoting_idx\` (\`isOoting\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+      // Multi-Tenant Scoping columns
+      `ALTER TABLE \`User\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Customer\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Lead\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`FollowUp\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Quotation\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Booking\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Payment\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`CabBooking\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Agent\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Supplier\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Expense\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`CalendarEvent\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`WhatsAppMessage\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`AuditLog\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Place\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Hotel\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`CompanySetting\` ADD COLUMN \`companyId\` VARCHAR(36) NULL`,
+
       // User
       `ALTER TABLE \`User\` ADD COLUMN \`permissions\` TEXT NULL`,
 

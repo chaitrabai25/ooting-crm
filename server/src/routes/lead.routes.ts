@@ -31,7 +31,8 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       orderBy.createdAt = 'desc';
     }
 
-    const where: any = { isDeleted: false };
+    const companyId = req.user!.companyId;
+    const where: any = { isDeleted: false, companyId };
     if (search) {
       where.OR = [
         { customer: { fullName: { contains: search } } },
@@ -56,7 +57,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     if (source) where.source = source;
 
     // Base where without status filter to calculate counts for tabs
-    const baseWhere: any = { isDeleted: false };
+    const baseWhere: any = { isDeleted: false, companyId };
     if (search) baseWhere.OR = where.OR;
     if (priority) baseWhere.priority = priority;
     if (destination) baseWhere.destination = where.destination;
@@ -106,6 +107,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const lead = await prisma.lead.findUnique({
       where: { id },
       include: {
@@ -128,7 +130,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!lead || lead.isDeleted) {
+    if (!lead || lead.isDeleted || (lead.companyId && lead.companyId !== companyId)) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
@@ -138,6 +140,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       where: {
         entity: 'LEAD',
         entityId: id,
+        ...(companyId ? { companyId } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -197,14 +200,15 @@ const leadCreateSchema = z.object({
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = leadCreateSchema.parse(req.body);
+    const companyId = req.user!.companyId;
 
     let customerId = data.customerId;
 
-    // Validate assigned staff user against database
+    // Validate assigned staff user against database within tenant
     let assignedUserId: string | null = null;
     if (data.assignedUserId) {
-      const staffExists = await prisma.user.findUnique({
-        where: { id: data.assignedUserId },
+      const staffExists = await prisma.user.findFirst({
+        where: { id: data.assignedUserId, ...(companyId ? { companyId } : {}) },
         select: { id: true },
       });
       if (staffExists) {
@@ -215,11 +219,11 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       assignedUserId = req.user.id;
     }
 
-    // Validate package if provided
+    // Validate package if provided within tenant
     let packageId: string | null = null;
     if (data.packageId) {
-      const pkgExists = await prisma.package.findUnique({
-        where: { id: data.packageId },
+      const pkgExists = await prisma.package.findFirst({
+        where: { id: data.packageId, ...(companyId ? { companyId } : {}) },
         select: { id: true },
       });
       if (pkgExists) {
@@ -227,7 +231,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       }
     }
 
-    // If customerId is not provided, check or create customer by phone
+    // If customerId is not provided, check or create customer by phone within tenant
     if (!customerId) {
       if (!data.customerPhone || !data.customerName) {
         res.status(400).json({ message: 'Customer details (Name and Phone) are required.' });
@@ -235,7 +239,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       }
 
       let customer = await prisma.customer.findFirst({
-        where: { phone: data.customerPhone.trim() },
+        where: { phone: data.customerPhone.trim(), ...(companyId ? { companyId } : {}) },
       });
 
       if (!customer) {
@@ -248,6 +252,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
             source: data.source,
             assignedToId: assignedUserId,
             status: 'ACTIVE',
+            companyId,
             createdById: req.user?.id || null,
             updatedById: req.user?.id || null,
           },
@@ -255,9 +260,9 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       }
       customerId = customer.id;
     } else {
-      // Verify customer exists
-      const custExists = await prisma.customer.findUnique({
-        where: { id: customerId },
+      // Verify customer exists within tenant
+      const custExists = await prisma.customer.findFirst({
+        where: { id: customerId, ...(companyId ? { companyId } : {}) },
         select: { id: true, isDeleted: true },
       });
       if (!custExists || custExists.isDeleted) {
@@ -270,6 +275,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 
     const lead = await prisma.lead.create({
       data: {
+        companyId,
         customerId,
         destination: data.destination.trim(),
         travelStartDate: parseSafeDate(data.travelStartDate),
@@ -299,6 +305,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     if (scheduledDate) {
       await prisma.followUp.create({
         data: {
+          companyId,
           leadId: lead.id,
           assignedUserId: lead.assignedUserId,
           scheduledAt: scheduledDate,
@@ -312,6 +319,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'LEAD',
       entityId: lead.id,
@@ -331,9 +339,10 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const body = req.body;
+    const companyId = req.user!.companyId;
 
     const currentLead = await prisma.lead.findUnique({ where: { id } });
-    if (!currentLead || currentLead.isDeleted) {
+    if (!currentLead || currentLead.isDeleted || (currentLead.companyId && currentLead.companyId !== companyId)) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
@@ -351,7 +360,10 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     
     if (body.packageId !== undefined) {
       if (body.packageId) {
-        const pkgExists = await prisma.package.findUnique({ where: { id: body.packageId }, select: { id: true } });
+        const pkgExists = await prisma.package.findFirst({
+          where: { id: body.packageId, ...(companyId ? { companyId } : {}) },
+          select: { id: true },
+        });
         updatePayload.packageId = pkgExists ? pkgExists.id : null;
       } else {
         updatePayload.packageId = null;
@@ -365,7 +377,10 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     
     if (body.assignedUserId !== undefined) {
       if (body.assignedUserId) {
-        const staffExists = await prisma.user.findUnique({ where: { id: body.assignedUserId }, select: { id: true } });
+        const staffExists = await prisma.user.findFirst({
+          where: { id: body.assignedUserId, ...(companyId ? { companyId } : {}) },
+          select: { id: true },
+        });
         updatePayload.assignedUserId = staffExists ? staffExists.id : null;
       } else {
         updatePayload.assignedUserId = null;
@@ -394,6 +409,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: body.enquiryStatus && body.enquiryStatus !== currentLead.enquiryStatus ? 'STATUS_CHANGE' : 'UPDATE',
       entity: 'LEAD',
       entityId: id,
@@ -414,9 +430,10 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const { status, notes } = req.body;
+    const companyId = req.user!.companyId;
 
     const currentLead = await prisma.lead.findUnique({ where: { id }, include: { customer: true } });
-    if (!currentLead || currentLead.isDeleted) {
+    if (!currentLead || currentLead.isDeleted || (currentLead.companyId && currentLead.companyId !== companyId)) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
@@ -433,6 +450,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'STATUS_CHANGE',
       entity: 'LEAD',
       entityId: id,
@@ -452,6 +470,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
 router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const { totalAmount, discount, travelStartDate, travelEndDate, travellers, notes } = req.body;
 
     const lead = await prisma.lead.findUnique({
@@ -459,7 +478,7 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
       include: { customer: true, package: true },
     });
 
-    if (!lead || lead.isDeleted) {
+    if (!lead || lead.isDeleted || (lead.companyId && lead.companyId !== companyId)) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
@@ -476,6 +495,7 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
             ...(leadPhone ? [{ phone: leadPhone.trim() }] : []),
             ...(leadEmail ? [{ email: leadEmail.trim() }] : []),
           ],
+          ...(companyId ? { companyId } : {}),
         },
       });
 
@@ -487,6 +507,7 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
             email: leadEmail?.trim() || null,
             city: anyLead.customer?.city?.trim() || anyLead.city?.trim() || null,
             state: anyLead.customer?.state?.trim() || anyLead.state?.trim() || null,
+            companyId,
             createdById: req.user?.id || null,
             updatedById: req.user?.id || null,
           },
@@ -500,8 +521,10 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
       });
     }
 
-    // Generate guaranteed unique, collision-free booking number: OOT-BK-YYYYMM-XXXX
-    const bookingNumber = await generateUniqueBookingNumber(prisma);
+    // Prefix for booking number: OOT for master, or tenant abbreviation
+    const tag = (req.user?.company?.name || 'CRM').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'CRM';
+    const companyPrefix = req.user?.company?.isOoting ? 'OOT' : tag;
+    const bookingNumber = await generateUniqueBookingNumber(prisma, companyPrefix);
 
     const gross = Number(totalAmount || lead.budget || lead.package?.price || 0);
     const disc = Number(discount || 0);
@@ -509,6 +532,7 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
 
     const booking = await prisma.booking.create({
       data: {
+        companyId,
         bookingNumber,
         customerId: finalCustomerId,
         leadId: lead.id,
@@ -540,6 +564,7 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'BOOKING',
       entityId: booking.id,
@@ -562,12 +587,13 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
 router.post('/:id/convert-customer', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const lead = await prisma.lead.findUnique({
       where: { id },
       include: { customer: true },
     });
 
-    if (!lead || lead.isDeleted) {
+    if (!lead || lead.isDeleted || (lead.companyId && lead.companyId !== companyId)) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
@@ -580,6 +606,7 @@ router.post('/:id/convert-customer', async (req: AuthRequest, res: Response, nex
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'UPDATE',
       entity: 'CUSTOMER',
       entityId: customer.id,
@@ -597,6 +624,7 @@ router.post('/:id/convert-customer', async (req: AuthRequest, res: Response, nex
 router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const { basePrice, discount, tax, cabDetails, additionalCharges, notes } = req.body;
 
     const lead = await prisma.lead.findUnique({
@@ -604,14 +632,16 @@ router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, ne
       include: { customer: true, package: true },
     });
 
-    if (!lead || lead.isDeleted) {
+    if (!lead || lead.isDeleted || (lead.companyId && lead.companyId !== companyId)) {
       res.status(404).json({ message: 'Lead not found.' });
       return;
     }
 
+    const tag = (req.user?.company?.name || 'CRM').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'CRM';
+    const prefix = req.user?.company?.isOoting ? 'OOT' : tag;
     const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
-    const count = await prisma.quotation.count();
-    const quotationNumber = `OOT-QT-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+    const count = await prisma.quotation.count({ where: { companyId } });
+    const quotationNumber = `${prefix}-QT-${dateStr}-${String(count + 1).padStart(4, '0')}`;
 
     const price = Number(basePrice || lead.budget || lead.package?.price || 0);
     const disc = Number(discount || 0);
@@ -621,6 +651,7 @@ router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, ne
 
     const quotation = await prisma.quotation.create({
       data: {
+        companyId,
         quotationNumber,
         leadId: lead.id,
         customerId: lead.customerId,
@@ -658,6 +689,7 @@ router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, ne
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'QUOTATION',
       entityId: quotation.id,
@@ -674,8 +706,9 @@ router.post('/:id/convert-quotation', async (req: AuthRequest, res: Response, ne
 // Export leads to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const leads = await prisma.lead.findMany({
-      where: { isDeleted: false },
+      where: { isDeleted: false, companyId },
       include: {
         customer: true,
         assignedUser: { select: { name: true } },
@@ -712,14 +745,16 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'LEAD',
       details: `Exported ${leads.length} lead records to Excel (.xlsx)`,
       ipAddress: req.ip,
     });
 
+    const filePrefix = req.user?.company?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'leads';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-leads-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${filePrefix}-leads-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);
@@ -729,8 +764,9 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 // Export leads to CSV
 router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const leads = await prisma.lead.findMany({
-      where: { isDeleted: false },
+      where: { isDeleted: false, companyId },
       include: {
         customer: true,
         assignedUser: { select: { name: true } },
@@ -764,14 +800,16 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'LEAD',
       details: `Exported ${leads.length} lead records to CSV`,
       ipAddress: req.ip,
     });
 
+    const filePrefix = req.user?.company?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'leads';
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-leads-${Date.now()}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename=${filePrefix}-leads-${Date.now()}.csv`);
     res.send(csvContent);
   } catch (error) {
     next(error);
@@ -781,6 +819,7 @@ router.get('/export/csv', async (req: AuthRequest, res: Response, next) => {
 // Import Leads from Excel
 router.post('/import', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const { items, duplicateAction = 'skip' } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: 'No lead data provided for import.' });
@@ -805,9 +844,9 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 
       const phone = rawPhone.replace(/[^\d+]/g, '');
 
-      // Check or create customer
+      // Check or create customer within tenant
       let customer = await prisma.customer.findFirst({
-        where: { phone },
+        where: { phone, ...(companyId ? { companyId } : {}) },
       });
 
       if (!customer) {
@@ -820,16 +859,18 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
             source: item.source || item['Source'] ? String(item.source || item['Source']).trim() : 'DIRECT',
             assignedToId: req.user!.id,
             status: 'ACTIVE',
+            companyId,
           },
         });
       }
 
-      // Duplicate lead check for this customer & destination
+      // Duplicate lead check for this customer & destination within tenant
       const existingLead = await prisma.lead.findFirst({
         where: {
           customerId: customer.id,
           destination: { equals: destination },
           enquiryStatus: { notIn: ['WON', 'LOST'] },
+          ...(companyId ? { companyId } : {}),
         },
       });
 
@@ -856,6 +897,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 
       await prisma.lead.create({
         data: {
+          companyId,
           customerId: customer.id,
           assignedUserId: req.user!.id,
           destination,
@@ -875,6 +917,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'IMPORT',
       entity: 'LEAD',
       details: `Imported ${imported} leads, skipped ${skipped}`,
@@ -896,6 +939,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 router.delete('/:id', requirePermission('leads', 'delete'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
+    const companyId = req.user!.companyId;
     const lead: any = await prisma.lead.findUnique({
       where: { id },
       include: {
@@ -904,7 +948,7 @@ router.delete('/:id', requirePermission('leads', 'delete'), async (req: AuthRequ
       },
     });
 
-    if (!lead || lead.isDeleted) {
+    if (!lead || lead.isDeleted || (lead.companyId && lead.companyId !== companyId)) {
       res.status(404).json({ message: 'Lead / Enquiry not found.' });
       return;
     }
@@ -929,6 +973,7 @@ router.delete('/:id', requirePermission('leads', 'delete'), async (req: AuthRequ
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'DELETE',
       entity: 'LEAD',
       entityId: id,

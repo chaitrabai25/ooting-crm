@@ -8,11 +8,14 @@ import { logAudit } from '../middleware/audit.js';
 const router = Router();
 router.use(authenticate);
 
-// Quick staff list for dropdown assignments (all authenticated users can read)
+// Quick staff list for dropdown assignments (all authenticated users can read, scoped to company)
 router.get('/staff', async (req: AuthRequest, res: Response, next) => {
   try {
     const staff = await prisma.user.findMany({
-      where: { status: 'ACTIVE' },
+      where: {
+        status: 'ACTIVE',
+        companyId: req.user!.companyId,
+      },
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: 'asc' },
     });
@@ -22,8 +25,8 @@ router.get('/staff', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Full users list (ADMIN or SUPER_ADMIN)
-router.get('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Full users list (ADMIN or SUPER_ADMIN scoped to company)
+router.get('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '20', 10));
@@ -31,7 +34,15 @@ router.get('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next
     const role = (req.query.role as string || '').trim();
     const status = (req.query.status as string || '').trim();
 
-    const where: any = {};
+    // SUPER_ADMIN can inspect other tenants if ?companyId= is explicitly supplied
+    const targetCompanyId = (req.user!.role === 'SUPER_ADMIN' && req.query.companyId)
+      ? String(req.query.companyId)
+      : req.user!.companyId;
+
+    const where: any = {
+      companyId: targetCompanyId,
+    };
+
     if (search) {
       where.OR = [
         { name: { contains: search } },
@@ -53,6 +64,7 @@ router.get('/', authorize('ADMIN'), async (req: AuthRequest, res: Response, next
           role: true,
           phone: true,
           status: true,
+          companyId: true,
           permissions: true,
           lastLoginAt: true,
           createdAt: true,
@@ -84,12 +96,24 @@ const createUserSchema = z.object({
   role: z.enum(['SUPER_ADMIN', 'ADMIN', 'SALES', 'OPERATIONS', 'ACCOUNTANT', 'AGENT']),
   phone: z.string().optional(),
   permissions: z.string().optional().nullable(),
+  companyId: z.string().optional(),
 });
 
-// Create new user (Strictly SUPER_ADMIN)
-router.post('/', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Create new user (SUPER_ADMIN or Company ADMIN)
+router.post('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = createUserSchema.parse(req.body);
+
+    // Company Admin cannot create SUPER_ADMIN accounts
+    if (req.user!.role !== 'SUPER_ADMIN' && data.role === 'SUPER_ADMIN') {
+      res.status(403).json({ message: 'Only Ooting Super Admins can provision Super Admin accounts.' });
+      return;
+    }
+
+    // Determine tenant ID
+    const targetCompanyId = (req.user!.role === 'SUPER_ADMIN' && data.companyId)
+      ? data.companyId
+      : req.user!.companyId;
 
     const existing = await prisma.user.findUnique({
       where: { email: data.email.toLowerCase().trim() },
@@ -107,6 +131,7 @@ router.post('/', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Respons
         email: data.email.toLowerCase().trim(),
         passwordHash,
         role: data.role,
+        companyId: targetCompanyId,
         phone: data.phone?.trim() || null,
         permissions: data.permissions || null,
         status: 'ACTIVE',
@@ -118,6 +143,7 @@ router.post('/', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Respons
         role: true,
         phone: true,
         status: true,
+        companyId: true,
         permissions: true,
         createdAt: true,
       },
@@ -126,10 +152,11 @@ router.post('/', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Respons
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId: targetCompanyId,
       action: 'CREATE',
       entity: 'USER',
       entityId: user.id,
-      details: `Created user ${user.name} (${user.role})`,
+      details: `Created user ${user.name} (${user.role}) for company ${targetCompanyId}`,
       ipAddress: req.ip,
     });
 
@@ -149,11 +176,31 @@ const updateUserSchema = z.object({
   permissions: z.string().optional().nullable(),
 });
 
-// Update user (Strictly SUPER_ADMIN)
-router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Update user (SUPER_ADMIN or Company ADMIN within their tenant)
+router.put('/:id', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const data = updateUserSchema.parse(req.body);
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    // Tenant isolation: Company Admin can only update users within their own company
+    if (req.user!.role !== 'SUPER_ADMIN' && targetUser.companyId !== req.user!.companyId) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    // Role safety: Company Admin cannot change anyone into or out of SUPER_ADMIN
+    if (req.user!.role !== 'SUPER_ADMIN') {
+      if (data.role === 'SUPER_ADMIN' || targetUser.role === 'SUPER_ADMIN') {
+        res.status(403).json({ message: 'Only Super Admins can manage Super Admin roles.' });
+        return;
+      }
+    }
 
     const updatePayload: any = { ...data };
     if (data.email) updatePayload.email = data.email.toLowerCase().trim();
@@ -172,6 +219,7 @@ router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Respo
         role: true,
         phone: true,
         status: true,
+        companyId: true,
         permissions: true,
         updatedAt: true,
       },
@@ -180,6 +228,7 @@ router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Respo
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId: targetUser.companyId || req.user!.companyId,
       action: 'UPDATE',
       entity: 'USER',
       entityId: id,
@@ -193,8 +242,8 @@ router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Respo
   }
 });
 
-// Delete user safely with full protection safeguards (Strictly SUPER_ADMIN)
-router.delete('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Delete user safely with full protection safeguards (SUPER_ADMIN or Company ADMIN within their tenant)
+router.delete('/:id', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
 
@@ -210,10 +259,16 @@ router.delete('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Re
       return;
     }
 
+    // Tenant isolation: Company Admin can only delete users in their company
+    if (req.user!.role !== 'SUPER_ADMIN' && targetUser.companyId !== req.user!.companyId) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
     // Rule 2: Only SUPER_ADMIN can delete another SUPER_ADMIN
     if (targetUser.role === 'SUPER_ADMIN') {
       if (req.user!.role !== 'SUPER_ADMIN') {
-        res.status(403).json({ message: 'Only a Super Admin can delete another Super Admin.' });
+        res.status(403).json({ message: 'Only a Super Admin can delete a Super Admin.' });
         return;
       }
 
@@ -241,6 +296,7 @@ router.delete('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Re
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId: targetUser.companyId || req.user!.companyId,
       action: 'DELETE',
       entity: 'USER',
       entityId: id,

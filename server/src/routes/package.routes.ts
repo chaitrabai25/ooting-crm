@@ -28,7 +28,8 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       orderBy.createdAt = 'desc';
     }
 
-    const where: any = {};
+    const companyId = req.user!.companyId;
+    const where: any = { companyId };
     if (search) {
       where.OR = [
         { packageName: { contains: search } },
@@ -76,6 +77,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const pkg = await prisma.package.findUnique({
       where: { id },
       include: {
@@ -84,7 +86,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!pkg) {
+    if (!pkg || (pkg.companyId && pkg.companyId !== companyId)) {
       res.status(404).json({ message: 'Travel package not found.' });
       return;
     }
@@ -136,9 +138,11 @@ const packageSchema = z.object({
 router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const data = packageSchema.parse(req.body);
+    const companyId = req.user!.companyId;
 
     const pkg = await prisma.package.create({
       data: {
+        companyId,
         packageName: data.packageName.trim(),
         destination: data.destination.trim(),
         duration: data.duration.trim(),
@@ -190,6 +194,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'CREATE',
       entity: 'PACKAGE',
       entityId: pkg.id,
@@ -207,7 +212,14 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const data = packageSchema.partial().parse(req.body);
+
+    const existingPkg = await prisma.package.findUnique({ where: { id } });
+    if (!existingPkg || (existingPkg.companyId && existingPkg.companyId !== companyId)) {
+      res.status(404).json({ message: 'Travel package not found.' });
+      return;
+    }
 
     const updatePayload: any = { ...data };
     delete updatePayload.itineraries;
@@ -265,6 +277,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'UPDATE',
       entity: 'PACKAGE',
       entityId: id,
@@ -282,6 +295,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
+    const companyId = req.user!.companyId;
     const { days } = req.body;
 
     if (!Array.isArray(days)) {
@@ -292,7 +306,7 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
     const targetPackage = await prisma.package.findUnique({
       where: { id },
     });
-    if (!targetPackage) {
+    if (!targetPackage || (targetPackage.companyId && targetPackage.companyId !== companyId)) {
       res.status(404).json({ message: 'Travel package not found.' });
       return;
     }
@@ -348,6 +362,7 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
       await logAudit({
         userId: req.user.id,
         userName: req.user.name,
+        companyId,
         action: 'UPDATE',
         entity: 'PACKAGE',
         entityId: id,
@@ -367,6 +382,7 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
 router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
+    const companyId = req.user!.companyId;
     const { day } = req.body;
 
     if (!day) {
@@ -379,7 +395,7 @@ router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next
       include: { itineraries: true },
     });
 
-    if (!targetPackage) {
+    if (!targetPackage || (targetPackage.companyId && targetPackage.companyId !== companyId)) {
       res.status(404).json({ message: 'Travel package not found.' });
       return;
     }
@@ -452,6 +468,7 @@ router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next
       await logAudit({
         userId: req.user.id,
         userName: req.user.name,
+        companyId,
         action: 'UPDATE',
         entity: 'PACKAGE',
         entityId: id,
@@ -471,6 +488,7 @@ router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next
 router.post('/:id/itineraries/reorder', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
+    const companyId = req.user!.companyId;
     const { orderedDays, orderedDayIds } = req.body;
 
     const targetPackage = await prisma.package.findUnique({
@@ -478,7 +496,7 @@ router.post('/:id/itineraries/reorder', async (req: AuthRequest, res: Response, 
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
 
-    if (!targetPackage) {
+    if (!targetPackage || (targetPackage.companyId && targetPackage.companyId !== companyId)) {
       res.status(404).json({ message: 'Travel package not found.' });
       return;
     }
@@ -533,6 +551,7 @@ router.post('/:id/itineraries/reorder', async (req: AuthRequest, res: Response, 
       await logAudit({
         userId: req.user.id,
         userName: req.user.name,
+        companyId,
         action: 'UPDATE',
         entity: 'PACKAGE',
         entityId: id,
@@ -553,13 +572,14 @@ router.post('/:id/itineraries/day/:dayId/copy', async (req: AuthRequest, res: Re
   try {
     const id = String(req.params.id);
     const dayId = String(req.params.dayId);
+    const companyId = req.user!.companyId;
 
     const targetPackage = await prisma.package.findUnique({
       where: { id },
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
 
-    if (!targetPackage) {
+    if (!targetPackage || (targetPackage.companyId && targetPackage.companyId !== companyId)) {
       res.status(404).json({ message: 'Travel package not found.' });
       return;
     }
@@ -628,6 +648,7 @@ router.post('/:id/itineraries/day/:dayId/copy', async (req: AuthRequest, res: Re
       await logAudit({
         userId: req.user.id,
         userName: req.user.name,
+        companyId,
         action: 'CREATE',
         entity: 'PACKAGE',
         entityId: id,
@@ -653,13 +674,14 @@ router.delete('/:id/itineraries/day/:dayIdentifier', async (req: AuthRequest, re
   try {
     const id = String(req.params.id);
     const dayIdentifier = String(req.params.dayIdentifier);
+    const companyId = req.user!.companyId;
 
     const targetPackage = await prisma.package.findUnique({
       where: { id },
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
 
-    if (!targetPackage) {
+    if (!targetPackage || (targetPackage.companyId && targetPackage.companyId !== companyId)) {
       res.status(404).json({ message: 'Travel package not found.' });
       return;
     }
@@ -716,7 +738,9 @@ router.delete('/:id/itineraries/day/:dayIdentifier', async (req: AuthRequest, re
 // Export packages to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const packages = await prisma.package.findMany({
+      where: { companyId },
       include: {
         _count: { select: { bookings: true, leads: true } },
       },
@@ -744,14 +768,16 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'EXPORT',
       entity: 'PACKAGE',
       details: `Exported ${packages.length} package records to Excel (.xlsx)`,
       ipAddress: req.ip,
     });
 
+    const filePrefix = req.user?.company?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'packages';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=ooting-packages-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${filePrefix}-packages-${Date.now()}.xlsx`);
     res.send(buffer);
   } catch (error) {
     next(error);
@@ -762,6 +788,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
+    const companyId = req.user!.companyId;
     const pkg = await prisma.package.findUnique({
       where: { id },
       include: {
@@ -769,7 +796,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!pkg) {
+    if (!pkg || (pkg.companyId && pkg.companyId !== companyId)) {
       res.status(404).json({ message: 'Package not found.' });
       return;
     }
@@ -791,6 +818,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
+      companyId,
       action: 'DELETE',
       entity: 'PACKAGE',
       entityId: id,
@@ -998,7 +1026,8 @@ router.get('/destinations/places', async (req: AuthRequest, res: Response, next)
     const state = (req.query.state as string || '').trim();
     const district = (req.query.district as string || '').trim();
 
-    const where: any = { isDeleted: false };
+    const companyId = req.user!.companyId;
+    const where: any = { isDeleted: false, OR: [{ companyId }, { companyId: null }] };
     if (state) where.state = { equals: state };
     if (district) where.district = { equals: district };
 
@@ -1007,8 +1036,8 @@ router.get('/destinations/places', async (req: AuthRequest, res: Response, next)
       orderBy: { name: 'asc' },
     });
 
-    const setting = await prisma.companySetting.findUnique({
-      where: { key: 'custom_destination_places' },
+    const setting = await prisma.companySetting.findFirst({
+      where: { key: 'custom_destination_places', ...(companyId ? { companyId } : {}) },
     });
 
     let legacyPlaces: any[] = [];
@@ -1058,6 +1087,7 @@ router.get('/destinations/places', async (req: AuthRequest, res: Response, next)
 router.post('/destinations/places', async (req: AuthRequest, res: Response, next) => {
   try {
     const { name, state, district, description, imageUrl, views, category, suggestedDuration, distanceFromCenter, activities, notes } = req.body;
+    const companyId = req.user!.companyId;
 
     if (!name || !name.trim()) {
       res.status(400).json({ message: 'Place name is required.' });
@@ -1070,12 +1100,13 @@ router.post('/destinations/places', async (req: AuthRequest, res: Response, next
 
     // Check duplicate in DB
     let place = await prisma.place.findFirst({
-      where: { name: cleanName, district: cleanDistrict, state: cleanState, isDeleted: false },
+      where: { name: cleanName, district: cleanDistrict, state: cleanState, isDeleted: false, ...(companyId ? { companyId } : {}) },
     });
 
     if (!place) {
       place = await prisma.place.create({
         data: {
+          companyId,
           name: cleanName,
           state: cleanState,
           district: cleanDistrict,
