@@ -74,23 +74,23 @@ const renderRouteSegments = (text: string) => {
       <span className="inline">
         {segments.map((seg, idx) => (
           <React.Fragment key={idx}>
-            <span className={idx === segments.length - 1 ? 'text-[#C91F28] font-black' : 'text-slate-950 font-black'}>
+            <span className="text-[#1E3A8A] font-bold">
               {seg.trim()}
             </span>
             {idx < segments.length - 1 && (
-              <span className="text-[#C91F28] font-black mx-2 text-base">→</span>
+              <span className="text-[#C91F28] font-bold mx-1.5 text-sm">→</span>
             )}
           </React.Fragment>
         ))}
       </span>
     );
   }
-  return <span className="text-slate-950 font-black">{text}</span>;
+  return <span className="text-[#1E3A8A] font-bold">{text}</span>;
 };
 
 const renderColoredDayTitle = (rawTitle: string) => {
   const cleanTitle = (rawTitle || '').replace(/^Day\s*\d+:\s*/i, '').trim();
-  if (!cleanTitle) return <span className="text-slate-950 font-black">Day Tour Schedule</span>;
+  if (!cleanTitle) return <span className="text-[#1E3A8A] font-bold">Day Tour Schedule</span>;
 
   // If title has a pipe '|' separating route and subtitle: e.g. "Mangalore Airport → Coorg | Scenic Journey to the Coffee Hills"
   if (cleanTitle.includes('|')) {
@@ -101,8 +101,8 @@ const renderColoredDayTitle = (rawTitle: string) => {
     return (
       <span className="inline">
         {renderRouteSegments(mainRoute)}
-        <span className="text-[#C91F28] font-black mx-2">|</span>
-        <span className="text-[#C91F28] font-extrabold">{subTheme}</span>
+        <span className="text-[#C91F28] font-bold mx-2">|</span>
+        <span className="text-[#C91F28] font-medium">{subTheme}</span>
       </span>
     );
   }
@@ -115,9 +115,9 @@ const renderColoredDayTitle = (rawTitle: string) => {
 
     return (
       <span className="inline">
-        <span className="text-slate-950 font-black">{dest}</span>
-        <span className="text-[#C91F28] font-black mx-2">:</span>
-        <span className="text-[#C91F28] font-extrabold">{desc}</span>
+        <span className="text-[#1E3A8A] font-bold">{dest}</span>
+        <span className="text-[#C91F28] font-bold mx-1.5">:</span>
+        <span className="text-[#C91F28] font-medium">{desc}</span>
       </span>
     );
   }
@@ -131,8 +131,8 @@ const renderColoredDayTitle = (rawTitle: string) => {
     return (
       <span className="inline">
         {renderRouteSegments(dest)}
-        <span className="text-[#C91F28] font-black mx-2">—</span>
-        <span className="text-[#C91F28] font-extrabold">{desc}</span>
+        <span className="text-[#C91F28] font-bold mx-2">—</span>
+        <span className="text-[#C91F28] font-medium">{desc}</span>
       </span>
     );
   }
@@ -499,96 +499,96 @@ export const ItineraryPdfView: React.FC = () => {
         </div>
 
         {/* Package Title Banner */}
-        <div className="px-8 py-4 bg-gradient-to-r from-red-50/80 via-rose-50/50 to-white border-b border-slate-200">
+        <div className="px-8 py-3.5 bg-gradient-to-r from-red-50/70 via-rose-50/30 to-white border-b border-slate-200">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="inline-block px-3 py-0.5 bg-[#C91F28] text-white text-[11px] font-black uppercase tracking-wider rounded-md shadow-2xs">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-block px-2.5 py-0.5 bg-[#C91F28] text-white text-[10.5px] font-bold uppercase tracking-wider rounded">
                   Official Tour Itinerary
                 </span>
-                <span className="text-xs sm:text-sm font-black text-[#C91F28]">
+                <span className="text-xs font-bold text-[#C91F28]">
                   • {itineraries.length} Days Planned
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight leading-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-[#1E3A8A] tracking-tight leading-snug">
                 {pkg.packageName}
               </h1>
               {/* Clean Icon Badges without raw bullets */}
-              <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-800 mt-2.5 font-medium">
-                <span className="inline-flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs font-bold text-slate-900">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700 mt-2 font-medium">
+                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs font-semibold text-slate-800">
                   <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
                   <span>{pkg.destination}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs font-bold text-slate-900">
+                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs font-semibold text-slate-800">
                   <Clock className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
                   <span>{pkg.duration}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs font-bold text-slate-900">
-                  <Compass className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs font-semibold text-slate-800">
+                  <Compass className="w-3.5 h-3.5 text-[#1E3A8A] shrink-0" />
                   <span className="capitalize">{pkg.packageType.toLowerCase()} Package</span>
                 </span>
               </div>
             </div>
 
             <div className="text-right">
-              <span className="text-[11px] text-slate-500 uppercase tracking-wider font-extrabold block">Starting Price</span>
-              <span className="text-2xl sm:text-3xl font-black text-[#C91F28] block">
+              <span className="text-[10.5px] text-slate-500 uppercase tracking-wider font-bold block">Starting Price</span>
+              <span className="text-2xl font-bold text-[#C91F28] block">
                 ₹{Number(pkg.price).toLocaleString('en-IN')}
               </span>
-              <span className="text-[10.5px] text-slate-500 font-bold block">Per Person (All Inclusive)</span>
+              <span className="text-[10px] text-slate-500 font-medium block">Per Person (All Inclusive)</span>
             </div>
           </div>
         </div>
 
         {/* Tour Overview */}
-        <div className="px-8 py-4 border-b border-slate-200/80 bg-slate-50/50">
-          <div className="flex items-center gap-2 mb-2.5">
-            <span className="w-2 h-5 bg-[#C91F28] rounded-full inline-block"></span>
-            <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-[#C91F28]">
+        <div className="px-8 py-3.5 border-b border-slate-100 bg-slate-50/40">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
+            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#1E3A8A]">
               Tour Overview & Highlights
             </h3>
           </div>
-          <p className="text-[14.5px] sm:text-[15px] text-slate-800 leading-relaxed whitespace-pre-line font-medium">
+          <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-line font-normal">
             {pkg.description}
           </p>
         </div>
 
         {/* Detailed Day-by-Day Itinerary Section (Starts directly on Page 1) */}
-        <div className="px-8 py-4 space-y-4">
-          <div className="flex items-center justify-between border-b-2 border-red-100 pb-2.5">
+        <div className="px-8 py-4 space-y-3.5">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-5 bg-[#C91F28] rounded-full inline-block"></span>
-              <h2 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-950">
+              <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
+              <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#1E3A8A]">
                 Detailed Day-by-Day Travel Schedule
               </h2>
             </div>
-            <span className="px-3 py-1 bg-red-50 text-[#C91F28] border border-red-200 rounded-full text-xs font-bold shadow-2xs">
+            <span className="px-2.5 py-0.5 bg-red-50 text-[#C91F28] border border-red-200 rounded-full text-xs font-bold">
               {itineraries.length} Days Planned
             </span>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {itineraries.map((day, idx) => {
               const hotelPhotos = getHotelPhotos(day);
 
               return (
                 <div
                   key={day.id || idx}
-                  className={`itinerary-day-card ${idx === 0 ? 'itinerary-day-1' : 'page-break-avoid'} border border-slate-200/90 rounded-xl overflow-hidden shadow-2xs bg-white`}
+                  className={`itinerary-day-card ${idx === 0 ? 'itinerary-day-1' : 'page-break-avoid'} border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white`}
                 >
                   {/* Day Header Bar */}
-                  <div className="px-4 py-3 bg-gradient-to-r from-red-50/90 via-rose-50/40 to-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+                  <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#C91F28] via-rose-600 to-[#991B1B] text-white font-black text-xs sm:text-[13px] uppercase tracking-wider shadow-xs flex items-center justify-center shrink-0">
+                      <span className="px-2.5 py-1 rounded-md bg-[#C91F28] text-white font-bold text-xs uppercase tracking-wider shadow-2xs shrink-0">
                         Day {day.dayNumber}
                       </span>
                       <div>
-                        <h3 className="font-display font-black text-lg sm:text-[19px] text-slate-950 leading-snug tracking-tight">
+                        <h3 className="font-bold text-sm sm:text-base text-[#1E3A8A] leading-snug">
                           {renderColoredDayTitle(day.title)}
                         </h3>
                         {(day as any).date && (
-                          <span className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] text-[#C91F28] font-black mt-1">
-                            <Calendar className="w-3.5 h-3.5 text-[#C91F28]" />
+                          <span className="inline-flex items-center gap-1 text-[11px] text-[#C91F28] font-semibold mt-0.5">
+                            <Calendar className="w-3 h-3 text-[#C91F28]" />
                             {(day as any).date}
                           </span>
                         )}
@@ -596,8 +596,8 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
 
                     {(day.startTime || day.endTime) && (
-                      <div className="text-xs sm:text-[13px] text-slate-800 flex items-center gap-1.5 font-bold bg-white px-3 py-1 rounded-lg border border-rose-200 shadow-2xs">
-                        <Clock className="w-3.5 h-3.5 text-[#C91F28]" />
+                      <div className="text-xs text-slate-700 flex items-center gap-1.5 font-medium bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+                        <Clock className="w-3 h-3 text-[#C91F28]" />
                         <span>
                           {day.startTime || 'Start'} {day.endTime ? `– ${day.endTime}` : ''}
                         </span>
@@ -606,44 +606,23 @@ export const ItineraryPdfView: React.FC = () => {
                   </div>
 
                   {/* Day Content Body */}
-                  <div className="p-4 space-y-3.5">
-                    <p className="text-[15px] sm:text-[15.5px] text-slate-800 leading-[1.7] whitespace-pre-line font-medium">
+                  <div className="p-4 space-y-3">
+                    <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-line font-normal">
                       {day.description}
                     </p>
 
                     {((day as any).highlights || (day as any).travelDetails) && (
-                      <div className="p-4 rounded-xl bg-gradient-to-r from-amber-50/90 via-orange-50/40 to-amber-50/20 border border-amber-300/90 space-y-3 shadow-2xs">
+                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1.5">
                         {(day as any).highlights && (
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 text-white text-xs font-black uppercase tracking-wider shadow-xs">
-                                <Sparkles className="w-3.5 h-3.5" /> Highlights
-                              </span>
-                              <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wide">
-                                Key Sightseeing Points
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {parseCommaList((day as any).highlights).map((item, hIdx) => (
-                                <span
-                                  key={hIdx}
-                                  className="inline-flex items-center gap-2 bg-white text-amber-950 border border-amber-300/90 px-3 py-1.5 rounded-lg text-[13px] sm:text-[13.5px] font-bold shadow-2xs hover:border-amber-400"
-                                >
-                                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 shadow-2xs"></span>
-                                  <span>{item}</span>
-                                </span>
-                              ))}
-                            </div>
+                          <div className="text-slate-800 leading-relaxed">
+                            <strong className="text-[#1E3A8A] font-bold">Highlights:</strong>{' '}
+                            {(day as any).highlights}
                           </div>
                         )}
                         {(day as any).travelDetails && (
-                          <div className="pt-2.5 border-t border-amber-200/80 flex items-start gap-2.5">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-100 text-blue-900 border border-blue-200 text-xs font-black uppercase tracking-wider shrink-0 mt-0.5 shadow-2xs">
-                              <Car className="w-3.5 h-3.5 text-blue-600" /> Travel & Logistics
-                            </span>
-                            <span className="text-xs sm:text-[13.5px] text-slate-800 font-semibold leading-relaxed">
-                              {(day as any).travelDetails}
-                            </span>
+                          <div className="text-slate-800 leading-relaxed">
+                            <strong className="text-[#C91F28] font-bold">Travel & Logistics:</strong>{' '}
+                            {(day as any).travelDetails}
                           </div>
                         )}
                       </div>
@@ -752,51 +731,23 @@ export const ItineraryPdfView: React.FC = () => {
 
                     {/* Places & Activities */}
                     {(day.places || day.activities) && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs border-t border-slate-200/80">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 text-xs border-t border-slate-100">
                         {day.places && (
-                          <div className="p-3.5 rounded-xl bg-gradient-to-r from-rose-50/90 via-red-50/40 to-rose-50/20 border border-rose-300/80 space-y-2.5 shadow-2xs">
-                            <div className="flex items-center justify-between">
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-[#C91F28] to-rose-700 text-white text-xs font-black uppercase tracking-wider shadow-xs">
-                                <MapPin className="w-3.5 h-3.5" /> Places Visited
-                              </span>
-                              <span className="text-[11px] font-bold text-rose-800">
-                                {parseCommaList(day.places).length} Locations
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {parseCommaList(day.places).map((place, pIdx) => (
-                                <span
-                                  key={pIdx}
-                                  className="inline-flex items-center gap-1.5 bg-white text-rose-950 border border-rose-300/90 px-3 py-1.5 rounded-lg text-[13px] sm:text-[13.5px] font-bold shadow-2xs hover:border-rose-400"
-                                >
-                                  <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
-                                  <span>{place}</span>
-                                </span>
-                              ))}
+                          <div className="flex items-start gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-[#C91F28] mt-0.5 shrink-0" />
+                            <div>
+                              <span className="font-bold text-[#1E3A8A] block text-xs">Places Visited:</span>
+                              <span className="text-slate-700 text-xs leading-relaxed">{day.places}</span>
                             </div>
                           </div>
                         )}
 
                         {day.activities && (
-                          <div className="p-3.5 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/40 to-emerald-50/20 border border-emerald-300/80 space-y-2.5 shadow-2xs">
-                            <div className="flex items-center justify-between">
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-xs font-black uppercase tracking-wider shadow-xs">
-                                <Compass className="w-3.5 h-3.5" /> Key Activities
-                              </span>
-                              <span className="text-[11px] font-bold text-emerald-800">
-                                {parseCommaList(day.activities).length} Experiences
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {parseCommaList(day.activities).map((act, aIdx) => (
-                                <span
-                                  key={aIdx}
-                                  className="inline-flex items-center gap-2 bg-white text-emerald-950 border border-emerald-300/90 px-3 py-1.5 rounded-lg text-[13px] sm:text-[13.5px] font-bold shadow-2xs hover:border-emerald-400"
-                                >
-                                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 shadow-2xs"></span>
-                                  <span>{act}</span>
-                                </span>
-                              ))}
+                          <div className="flex items-start gap-1.5">
+                            <Compass className="w-3.5 h-3.5 text-[#1E3A8A] mt-0.5 shrink-0" />
+                            <div>
+                              <span className="font-bold text-[#1E3A8A] block text-xs">Key Activities:</span>
+                              <span className="text-slate-700 text-xs leading-relaxed">{day.activities}</span>
                             </div>
                           </div>
                         )}
@@ -805,18 +756,18 @@ export const ItineraryPdfView: React.FC = () => {
 
                     {/* Hotel Accommodation Card: Prominent Showcase with Captions */}
                     {day.hotelName && day.hotelName.trim() && (
-                      <div className="mt-3 p-4 rounded-xl bg-gradient-to-r from-amber-50/60 via-orange-50/30 to-amber-50/20 border border-amber-200/90 shadow-2xs space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-amber-200/70 pb-2.5">
-                          <div className="flex flex-wrap items-center gap-2.5">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#C91F28] text-white text-xs font-black uppercase tracking-wider shadow-xs">
-                              <Building2 className="w-3.5 h-3.5" />
+                      <div className="mt-3 p-3.5 rounded-xl bg-slate-50/80 border border-slate-200 shadow-2xs space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200/80 pb-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 text-[#1E3A8A] border border-blue-200 text-[11px] font-bold uppercase tracking-wider">
+                              <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
                               <span>Overnight Stay & Accommodation</span>
                             </span>
-                            <h4 className="font-black text-base text-slate-950">
+                            <h4 className="font-bold text-sm text-[#1E3A8A]">
                               {day.hotelName}
                             </h4>
                             {day.hotelStarCategory && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold">
                                 <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
                                 {day.hotelStarCategory}
                               </span>
@@ -825,8 +776,8 @@ export const ItineraryPdfView: React.FC = () => {
 
                           <div className="flex items-center gap-2">
                             {day.mealPlan && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-xs font-bold text-amber-900 shadow-2xs">
-                                <Coffee className="w-3.5 h-3.5 text-amber-600" />
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-xs font-bold text-slate-800 shadow-2xs">
+                                <Coffee className="w-3 h-3 text-[#C91F28]" />
                                 <span>{day.mealPlan}</span>
                               </span>
                             )}
@@ -834,23 +785,23 @@ export const ItineraryPdfView: React.FC = () => {
                         </div>
 
                         {/* Location & Timings */}
-                        <div className="flex flex-wrap items-center justify-between text-xs text-slate-700 gap-2">
+                        <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 gap-2">
                           {day.hotelLocation && (
-                            <div className="flex items-center gap-1.5 text-xs sm:text-[13px]">
+                            <div className="flex items-center gap-1.5 text-xs">
                               <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
-                              <span className="font-bold text-slate-800">{day.hotelLocation}</span>
+                              <span className="font-medium text-slate-800">{day.hotelLocation}</span>
                             </div>
                           )}
                           {((day as any).hotelCheckIn || (day as any).hotelCheckOut) && (
-                            <div className="flex items-center gap-2 text-xs font-semibold">
+                            <div className="flex items-center gap-2 text-xs font-medium">
                               {(day as any).hotelCheckIn && (
-                                <span className="bg-white px-2.5 py-1 rounded-md border border-amber-200 text-slate-800">
-                                  Check-in: <strong className="text-slate-950 font-black">{(day as any).hotelCheckIn}</strong>
+                                <span className="bg-white px-2 py-0.5 rounded border border-slate-200">
+                                  Check-in: <strong className="text-slate-900">{(day as any).hotelCheckIn}</strong>
                                 </span>
                               )}
                               {(day as any).hotelCheckOut && (
-                                <span className="bg-white px-2.5 py-1 rounded-md border border-amber-200 text-slate-800">
-                                  Check-out: <strong className="text-slate-950 font-black">{(day as any).hotelCheckOut}</strong>
+                                <span className="bg-white px-2 py-0.5 rounded border border-slate-200">
+                                  Check-out: <strong className="text-slate-900">{(day as any).hotelCheckOut}</strong>
                                 </span>
                               )}
                             </div>
@@ -858,7 +809,7 @@ export const ItineraryPdfView: React.FC = () => {
                         </div>
 
                         {day.hotelDetails && (
-                          <p className="text-xs sm:text-[13px] text-slate-700 leading-relaxed font-medium">
+                          <p className="text-xs text-slate-600 leading-relaxed font-normal">
                             {day.hotelDetails}
                           </p>
                         )}
@@ -867,7 +818,7 @@ export const ItineraryPdfView: React.FC = () => {
                         {hotelPhotos.length > 0 && (
                           <div className="pt-1">
                             {hotelPhotos.length === 1 ? (
-                              <div className="w-full bg-white rounded-xl border border-amber-200/90 overflow-hidden shadow-2xs">
+                              <div className="w-full bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
                                 <div
                                   className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
                                   style={{ width: '100%', height: '140px', maxHeight: '140px', minHeight: '140px' }}
@@ -880,12 +831,12 @@ export const ItineraryPdfView: React.FC = () => {
                                     referrerPolicy="no-referrer"
                                   />
                                 </div>
-                                <div className="px-3 py-1.5 bg-amber-50/70 border-t border-amber-200/70 flex items-center justify-between text-xs">
-                                  <span className="font-bold text-amber-950 flex items-center gap-1.5">
+                                <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+                                  <span className="font-bold text-[#1E3A8A] flex items-center gap-1.5">
                                     <Building2 className="w-3.5 h-3.5 text-[#C91F28]" />
                                     <span>{hotelPhotos[0].caption || 'Hotel Accommodation'}</span>
                                   </span>
-                                  <span className="text-xs text-amber-800 font-bold">{day.hotelName}</span>
+                                  <span className="text-xs text-slate-700 font-bold">{day.hotelName}</span>
                                 </div>
                               </div>
                             ) : (
@@ -893,7 +844,7 @@ export const ItineraryPdfView: React.FC = () => {
                                 {hotelPhotos.slice(0, 3).map((hPhoto, hIdx) => (
                                   <div
                                     key={hIdx}
-                                    className="flex flex-col bg-white rounded-xl border border-amber-200/90 overflow-hidden shadow-2xs"
+                                    className="flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs"
                                   >
                                     <div
                                       className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
@@ -907,9 +858,9 @@ export const ItineraryPdfView: React.FC = () => {
                                         referrerPolicy="no-referrer"
                                       />
                                     </div>
-                                    <div className="px-2.5 py-1 bg-amber-50/70 border-t border-amber-200/70 flex items-center gap-1.5 text-[11px]">
+                                    <div className="px-2.5 py-1 bg-slate-50 border-t border-slate-200 flex items-center gap-1.5 text-[11px]">
                                       <Building2 className="w-3 h-3 text-[#C91F28] shrink-0" />
-                                      <span className="truncate font-bold text-amber-950">
+                                      <span className="truncate font-bold text-slate-800">
                                         {hPhoto.caption || (hIdx === 0 ? 'Main Property' : 'Room Feature')}
                                       </span>
                                     </div>
@@ -928,9 +879,9 @@ export const ItineraryPdfView: React.FC = () => {
           </div>
 
           {/* Important Terms & Booking Notice */}
-          <div className="p-4 border border-slate-200/90 rounded-xl text-[13px] sm:text-[13.5px] text-slate-700 leading-relaxed bg-white page-break-avoid shadow-2xs">
+          <div className="p-3.5 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed bg-white page-break-avoid">
             <p>
-              <strong className="text-slate-950 font-black">Booking Notice:</strong> All hotel accommodations and vehicle availability are subject to confirmation at the time of deposit payment. Rates are valid for 15 days from quote generation.
+              <strong className="text-slate-900 font-bold">Booking Notice:</strong> All hotel accommodations and vehicle availability are subject to confirmation at the time of deposit payment. Rates are valid for 15 days from quote generation.
             </p>
           </div>
 
@@ -943,36 +894,36 @@ export const ItineraryPdfView: React.FC = () => {
           <div className="px-8 sm:px-12 py-8 max-w-4xl mx-auto w-full space-y-6">
             {/* Tour Terms, Inclusions & Exclusions */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b-2 border-red-100 pb-2.5">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-5 bg-[#C91F28] rounded-full inline-block"></span>
-                  <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-950">
+                  <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
+                  <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#1E3A8A]">
                     Tour Terms, Inclusions & Exclusions
                   </h3>
                 </div>
-                <span className="text-xs font-black text-[#C91F28] uppercase tracking-wide">
+                <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide">
                   Official Travel Scope
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 {/* Inclusions List */}
-                <div className="bg-emerald-50/60 p-4 sm:p-5 rounded-2xl border border-emerald-300 shadow-2xs flex flex-col justify-between">
+                <div className="bg-emerald-50/50 p-4 sm:p-5 rounded-2xl border border-emerald-200 shadow-2xs flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between pb-2.5 border-b border-emerald-200/90">
-                      <div className="flex items-center gap-2 font-black text-sm sm:text-base text-emerald-950">
-                        <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 shrink-0" />
+                    <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
+                      <div className="flex items-center gap-2 font-bold text-sm text-[#1E3A8A]">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                         <span>Tour Inclusions</span>
                       </div>
-                      <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wide">Included in Package</span>
+                      <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">Included in Package</span>
                     </div>
-                    <ul className="space-y-2.5 pt-3">
+                    <ul className="space-y-2 pt-2.5">
                       {parseBulletPoints(
                         pkg.inclusions ||
                           'Hotel accommodation in selected room category\nDaily breakfast at hotel restaurant\nPrivate dedicated AC vehicle for transfers and sightseeing\nDriver beta, toll charges, fuel, and parking fees\nAll applicable state taxes and GST'
                       ).map((pt, i) => (
-                        <li key={i} className="flex items-start gap-2.5 text-xs sm:text-[13.5px] text-slate-900 leading-snug font-medium">
-                          <span className="w-4.5 h-4.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-[11px] shrink-0 mt-0.5">
+                        <li key={i} className="flex items-start gap-2 text-xs sm:text-[13px] text-slate-800 leading-snug">
+                          <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
                             ✓
                           </span>
                           <span>{pt}</span>
@@ -983,22 +934,22 @@ export const ItineraryPdfView: React.FC = () => {
                 </div>
 
                 {/* Exclusions List */}
-                <div className="bg-rose-50/60 p-4 sm:p-5 rounded-2xl border border-rose-300 shadow-2xs flex flex-col justify-between">
+                <div className="bg-rose-50/50 p-4 sm:p-5 rounded-2xl border border-rose-200 shadow-2xs flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between pb-2.5 border-b border-rose-200/90">
-                      <div className="flex items-center gap-2 font-black text-sm sm:text-base text-rose-950">
-                        <XCircle className="w-4.5 h-4.5 text-rose-600 shrink-0" />
+                    <div className="flex items-center justify-between pb-2 border-b border-rose-200">
+                      <div className="flex items-center gap-2 font-bold text-sm text-[#1E3A8A]">
+                        <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                         <span>Tour Exclusions</span>
                       </div>
-                      <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wide">Not Included</span>
+                      <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wide">Not Included</span>
                     </div>
-                    <ul className="space-y-2.5 pt-3">
+                    <ul className="space-y-2 pt-2.5">
                       {parseBulletPoints(
                         pkg.exclusions ||
                           'Airfare, train fare, or bus tickets to destination\nEntry monument tickets, safari, camera fees, or boat rides\nLunch, dinner, laundry, telephone calls, and room mini-bar\nTravel, baggage, or medical insurance\nAny tips or personal expenses not mentioned in inclusions'
                       ).map((pt, i) => (
-                        <li key={i} className="flex items-start gap-2.5 text-xs sm:text-[13.5px] text-slate-900 leading-snug font-medium">
-                          <span className="w-4.5 h-4.5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-black text-[11px] shrink-0 mt-0.5">
+                        <li key={i} className="flex items-start gap-2 text-xs sm:text-[13px] text-slate-800 leading-snug">
+                          <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
                             ✕
                           </span>
                           <span>{pt}</span>
@@ -1026,23 +977,23 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
 
               {/* Large Font THANK YOU */}
-              <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-slate-900 leading-tight text-center">
+              <h1 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-[#1E3A8A] leading-tight text-center">
                 THANK YOU
               </h1>
 
               {/* Below One Line */}
-              <p className="text-sm font-medium text-slate-600 italic mt-2 max-w-lg mx-auto text-center leading-relaxed">
+              <p className="text-xs sm:text-sm font-medium text-slate-600 italic mt-1.5 max-w-lg mx-auto text-center leading-relaxed">
                 Thank you for choosing Ooting — we look forward to curating your next unforgettable journey.
               </p>
 
               {/* Red Accent Divider */}
-              <div className="w-16 h-1 bg-[#C91F28] rounded-full mx-auto my-4"></div>
+              <div className="w-16 h-1 bg-[#C91F28] rounded-full mx-auto my-3"></div>
 
               {/* Professional Company Details Card */}
               <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 sm:p-6 text-left shadow-2xs">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3.5 mb-3.5 border-b border-slate-200 gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 mb-3 border-b border-slate-200 gap-2">
                   <div>
-                    <h3 className="font-extrabold text-base sm:text-lg text-slate-900 uppercase tracking-tight">
+                    <h3 className="font-bold text-base sm:text-lg text-[#1E3A8A] uppercase tracking-tight">
                       {(company.name || 'OOTING TOURS & TRAVELS').toUpperCase()}
                     </h3>
                     <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
