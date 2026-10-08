@@ -577,30 +577,44 @@ export const ItineraryPdfView: React.FC = () => {
                   className={`itinerary-day-card ${idx === 0 ? 'itinerary-day-1' : 'page-break-avoid'} border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white`}
                 >
                   {/* Day Header Bar */}
-                  <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="px-2.5 py-1 rounded-md bg-[#C91F28] text-white font-bold text-xs uppercase tracking-wider shadow-2xs shrink-0">
-                        Day {day.dayNumber}
-                      </span>
-                      <div>
+                  <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200">
+                    {((day as any).date || day.startTime || day.endTime) ? (
+                      <>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-1 rounded-md bg-[#C91F28] text-white font-bold text-xs uppercase tracking-wider shadow-2xs shrink-0">
+                              Day {day.dayNumber}
+                            </span>
+                            {(day as any).date && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-xs font-bold text-slate-800 shadow-2xs whitespace-nowrap">
+                                <Calendar className="w-3.5 h-3.5 text-[#C91F28]" />
+                                <span>{(day as any).date}</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {(day.startTime || day.endTime) && (
+                            <div className="text-xs text-slate-700 flex items-center gap-1.5 font-medium bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs whitespace-nowrap shrink-0">
+                              <Clock className="w-3.5 h-3.5 text-[#C91F28]" />
+                              <span>
+                                {day.startTime || 'Start'} {day.endTime ? `– ${day.endTime}` : ''}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
                         <h3 className="font-bold text-sm sm:text-base text-[#1E3A8A] leading-snug">
                           {renderColoredDayTitle(day.title)}
                         </h3>
-                        {(day as any).date && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-[#C91F28] font-semibold mt-0.5">
-                            <Calendar className="w-3 h-3 text-[#C91F28]" />
-                            {(day as any).date}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {(day.startTime || day.endTime) && (
-                      <div className="text-xs text-slate-700 flex items-center gap-1.5 font-medium bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-                        <Clock className="w-3 h-3 text-[#C91F28]" />
-                        <span>
-                          {day.startTime || 'Start'} {day.endTime ? `– ${day.endTime}` : ''}
+                      </>
+                    ) : (
+                      <div className="flex items-start gap-2.5">
+                        <span className="px-2.5 py-1 rounded-md bg-[#C91F28] text-white font-bold text-xs uppercase tracking-wider shadow-2xs shrink-0 mt-0.5">
+                          Day {day.dayNumber}
                         </span>
+                        <h3 className="font-bold text-sm sm:text-base text-[#1E3A8A] leading-snug">
+                          {renderColoredDayTitle(day.title)}
+                        </h3>
                       </div>
                     )}
                   </div>
