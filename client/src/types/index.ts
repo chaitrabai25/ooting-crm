@@ -176,6 +176,7 @@ export interface Package {
   _count?: {
     bookings: number;
     leads: number;
+    itineraries?: number;
   };
 }
 

@@ -16,6 +16,7 @@ import {
   Loader2,
   Globe,
   FileText,
+  User,
 } from 'lucide-react';
 import { Booking } from '../../types/index.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
@@ -383,6 +384,14 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             }}
           >
+            {/* Embedded Font Definition to guarantee Plus Jakarta Sans in html2canvas & direct Print */}
+            <style>{`
+              @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+              #invoice-document, #invoice-document * {
+                font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+              }
+            `}</style>
+
             {/* Top Brand Accent */}
             <div
               className="w-full h-2.5 bg-[#C91F28] overflow-hidden relative shrink-0"
@@ -523,9 +532,12 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
               <div className="grid grid-cols-2 gap-3 py-1 border-b border-slate-200 text-xs">
                 {/* Billed To Customer */}
                 <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
-                  <span className="text-xs font-black text-slate-900 uppercase tracking-wider block mb-1">
-                    Billed To (Customer Details)
-                  </span>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <User className="w-3.5 h-3.5 text-[#C91F28]" />
+                    <span className="text-[11px] font-black text-[#C91F28] uppercase tracking-wider block">
+                      Billed To (Customer Details)
+                    </span>
+                  </div>
                   <p className="font-bold text-slate-900 text-xs">{booking.customer?.fullName || 'Guest Customer'}</p>
                   {booking.customer?.phone && (
                     <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
@@ -549,15 +561,18 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
 
                 {/* Booking & Journey Information */}
                 <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
-                  <span className="text-xs font-black text-slate-900 uppercase tracking-wider block mb-1">
-                    Booking & Journey Overview
-                  </span>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Calendar className="w-3.5 h-3.5 text-[#C91F28]" />
+                    <span className="text-[11px] font-black text-[#C91F28] uppercase tracking-wider block">
+                      Booking & Journey Overview
+                    </span>
+                  </div>
                   <p className="font-bold text-slate-900 text-xs">
                     {booking.package?.packageName || 'Custom Holiday Tour'}
                   </p>
                   <div className="flex justify-between text-[11px] text-slate-600">
                     <span>Booking Reference:</span>
-                    <span className="font-mono font-semibold text-slate-900">{booking.bookingNumber}</span>
+                    <span className="font-mono font-bold text-slate-900">{booking.bookingNumber}</span>
                   </div>
                   <div className="flex justify-between text-[11px] text-slate-600">
                     <span>Travel Dates:</span>
@@ -610,9 +625,12 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 {/* Left: Banking / Remittance Details & Policy Notes */}
                 <div className="space-y-2 text-xs">
                   <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
-                    <span className="text-xs font-black text-slate-900 uppercase tracking-wider block mb-1">
-                      Bank & Remittance Details
-                    </span>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <CreditCard className="w-3.5 h-3.5 text-[#C91F28]" />
+                      <span className="text-[11px] font-black text-[#C91F28] uppercase tracking-wider block">
+                        Bank & Remittance Details
+                      </span>
+                    </div>
                     <div className="space-y-1 text-[10.5px] text-slate-600">
                       <div className="flex justify-between">
                         <span className="text-slate-500">Beneficiary:</span>
@@ -653,9 +671,12 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                   </div>
 
                   <div className="p-2 rounded-lg bg-amber-50/50 border border-amber-200/60 text-[9.5px] text-amber-950 space-y-0.5">
-                    <span className="font-black text-slate-900 block text-xs uppercase tracking-wider mb-1">
-                      Payment Terms & Cancellation Policy
-                    </span>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+                      <span className="font-black text-amber-900 block text-[11px] uppercase tracking-wider">
+                        Payment Terms & Cancellation Policy
+                      </span>
+                    </div>
                     <p className="text-slate-600 leading-tight">
                       Standard cancellation charges apply as per booking itinerary policy. Peak season & holiday bookings are non-refundable within 7 days of departure.
                     </p>

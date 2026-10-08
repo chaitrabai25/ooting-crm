@@ -27,13 +27,22 @@ globalForPrisma.prisma = prisma;
 
 
 export async function connectDB() {
-  try {
-    await prisma.$connect();
-    console.log('Successfully connected to the database.');
-  } catch (error) {
-    console.error('Failed to connect to the database:', error);
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
+  let retries = 5;
+  while (retries > 0) {
+    try {
+      await prisma.$connect();
+      console.log('Successfully connected to the database.');
+      return;
+    } catch (error) {
+      retries--;
+      console.error(`Database connection attempt failed (${retries} retries remaining):`, error);
+      if (retries === 0) {
+        if (process.env.NODE_ENV !== 'production') {
+          process.exit(1);
+        }
+      } else {
+        await new Promise((res) => setTimeout(res, 2500));
+      }
     }
   }
 }

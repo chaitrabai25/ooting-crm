@@ -241,35 +241,39 @@ export const QuotationView: React.FC = () => {
         </div>
       )}
 
-      {/* Non-Printable Action Header */}
-      <div className="flex items-center justify-between no-print">
+      {/* Executive Non-Printable Action Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md no-print">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/quotations')}
-            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            title="Return to Quotations"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900 dark:text-white">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-black text-slate-950 dark:text-white tracking-tight">
                 {quotation.quotationNumber}
               </h1>
               <Badge status={quotation.status} />
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Prepared for {quotation.customer?.fullName} • {quotation.destination}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 font-medium">
+              <span>Prepared for</span>
+              <strong className="text-slate-800 dark:text-slate-200">{quotation.customer?.fullName || 'Client'}</strong>
+              <span>•</span>
+              <span className="text-[#C91F28] font-bold">{quotation.destination}</span>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {quotation.status !== 'ACCEPTED' ? (
             <button
               type="button"
               onClick={handleApprove}
               disabled={isApproving}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
               title="Approve quotation and create confirmed booking"
             >
               {isApproving ? (
@@ -277,11 +281,11 @@ export const QuotationView: React.FC = () => {
               ) : (
                 <CheckCircle2 className="w-3.5 h-3.5" />
               )}
-              <span>{isApproving ? 'Approving...' : 'Approve & Confirm Booking'}</span>
+              <span>{isApproving ? 'Approving...' : 'Approve & Confirm'}</span>
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800">
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-800">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <span>Booking Confirmed</span>
             </span>
           )}
@@ -290,32 +294,34 @@ export const QuotationView: React.FC = () => {
             <button
               type="button"
               onClick={() => handleStatusUpdate('SENT')}
-              className="px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 cursor-pointer"
+              className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl border border-purple-300 transition-colors cursor-pointer"
             >
-              Mark Sent
+              <span>Mark Sent</span>
             </button>
           )}
 
+          {/* WhatsApp Direct Share */}
           <button
             type="button"
             onClick={handleShareWhatsApp}
             disabled={isGeneratingPdf}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#25D366] hover:bg-[#20ba5a] rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
             title="Send quotation PDF document directly to customer via WhatsApp"
           >
             <Share2 className="w-3.5 h-3.5" />
             <span>WhatsApp PDF</span>
           </button>
 
+          {/* Download Official PDF */}
           <button
             type="button"
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer"
           >
             {isGeneratingPdf ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
                 <span>Exporting...</span>
               </>
             ) : (
@@ -326,10 +332,11 @@ export const QuotationView: React.FC = () => {
             )}
           </button>
 
+          {/* Print */}
           <button
             type="button"
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-xs transition-all cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print</span>
@@ -352,6 +359,12 @@ export const QuotationView: React.FC = () => {
           fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         }}
       >
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+          #quotation-document, #quotation-document * {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          }
+        `}</style>
         {/* Top Header Wave Accent */}
         <div
           className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
@@ -480,18 +493,19 @@ export const QuotationView: React.FC = () => {
         {/* Main Body (Strict 1-Page A4 Height, Perfectly Balanced & Formal) */}
         <div className="flex-1 px-8 py-3 flex flex-col justify-start space-y-3.5 text-xs">
           {/* Row 1: Client & Journey Summary Grid with Vertical Divider Line */}
-          <div className="grid grid-cols-2 p-3 bg-slate-50/90 rounded-lg border border-slate-200">
+          <div className="grid grid-cols-2 p-3.5 bg-slate-50/90 rounded-xl border border-slate-200 shadow-2xs">
             {/* Left Column: Client Details */}
             <div className="pr-4 border-r border-slate-200">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block pb-1 mb-1.5 border-b border-slate-200">
-                Prepared For (Client Details)
+              <span className="text-[10.5px] font-black uppercase tracking-wider text-[#C91F28] block pb-1 mb-1.5 border-b border-red-100 flex items-center gap-1.5">
+                <span className="w-1.5 h-3 bg-[#C91F28] rounded-full inline-block"></span>
+                <span>Client & Guest Profile</span>
               </span>
-              <p className="font-bold text-slate-900 text-xs mb-1.5">{quotation.customer?.fullName || 'Valued Client'}</p>
-              <div className="space-y-1.5 text-[11px] text-slate-600">
+              <p className="font-black text-slate-950 text-xs mb-1.5">{quotation.customer?.fullName || 'Valued Client'}</p>
+              <div className="space-y-1.5 text-[11px] text-slate-700 font-medium">
                 {quotation.customer?.phone && (
                   <div className="flex items-center">
                     <Phone className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
-                    <span className="font-mono text-slate-800 font-medium">{quotation.customer.phone}</span>
+                    <span className="font-mono text-slate-900 font-bold">{quotation.customer.phone}</span>
                   </div>
                 )}
                 {quotation.customer?.email && (
@@ -511,29 +525,30 @@ export const QuotationView: React.FC = () => {
 
             {/* Right Column: Tour Specifications */}
             <div className="pl-4 space-y-1 text-[11px]">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block pb-1 mb-1.5 border-b border-slate-200">
-                Tour & Package Specifications
+              <span className="text-[10.5px] font-black uppercase tracking-wider text-[#C91F28] block pb-1 mb-1.5 border-b border-red-100 flex items-center gap-1.5">
+                <span className="w-1.5 h-3 bg-[#C91F28] rounded-full inline-block"></span>
+                <span>Tour Specifications</span>
               </span>
               <div className="flex justify-between pb-0.5 border-b border-slate-200/60">
-                <span className="text-slate-500 font-medium">Holiday Package:</span>
-                <span className="font-bold text-slate-900 text-right">{quotation.package?.packageName || 'Custom Holiday Itinerary'}</span>
+                <span className="text-slate-500 font-medium">Package:</span>
+                <span className="font-black text-slate-950 text-right">{quotation.package?.packageName || 'Custom Holiday Itinerary'}</span>
               </div>
               <div className="flex justify-between pb-0.5 border-b border-slate-200/60">
                 <span className="text-slate-500 font-medium">Travel Dates:</span>
-                <span className="font-semibold text-slate-900 font-mono text-right">
+                <span className="font-bold text-slate-950 font-mono text-right">
                   {quotation.travelStartDate ? new Date(quotation.travelStartDate).toLocaleDateString('en-IN') : 'TBD'} to{' '}
                   {quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}
                 </span>
               </div>
               <div className="flex justify-between pb-0.5 border-b border-slate-200/60">
                 <span className="text-slate-500 font-medium">Guests / Travelers:</span>
-                <span className="font-bold text-slate-900 text-right">
+                <span className="font-bold text-slate-950 text-right">
                   {quotation.adults} Adults{quotation.children > 0 ? `, ${quotation.children} Children` : ''}{quotation.infants > 0 ? `, ${quotation.infants} Infants` : ''}
                 </span>
               </div>
               <div className="pt-0.5">
-                <span className="text-slate-500 font-medium block text-[10px]">Itinerary Routing:</span>
-                <div className="mt-0.5 p-1 bg-white rounded border border-slate-200 text-[10px] font-semibold text-slate-800 leading-tight">
+                <span className="text-slate-500 font-medium block text-[10px]">Destination Circuit:</span>
+                <div className="mt-0.5 p-1 bg-white rounded border border-slate-200 text-[10.5px] font-bold text-slate-900 leading-tight">
                   {quotation.destination}
                 </div>
               </div>
@@ -542,36 +557,36 @@ export const QuotationView: React.FC = () => {
 
           {/* Row 2: Key Trip Arrangements Strip */}
           <div className="grid grid-cols-3 gap-2.5">
-            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+            <div className="p-2.5 rounded-xl bg-gradient-to-r from-red-50/80 to-rose-50/30 border border-red-200 shadow-2xs">
               <div className="flex items-center text-[#C91F28] mb-1">
                 <Building2 className="w-3.5 h-3.5 shrink-0 mr-1.5" />
-                <span className="font-bold text-[10px] uppercase tracking-wider text-slate-900">
+                <span className="font-black text-[10.5px] uppercase tracking-wider text-[#C91F28]">
                   Accommodation
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 leading-snug">
+              <p className="text-[10px] text-slate-800 font-medium leading-snug">
                 {quotation.accommodation || '3-Star / 4-Star Premium Resorts with Breakfast'}
               </p>
             </div>
-            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="flex items-center text-[#C91F28] mb-1">
-                <Car className="w-3.5 h-3.5 shrink-0 mr-1.5" />
-                <span className="font-bold text-[10px] uppercase tracking-wider text-slate-900">
+            <div className="p-2.5 rounded-xl bg-gradient-to-r from-blue-50/80 to-sky-50/30 border border-blue-200 shadow-2xs">
+              <div className="flex items-center text-blue-700 mb-1">
+                <Car className="w-3.5 h-3.5 shrink-0 mr-1.5 text-blue-600" />
+                <span className="font-black text-[10.5px] uppercase tracking-wider text-blue-900">
                   Vehicle & Transfers
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 leading-snug">
+              <p className="text-[10px] text-slate-800 font-medium leading-snug">
                 {quotation.cabDetails || quotation.transport || 'Dedicated AC Tourist Vehicle for all transfers'}
               </p>
             </div>
-            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="flex items-center text-[#C91F28] mb-1">
-                <Compass className="w-3.5 h-3.5 shrink-0 mr-1.5" />
-                <span className="font-bold text-[10px] uppercase tracking-wider text-slate-900">
+            <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-50/80 to-teal-50/30 border border-emerald-200 shadow-2xs">
+              <div className="flex items-center text-emerald-700 mb-1">
+                <Compass className="w-3.5 h-3.5 shrink-0 mr-1.5 text-emerald-600" />
+                <span className="font-black text-[10.5px] uppercase tracking-wider text-emerald-900">
                   Sightseeing & Activities
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 leading-snug">
+              <p className="text-[10px] text-slate-800 font-medium leading-snug">
                 {quotation.activities || 'All key sightseeing & scenic viewpoint excursions'}
               </p>
             </div>

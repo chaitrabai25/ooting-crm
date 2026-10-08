@@ -62,6 +62,14 @@ const DutySlipDocumentBody: React.FC<{
 }) => {
   return (
     <>
+      {/* Embedded Font Definition to guarantee Plus Jakarta Sans in html2canvas & direct Print */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+        #duty-slip-document, #duty-slip-document * {
+          font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+      `}</style>
+
       {/* Top Header Wave Accent */}
       <div
         className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
@@ -191,7 +199,7 @@ const DutySlipDocumentBody: React.FC<{
         <div className="grid grid-cols-2 gap-3">
           {/* Passenger / Guest Details */}
           <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/60">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-1.5 flex items-center gap-1.5">
+            <h3 className="text-[11px] font-black uppercase tracking-wider text-[#C91F28] mb-1.5 flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-[#C91F28]" />
               Guest / Passenger Details
             </h3>
@@ -219,7 +227,7 @@ const DutySlipDocumentBody: React.FC<{
 
           {/* Reporting & Schedule Details */}
           <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/60">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-1.5 flex items-center gap-1.5">
+            <h3 className="text-[11px] font-black uppercase tracking-wider text-[#C91F28] mb-1.5 flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-[#C91F28]" />
               Schedule & Reporting Details
             </h3>
@@ -254,7 +262,7 @@ const DutySlipDocumentBody: React.FC<{
         {/* Route & Vehicle Assignment */}
         <div className="border border-slate-200 rounded-lg overflow-hidden">
           <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+            <h3 className="text-[11px] font-black uppercase tracking-wider text-[#C91F28] flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-[#C91F28]" />
               Journey Route & Vehicle Assignment
             </h3>
@@ -437,7 +445,7 @@ const DutySlipDocumentBody: React.FC<{
         {/* Tariff, Driver Allowance & Financial Summary */}
         <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/70">
           <div className="flex items-center justify-between mb-1.5">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+            <h3 className="text-[11px] font-black uppercase tracking-wider text-[#C91F28] flex items-center gap-1.5">
               <CreditCard className="w-3.5 h-3.5 text-[#C91F28]" />
               Fare & Driver Allowance Summary
             </h3>

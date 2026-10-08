@@ -40,6 +40,13 @@ export async function generateA4Pdf({
     })
   );
 
+  // Pre-load web fonts so canvas never falls back to system serif/Times New Roman
+  if ((document as any).fonts && (document as any).fonts.ready) {
+    try {
+      await (document as any).fonts.ready;
+    } catch {}
+  }
+
   // Check if the container explicitly contains multi-page frames (.pdf-page)
   const pageNodes = Array.from(element.querySelectorAll<HTMLElement>('.pdf-page'));
 
@@ -59,11 +66,29 @@ export async function generateA4Pdf({
   const pageHeight = 297;
 
   const fixSvgAndStyles = (clonedDoc: Document, targetEl: HTMLElement) => {
+    // Inject Plus Jakarta Sans into cloned document head to guarantee modern sans rendering
+    if (!clonedDoc.getElementById('injected-pdf-fonts')) {
+      const fontLink = clonedDoc.createElement('link');
+      fontLink.id = 'injected-pdf-fonts';
+      fontLink.rel = 'stylesheet';
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap';
+      clonedDoc.head.appendChild(fontLink);
+
+      const fontStyle = clonedDoc.createElement('style');
+      fontStyle.textContent = `
+        * {
+          font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+      `;
+      clonedDoc.head.appendChild(fontStyle);
+    }
+
     targetEl.style.boxSizing = 'border-box';
     targetEl.style.margin = '0 auto';
     targetEl.style.boxShadow = 'none';
     targetEl.style.borderRadius = '0';
     targetEl.style.border = 'none';
+    targetEl.style.setProperty('font-family', "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", 'important');
 
     // 1. Flexbox Gap Polyfill for html2canvas (html2canvas does not natively support CSS gap)
     const flexContainers = Array.from(targetEl.querySelectorAll<HTMLElement>('.flex, [class*="gap-"]'));
