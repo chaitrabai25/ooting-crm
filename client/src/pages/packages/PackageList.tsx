@@ -392,7 +392,7 @@ export const PackageList: React.FC = () => {
                     {/* View PDF Button */}
                     <button
                       type="button"
-                      onClick={() => navigate(`/packages/${pkg.id}/pdf`)}
+                      onClick={() => navigate(`/packages/${pkg.id}/itinerary-pdf`)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-2xs transition-all cursor-pointer"
                       title="Open & Download Official PDF Itinerary"
                     >
@@ -516,7 +516,7 @@ export const PackageList: React.FC = () => {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => navigate(`/packages/${pkg.id}/pdf`)}
+                            onClick={() => navigate(`/packages/${pkg.id}/itinerary-pdf`)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-2xs"
                             title="Open PDF"
                           >

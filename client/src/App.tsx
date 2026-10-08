@@ -97,6 +97,7 @@ export const App: React.FC = () => {
                     <Route path="/packages" element={<PackageList />} />
                     <Route path="/packages/:id" element={<PackageDetail />} />
                     <Route path="/packages/:id/itinerary-pdf" element={<ItineraryPdfView />} />
+                    <Route path="/packages/:id/pdf" element={<ItineraryPdfView />} />
 
                     {/* Master Data */}
                     <Route path="/places" element={<PlaceList />} />
