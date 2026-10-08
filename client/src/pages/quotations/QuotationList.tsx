@@ -23,6 +23,7 @@ import {
   FileText,
   Calendar,
   X,
+  MapPin,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
@@ -161,11 +162,14 @@ export const QuotationList: React.FC = () => {
     {
       header: 'Destination & Package',
       render: (q) => (
-        <div className="text-xs">
-          <span className="font-semibold text-slate-800 dark:text-slate-100 block">
-            {q.destination}
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+        <div className="text-xs space-y-0.5">
+          <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+            <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+            <span className="font-bold text-slate-900 dark:text-slate-100 hover:text-[#C91F28] transition-colors">
+              {q.destination}
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 block pl-5 font-medium">
             {q.package?.packageName || 'Custom Itinerary'}
           </span>
         </div>

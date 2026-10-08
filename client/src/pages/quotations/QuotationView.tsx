@@ -19,6 +19,8 @@ import {
   Compass,
   ShieldCheck,
   XCircle,
+  Edit3,
+  Send,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -35,6 +37,40 @@ const parseListItems = (text: string | undefined | null, fallback: string[]): st
   }
   const items = text.split(',').map(s => s.trim()).filter(Boolean);
   return items.length > 0 ? items : fallback;
+};
+
+const renderDestinationCircuit = (text?: string | null) => {
+  if (!text || !text.trim()) {
+    return <span className="font-bold text-slate-700">Custom Tour Circuit</span>;
+  }
+  const raw = text.trim();
+  let parts = raw.split(/\s*[-–—→>]\s*/).filter(Boolean);
+  if (parts.length <= 1 && raw.includes(',')) {
+    parts = raw.split(/\s*,\s*/).filter(Boolean);
+  }
+
+  if (parts.length <= 1) {
+    return (
+      <span className="font-black text-slate-950 text-xs sm:text-[12px] leading-snug tracking-tight block">
+        {raw}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center flex-wrap gap-1 leading-snug">
+      {parts.map((p, idx) => (
+        <React.Fragment key={idx}>
+          <span className="font-black text-slate-950 text-[11px] tracking-tight bg-white px-2 py-0.5 rounded-md border border-red-100 shadow-2xs">
+            {p}
+          </span>
+          {idx < parts.length - 1 && (
+            <span className="text-[#C91F28] font-black text-xs px-0.5 select-none">→</span>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
 };
 
 export const QuotationView: React.FC = () => {
@@ -242,105 +278,129 @@ export const QuotationView: React.FC = () => {
       )}
 
       {/* Executive Non-Printable Action Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md no-print">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/quotations')}
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-            title="Return to Quotations"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-black text-slate-950 dark:text-white tracking-tight">
-                {quotation.quotationNumber}
-              </h1>
-              <Badge status={quotation.status} />
+      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md no-print">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          {/* Left Column: Identity & Destination Details */}
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+            <button
+              onClick={() => navigate('/quotations')}
+              className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105 active:scale-95"
+              title="Return to Quotations"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-950 dark:text-white tracking-tight font-mono">
+                  {quotation.quotationNumber}
+                </h1>
+                <Badge status={quotation.status} />
+                {quotation.status === 'DRAFT' && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/quotations/${quotation.id}/edit`)}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#C91F28] bg-slate-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+                    title="Edit Quotation Draft"
+                  >
+                    <Edit3 className="w-3 h-3 text-slate-500 hover:text-[#C91F28]" />
+                    <span>Edit</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <span className="whitespace-nowrap">Prepared for:</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">
+                  {quotation.customer?.fullName || 'Client'}
+                </span>
+                <span className="text-slate-300 dark:text-slate-700 font-bold">•</span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black text-[#C91F28] bg-red-50 dark:bg-red-950/40 border border-red-200/90 dark:border-red-900/60 shadow-2xs whitespace-nowrap">
+                  <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                  <span>{quotation.destination}</span>
+                </span>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 font-medium">
-              <span>Prepared for</span>
-              <strong className="text-slate-800 dark:text-slate-200">{quotation.customer?.fullName || 'Client'}</strong>
-              <span>•</span>
-              <span className="text-[#C91F28] font-bold">{quotation.destination}</span>
-            </p>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {quotation.status !== 'ACCEPTED' ? (
-            <button
-              type="button"
-              onClick={handleApprove}
-              disabled={isApproving}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
-              title="Approve quotation and create confirmed booking"
-            >
-              {isApproving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              )}
-              <span>{isApproving ? 'Approving...' : 'Approve & Confirm'}</span>
-            </button>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-800">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Booking Confirmed</span>
-            </span>
-          )}
-
-          {quotation.status === 'DRAFT' && (
-            <button
-              type="button"
-              onClick={() => handleStatusUpdate('SENT')}
-              className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl border border-purple-300 transition-colors cursor-pointer"
-            >
-              <span>Mark Sent</span>
-            </button>
-          )}
-
-          {/* WhatsApp Direct Share */}
-          <button
-            type="button"
-            onClick={handleShareWhatsApp}
-            disabled={isGeneratingPdf}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#25D366] hover:bg-[#20ba5a] rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
-            title="Send quotation PDF document directly to customer via WhatsApp"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            <span>WhatsApp PDF</span>
-          </button>
-
-          {/* Download Official PDF */}
-          <button
-            type="button"
-            onClick={handleDownloadPdf}
-            disabled={isGeneratingPdf}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer"
-          >
-            {isGeneratingPdf ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                <span>Exporting...</span>
-              </>
+          {/* Right Column: Actions Toolbar */}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {quotation.status !== 'ACCEPTED' ? (
+              <button
+                type="button"
+                onClick={handleApprove}
+                disabled={isApproving}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-2xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                title="Approve quotation and create confirmed booking"
+              >
+                {isApproving ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                <span>{isApproving ? 'Approving...' : 'Approve & Confirm'}</span>
+              </button>
             ) : (
-              <>
-                <Download className="w-3.5 h-3.5 text-amber-400" />
-                <span>Download PDF</span>
-              </>
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-800 shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Booking Confirmed</span>
+              </span>
             )}
-          </button>
 
-          {/* Print */}
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-xs transition-all cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print</span>
-          </button>
+            {quotation.status === 'DRAFT' && (
+              <button
+                type="button"
+                onClick={() => handleStatusUpdate('SENT')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl border border-purple-300 transition-colors cursor-pointer shrink-0"
+                title="Mark quotation as Sent to customer"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Mark Sent</span>
+              </button>
+            )}
+
+            {/* WhatsApp Direct Share */}
+            <button
+              type="button"
+              onClick={handleShareWhatsApp}
+              disabled={isGeneratingPdf}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-[#25D366] hover:bg-[#20ba5a] rounded-xl shadow-2xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
+              title="Send quotation PDF document directly to customer via WhatsApp"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>WhatsApp PDF</span>
+            </button>
+
+            {/* Download Official PDF */}
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-2xs transition-all disabled:opacity-50 cursor-pointer shrink-0"
+              title="Download official PDF document"
+            >
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                  <span>Exporting...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Download PDF</span>
+                </>
+              )}
+            </button>
+
+            {/* Print */}
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-2xs transition-all cursor-pointer shrink-0"
+              title="Print document"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -546,10 +606,18 @@ export const QuotationView: React.FC = () => {
                   {quotation.adults} Adults{quotation.children > 0 ? `, ${quotation.children} Children` : ''}{quotation.infants > 0 ? `, ${quotation.infants} Infants` : ''}
                 </span>
               </div>
-              <div className="pt-0.5">
-                <span className="text-slate-500 font-medium block text-[10px]">Destination Circuit:</span>
-                <div className="mt-0.5 p-1 bg-white rounded border border-slate-200 text-[10.5px] font-bold text-slate-900 leading-tight">
-                  {quotation.destination}
+              <div className="pt-1.5">
+                <div className="flex items-center justify-between pb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#C91F28] flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                    <span>Destination Circuit</span>
+                  </span>
+                  <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-100/90 text-[#C91F28] border border-red-200 shadow-2xs">
+                    Tour Route
+                  </span>
+                </div>
+                <div className="p-2 bg-gradient-to-r from-red-50/90 via-amber-50/40 to-slate-50 rounded-lg border-2 border-red-200/90 shadow-2xs">
+                  {renderDestinationCircuit(quotation.destination)}
                 </div>
               </div>
             </div>
