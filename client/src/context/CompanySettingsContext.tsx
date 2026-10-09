@@ -86,6 +86,12 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const refreshCompany = useCallback(async () => {
+    const token = localStorage.getItem('ooting_crm_token');
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const res = await api.get('/settings/company');
       if (res.data?.company) {
@@ -94,8 +100,10 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
         setCompany(fetched);
         localStorage.setItem('ooting_company_settings', JSON.stringify(fetched));
       }
-    } catch (err) {
-      console.warn('Could not fetch latest company settings, using defaults or cache:', err);
+    } catch (err: any) {
+      if (err.response?.status !== 401) {
+        console.warn('Could not fetch latest company settings, using defaults or cache:', err);
+      }
     } finally {
       setIsLoading(false);
     }

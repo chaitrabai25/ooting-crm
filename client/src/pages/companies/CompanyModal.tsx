@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Building2, User, Palette, Globe, Shield, AlertCircle } from 'lucide-react';
+import { X, Building2, User, Palette, Shield } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Company } from '../../types/index.js';
 import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
@@ -186,19 +186,19 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/40">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {isEdit ? `Edit Company: ${company.name}` : 'Create New Tenant Company'}
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isEdit
                   ? 'Update tenant profile, status, and white-label settings'
                   : 'Provision an isolated multi-tenant organization with its company admin'}
@@ -208,21 +208,21 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-800 px-6 bg-slate-950/20">
+        <div className="flex border-b border-slate-200 dark:border-slate-800 px-6 bg-white dark:bg-slate-950/20">
           <button
             type="button"
             onClick={() => setActiveTab('details')}
-            className={`py-3 px-4 font-semibold text-xs border-b-2 transition-colors flex items-center gap-2 ${
+            className={`py-3 px-4 font-semibold text-xs border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
               activeTab === 'details'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             <Building2 className="w-4 h-4" /> Company Details
@@ -230,10 +230,10 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('branding')}
-            className={`py-3 px-4 font-semibold text-xs border-b-2 transition-colors flex items-center gap-2 ${
+            className={`py-3 px-4 font-semibold text-xs border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
               activeTab === 'branding'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             <Palette className="w-4 h-4" /> White-Label Branding
@@ -242,10 +242,10 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('admin')}
-              className={`py-3 px-4 font-semibold text-xs border-b-2 transition-colors flex items-center gap-2 ${
+              className={`py-3 px-4 font-semibold text-xs border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
                 activeTab === 'admin'
-                  ? 'border-blue-500 text-blue-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               <User className="w-4 h-4" /> Admin Account
@@ -259,8 +259,8 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Company Name <span className="text-red-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Company Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -269,13 +269,13 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                     value={formData.name}
                     onChange={handleChange}
                     placeholder="e.g., Mountain Treks Travels"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Slug Identifier <span className="text-red-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Slug Identifier <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -285,12 +285,12 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                     value={formData.slug}
                     onChange={handleChange}
                     placeholder="mountain-treks"
-                    className={`w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 ${
-                      isEdit ? 'opacity-60 cursor-not-allowed' : ''
+                    className={`w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-mono ${
+                      isEdit ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''
                     }`}
                   />
                   {!isEdit && (
-                    <span className="text-[10px] text-slate-500 mt-1 block">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
                       Used for company identification & booking reference prefixes.
                     </span>
                   )}
@@ -299,8 +299,8 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Company Email <span className="text-red-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Company Email <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
@@ -309,13 +309,13 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="info@mountaintreks.com"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Company Phone <span className="text-red-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Company Phone <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -324,107 +324,115 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                     value={formData.phone}
                     onChange={handleChange}
                     placeholder="+91 9876543210"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Website URL</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Website URL
+                  </label>
                   <input
                     type="url"
                     name="website"
                     value={formData.website}
                     onChange={handleChange}
                     placeholder="https://mountaintreks.com"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">GSTIN Number</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    GSTIN Number
+                  </label>
                   <input
                     type="text"
                     name="gstin"
                     value={formData.gstin}
                     onChange={handleChange}
                     placeholder="29AAAAA0000A1Z5"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Tagline / Motto</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Tagline / Motto
+                </label>
                 <input
                   type="text"
                   name="tagline"
                   value={formData.tagline}
                   onChange={handleChange}
                   placeholder="e.g., Unforgettable Himalayan Journeys"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Registered Address</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Registered Address
+                </label>
                 <textarea
                   name="address"
                   rows={2}
                   value={formData.address}
                   onChange={handleChange}
                   placeholder="Office address, street, landmark..."
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">City</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">City</label>
                   <input
                     type="text"
                     name="city"
                     value={formData.city}
                     onChange={handleChange}
                     placeholder="Bangalore"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">State</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">State</label>
                   <input
                     type="text"
                     name="state"
                     value={formData.state}
                     onChange={handleChange}
                     placeholder="Karnataka"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Pincode</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Pincode</label>
                   <input
                     type="text"
                     name="pincode"
                     value={formData.pincode}
                     onChange={handleChange}
                     placeholder="560001"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                   />
                 </div>
               </div>
 
               {isEdit && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tenant Status</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Tenant Status</label>
                   <select
                     name="status"
                     value={formData.status}
                     onChange={handleChange}
                     disabled={company?.isOoting}
-                    className={`w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 ${
-                      company?.isOoting ? 'opacity-60 cursor-not-allowed' : ''
+                    className={`w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      company?.isOoting ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''
                     }`}
                   >
                     <option value="ACTIVE">ACTIVE (Full Access)</option>
@@ -432,7 +440,7 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
                   {company?.isOoting && (
-                    <span className="text-[10px] text-amber-400 mt-1 block">
+                    <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 block font-medium">
                       Primary Ooting instance cannot be deactivated or suspended.
                     </span>
                   )}
@@ -443,8 +451,8 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
 
           {activeTab === 'branding' && (
             <div className="space-y-4">
-              <div className="p-3 bg-blue-950/30 border border-blue-900/50 rounded-lg text-xs text-blue-300 flex items-start gap-2">
-                <Palette className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-400" />
+              <div className="p-3.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 rounded-xl text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2.5">
+                <Palette className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
                 <span>
                   Configure custom white-label branding. When this tenant logs in, all headers, titles, favicons,
                   and exported PDF documents will use these brand assets.
@@ -452,17 +460,19 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Logo Image URL</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Logo Image URL
+                </label>
                 <input
                   type="text"
                   name="logoUrl"
                   value={formData.logoUrl}
                   onChange={handleChange}
                   placeholder="https://example.com/logo.png or /assets/custom-logo.png"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
                 />
                 {formData.logoUrl && (
-                  <div className="mt-2 p-2 bg-white rounded-lg inline-block border border-slate-700">
+                  <div className="mt-2.5 p-2 bg-white rounded-xl inline-block border border-slate-200 dark:border-slate-700 shadow-2xs">
                     <img
                       src={formData.logoUrl}
                       alt="Logo Preview"
@@ -476,27 +486,31 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Favicon URL</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Favicon URL
+                </label>
                 <input
                   type="text"
                   name="faviconUrl"
                   value={formData.faviconUrl}
                   onChange={handleChange}
                   placeholder="https://example.com/favicon.ico"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Primary Brand Color</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Primary Brand Color
+                  </label>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
                       name="primaryColor"
                       value={formData.primaryColor}
                       onChange={handleChange}
-                      className="w-10 h-10 rounded border border-slate-700 bg-transparent cursor-pointer"
+                      className="w-10 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent cursor-pointer p-0.5"
                     />
                     <input
                       type="text"
@@ -504,20 +518,22 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                       value={formData.primaryColor}
                       onChange={handleChange}
                       placeholder="#2563eb"
-                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white font-mono"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white font-mono"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Secondary Brand Color</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Secondary Brand Color
+                  </label>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
                       name="secondaryColor"
                       value={formData.secondaryColor}
                       onChange={handleChange}
-                      className="w-10 h-10 rounded border border-slate-700 bg-transparent cursor-pointer"
+                      className="w-10 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent cursor-pointer p-0.5"
                     />
                     <input
                       type="text"
@@ -525,7 +541,7 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                       value={formData.secondaryColor}
                       onChange={handleChange}
                       placeholder="#1e40af"
-                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white font-mono"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white font-mono"
                     />
                   </div>
                 </div>
@@ -535,8 +551,8 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
 
           {!isEdit && activeTab === 'admin' && (
             <div className="space-y-4">
-              <div className="p-3 bg-amber-950/30 border border-amber-900/50 rounded-lg text-xs text-amber-300 flex items-start gap-2">
-                <Shield className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-400" />
+              <div className="p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                <Shield className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
                 <span>
                   Provide initial login credentials for the Company Administrator. They will receive full ADMIN
                   rights within this company to manage staff, packages, leads, and custom branding.
@@ -544,8 +560,8 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Administrator Full Name <span className="text-red-400">*</span>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Administrator Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -554,14 +570,14 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                   value={formData.adminName}
                   onChange={handleChange}
                   placeholder="e.g., Rajesh Sharma"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Login Email <span className="text-red-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Login Email <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
@@ -570,13 +586,13 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                     value={formData.adminEmail}
                     onChange={handleChange}
                     placeholder="admin@mountaintreks.com"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Login Password <span className="text-red-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Login Password <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="password"
@@ -585,38 +601,40 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                     value={formData.adminPassword}
                     onChange={handleChange}
                     placeholder="Minimum 6 characters"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Admin Mobile / Phone</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Admin Mobile / Phone
+                </label>
                 <input
                   type="text"
                   name="adminPhone"
                   value={formData.adminPhone}
                   onChange={handleChange}
                   placeholder="+91 9876500000"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
                 />
               </div>
             </div>
           )}
 
           {/* Actions */}
-          <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-medium cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/30 disabled:opacity-50"
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm hover:shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
             >
               {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Provision Company'}
             </button>
@@ -626,3 +644,5 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
     </div>
   );
 };
+
+export default CompanyModal;
