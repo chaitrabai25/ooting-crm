@@ -246,7 +246,7 @@ export const CompanyList: React.FC = () => {
             return (
               <div
                 key={c.id}
-                className={`flex flex-col bg-white dark:bg-slate-900 border rounded-2xl p-5 shadow-xs hover:shadow-xl transition-all duration-200 group relative ${
+                className={`flex flex-col bg-white dark:bg-slate-900 border rounded-2xl p-5 shadow-xs hover:shadow-lg transition-all duration-200 group relative overflow-hidden ${
                   c.isOoting
                     ? 'border-amber-300 dark:border-amber-500/40 ring-1 ring-amber-300/40 shadow-amber-500/5'
                     : c.status === 'SUSPENDED'
@@ -254,21 +254,24 @@ export const CompanyList: React.FC = () => {
                     : 'border-slate-200/90 dark:border-slate-800 hover:border-blue-400 dark:hover:border-slate-700'
                 }`}
               >
+                {/* Top Brand Accent Line */}
+                <div
+                  className="absolute top-0 left-0 right-0 h-1"
+                  style={{ backgroundColor: c.primaryColor || (c.isOoting ? '#f59e0b' : '#2563eb') }}
+                />
+
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {/* Fixed 56px Logo Box */}
                     <div
-                      className="w-13 h-13 rounded-xl flex items-center justify-center p-1 bg-white border border-slate-200 dark:border-slate-700 flex-shrink-0 overflow-hidden shadow-xs"
-                      style={{
-                        borderTopColor: c.primaryColor || '#2563eb',
-                        borderTopWidth: '3px',
-                      }}
+                      className="w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-xl flex items-center justify-center p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex-shrink-0 overflow-hidden shadow-2xs"
                     >
                       {effectiveLogo ? (
                         <img
                           src={effectiveLogo}
                           alt={c.name}
-                          className="w-full h-full object-contain"
+                          className="w-full h-full max-w-[44px] max-h-[44px] object-contain"
                           onError={(e) => {
                             (e.target as HTMLElement).style.display = 'none';
                           }}
@@ -280,23 +283,23 @@ export const CompanyList: React.FC = () => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <h3
-                          className="font-bold text-slate-900 dark:text-white text-base leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"
+                          className="font-bold text-slate-900 dark:text-white text-base leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate"
                           title={c.name}
                         >
                           {c.name}
                         </h3>
                         {c.isOoting && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30 shrink-0">
                             <Crown className="w-3 h-3 text-amber-500" /> Primary
                           </span>
                         )}
                       </div>
-                      <span className="text-xs font-mono text-slate-500 dark:text-slate-400 block truncate mt-0.5">
-                        tag:{' '}
-                        <span className="text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-900/50">
+                      <div className="flex items-center gap-1 text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
+                        <span>tag:</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 truncate max-w-[140px]">
                           {c.slug}
                         </span>
-                      </span>
+                      </div>
                     </div>
                   </div>
 
