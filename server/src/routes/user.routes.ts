@@ -166,6 +166,78 @@ router.post('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res
   }
 });
 
+const inviteUserSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  name: z.string().min(2, 'Name is required').optional(),
+  role: z.enum(['ADMIN', 'SALES', 'OPERATIONS', 'ACCOUNTANT', 'AGENT']).default('SALES'),
+  phone: z.string().optional().nullable(),
+  password: z.string().min(6).optional(),
+});
+
+// Invite employee account for the current company tenant
+router.post('/invite', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const data = inviteUserSchema.parse(req.body);
+
+    const targetCompanyId = req.user!.companyId || 'c0000000-0000-0000-0000-000000000001';
+
+    const existing = await prisma.user.findUnique({
+      where: { email: data.email.toLowerCase().trim() },
+    });
+
+    if (existing) {
+      res.status(400).json({ message: 'User with this email already exists.' });
+      return;
+    }
+
+    const tempPassword = data.password || `Welcome@${Math.floor(100000 + Math.random() * 900000)}`;
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    const userName = data.name ? data.name.trim() : data.email.split('@')[0];
+
+    const newUser = await prisma.user.create({
+      data: {
+        name: userName,
+        email: data.email.toLowerCase().trim(),
+        passwordHash,
+        role: data.role,
+        companyId: targetCompanyId,
+        phone: data.phone?.trim() || null,
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        status: true,
+        companyId: true,
+        createdAt: true,
+      },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      companyId: targetCompanyId,
+      action: 'CREATE',
+      entity: 'USER',
+      entityId: newUser.id,
+      details: `Invited employee ${newUser.name} (${newUser.email}) to tenant ${targetCompanyId}`,
+      ipAddress: req.ip,
+    });
+
+    res.status(201).json({
+      message: `Employee "${newUser.name}" successfully added to company.`,
+      user: newUser,
+      temporaryPassword: tempPassword,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),

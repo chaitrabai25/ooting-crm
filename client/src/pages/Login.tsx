@@ -1,12 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { useCompanySettings, NEUTRAL_TENANT_LOGO } from '../context/CompanySettingsContext.js';
+
+interface LoginBrand {
+  name: string;
+  slug: string;
+  tagline: string;
+  logoUrl: string;
+  primaryColor: string;
+  secondaryColor: string;
+  isOoting: boolean;
+}
+
+const defaultOotingBrand: LoginBrand = {
+  name: 'Ooting',
+  slug: 'ooting',
+  tagline: 'Journeys Beyond Ordinary',
+  logoUrl: '/assets/ooting-logo.jpg',
+  primaryColor: '#C91F28',
+  secondaryColor: '#1E3A8A',
+  isOoting: true,
+};
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { updateCompany } = useCompanySettings();
+
+  const [brand, setBrand] = useState<LoginBrand>(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tenantParam = searchParams.get('tenant') || searchParams.get('company');
+    const rememberedSlug = tenantParam || localStorage.getItem('crm_last_tenant');
+    if (rememberedSlug && rememberedSlug !== 'ooting') {
+      return {
+        name: rememberedSlug.replace(/-/g, ' ').toUpperCase(),
+        slug: rememberedSlug,
+        tagline: '',
+        logoUrl: '',
+        primaryColor: '#2563eb',
+        secondaryColor: '#1e40af',
+        isOoting: false,
+      };
+    }
+    return defaultOotingBrand;
+  });
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -14,6 +54,46 @@ export const Login: React.FC = () => {
 
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Load tenant branding from URL parameter or remembered slug on mount
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tenantParam = searchParams.get('tenant') || searchParams.get('company');
+    const slugToLoad = tenantParam || localStorage.getItem('crm_last_tenant');
+
+    if (slugToLoad) {
+      api.get(`/auth/company-branding?slug=${encodeURIComponent(slugToLoad)}`)
+        .then((res) => {
+          if (res.data?.name) {
+            setBrand(res.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  // Dynamically resolve tenant branding when user enters their work email/phone
+  useEffect(() => {
+    const clean = identifier.trim();
+    if (!clean || clean.length < 4) return;
+
+    const timer = setTimeout(() => {
+      api.get(`/auth/company-branding?identifier=${encodeURIComponent(clean)}`)
+        .then((res) => {
+          if (res.data?.name) {
+            setBrand(res.data);
+          }
+        })
+        .catch(() => {});
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [identifier]);
+
+  // Synchronize document tab title
+  useEffect(() => {
+    document.title = `${brand.name} | CRM Login`;
+  }, [brand.name]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +110,12 @@ export const Login: React.FC = () => {
 
       if (res.data?.token) {
         login(res.data.token, res.data.user);
+        if (res.data?.company) {
+          updateCompany(res.data.company);
+          if (res.data.company.slug) {
+            localStorage.setItem('crm_last_tenant', res.data.company.slug);
+          }
+        }
         navigate('/');
       } else {
         setError('Authentication response invalid. Please try again.');
@@ -44,28 +130,50 @@ export const Login: React.FC = () => {
     }
   };
 
+  const effectiveLogo = brand.logoUrl || (brand.isOoting ? '/assets/ooting-logo.jpg' : NEUTRAL_TENANT_LOGO);
+
   return (
     <div className="min-h-screen bg-slate-900 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden transition-colors">
-      {/* Background Subtle Wave Accents */}
-      <div className="absolute top-0 left-0 right-0 opacity-10 pointer-events-none">
-        <img src="/assets/ooting-header-wave.png" alt="" className="w-full h-auto" />
-      </div>
+      {/* Background Accent Wave (Only shown for primary Ooting tenant) */}
+      {brand.isOoting && (
+        <div className="absolute top-0 left-0 right-0 opacity-10 pointer-events-none">
+          <img src="/assets/ooting-header-wave.png" alt="" className="w-full h-auto" />
+        </div>
+      )}
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex flex-col items-center justify-center">
-          <div className="w-20 h-20 rounded-2xl bg-white p-2 shadow-xl border border-slate-700 flex items-center justify-center mb-4">
+          <div
+            className="w-20 h-20 rounded-2xl bg-white p-2 shadow-xl border border-slate-700 flex items-center justify-center mb-4 transition-all duration-300"
+            style={{
+              borderTopColor: brand.primaryColor || '#2563eb',
+              borderTopWidth: '3px',
+            }}
+          >
             <img
-              src="/assets/ooting-logo.jpg"
-              alt="Ooting Logo"
+              src={effectiveLogo}
+              alt={brand.name}
               className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = brand.isOoting ? '/assets/ooting-logo.jpg' : NEUTRAL_TENANT_LOGO;
+              }}
             />
           </div>
-          <h2 className="text-center text-2xl font-bold tracking-tight text-white">
-            OOTING CRM
+          <h2 className="text-center text-2xl font-bold tracking-tight text-white uppercase">
+            {brand.name} CRM
           </h2>
-          <p className="text-center text-xs font-semibold tracking-wider text-[#C91F28] mt-1 uppercase">
-            Journeys Beyond Ordinary
-          </p>
+          {brand.tagline ? (
+            <p
+              className="text-center text-xs font-semibold tracking-wider mt-1 uppercase"
+              style={{ color: brand.primaryColor || '#2563eb' }}
+            >
+              {brand.tagline}
+            </p>
+          ) : (
+            <p className="text-center text-xs font-semibold tracking-wider text-slate-400 mt-1 uppercase">
+              Member Workspace
+            </p>
+          )}
         </div>
       </div>
 
@@ -93,7 +201,7 @@ export const Login: React.FC = () => {
                   autoFocus
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. admin@ooting.com or 8951233134"
+                  placeholder="Enter your work email or phone number"
                   className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors font-medium"
                 />
               </div>
@@ -128,7 +236,10 @@ export const Login: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading || !identifier.trim() || !password}
-                className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#C91F28] transition-colors disabled:opacity-50 cursor-pointer"
+                style={{
+                  backgroundColor: brand.primaryColor || '#C91F28',
+                }}
+                className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 cursor-pointer hover:opacity-90"
               >
                 {isLoading ? (
                   <>

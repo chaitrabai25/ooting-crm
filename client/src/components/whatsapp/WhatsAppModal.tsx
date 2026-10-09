@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, ExternalLink, MessageSquare, History, CheckCheck, Clock, AlertCircle, Sparkles } from 'lucide-react';
 import { Modal } from '../ui/Modal.js';
 import { api } from '../../api/client.js';
+import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 interface WhatsAppModalProps {
   isOpen: boolean;
@@ -12,36 +13,36 @@ interface WhatsAppModalProps {
   bookingNumber?: string;
 }
 
-const TEMPLATES = [
+const getTemplates = (companyName: string, companyPhone: string) => [
   {
     id: 'WELCOME',
     label: 'Welcome Greeting',
     content: (name: string) =>
-      `Hello ${name}, warm greetings from Ooting Holidays! 🌴 We received your travel enquiry and our holiday expert is crafting the best holiday experience for you.\n\nHow can we assist you with your upcoming plans?`,
+      `Hello ${name}, warm greetings from ${companyName}! 🌴 We received your travel enquiry and our holiday expert is crafting the best holiday experience for you.\n\nHow can we assist you with your upcoming plans?`,
   },
   {
     id: 'QUOTATION',
     label: 'Quotation Follow-up',
     content: (name: string) =>
-      `Dear ${name}, thank you for considering Ooting Holidays! ✈️\n\nWe have prepared a customized holiday package tailored for you:\n• Dedicated AC Vehicle with Chauffeur\n• Handpicked Resort / Hotel Stay\n• Sightseeing & Leisure Itinerary\n• 24/7 Concierge Support\n\nHave you had a chance to review the proposal? Let us know if you'd like any customizations!`,
+      `Dear ${name}, thank you for considering ${companyName}! ✈️\n\nWe have prepared a customized holiday package tailored for you:\n• Dedicated AC Vehicle with Chauffeur\n• Handpicked Resort / Hotel Stay\n• Sightseeing & Leisure Itinerary\n• 24/7 Concierge Support\n\nHave you had a chance to review the proposal? Let us know if you'd like any customizations!`,
   },
   {
     id: 'BOOKING_CONFIRMED',
     label: 'Booking Confirmation',
     content: (name: string) =>
-      `Dear ${name}, your booking with Ooting Holidays is confirmed! 🎉\n\nTrip Details & Next Steps:\n• Hotel & Cab vouchers are being prepared\n• Chauffeur & vehicle contact will be shared 24h prior to arrival\n• Need assistance? Reach us anytime at +91 98765 43210\n\nThank you for choosing Ooting!`,
+      `Dear ${name}, your booking with ${companyName} is confirmed! 🎉\n\nTrip Details & Next Steps:\n• Hotel & Cab vouchers are being prepared\n• Chauffeur & vehicle contact will be shared 24h prior to arrival\n• Need assistance? Reach us anytime${companyPhone ? ` at ${companyPhone}` : ''}\n\nThank you for choosing ${companyName}!`,
   },
   {
     id: 'PAYMENT_REMINDER',
     label: 'Payment Reminder',
     content: (name: string) =>
-      `Hello ${name}, friendly reminder from Ooting Holidays regarding the pending payment for your upcoming tour.\n\n• Bank / UPI details available on request\n• Instant payment receipt issued upon transfer\n\nPlease let us know if you need any assistance. Thank you!`,
+      `Hello ${name}, friendly reminder from ${companyName} regarding the pending payment for your upcoming tour.\n\n• Bank / UPI details available on request\n• Instant payment receipt issued upon transfer\n\nPlease let us know if you need any assistance. Thank you!`,
   },
   {
     id: 'ITINERARY',
     label: 'Tour Highlights',
     content: (name: string) =>
-      `Dear ${name}, here are the key highlights of your journey with Ooting Holidays:\n• Day 1: Arrival, Scenic Transfer & Leisure Evening\n• Day 2: Guided Sightseeing & Exploration\n• Day 3: Nature Trails & Memorable Departure\n\nLet us know if you'd like to adjust any activities!`,
+      `Dear ${name}, here are the key highlights of your journey with ${companyName}:\n• Day 1: Arrival, Scenic Transfer & Leisure Evening\n• Day 2: Guided Sightseeing & Exploration\n• Day 3: Nature Trails & Memorable Departure\n\nLet us know if you'd like to adjust any activities!`,
   },
   {
     id: 'CUSTOM',
@@ -57,6 +58,18 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   recipientPhone,
   customerId,
 }) => {
+  let companyName = 'Travel Team';
+  let companyPhone = '';
+  try {
+    const { company } = useCompanySettings();
+    if (company?.name) companyName = company.name;
+    if (company?.phone) companyPhone = company.phone;
+  } catch {
+    // Graceful fallback
+  }
+
+  const templates = getTemplates(companyName, companyPhone);
+
   const [activeTab, setActiveTab] = useState<'composer' | 'history'>('composer');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('WELCOME');
   const [message, setMessage] = useState<string>('');
@@ -72,7 +85,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const tmpl = TEMPLATES.find((t) => t.id === 'WELCOME');
+      const tmpl = templates.find((t) => t.id === 'WELCOME');
       if (tmpl) {
         setMessage(tmpl.content(recipientName || 'Valued Guest'));
       }
@@ -80,7 +93,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
       loadHistory();
       setStatusFeedback(null);
     }
-  }, [isOpen, recipientName, recipientPhone]);
+  }, [isOpen, recipientName, recipientPhone, companyName]);
 
   const checkStatus = async () => {
     try {
@@ -106,7 +119,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplate(templateId);
-    const tmpl = TEMPLATES.find((t) => t.id === templateId);
+    const tmpl = templates.find((t) => t.id === templateId);
     if (tmpl) {
       setMessage(tmpl.content(recipientName || 'Valued Guest'));
     }
@@ -234,7 +247,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                 Select Quick Template:
               </label>
               <div className="flex flex-wrap gap-1.5">
-                {TEMPLATES.map((tmpl) => (
+                {templates.map((tmpl) => (
                   <button
                     key={tmpl.id}
                     type="button"

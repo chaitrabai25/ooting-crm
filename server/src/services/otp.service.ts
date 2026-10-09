@@ -1,14 +1,20 @@
 import nodemailer from 'nodemailer';
 
 export async function sendOtpNotification(
-  user: { name: string; email: string; phone?: string | null },
-  rawOtp: string
+  user: { name: string; email: string; phone?: string | null; companyId?: string | null },
+  rawOtp: string,
+  companyBranding?: { name?: string; tagline?: string; primaryColor?: string; isOoting?: boolean } | null
 ): Promise<{ success: boolean; channel: 'EMAIL' | 'SMS' | 'QUEUED'; note?: string }> {
+  const isOoting = companyBranding?.isOoting ?? true;
+  const brandName = companyBranding?.name || (isOoting ? 'Ooting CRM' : 'CRM Platform');
+  const brandTagline = companyBranding?.tagline || (isOoting ? 'Journeys Beyond Ordinary' : '');
+  const brandColor = companyBranding?.primaryColor || (isOoting ? '#C91F28' : '#2563eb');
+
   const smtpHost = process.env.SMTP_HOST;
   const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
   const smtpUser = process.env.SMTP_USER;
   const smtpPass = process.env.SMTP_PASS;
-  const emailFrom = process.env.EMAIL_FROM || `Ooting CRM <${smtpUser || 'security@ooting.com'}>`;
+  const emailFrom = process.env.EMAIL_FROM || `${brandName} <${smtpUser || 'security@crm.system'}>`;
 
   // 1. Email delivery via SMTP
   if (smtpHost && smtpUser && smtpPass) {
@@ -26,23 +32,23 @@ export async function sendOtpNotification(
       await transporter.sendMail({
         from: emailFrom,
         to: user.email,
-        subject: `Your Ooting CRM Verification Code: ${rawOtp}`,
+        subject: `Your ${brandName} Verification Code: ${rawOtp}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
             <div style="text-align: center; margin-bottom: 24px;">
-              <h2 style="color: #C91F28; margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 1px;">OOTING CRM</h2>
-              <p style="color: #64748b; font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: 2px;">Journeys Beyond Ordinary</p>
+              <h2 style="color: ${brandColor}; margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 1px;">${brandName.toUpperCase()}</h2>
+              ${brandTagline ? `<p style="color: #64748b; font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: 2px;">${brandTagline}</p>` : ''}
             </div>
             <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px;">
               <p style="color: #334155; font-size: 14px; margin: 0 0 12px;">Hello <strong>${user.name}</strong>,</p>
-              <p style="color: #64748b; font-size: 13px; margin: 0 0 16px;">Use the following One-Time Password (OTP) to securely complete your administrative login:</p>
-              <div style="display: inline-block; padding: 12px 28px; background-color: #ffffff; border: 2px dashed #C91F28; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #C91F28; font-family: monospace;">
+              <p style="color: #64748b; font-size: 13px; margin: 0 0 16px;">Use the following One-Time Password (OTP) to securely complete your login:</p>
+              <div style="display: inline-block; padding: 12px 28px; background-color: #ffffff; border: 2px dashed ${brandColor}; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: ${brandColor}; font-family: monospace;">
                 ${rawOtp}
               </div>
               <p style="color: #94a3b8; font-size: 12px; margin-top: 14px; margin-bottom: 0;">This code is strictly confidential and expires in <strong>10 minutes</strong>.</p>
             </div>
             <p style="color: #94a3b8; font-size: 11px; line-height: 1.5; text-align: center; margin: 0;">
-              If you did not attempt to sign in to Ooting CRM, please contact your Super Administrator immediately.
+              If you did not attempt to sign in to ${brandName}, please contact your Administrator immediately.
             </p>
           </div>
         `,
@@ -66,7 +72,7 @@ export async function sendOtpNotification(
       const params = new URLSearchParams();
       params.append('To', user.phone);
       params.append('From', twilioPhone);
-      params.append('Body', `[OOTING CRM] Your security verification code is: ${rawOtp}. Valid for 10 minutes.`);
+      params.append('Body', `[${brandName}] Your security verification code is: ${rawOtp}. Valid for 10 minutes.`);
 
       const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
         method: 'POST',

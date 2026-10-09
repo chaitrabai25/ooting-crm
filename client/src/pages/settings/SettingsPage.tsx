@@ -26,28 +26,11 @@ interface MasterData {
 
 export const SettingsPage: React.FC = () => {
   const { user } = useAuth();
-  const { updateCompany: syncGlobalCompany, refreshCompany } = useCompanySettings();
+  const { company: contextCompany, updateCompany: syncGlobalCompany, refreshCompany } = useCompanySettings();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  const [company, setCompany] = useState<CompanySettings>({
-    name: 'Ooting',
-    tagline: 'Journeys Beyond Ordinary',
-    email: 'support@ooting.in',
-    phone: '+91 8884845595',
-    address: 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India',
-    website: 'https://ooting.in',
-    gstin: 'NIL',
-    logoUrl: '/assets/ooting-logo.jpg',
-    bankName: 'canara',
-    accountHolderName: 'Jeevan',
-    accountNumber: '2891101013983',
-    accountType: 'Current Account',
-    ifsc: 'CNRB0005237',
-    branch: 'Shivmogga',
-    upiId: '',
-    paymentNotes: '',
-  });
+  const [company, setCompany] = useState<CompanySettings>(() => ({ ...contextCompany }));
 
   const [masterData, setMasterData] = useState<MasterData | null>(null);
   const [isLoading, setIsLoading] = useState(true);

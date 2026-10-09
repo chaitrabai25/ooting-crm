@@ -377,7 +377,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMobileMenu }) => {
         {/* User Pill */}
         <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
           <div className="w-8 h-8 rounded-full bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-900 text-brand-700 dark:text-brand-300 font-bold text-xs flex items-center justify-center">
-            {user?.name?.charAt(0) || 'O'}
+            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <div className="hidden sm:flex flex-col text-left">
             <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">

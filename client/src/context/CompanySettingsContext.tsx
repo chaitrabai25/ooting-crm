@@ -21,6 +21,29 @@ const defaultSettings: CompanySettings = {
   paymentNotes: 'Please quote your booking or quotation reference number during bank fund transfer.',
 };
 
+const neutralTenantDefaults: CompanySettings = {
+  name: 'Travel CRM',
+  tagline: '',
+  email: '',
+  phone: '',
+  address: '',
+  website: '',
+  gstin: 'NIL',
+  logoUrl: '',
+  faviconUrl: '',
+  primaryColor: '#2563eb',
+  secondaryColor: '#1e40af',
+  bankName: '',
+  accountHolderName: '',
+  accountNumber: '',
+  accountType: 'Current Account',
+  ifsc: '',
+  branch: '',
+  upiId: '',
+  paymentNotes: '',
+  isOoting: false,
+};
+
 export const NEUTRAL_TENANT_LOGO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="%232563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
 
 export const getEffectiveLogoUrl = (company: CompanySettings): string => {
@@ -52,7 +75,8 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return { ...defaultSettings, ...parsed };
+        const base = parsed.isOoting === false ? neutralTenantDefaults : defaultSettings;
+        return { ...base, ...parsed };
       } catch (e) {
         console.error('Failed to parse saved company settings:', e);
       }
@@ -65,7 +89,8 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
     try {
       const res = await api.get('/settings/company');
       if (res.data?.company) {
-        const fetched = { ...defaultSettings, ...res.data.company };
+        const base = res.data.company.isOoting === false ? neutralTenantDefaults : defaultSettings;
+        const fetched = { ...base, ...res.data.company };
         setCompany(fetched);
         localStorage.setItem('ooting_company_settings', JSON.stringify(fetched));
       }
@@ -78,7 +103,8 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
 
   const updateCompany = (updates: Partial<CompanySettings>) => {
     setCompany(prev => {
-      const updated = { ...prev, ...updates };
+      const base = (updates.isOoting === false || prev.isOoting === false) ? neutralTenantDefaults : defaultSettings;
+      const updated = { ...base, ...prev, ...updates };
       localStorage.setItem('ooting_company_settings', JSON.stringify(updated));
       return updated;
     });
@@ -91,21 +117,23 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
   // Synchronize document title, favicon, and brand accents dynamically
   useEffect(() => {
     if (company?.name) {
-      document.title = `${company.name} - CRM`;
+      document.title = `${company.name} | CRM`;
     }
-    if (company?.faviconUrl) {
+    const effectiveFavicon = company?.faviconUrl || (company?.isOoting ? '/favicon.ico' : undefined);
+    if (effectiveFavicon) {
       let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
       if (!link) {
         link = document.createElement('link');
         link.rel = 'icon';
         document.head.appendChild(link);
       }
-      link.href = company.faviconUrl;
+      link.href = effectiveFavicon;
     }
     if (company?.primaryColor) {
       document.documentElement.style.setProperty('--tenant-primary', company.primaryColor);
+      document.documentElement.style.setProperty('--color-primary', company.primaryColor);
     }
-  }, [company?.name, company?.faviconUrl, company?.primaryColor]);
+  }, [company?.name, company?.faviconUrl, company?.primaryColor, company?.isOoting]);
 
   const effectiveLogoUrl = getEffectiveLogoUrl(company);
 

@@ -47,6 +47,57 @@ async function findUserByIdentifier(identifier: string) {
   });
 }
 
+// Public endpoint: Fetch company branding by slug or user identifier (for white-label login screens)
+router.get('/company-branding', async (req, res, next) => {
+  try {
+    const slug = req.query.slug as string | undefined;
+    const identifier = req.query.identifier as string | undefined;
+
+    let company = null;
+
+    if (slug && slug.trim()) {
+      company = await prisma.company.findUnique({
+        where: { slug: slug.trim().toLowerCase() },
+      });
+    } else if (identifier && identifier.trim()) {
+      const user = await findUserByIdentifier(identifier.trim());
+      if (user?.companyId) {
+        company = await prisma.company.findUnique({
+          where: { id: user.companyId },
+        });
+      }
+    }
+
+    if (company) {
+      res.json({
+        name: company.name,
+        slug: company.slug,
+        tagline: company.tagline || '',
+        logoUrl: company.logoUrl || '',
+        faviconUrl: company.faviconUrl || '',
+        primaryColor: company.primaryColor || '#2563eb',
+        secondaryColor: company.secondaryColor || '#1e40af',
+        isOoting: company.isOoting,
+      });
+      return;
+    }
+
+    // Default to Ooting master branding
+    res.json({
+      name: config.company.name,
+      slug: 'ooting',
+      tagline: config.company.tagline,
+      logoUrl: '/assets/ooting-logo.jpg',
+      faviconUrl: '/favicon.ico',
+      primaryColor: '#C91F28',
+      secondaryColor: '#1E3A8A',
+      isOoting: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Step 1: Direct Secure Authentication (Email or Phone + Password -> Session)
 router.post('/login', async (req, res, next) => {
   try {
