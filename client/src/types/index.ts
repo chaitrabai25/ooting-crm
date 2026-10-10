@@ -160,6 +160,23 @@ export interface ItineraryDay {
   hotelCheckOut?: string | null;
 }
 
+export interface B2BBranding {
+  b2bAgentId?: string | null;
+  b2bAgencyName?: string | null;
+  b2bAgencyLogo?: string | null;
+  b2bContactPerson?: string | null;
+  b2bPhone?: string | null;
+  b2bAlternatePhone?: string | null;
+  b2bEmail?: string | null;
+  b2bAddress?: string | null;
+  b2bCity?: string | null;
+  b2bState?: string | null;
+  b2bGstin?: string | null;
+  b2bWebsite?: string | null;
+  b2bTagline?: string | null;
+  customBranding?: string | null;
+}
+
 export interface Package {
   id: string;
   packageName: string;
@@ -173,6 +190,21 @@ export interface Package {
   imageUrl?: string | null;
   gallery?: string | null;
   status: string;
+  // B2B Travel Agent Branding Snapshot
+  b2bAgentId?: string | null;
+  b2bAgencyName?: string | null;
+  b2bAgencyLogo?: string | null;
+  b2bContactPerson?: string | null;
+  b2bPhone?: string | null;
+  b2bAlternatePhone?: string | null;
+  b2bEmail?: string | null;
+  b2bAddress?: string | null;
+  b2bCity?: string | null;
+  b2bState?: string | null;
+  b2bGstin?: string | null;
+  b2bWebsite?: string | null;
+  b2bTagline?: string | null;
+  customBranding?: string | null;
   createdAt: string;
   itineraries?: ItineraryDay[];
   _count?: {

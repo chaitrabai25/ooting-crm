@@ -272,6 +272,22 @@ model Package {
   imageUrl    String?  @db.LongText
   gallery     String?  @db.LongText
   status      String   @default("ACTIVE") @db.VarChar(50)
+
+  // B2B Travel Agent Branding Snapshot (Per-Itinerary)
+  b2bAgentId         String?   @db.VarChar(36)
+  b2bAgencyName      String?   @db.VarChar(191)
+  b2bAgencyLogo      String?   @db.LongText
+  b2bContactPerson   String?   @db.VarChar(191)
+  b2bPhone           String?   @db.VarChar(50)
+  b2bAlternatePhone  String?   @db.VarChar(50)
+  b2bEmail           String?   @db.VarChar(191)
+  b2bAddress         String?   @db.Text
+  b2bCity            String?   @db.VarChar(100)
+  b2bState           String?   @db.VarChar(100)
+  b2bGstin           String?   @db.VarChar(50)
+  b2bWebsite         String?   @db.VarChar(191)
+  b2bTagline         String?   @db.VarChar(255)
+  customBranding     String?   @db.LongText
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

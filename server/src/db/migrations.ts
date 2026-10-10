@@ -220,8 +220,23 @@ export async function ensureColumns() {
       `ALTER TABLE \`Hotel\` MODIFY COLUMN \`imageUrl\` LONGTEXT NULL`,
       `ALTER TABLE \`Hotel\` MODIFY COLUMN \`gallery\` LONGTEXT NULL`,
       `ALTER TABLE \`Place\` MODIFY COLUMN \`imageUrl\` LONGTEXT NULL`,
-      `ALTER TABLE \`Place\` MODIFY COLUMN \`gallery\` LONGTEXT NULL`,
       `ALTER TABLE \`ItineraryDay\` MODIFY COLUMN \`hotelImageUrl\` LONGTEXT NULL`,
+
+      // Package B2B Travel Agent Branding Snapshot
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bAgentId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bAgencyName\` VARCHAR(191) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bAgencyLogo\` LONGTEXT NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bContactPerson\` VARCHAR(191) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bPhone\` VARCHAR(50) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bAlternatePhone\` VARCHAR(50) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bEmail\` VARCHAR(191) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bAddress\` TEXT NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bCity\` VARCHAR(100) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bState\` VARCHAR(100) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bGstin\` VARCHAR(50) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bWebsite\` VARCHAR(191) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`b2bTagline\` VARCHAR(255) NULL`,
+      `ALTER TABLE \`Package\` ADD COLUMN \`customBranding\` LONGTEXT NULL`,
     ];
 
   for (const sql of mysqlMigrations) {

@@ -337,6 +337,31 @@ export const ItineraryPdfView: React.FC = () => {
 
   const itineraries: ItineraryDay[] = pkg.itineraries || [];
 
+  const isB2B = Boolean(pkg?.b2bAgencyName && pkg.b2bAgencyName.trim());
+
+  const activeBranding = {
+    isB2B,
+    agencyName: isB2B ? pkg.b2bAgencyName!.trim() : (company?.name || 'OOTING').toUpperCase(),
+    tagline: isB2B
+      ? (pkg.b2bTagline || 'Authorized Travel Partner')
+      : (company?.tagline || 'Journeys Beyond Ordinary'),
+    subtitle: isB2B
+      ? (pkg.b2bContactPerson ? `Authorized Travel Partner • Contact: ${pkg.b2bContactPerson}` : 'Authorized Travel Partner')
+      : 'Premium Tour Operator & Destination Specialist',
+    logoUrl: isB2B ? (pkg.b2bAgencyLogo || null) : (company?.logoUrl || '/assets/ooting-logo.jpg'),
+    phone: isB2B ? (pkg.b2bPhone || '') : (company?.phone || ''),
+    alternatePhone: isB2B ? (pkg.b2bAlternatePhone || '') : '',
+    email: isB2B ? (pkg.b2bEmail || '') : (company?.email || ''),
+    website: isB2B ? (pkg.b2bWebsite || '') : (company?.website || ''),
+    gstin: isB2B ? (pkg.b2bGstin || '') : (company?.gstin || ''),
+    address: isB2B
+      ? [pkg.b2bAddress, pkg.b2bCity, pkg.b2bState].filter(Boolean).join(', ')
+      : (company?.address || 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India'),
+    signatureName: isB2B
+      ? pkg.b2bAgencyName!.trim()
+      : (company?.name || 'Ooting Tours & Travels'),
+  };
+
   return (
     <div className="min-h-screen bg-slate-200/70 dark:bg-slate-950 py-8 px-4 print:p-0 print:bg-white">
       {/* Top Floating Action Bar (Hidden in Print) */}
@@ -416,80 +441,89 @@ export const ItineraryPdfView: React.FC = () => {
         {/* Letterhead Header Section */}
         <div className="px-8 py-3.5 border-b border-slate-200">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            {/* LEFT SIDE: Logo & Company Name/Tagline */}
+            {/* LEFT SIDE: Logo & Agency / Company Name & Tagline */}
             <div className="flex items-center gap-3.5">
               <div
                 className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
                 style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px', minHeight: '56px', maxHeight: '56px', overflow: 'hidden' }}
               >
-                <img
-                  src={company.logoUrl || '/assets/ooting-logo.jpg'}
-                  alt={company.name || 'Ooting'}
-                  className="max-w-full max-h-full object-contain"
-                  style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
-                  }}
-                />
+                {activeBranding.logoUrl ? (
+                  <img
+                    src={activeBranding.logoUrl}
+                    alt={activeBranding.agencyName}
+                    className="max-w-full max-h-full object-contain"
+                    style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-lg bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center font-black text-sm uppercase tracking-wider shadow-inner">
+                    {activeBranding.agencyName.slice(0, 2)}
+                  </div>
+                )}
               </div>
               <div className="min-w-0">
                 <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
-                  {(company.name || 'OOTING').toUpperCase()}
+                  {activeBranding.agencyName}
                 </span>
                 <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
-                  {company.tagline || 'Journeys Beyond Ordinary'}
+                  {activeBranding.tagline}
                 </span>
                 <span className="text-[11px] text-slate-500 font-medium block">
-                  Premium Tour Operator & Destination Specialist
+                  {activeBranding.subtitle}
                 </span>
               </div>
             </div>
 
-            {/* RIGHT SIDE: Company Contact Details (vertical one-by-one list) */}
+            {/* RIGHT SIDE: Dynamic Contact Details (vertical one-by-one list) */}
             <div className="flex justify-end ml-auto shrink-0">
               <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[340px]">
-                {company.website && (
+                {activeBranding.website && (
                   <div className="flex items-center gap-2">
                     <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                       <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
-                    <span className="font-semibold text-slate-800 tracking-tight break-all text-xs">{company.website}</span>
+                    <span className="font-semibold text-slate-800 tracking-tight break-all text-xs">{activeBranding.website}</span>
                   </div>
                 )}
-                {company.email && (
+                {activeBranding.email && (
                   <div className="flex items-center gap-2">
                     <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                       <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
-                    <span className="font-semibold text-slate-800 tracking-tight break-all text-xs">{company.email}</span>
+                    <span className="font-semibold text-slate-800 tracking-tight break-all text-xs">{activeBranding.email}</span>
                   </div>
                 )}
-                {company.phone && (
+                {activeBranding.phone && (
                   <div className="flex items-center gap-2">
                     <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                       <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
-                    <span className="font-semibold text-slate-800 tracking-tight text-xs">{company.phone}</span>
+                    <span className="font-semibold text-slate-800 tracking-tight text-xs">
+                      {activeBranding.phone}
+                      {activeBranding.alternatePhone && ` / ${activeBranding.alternatePhone}`}
+                    </span>
                   </div>
                 )}
-                {company?.gstin && company.gstin !== 'NULL' && company.gstin !== 'NIL' && company.gstin !== 'NILL' && company.gstin.trim() !== '' && (
+                {activeBranding.gstin && activeBranding.gstin !== 'NULL' && activeBranding.gstin !== 'NIL' && activeBranding.gstin.trim() !== '' && (
                   <div className="flex items-center gap-2">
                     <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                       <FileText className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <span className="font-semibold text-slate-800 tracking-tight text-xs">
-                      GSTIN: {company.gstin.replace(/^GSTIN:\s*/i, '')}
+                      GSTIN: {activeBranding.gstin.replace(/^GSTIN:\s*/i, '')}
                     </span>
                   </div>
                 )}
-                {company.address && (
+                {activeBranding.address && (
                   <div className="flex items-start gap-2 pt-0.5">
                     <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28] mt-0.5">
                       <MapPin className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                     </span>
                     <div className="text-slate-800 leading-snug text-[11px] font-bold whitespace-pre-line">
-                      {company.address}
+                      {activeBranding.address}
                     </div>
                   </div>
                 )}
@@ -1030,9 +1064,10 @@ export const ItineraryPdfView: React.FC = () => {
                       <Phone className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Helpline / WhatsApp</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Helpline / Contact</span>
                       <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                        {company.phone || '+91 8884845595 / +91 6362845243'}
+                        {activeBranding.phone || '+91 8884845595'}
+                        {activeBranding.alternatePhone && ` / ${activeBranding.alternatePhone}`}
                       </span>
                     </div>
                   </div>
@@ -1044,7 +1079,7 @@ export const ItineraryPdfView: React.FC = () => {
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Email Support</span>
                       <span className="font-bold text-slate-900 text-xs sm:text-sm break-all">
-                        {company.email || 'support@ooting.in'}
+                        {activeBranding.email || 'support@ooting.in'}
                       </span>
                     </div>
                   </div>
@@ -1056,7 +1091,7 @@ export const ItineraryPdfView: React.FC = () => {
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Official Website</span>
                       <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                        {company.website || 'www.ooting.in'}
+                        {activeBranding.website || 'www.ooting.in'}
                       </span>
                     </div>
                   </div>
@@ -1066,9 +1101,9 @@ export const ItineraryPdfView: React.FC = () => {
                       <MapPin className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Head Office</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Office</span>
                       <span className="font-bold text-slate-800 text-xs leading-snug whitespace-pre-line">
-                        {company.address || 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India'}
+                        {activeBranding.address || 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India'}
                       </span>
                     </div>
                   </div>
@@ -1081,7 +1116,7 @@ export const ItineraryPdfView: React.FC = () => {
                   "Curating unforgettable experiences to cherish for a lifetime."
                 </div>
                 <div className="text-xs font-bold text-slate-800">
-                  Warmest Regards, The Team at {company.name || 'Ooting Tours & Travels'}
+                  Warmest Regards, The Team at {activeBranding.signatureName}
                 </div>
               </div>
             </div>
