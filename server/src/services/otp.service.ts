@@ -15,20 +15,23 @@ export interface BrandingInfo {
 }
 
 /**
- * Creates Nodemailer Transporter strictly configured for Hostinger SMTP
- * Port 465 uses implicit SSL/TLS with secure certificate verification.
+ * Creates Nodemailer Transporter for Hostinger SMTP
+ * Supports both Port 465 (SSL/TLS) and Port 587 (STARTTLS).
  */
-export function getMailTransporter() {
+export function getMailTransporter(customPort?: number, customSecure?: boolean) {
   const smtpHost = process.env.SMTP_HOST || 'smtp.hostinger.com';
-  const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
+  const defaultPort = parseInt(process.env.SMTP_PORT || '465', 10);
+  const smtpPort = customPort !== undefined ? customPort : defaultPort;
   const smtpUser = process.env.SMTP_USER || 'noreply@ooting.in';
-  const smtpPass = process.env.SMTP_PASS || '';
-  const isSecure = process.env.SMTP_SECURE === 'false' ? false : (smtpPort === 465 || process.env.SMTP_SECURE === 'true');
+  const smtpPass = (process.env.SMTP_PASS || '').trim();
+  const isSecure = customSecure !== undefined
+    ? customSecure
+    : (process.env.SMTP_SECURE === 'false' ? false : (smtpPort === 465 || process.env.SMTP_SECURE === 'true'));
 
   return nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
-    secure: isSecure, // Port 465 implicit SSL/TLS
+    secure: isSecure,
     auth: {
       user: smtpUser,
       pass: smtpPass,
@@ -36,36 +39,61 @@ export function getMailTransporter() {
     tls: {
       rejectUnauthorized: true, // Strict SSL/TLS certificate verification
     },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
   });
 }
 
 /**
- * Validates SMTP configuration with Hostinger server without exposing any credentials.
+ * Validates SMTP configuration with Hostinger server without exposing passwords.
  */
-export async function verifySmtpConfiguration(): Promise<{ verified: boolean; message: string }> {
-  const smtpPass = process.env.SMTP_PASS;
-  if (!smtpPass || !smtpPass.trim()) {
+export async function verifySmtpConfiguration(): Promise<{ verified: boolean; message: string; port?: number }> {
+  const smtpPass = (process.env.SMTP_PASS || '').trim();
+  const smtpUser = process.env.SMTP_USER || 'noreply@ooting.in';
+  const smtpHost = process.env.SMTP_HOST || 'smtp.hostinger.com';
+
+  if (!smtpPass) {
     return {
       verified: false,
-      message: 'SMTP_PASS environment variable is not configured. Email dispatch will fail until set.',
+      message: 'SMTP_PASS environment variable is missing or blank in deployment settings.',
     };
   }
 
+  // Attempt Port 465
   try {
-    const transporter = getMailTransporter();
-    await transporter.verify();
+    const transporter465 = getMailTransporter(465, true);
+    await transporter465.verify();
     return {
       verified: true,
-      message: `Hostinger SMTP connection (${process.env.SMTP_HOST || 'smtp.hostinger.com'}:${process.env.SMTP_PORT || '465'}) verified successfully.`,
+      port: 465,
+      message: `Hostinger SMTP (${smtpHost}:465 SSL/TLS) connected and verified successfully for ${smtpUser}.`,
     };
-  } catch (error: any) {
-    return {
-      verified: false,
-      message: `Hostinger SMTP verification failed: ${error?.message || 'Connection or authentication error'}`,
-    };
+  } catch (err465: any) {
+    // If auth failed (535), credentials are wrong
+    if (err465?.responseCode === 535 || err465?.message?.includes('535') || err465?.message?.includes('authentication failed')) {
+      return {
+        verified: false,
+        port: 465,
+        message: `Hostinger Authentication Failed (535): Incorrect password for ${smtpUser}. Please verify SMTP_PASS.`,
+      };
+    }
+
+    // Try Port 587 STARTTLS
+    try {
+      const transporter587 = getMailTransporter(587, false);
+      await transporter587.verify();
+      return {
+        verified: true,
+        port: 587,
+        message: `Hostinger SMTP (${smtpHost}:587 STARTTLS) connected and verified successfully for ${smtpUser}.`,
+      };
+    } catch (err587: any) {
+      return {
+        verified: false,
+        message: `Hostinger SMTP connection error: Port 465 (${err465?.message || 'failed'}) / Port 587 (${err587?.message || 'failed'})`,
+      };
+    }
   }
 }
 
@@ -128,7 +156,7 @@ function getPasswordResetOtpHtml(brandName: string, brandTagline: string, brandC
 }
 
 /**
- * Dispatches a 6-digit OTP code through Hostinger SMTP with strict security and zero credential exposure.
+ * Dispatches a 6-digit OTP code through Hostinger SMTP with automatic port 465 -> 587 fallback.
  */
 export async function sendOtpNotification(
   user: EmailRecipient,
@@ -144,14 +172,16 @@ export async function sendOtpNotification(
   const fromEmail = process.env.SMTP_FROM_EMAIL || 'noreply@ooting.in';
   const fromName = process.env.SMTP_FROM_NAME || 'noreply-ooting';
   const emailSender = `"${fromName}" <${fromEmail}>`;
+  const smtpUser = process.env.SMTP_USER || 'noreply@ooting.in';
 
-  const smtpPass = process.env.SMTP_PASS;
-  if (!smtpPass || !smtpPass.trim()) {
-    console.warn(`[OTP Service] SMTP_PASS is missing or empty. Cannot dispatch email to ${user.email.replace(/(?<=.{2}).(?=.*@)/g, '*')}.`);
+  const smtpPass = (process.env.SMTP_PASS || '').trim();
+  if (!smtpPass) {
+    const msg = 'SMTP_PASS environment variable is not configured or is empty. Please check Vercel settings.';
+    console.warn(`[OTP Service] ${msg}`);
     return {
       success: false,
       channel: 'EMAIL',
-      error: 'SMTP server credentials not configured in environment.',
+      error: msg,
     };
   }
 
@@ -163,9 +193,10 @@ export async function sendOtpNotification(
     ? getPasswordResetOtpHtml(brandName, brandTagline, brandColor, user.name, rawOtp)
     : getLoginOtpHtml(brandName, brandTagline, brandColor, user.name, rawOtp);
 
+  // Attempt 1: Port 465 SSL/TLS
   try {
-    const transporter = getMailTransporter();
-    await transporter.sendMail({
+    const transporter465 = getMailTransporter(465, true);
+    await transporter465.sendMail({
       from: emailSender,
       to: user.email,
       subject,
@@ -173,15 +204,41 @@ export async function sendOtpNotification(
     });
 
     const maskedEmail = user.email.replace(/(?<=.{2}).(?=.*@)/g, '*');
-    console.log(`✉️ [OTP Service] ${purpose} verification code sent to ${maskedEmail} via Hostinger SMTP`);
+    console.log(`✉️ [OTP Service] ${purpose} code sent to ${maskedEmail} via Hostinger SMTP (Port 465)`);
     return { success: true, channel: 'EMAIL' };
-  } catch (err: any) {
-    const maskedEmail = user.email.replace(/(?<=.{2}).(?=.*@)/g, '*');
-    console.error(`⚠️ [OTP Service] Hostinger SMTP dispatch failed for ${maskedEmail}:`, err?.message || err);
-    return {
-      success: false,
-      channel: 'EMAIL',
-      error: 'Email delivery failed. Please check Hostinger SMTP settings.',
-    };
+  } catch (err465: any) {
+    console.warn(`[OTP Service] Port 465 attempt failed: ${err465?.message}. Trying Port 587 STARTTLS...`);
+
+    // If password failed (535), return exact helpful message
+    if (err465?.responseCode === 535 || err465?.message?.includes('535') || err465?.message?.includes('authentication failed')) {
+      return {
+        success: false,
+        channel: 'EMAIL',
+        error: `Hostinger authentication failed (535): Incorrect password for ${smtpUser}. Please verify SMTP_PASS in Vercel settings.`,
+      };
+    }
+
+    // Attempt 2: Port 587 STARTTLS fallback
+    try {
+      const transporter587 = getMailTransporter(587, false);
+      await transporter587.sendMail({
+        from: emailSender,
+        to: user.email,
+        subject,
+        html,
+      });
+
+      const maskedEmail = user.email.replace(/(?<=.{2}).(?=.*@)/g, '*');
+      console.log(`✉️ [OTP Service] ${purpose} code sent to ${maskedEmail} via Hostinger SMTP (Port 587 fallback)`);
+      return { success: true, channel: 'EMAIL' };
+    } catch (err587: any) {
+      const maskedEmail = user.email.replace(/(?<=.{2}).(?=.*@)/g, '*');
+      console.error(`⚠️ [OTP Service] Both Port 465 & 587 failed for ${maskedEmail}:`, err587?.message || err587);
+      return {
+        success: false,
+        channel: 'EMAIL',
+        error: `Hostinger delivery failed: ${err587?.message || err465?.message || 'Connection error'}`,
+      };
+    }
   }
 }

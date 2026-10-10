@@ -214,14 +214,14 @@ router.post('/login', async (req, res, next) => {
     const delivery = await sendOtpNotification(user, rawOtp, 'LOGIN', branding);
 
     if (!delivery.success) {
-      // Invalidate the unsent challenge to prevent brute force or deadlocks
+      // Invalidate the unsent challenge and reset cooldown so user is not blocked
       await prisma.user.update({
         where: { id: user.id },
-        data: { otpHash: null, otpExpiresAt: null, otpAttempts: 0 },
+        data: { otpHash: null, otpExpiresAt: null, otpAttempts: 0, lastOtpRequestedAt: null },
       });
 
       res.status(503).json({
-        message: 'Unable to deliver verification code email via SMTP. Please contact your system administrator.',
+        message: delivery.error || 'Unable to deliver verification code email via SMTP. Please contact your system administrator.',
       });
       return;
     }
@@ -395,11 +395,11 @@ router.post('/resend-otp', async (req, res, next) => {
     if (!delivery.success) {
       await prisma.user.update({
         where: { id: user.id },
-        data: { otpHash: null, otpExpiresAt: null, otpAttempts: 0 },
+        data: { otpHash: null, otpExpiresAt: null, otpAttempts: 0, lastOtpRequestedAt: null },
       });
 
       res.status(503).json({
-        message: 'Unable to deliver verification code email via SMTP. Please contact your system administrator.',
+        message: delivery.error || 'Unable to deliver verification code email via SMTP. Please contact your system administrator.',
       });
       return;
     }
@@ -461,11 +461,11 @@ router.post('/forgot-password', async (req, res, next) => {
     if (!delivery.success) {
       await prisma.user.update({
         where: { id: user.id },
-        data: { otpHash: null, otpExpiresAt: null, otpAttempts: 0 },
+        data: { otpHash: null, otpExpiresAt: null, otpAttempts: 0, lastOtpRequestedAt: null },
       });
 
       res.status(503).json({
-        message: 'Unable to deliver password reset email via SMTP. Please contact your administrator.',
+        message: delivery.error || 'Unable to deliver password reset email via SMTP. Please contact your administrator.',
       });
       return;
     }
@@ -758,6 +758,24 @@ router.get('/smtp-status', authenticate, async (req: AuthRequest, res: Response,
     });
   } catch (error) {
     next(error);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 12. Public SMTP Health Check (safe - no secrets exposed)
+// -----------------------------------------------------------------------------
+router.get('/smtp-check', async (req, res) => {
+  try {
+    const hasPass = Boolean(process.env.SMTP_PASS && process.env.SMTP_PASS.trim());
+    const status = await verifySmtpConfiguration();
+    res.json({
+      configured: hasPass,
+      host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+      user: process.env.SMTP_USER || 'noreply@ooting.in',
+      verification: status,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'SMTP check failed' });
   }
 });
 
