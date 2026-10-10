@@ -71,15 +71,15 @@ export async function generateA4Pdf({
       const fontLink = clonedDoc.createElement('link');
       fontLink.id = 'injected-pdf-fonts';
       fontLink.rel = 'stylesheet';
-      fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap';
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap';
       clonedDoc.head.appendChild(fontLink);
 
       const fontStyle = clonedDoc.createElement('style');
       fontStyle.textContent = `
-        body, p, span, td, th, div, input, textarea, select {
+        body, p, span, td, th, li, input, textarea, select {
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         }
-        h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
+        h1, h2, h3, h4, h5, h6, .font-heading, .font-display, [class*="font-heading"], [class*="text-xl"], [class*="text-2xl"], [class*="text-3xl"] {
           font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         }
       `;
@@ -91,7 +91,7 @@ export async function generateA4Pdf({
     targetEl.style.boxShadow = 'none';
     targetEl.style.borderRadius = '0';
     targetEl.style.border = 'none';
-    targetEl.style.setProperty('font-family', "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", 'important');
+    targetEl.style.setProperty('font-family', "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", 'important');
 
     // 1. Flexbox Gap Polyfill for html2canvas (html2canvas does not natively support CSS gap)
     const flexContainers = Array.from(targetEl.querySelectorAll<HTMLElement>('.flex, [class*="gap-"]'));

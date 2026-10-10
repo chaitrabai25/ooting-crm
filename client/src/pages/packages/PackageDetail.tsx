@@ -47,8 +47,8 @@ import { ItineraryDay, Place, Hotel, Package } from '../../types/index.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { PlaceModal } from '../places/PlaceModal.js';
 import { HotelModal } from '../hotels/HotelModal.js';
-import { B2BAgentSelectModal } from './B2BAgentSelectModal.js';
-import { B2BCustomizeBrandingModal } from './B2BCustomizeBrandingModal.js';
+import { B2BAgencyBrandingModal } from './B2BAgencyBrandingModal.js';
+
 
 import { useAuth } from '../../context/AuthContext.js';
 import { confirmAction, notifyError, notifySuccess, notifyWarning } from '../../utils/sweetalert.js';
@@ -66,49 +66,45 @@ export const PackageDetail: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  // B2B Travel Agent Branding Modals & Handlers
-  const [isAgentSelectOpen, setIsAgentSelectOpen] = useState(false);
-  const [isCustomizeBrandingOpen, setIsCustomizeBrandingOpen] = useState(false);
+  // Unified B2B Travel Agent Branding Modal State
+  const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
 
-  const handleSelectB2BAgent = async (snapshot: Partial<Package>) => {
-    try {
-      setIsSaving(true);
-      await api.put('/packages/' + id, snapshot);
-      setPkg((prev: any) => ({ ...prev, ...snapshot }));
-      showToast(`Itinerary branded for "${snapshot.b2bAgencyName}"! Master agent profile remains untouched.`);
-    } catch (err: any) {
-      console.error('Failed to apply agent branding:', err);
-      notifyError('Failed to Apply Branding', err.response?.data?.message || 'Could not update package branding.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveCustomBranding = async (updated: Partial<Package>) => {
+  const handleSaveBranding = async (updated: Partial<Package>, updateMasterAgentId?: string | null) => {
     try {
       setIsSaving(true);
       await api.put('/packages/' + id, updated);
       setPkg((prev: any) => ({ ...prev, ...updated }));
-      showToast('Custom agency details saved for this itinerary!');
+
+      if (updateMasterAgentId) {
+        try {
+          const masterPayload: any = {
+            companyName: updated.b2bAgencyName,
+            contactPerson: updated.b2bContactPerson,
+            phone: updated.b2bPhone,
+            email: updated.b2bEmail,
+            city: updated.b2bCity,
+            state: updated.b2bState,
+            gstNumber: updated.b2bGstin,
+          };
+          await api.put('/agents/' + updateMasterAgentId, masterPayload);
+          showToast(`Itinerary branded & master CRM agent record updated for "${updated.b2bAgencyName}"!`);
+        } catch (masterErr: any) {
+          console.warn('Could not update master agent record:', masterErr);
+          showToast(`Itinerary branded for "${updated.b2bAgencyName}" (master directory sync skipped).`);
+        }
+      } else {
+        showToast(`Itinerary branded for "${updated.b2bAgencyName}"!`);
+      }
     } catch (err: any) {
-      console.error('Failed to save custom branding:', err);
+      console.error('Failed to save branding:', err);
       notifyError('Failed to Save Branding', err.response?.data?.message || 'Could not update package branding.');
+      throw err;
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleResetToDefaultBranding = async () => {
-    const confirmed = await confirmAction({
-      title: 'Reset to Ooting Default Branding?',
-      text: 'This will remove the B2B partner branding override and restore standard Ooting letterhead & contacts.',
-      confirmText: 'Yes, Reset',
-      cancelText: 'Cancel',
-      isDangerous: false,
-      icon: 'question',
-    });
-    if (!confirmed) return;
-
     const resetPayload: any = {
       b2bAgentId: null,
       b2bAgencyName: null,
@@ -129,10 +125,11 @@ export const PackageDetail: React.FC = () => {
       setIsSaving(true);
       await api.put('/packages/' + id, resetPayload);
       setPkg((prev: any) => ({ ...prev, ...resetPayload }));
-      showToast('Restored standard Ooting CRM branding for this itinerary.');
+      showToast('Restored standard Ooting CRM letterhead for this itinerary.');
     } catch (err: any) {
       console.error('Failed to reset branding:', err);
       notifyError('Failed to Reset Branding', err.response?.data?.message || 'Could not reset package branding.');
+      throw err;
     } finally {
       setIsSaving(false);
     }
@@ -1131,6 +1128,22 @@ export const PackageDetail: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => setIsBrandingModalOpen(true)}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border shadow-xs transition-colors cursor-pointer ${
+              pkg?.b2bAgencyName
+                ? 'bg-rose-50 hover:bg-rose-100 text-[#C91F28] border-rose-200 dark:bg-rose-950/40 dark:border-rose-800'
+                : 'bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5 text-[#C91F28]" />
+            <span>B2B Agency Branding</span>
+            {pkg?.b2bAgencyName && (
+              <span className="w-2 h-2 rounded-full bg-[#C91F28] animate-pulse" />
+            )}
+          </button>
+
+          <button
+            type="button"
             disabled={isSaving}
             onClick={handlePersistItineraries}
             className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer ${
@@ -1226,20 +1239,20 @@ export const PackageDetail: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => setIsAgentSelectOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+              onClick={() => setIsBrandingModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a8171f] rounded-xl shadow-xs transition-all cursor-pointer"
             >
-              <Building2 className="w-3.5 h-3.5 text-blue-600" />
-              <span>Select B2B Travel Agent</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsCustomizeBrandingOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors cursor-pointer"
-            >
-              <Palette className="w-3.5 h-3.5 text-amber-600" />
-              <span>Customize Agency Details</span>
+              <Briefcase className="w-4 h-4" />
+              <span>B2B Agency Branding</span>
+              {pkg?.b2bAgencyName ? (
+                <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                  Configured
+                </span>
+              ) : (
+                <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                  Setup
+                </span>
+              )}
             </button>
 
             {pkg?.b2bAgencyName && (
@@ -1247,7 +1260,7 @@ export const PackageDetail: React.FC = () => {
                 type="button"
                 onClick={handleResetToDefaultBranding}
                 title="Revert to standard Ooting CRM letterhead"
-                className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reset to Default</span>
@@ -2582,20 +2595,12 @@ export const PackageDetail: React.FC = () => {
           </div>
         </div>
       </Modal>
-      {/* B2B Travel Agent Selection Modal */}
-      <B2BAgentSelectModal
-        isOpen={isAgentSelectOpen}
-        onClose={() => setIsAgentSelectOpen(false)}
-        onSelectAgent={handleSelectB2BAgent}
-        currentAgentId={pkg?.b2bAgentId}
-      />
-
-      {/* B2B Custom Agency Branding Override Modal */}
-      <B2BCustomizeBrandingModal
-        isOpen={isCustomizeBrandingOpen}
-        onClose={() => setIsCustomizeBrandingOpen(false)}
+      {/* Unified B2B Agency Branding Modal */}
+      <B2BAgencyBrandingModal
+        isOpen={isBrandingModalOpen}
+        onClose={() => setIsBrandingModalOpen(false)}
         branding={pkg || {}}
-        onSaveBranding={handleSaveCustomBranding}
+        onSaveBranding={handleSaveBranding}
         onResetToDefault={handleResetToDefaultBranding}
       />
     </div>

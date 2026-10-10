@@ -270,49 +270,6 @@ export const ItineraryPdfView: React.FC = () => {
     }
   };
 
-  const handleShareWhatsApp = async () => {
-    if (!pkg) return;
-
-    const cleanTitle = (pkg.packageName || 'Itinerary').replace(/[^a-zA-Z0-9]/g, '_');
-    const filename = `Itinerary_${cleanTitle}.pdf`;
-
-    const messageText =
-      `*${(company.name || 'OOTING').toUpperCase()} - TOUR ITINERARY*\n\n` +
-      `Here is the official travel itinerary for *${pkg.packageName}* (${pkg.destination})!\n\n` +
-      `• Duration: ${pkg.duration}\n` +
-      `• Starting Price: ₹${Number(pkg.price).toLocaleString('en-IN')} Per Person\n` +
-      `• Inclusions: ${pkg.inclusions || 'Standard holiday package inclusions'}\n\n` +
-      `Have a look at the attached official PDF document for the complete day-by-day schedule.\n\n` +
-      `Warm regards,\n*Ooting Team*`;
-
-    const text = encodeURIComponent(
-      messageText +
-      `\n\n📄 Note: The official Tour Itinerary PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
-    );
-    const waUrl = `https://wa.me/?text=${text}`;
-
-    // Open WhatsApp synchronously in user click gesture to avoid browser popup blockers
-    window.open(waUrl, '_blank');
-
-    try {
-      setIsGeneratingPdf(true);
-      const { download } = await generateA4Pdf({
-        elementId: 'itinerary-document',
-        filename,
-        title: pkg.packageName || 'Official Tour Itinerary',
-        onePageOnly: false,
-        margin: 8,
-      });
-
-      // Always auto-download the official PDF for immediate customer delivery
-      await download();
-    } catch (err) {
-      console.error('WhatsApp itinerary share error:', err);
-    } finally {
-      setIsGeneratingPdf(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100">
@@ -360,6 +317,49 @@ export const ItineraryPdfView: React.FC = () => {
     signatureName: isB2B
       ? pkg.b2bAgencyName!.trim()
       : (company?.name || 'Ooting Tours & Travels'),
+  };
+
+  const handleShareWhatsApp = async () => {
+    if (!pkg) return;
+
+    const cleanTitle = (pkg.packageName || 'Itinerary').replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `Itinerary_${cleanTitle}.pdf`;
+
+    const messageText =
+      `*${activeBranding.agencyName.toUpperCase()} - TOUR ITINERARY*\n\n` +
+      `Here is the official travel itinerary for *${pkg.packageName}* (${pkg.destination})!\n\n` +
+      `• Duration: ${pkg.duration}\n` +
+      `• Starting Price: ₹${Number(pkg.price).toLocaleString('en-IN')} Per Person\n` +
+      `• Inclusions: ${pkg.inclusions || 'Standard holiday package inclusions'}\n\n` +
+      `Have a look at the attached official PDF document for the complete day-by-day schedule.\n\n` +
+      `Warm regards,\n*${activeBranding.signatureName}*`;
+
+    const text = encodeURIComponent(
+      messageText +
+      `\n\n📄 Note: The official Tour Itinerary PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
+    );
+    const waUrl = `https://wa.me/?text=${text}`;
+
+    // Open WhatsApp synchronously in user click gesture to avoid browser popup blockers
+    window.open(waUrl, '_blank');
+
+    try {
+      setIsGeneratingPdf(true);
+      const { download } = await generateA4Pdf({
+        elementId: 'itinerary-document',
+        filename,
+        title: pkg.packageName || 'Official Tour Itinerary',
+        onePageOnly: false,
+        margin: 8,
+      });
+
+      // Always auto-download the official PDF for immediate customer delivery
+      await download();
+    } catch (err) {
+      console.error('WhatsApp itinerary share error:', err);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   return (
@@ -416,12 +416,30 @@ export const ItineraryPdfView: React.FC = () => {
       <div
         id="itinerary-document"
         className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-sans antialiased print:m-0"
-        style={{ fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
+        style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
       >
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
-          #itinerary-document, #itinerary-document * {
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
+          #itinerary-document {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          }
+          #itinerary-document h1,
+          #itinerary-document h2,
+          #itinerary-document h3,
+          #itinerary-document h4,
+          #itinerary-document h5,
+          #itinerary-document h6,
+          #itinerary-document .font-heading,
+          #itinerary-document .font-display,
+          #itinerary-document [class*="font-heading"] {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          }
+          #itinerary-document p,
+          #itinerary-document span,
+          #itinerary-document td,
+          #itinerary-document th,
+          #itinerary-document li {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           }
         `}</style>
         
@@ -455,7 +473,11 @@ export const ItineraryPdfView: React.FC = () => {
                     style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                     referrerPolicy="no-referrer"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                      if (activeBranding.isB2B) {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      } else {
+                        (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                      }
                     }}
                   />
                 ) : (
@@ -1011,17 +1033,27 @@ export const ItineraryPdfView: React.FC = () => {
 
             {/* Thank You Card with Perfectly Centered Logo & Company Info */}
             <div className="pt-4 text-center max-w-2xl mx-auto w-full flex flex-col items-center">
-              {/* Ooting Logo - Perfectly Centered & Aligned, Direct & Transparent (No Box) */}
+              {/* Agency / Company Logo - Perfectly Centered & Aligned, Direct & Transparent */}
               <div className="mb-4 flex items-center justify-center w-full">
-                <img
-                  src={company.logoUrl || '/assets/ooting-logo.jpg'}
-                  alt={company.name || 'Ooting'}
-                  className="h-16 sm:h-20 w-auto max-w-[220px] object-contain mx-auto drop-shadow-sm"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
-                  }}
-                />
+                {activeBranding.logoUrl ? (
+                  <img
+                    src={activeBranding.logoUrl}
+                    alt={activeBranding.agencyName}
+                    className="h-16 sm:h-20 w-auto max-w-[220px] object-contain mx-auto drop-shadow-sm"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      if (activeBranding.isB2B) {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      } else {
+                        (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center font-black text-xl uppercase tracking-wider shadow-md mx-auto">
+                    {activeBranding.agencyName.slice(0, 2)}
+                  </div>
+                )}
               </div>
 
               {/* Large Font THANK YOU */}
@@ -1031,7 +1063,7 @@ export const ItineraryPdfView: React.FC = () => {
 
               {/* Below One Line */}
               <p className="text-xs sm:text-sm font-medium text-slate-600 italic mt-1.5 max-w-lg mx-auto text-center leading-relaxed">
-                Thank you for choosing Ooting — we look forward to curating your next unforgettable journey.
+                Thank you for choosing {activeBranding.agencyName} — we look forward to curating your next unforgettable journey.
               </p>
 
               {/* Red Accent Divider */}
@@ -1042,16 +1074,16 @@ export const ItineraryPdfView: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 mb-3 border-b border-slate-200 gap-2">
                   <div>
                     <h3 className="font-bold text-base sm:text-lg text-[#1E3A8A] uppercase tracking-tight">
-                      {(company.name || 'OOTING TOURS & TRAVELS').toUpperCase()}
+                      {activeBranding.agencyName.toUpperCase()}
                     </h3>
                     <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
-                      {company.tagline || 'Journeys Beyond Ordinary'}
+                      {activeBranding.tagline}
                     </span>
                   </div>
-                  {company?.gstin && company.gstin !== 'NULL' && company.gstin !== 'NIL' && company.gstin !== 'NILL' && company.gstin.trim() !== '' && (
+                  {activeBranding.gstin && activeBranding.gstin !== 'NULL' && activeBranding.gstin !== 'NIL' && activeBranding.gstin !== 'NILL' && activeBranding.gstin.trim() !== '' && (
                     <div>
-                      <span className="inline-block text-xs font-semibold text-slate-700 bg-white px-3 py-1 rounded-md border border-slate-200 shadow-2xs">
-                        GSTIN: {company.gstin.replace(/^GSTIN:\s*/i, '')}
+                      <span className="inline-block text-xs font-semibold text-slate-700 bg-white px-3 py-1 rounded-md border border-slate-200 shadow-2xs font-mono">
+                        GSTIN: {activeBranding.gstin.replace(/^GSTIN:\s*/i, '')}
                       </span>
                     </div>
                   )}
@@ -1066,7 +1098,7 @@ export const ItineraryPdfView: React.FC = () => {
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Helpline / Contact</span>
                       <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                        {activeBranding.phone || '+91 8884845595'}
+                        {activeBranding.phone || (!activeBranding.isB2B ? '+91 8884845595' : '')}
                         {activeBranding.alternatePhone && ` / ${activeBranding.alternatePhone}`}
                       </span>
                     </div>
@@ -1080,7 +1112,7 @@ export const ItineraryPdfView: React.FC = () => {
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Email Support</span>
                         <span className="font-bold text-slate-900 text-xs sm:text-sm break-all">
-                          {activeBranding.email || (activeBranding.isB2B ? '' : 'support@ooting.in')}
+                          {activeBranding.email || (!activeBranding.isB2B ? 'support@ooting.in' : '')}
                         </span>
                       </div>
                     </div>
@@ -1094,7 +1126,7 @@ export const ItineraryPdfView: React.FC = () => {
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Official Website</span>
                         <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                          {activeBranding.website || (activeBranding.isB2B ? '' : 'www.ooting.in')}
+                          {activeBranding.website || (!activeBranding.isB2B ? 'www.ooting.in' : '')}
                         </span>
                       </div>
                     </div>
@@ -1108,7 +1140,7 @@ export const ItineraryPdfView: React.FC = () => {
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Office</span>
                         <span className="font-bold text-slate-800 text-xs leading-snug whitespace-pre-line">
-                          {activeBranding.address || (activeBranding.isB2B ? '' : 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India')}
+                          {activeBranding.address || (!activeBranding.isB2B ? 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India' : '')}
                         </span>
                       </div>
                     </div>
