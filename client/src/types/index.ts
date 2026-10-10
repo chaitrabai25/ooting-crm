@@ -507,6 +507,10 @@ export interface CompanySettings {
   email: string;
   phone: string;
   address: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
   website: string;
   gstin: string;
   logoUrl: string;

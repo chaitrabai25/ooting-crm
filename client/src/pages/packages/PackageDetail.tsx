@@ -38,6 +38,7 @@ import {
   FileText,
   Palette,
   RotateCcw,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -48,7 +49,7 @@ import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { PlaceModal } from '../places/PlaceModal.js';
 import { HotelModal } from '../hotels/HotelModal.js';
 import { B2BAgencyBrandingModal } from './B2BAgencyBrandingModal.js';
-
+import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 import { useAuth } from '../../context/AuthContext.js';
 import { confirmAction, notifyError, notifySuccess, notifyWarning } from '../../utils/sweetalert.js';
@@ -57,6 +58,7 @@ export const PackageDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { can, isSuperAdmin } = useAuth();
+  const { company, effectiveLogoUrl, refreshCompany } = useCompanySettings();
 
   const [pkg, setPkg] = useState<any>(null);
   const [itineraries, setItineraries] = useState<ItineraryDay[]>([]);
@@ -105,6 +107,17 @@ export const PackageDetail: React.FC = () => {
   };
 
   const handleResetToDefaultBranding = async () => {
+    const defaultName = company?.name || 'Company Settings';
+    const confirmed = await confirmAction({
+      title: 'Reset to Default Settings?',
+      text: `This will remove the B2B agency override and restore your default company letterhead (${defaultName}).`,
+      confirmText: 'Yes, Restore Defaults',
+      cancelText: 'Cancel',
+      isDangerous: false,
+      icon: 'question',
+    });
+    if (!confirmed) return;
+
     const resetPayload: any = {
       b2bAgentId: null,
       b2bAgencyName: null,
@@ -123,13 +136,30 @@ export const PackageDetail: React.FC = () => {
     };
     try {
       setIsSaving(true);
+      await refreshCompany();
       await api.put('/packages/' + id, resetPayload);
       setPkg((prev: any) => ({ ...prev, ...resetPayload }));
-      showToast('Restored standard Ooting CRM letterhead for this itinerary.');
+      showToast(`Restored default ${defaultName} branding for this itinerary.`);
     } catch (err: any) {
       console.error('Failed to reset branding:', err);
       notifyError('Failed to Reset Branding', err.response?.data?.message || 'Could not reset package branding.');
       throw err;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRefreshToDefaultSettings = async () => {
+    try {
+      setIsSaving(true);
+      await refreshCompany();
+      if (pkg?.b2bAgencyName) {
+        await handleResetToDefaultBranding();
+      } else {
+        showToast(`Default settings verified and synced for ${company?.name || 'Company'}!`);
+      }
+    } catch (err: any) {
+      console.error('Failed to refresh default settings:', err);
     } finally {
       setIsSaving(false);
     }
@@ -1126,21 +1156,6 @@ export const PackageDetail: React.FC = () => {
             <span>Download Itinerary PDF</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setIsBrandingModalOpen(true)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border shadow-xs transition-colors cursor-pointer ${
-              pkg?.b2bAgencyName
-                ? 'bg-rose-50 hover:bg-rose-100 text-[#C91F28] border-rose-200 dark:bg-rose-950/40 dark:border-rose-800'
-                : 'bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5 text-[#C91F28]" />
-            <span>B2B Agency Branding</span>
-            {pkg?.b2bAgencyName && (
-              <span className="w-2 h-2 rounded-full bg-[#C91F28] animate-pulse" />
-            )}
-          </button>
 
           <button
             type="button"
@@ -1188,7 +1203,7 @@ export const PackageDetail: React.FC = () => {
               ) : (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                   <Building2 className="w-3 h-3 text-slate-400" />
-                  <span>Default Ooting CRM Branding</span>
+                  <span>Default: {company?.name || 'Company Settings'}</span>
                 </span>
               )}
             </div>
@@ -1196,7 +1211,7 @@ export const PackageDetail: React.FC = () => {
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {pkg?.b2bAgencyName
                 ? `Custom travel partner branding active. Previews, PDFs, and print documents will feature ${pkg.b2bAgencyName}'s contact details and logo.`
-                : 'Configure customized agency branding for this itinerary. Previews, PDFs, and printouts will dynamically display the partner agency details.'}
+                : `Using default company settings (${company?.name || 'Company'}). Previews, PDFs, and printouts dynamically feature your active organization details.`}
             </p>
 
             {pkg?.b2bAgencyName && (
@@ -1255,12 +1270,24 @@ export const PackageDetail: React.FC = () => {
               )}
             </button>
 
+            <button
+              type="button"
+              onClick={handleRefreshToDefaultSettings}
+              disabled={isSaving}
+              title={`Refresh and sync default company settings (${company?.name || 'Company'})`}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#C91F28] ${isSaving ? 'animate-spin' : ''}`} />
+              <span>Refresh to Default Settings</span>
+            </button>
+
             {pkg?.b2bAgencyName && (
               <button
                 type="button"
                 onClick={handleResetToDefaultBranding}
-                title="Revert to standard Ooting CRM letterhead"
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"
+                disabled={isSaving}
+                title={`Revert to default ${company?.name || 'Company'} branding`}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reset to Default</span>
@@ -2600,6 +2627,8 @@ export const PackageDetail: React.FC = () => {
         isOpen={isBrandingModalOpen}
         onClose={() => setIsBrandingModalOpen(false)}
         branding={pkg || {}}
+        company={company}
+        effectiveLogoUrl={effectiveLogoUrl}
         onSaveBranding={handleSaveBranding}
         onResetToDefault={handleResetToDefaultBranding}
       />

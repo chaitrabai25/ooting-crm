@@ -143,7 +143,7 @@ const renderColoredDayTitle = (rawTitle: string) => {
 export const ItineraryPdfView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { company } = useCompanySettings();
+  const { company, effectiveLogoUrl } = useCompanySettings();
 
   const [pkg, setPkg] = useState<Package | null>(null);
   const [hotelsLookup, setHotelsLookup] = useState<Map<string, any>>(new Map());
@@ -298,14 +298,14 @@ export const ItineraryPdfView: React.FC = () => {
 
   const activeBranding = {
     isB2B,
-    agencyName: isB2B ? pkg.b2bAgencyName!.trim() : (company?.name || 'OOTING').toUpperCase(),
+    agencyName: isB2B ? pkg.b2bAgencyName!.trim() : (company?.name || 'DESIRE HOLIDAYS').toUpperCase(),
     tagline: isB2B
       ? (pkg.b2bTagline || 'Authorized Travel Partner')
-      : (company?.tagline || 'Journeys Beyond Ordinary'),
+      : (company?.tagline || ''),
     subtitle: isB2B
       ? (pkg.b2bContactPerson ? `Authorized Travel Partner • Contact: ${pkg.b2bContactPerson}` : 'Authorized Travel Partner')
-      : 'Premium Tour Operator & Destination Specialist',
-    logoUrl: isB2B ? (pkg.b2bAgencyLogo || null) : (company?.logoUrl || '/assets/ooting-logo.jpg'),
+      : (company?.tagline || 'Premium Tour Operator & Destination Specialist'),
+    logoUrl: isB2B ? (pkg.b2bAgencyLogo || null) : (effectiveLogoUrl || company?.logoUrl || null),
     phone: isB2B ? (pkg.b2bPhone || '') : (company?.phone || ''),
     alternatePhone: isB2B ? (pkg.b2bAlternatePhone || '') : '',
     email: isB2B ? (pkg.b2bEmail || '') : (company?.email || ''),
@@ -313,10 +313,10 @@ export const ItineraryPdfView: React.FC = () => {
     gstin: isB2B ? (pkg.b2bGstin || '') : (company?.gstin || ''),
     address: isB2B
       ? [pkg.b2bAddress, pkg.b2bCity, pkg.b2bState].filter(Boolean).join(', ')
-      : (company?.address || 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India'),
+      : (company?.address || [company?.city, company?.state].filter(Boolean).join(', ')),
     signatureName: isB2B
       ? pkg.b2bAgencyName!.trim()
-      : (company?.name || 'Ooting Tours & Travels'),
+      : (company?.name || 'Authorized Tour Operator'),
   };
 
   const handleShareWhatsApp = async () => {
@@ -475,8 +475,10 @@ export const ItineraryPdfView: React.FC = () => {
                     onError={(e) => {
                       if (activeBranding.isB2B) {
                         (e.target as HTMLImageElement).style.display = 'none';
-                      } else {
+                      } else if (company?.isOoting) {
                         (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                      } else {
+                        (e.target as HTMLImageElement).style.display = 'none';
                       }
                     }}
                   />
@@ -1044,8 +1046,10 @@ export const ItineraryPdfView: React.FC = () => {
                     onError={(e) => {
                       if (activeBranding.isB2B) {
                         (e.target as HTMLImageElement).style.display = 'none';
-                      } else {
+                      } else if (company?.isOoting) {
                         (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                      } else {
+                        (e.target as HTMLImageElement).style.display = 'none';
                       }
                     }}
                   />
@@ -1098,13 +1102,13 @@ export const ItineraryPdfView: React.FC = () => {
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Helpline / Contact</span>
                       <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                        {activeBranding.phone || (!activeBranding.isB2B ? '+91 8884845595' : '')}
+                        {activeBranding.phone || (!activeBranding.isB2B && company?.isOoting ? '+91 8884845595' : '')}
                         {activeBranding.alternatePhone && ` / ${activeBranding.alternatePhone}`}
                       </span>
                     </div>
                   </div>
 
-                  {(activeBranding.email || !activeBranding.isB2B) && (
+                  {(activeBranding.email || (!activeBranding.isB2B && company?.isOoting)) && (
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                         <Mail className="w-4 h-4" />
@@ -1112,13 +1116,13 @@ export const ItineraryPdfView: React.FC = () => {
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Email Support</span>
                         <span className="font-bold text-slate-900 text-xs sm:text-sm break-all">
-                          {activeBranding.email || (!activeBranding.isB2B ? 'support@ooting.in' : '')}
+                          {activeBranding.email || (!activeBranding.isB2B && company?.isOoting ? 'support@ooting.in' : '')}
                         </span>
                       </div>
                     </div>
                   )}
 
-                  {(activeBranding.website || !activeBranding.isB2B) && (
+                  {(activeBranding.website || (!activeBranding.isB2B && company?.isOoting)) && (
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                         <Globe className="w-4 h-4" />
@@ -1126,13 +1130,13 @@ export const ItineraryPdfView: React.FC = () => {
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Official Website</span>
                         <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                          {activeBranding.website || (!activeBranding.isB2B ? 'www.ooting.in' : '')}
+                          {activeBranding.website || (!activeBranding.isB2B && company?.isOoting ? 'www.ooting.in' : '')}
                         </span>
                       </div>
                     </div>
                   )}
 
-                  {(activeBranding.address || !activeBranding.isB2B) && (
+                  {(activeBranding.address || (!activeBranding.isB2B && company?.isOoting)) && (
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                         <MapPin className="w-4 h-4" />
@@ -1140,7 +1144,7 @@ export const ItineraryPdfView: React.FC = () => {
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Office</span>
                         <span className="font-bold text-slate-800 text-xs leading-snug whitespace-pre-line">
-                          {activeBranding.address || (!activeBranding.isB2B ? 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India' : '')}
+                          {activeBranding.address || (!activeBranding.isB2B && company?.isOoting ? 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India' : '')}
                         </span>
                       </div>
                     </div>

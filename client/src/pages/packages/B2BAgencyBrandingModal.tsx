@@ -18,6 +18,7 @@ import {
   User,
   Image as ImageIcon,
   RotateCcw,
+  RefreshCw,
   CheckCircle2,
   X,
   ExternalLink,
@@ -32,6 +33,8 @@ interface B2BAgencyBrandingModalProps {
   isOpen: boolean;
   onClose: () => void;
   branding: Partial<Package>;
+  company?: any;
+  effectiveLogoUrl?: string;
   onSaveBranding: (updated: Partial<Package>, updateMasterAgentId?: string | null) => Promise<void>;
   onResetToDefault: () => Promise<void>;
 }
@@ -40,6 +43,8 @@ export const B2BAgencyBrandingModal: React.FC<B2BAgencyBrandingModalProps> = ({
   isOpen,
   onClose,
   branding,
+  company,
+  effectiveLogoUrl,
   onSaveBranding,
   onResetToDefault,
 }) => {
@@ -261,12 +266,37 @@ export const B2BAgencyBrandingModal: React.FC<B2BAgencyBrandingModalProps> = ({
     }
   };
 
-  // Reset to Default Ooting Branding
+  // Autofill form from active CRM company settings
+  const handleAutofillFromCompanyDefaults = () => {
+    if (!company) return;
+    setFormData((prev) => ({
+      ...prev,
+      b2bAgentId: null,
+      b2bAgencyName: company.name || '',
+      b2bTagline: company.tagline || 'Authorized Travel Partner',
+      b2bContactPerson: prev.b2bContactPerson || '',
+      b2bPhone: company.phone || '',
+      b2bAlternatePhone: '',
+      b2bEmail: company.email || '',
+      b2bAddress: company.address || '',
+      b2bCity: company.city || prev.b2bCity || '',
+      b2bState: company.state || prev.b2bState || '',
+      b2bGstin: company.gstin || '',
+      b2bWebsite: company.website || '',
+      b2bAgencyLogo: effectiveLogoUrl || company.logoUrl || prev.b2bAgencyLogo || '',
+    }));
+    setSelectedAgentId(null);
+    setLogoPreviewError(false);
+    notifySuccess('Default Settings Loaded', `Autofilled details from ${company.name || 'Company Settings'}. You can adjust any values dynamically before saving.`);
+  };
+
+  // Reset to Default Company Settings
   const handleReset = async () => {
+    const defaultCompanyName = company?.name || 'Company Settings';
     const confirmed = await confirmAction({
-      title: 'Reset to Ooting Default Branding?',
-      text: 'This will remove the B2B partner agency override for this itinerary and restore standard Ooting CRM letterhead.',
-      confirmText: 'Yes, Reset',
+      title: `Reset to Default ${defaultCompanyName}?`,
+      text: `This will remove the B2B partner agency override for this itinerary and restore standard ${defaultCompanyName} letterhead.`,
+      confirmText: 'Yes, Restore Defaults',
       cancelText: 'Cancel',
       isDangerous: false,
       icon: 'question',
@@ -694,6 +724,29 @@ export const B2BAgencyBrandingModal: React.FC<B2BAgencyBrandingModalProps> = ({
               </div>
             </div>
 
+            {/* Quick Action: Autofill from Active Company Defaults */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2.5">
+                <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
+                <div>
+                  <p className="font-bold text-xs text-slate-800 dark:text-slate-100">
+                    Load Active Company Defaults
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Autofill fields using active CRM defaults ({company?.name || 'Company Settings'}), then modify any value dynamically.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleAutofillFromCompanyDefaults}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-[#C91F28]" />
+                <span>Autofill from Company Settings</span>
+              </button>
+            </div>
+
             {/* Form Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <div>
@@ -1005,7 +1058,7 @@ export const B2BAgencyBrandingModal: React.FC<B2BAgencyBrandingModalProps> = ({
                 className="px-3 py-1.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-semibold text-xs transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset to Default CRM Letterhead</span>
+                <span>Reset to Default ({company?.name || 'Company'}) Letterhead</span>
               </button>
             )}
           </div>
