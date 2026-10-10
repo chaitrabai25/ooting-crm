@@ -1072,41 +1072,47 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                      <Mail className="w-4 h-4" />
+                  {(activeBranding.email || !activeBranding.isB2B) && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Email Support</span>
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm break-all">
+                          {activeBranding.email || (activeBranding.isB2B ? '' : 'support@ooting.in')}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Email Support</span>
-                      <span className="font-bold text-slate-900 text-xs sm:text-sm break-all">
-                        {activeBranding.email || 'support@ooting.in'}
-                      </span>
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                      <Globe className="w-4 h-4" />
+                  {(activeBranding.website || !activeBranding.isB2B) && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Official Website</span>
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                          {activeBranding.website || (activeBranding.isB2B ? '' : 'www.ooting.in')}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Official Website</span>
-                      <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                        {activeBranding.website || 'www.ooting.in'}
-                      </span>
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                      <MapPin className="w-4 h-4" />
+                  {(activeBranding.address || !activeBranding.isB2B) && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Office</span>
+                        <span className="font-bold text-slate-800 text-xs leading-snug whitespace-pre-line">
+                          {activeBranding.address || (activeBranding.isB2B ? '' : 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India')}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Office</span>
-                      <span className="font-bold text-slate-800 text-xs leading-snug whitespace-pre-line">
-                        {activeBranding.address || 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India'}
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 

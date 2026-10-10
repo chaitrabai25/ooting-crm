@@ -2582,6 +2582,22 @@ export const PackageDetail: React.FC = () => {
           </div>
         </div>
       </Modal>
+      {/* B2B Travel Agent Selection Modal */}
+      <B2BAgentSelectModal
+        isOpen={isAgentSelectOpen}
+        onClose={() => setIsAgentSelectOpen(false)}
+        onSelectAgent={handleSelectB2BAgent}
+        currentAgentId={pkg?.b2bAgentId}
+      />
+
+      {/* B2B Custom Agency Branding Override Modal */}
+      <B2BCustomizeBrandingModal
+        isOpen={isCustomizeBrandingOpen}
+        onClose={() => setIsCustomizeBrandingOpen(false)}
+        branding={pkg || {}}
+        onSaveBranding={handleSaveCustomBranding}
+        onResetToDefault={handleResetToDefaultBranding}
+      />
     </div>
   );
 };
