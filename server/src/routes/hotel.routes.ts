@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
+import { cache } from '../services/cache.service.js';
+import { optimizeBase64IfNeeded } from '../services/image.service.js';
 
 const router = Router();
 router.use(authenticate);
@@ -64,6 +66,13 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '50', 10));
 
+    const cacheKey = `hotels:${state.toLowerCase()}:${district.toLowerCase()}:${city.toLowerCase()}:${starCategory.toLowerCase()}:${search.toLowerCase()}:${page}:${limit}`;
+    const cached = cache.get<any>(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
     const where: any = { isDeleted: false };
     if (state && state.toLowerCase() !== 'all' && state.toLowerCase() !== 'all states') {
       where.state = { equals: state };
@@ -95,7 +104,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       }),
     ]);
 
-    res.json({
+    const result = {
       hotels,
       pagination: {
         page,
@@ -103,7 +112,10 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    });
+    };
+
+    cache.set(cacheKey, result, 900); // 15 mins cache
+    res.json(result);
   } catch (error) {
     next(error);
   }
@@ -113,6 +125,13 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
+    const cacheKey = `hotel:${id}`;
+    const cached = cache.get<any>(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
     const hotel = await (prisma as any).hotel.findFirst({
       where: { id, isDeleted: false },
     });
@@ -122,6 +141,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
+    cache.set(cacheKey, hotel, 900);
     res.json(hotel);
   } catch (error) {
     next(error);
@@ -188,6 +208,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const galleryJson = typeof gallery === 'string' ? gallery : (gallery ? JSON.stringify(gallery) : null);
     const websiteUrlsJson = typeof websiteUrls === 'string' ? websiteUrls : (websiteUrls ? JSON.stringify(websiteUrls) : null);
 
+    const optimizedImageUrl = imageUrl ? await optimizeBase64IfNeeded(imageUrl.trim()) : null;
+
     const hotel = await (prisma as any).hotel.create({
       data: {
         name: cleanName,
@@ -197,7 +219,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         starCategory: starCategory?.trim() || '3 Star',
         address: address?.trim() || null,
         description: description?.trim() || null,
-        imageUrl: imageUrl?.trim() || null,
+        imageUrl: optimizedImageUrl,
         gallery: galleryJson,
         websiteUrls: websiteUrlsJson,
         contactPhone: contactPhone?.trim() || null,
@@ -208,6 +230,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         createdById: req.user?.id || null,
       },
     });
+
+    cache.delPrefix('hotels:');
 
     if (req.user?.id) {
       await logAudit({
@@ -269,6 +293,11 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       ? (typeof websiteUrls === 'string' ? websiteUrls : (websiteUrls ? JSON.stringify(websiteUrls) : null))
       : existing.websiteUrls;
 
+    let optimizedImageUrl = imageUrl !== undefined ? imageUrl?.trim() || null : undefined;
+    if (optimizedImageUrl) {
+      optimizedImageUrl = await optimizeBase64IfNeeded(optimizedImageUrl) || null;
+    }
+
     const updated = await (prisma as any).hotel.update({
       where: { id },
       data: {
@@ -279,7 +308,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
         ...(starCategory !== undefined ? { starCategory: starCategory?.trim() || '3 Star' } : {}),
         ...(address !== undefined ? { address: address?.trim() || null } : {}),
         ...(description !== undefined ? { description: description?.trim() || null } : {}),
-        ...(imageUrl !== undefined ? { imageUrl: imageUrl?.trim() || null } : {}),
+        ...(optimizedImageUrl !== undefined ? { imageUrl: optimizedImageUrl } : {}),
         ...(gallery !== undefined ? { gallery: galleryJson } : {}),
         ...(websiteUrls !== undefined ? { websiteUrls: websiteUrlsJson } : {}),
         ...(contactPhone !== undefined ? { contactPhone: contactPhone?.trim() || null } : {}),
@@ -289,6 +318,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
         ...(amenities !== undefined ? { amenities: amenities?.trim() || null } : {}),
       },
     });
+
+    cache.delPrefix('hotels:');
+    cache.del(`hotel:${id}`);
 
     res.json({
       message: `Hotel "${updated.name}" updated successfully.`,
@@ -307,6 +339,10 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       where: { id },
       data: { isDeleted: true },
     });
+
+    cache.delPrefix('hotels:');
+    cache.del(`hotel:${id}`);
+
     res.json({ message: 'Hotel removed successfully.' });
   } catch (error) {
     next(error);

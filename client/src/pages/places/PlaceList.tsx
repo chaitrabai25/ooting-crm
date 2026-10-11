@@ -24,9 +24,11 @@ import { PlaceModal } from './PlaceModal.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
 
+const memoryPlacesCache = new Map<string, Place[]>();
+
 export const PlaceList: React.FC = () => {
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [places, setPlaces] = useState<Place[]>(() => memoryPlacesCache.get('::::') || []);
+  const [isLoading, setIsLoading] = useState(() => !memoryPlacesCache.has('::::'));
 
   // Filters
   const [selectedState, setSelectedState] = useState('');
@@ -62,7 +64,14 @@ export const PlaceList: React.FC = () => {
 
   // Fetch places
   const fetchPlaces = async () => {
-    setIsLoading(true);
+    const cacheKey = `${selectedState}::${selectedDistrict}::${searchTerm.trim()}`;
+    if (memoryPlacesCache.has(cacheKey)) {
+      setPlaces(memoryPlacesCache.get(cacheKey)!);
+      setIsLoading(false);
+    } else if (places.length === 0) {
+      setIsLoading(true);
+    }
+
     try {
       const params = new URLSearchParams();
       if (selectedState) params.append('state', selectedState);
@@ -70,7 +79,9 @@ export const PlaceList: React.FC = () => {
       if (searchTerm.trim()) params.append('search', searchTerm.trim());
 
       const res = await api.get(`/places?${params.toString()}`);
-      setPlaces(res.data.places || []);
+      const list = res.data.places || [];
+      memoryPlacesCache.set(cacheKey, list);
+      setPlaces(list);
     } catch (err) {
       console.error('Failed to fetch places:', err);
     } finally {
@@ -91,6 +102,7 @@ export const PlaceList: React.FC = () => {
     setIsDeleting(true);
     try {
       await api.delete(`/places/${deletingPlace.id}`);
+      memoryPlacesCache.clear();
       setPlaces((prev) => prev.filter((p) => p.id !== deletingPlace.id));
       showToast(`Place "${deletingPlace.name}" removed successfully.`);
       setDeletingPlace(null);
@@ -387,6 +399,7 @@ export const PlaceList: React.FC = () => {
         defaultState={selectedState || 'Tamil Nadu'}
         defaultDistrict={selectedDistrict || 'The Nilgiris (Ooty)'}
         onSuccess={(savedPlace) => {
+          memoryPlacesCache.clear();
           fetchPlaces();
           showToast(`Place "${savedPlace.name}" saved successfully.`);
         }}

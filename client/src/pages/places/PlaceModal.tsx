@@ -138,7 +138,7 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
       reader.onload = () => {
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1600;
+          const maxDim = 1000;
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -156,11 +156,11 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, w, h);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
             canvas.toBlob(
               (blob) => resolve({ blob: blob || file, dataUrl }),
               'image/jpeg',
-              0.82
+              0.75
             );
           } else {
             resolve({ blob: file, dataUrl: (reader.result as string) || '' });

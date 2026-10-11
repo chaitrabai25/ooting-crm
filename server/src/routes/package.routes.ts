@@ -4,11 +4,24 @@ import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
+import { cache } from '../services/cache.service.js';
+import { optimizeBase64IfNeeded } from '../services/image.service.js';
 
 const router = Router();
 router.use(authenticate);
 
-// List packages
+export const invalidatePackageCache = (companyId?: string, packageId?: string) => {
+  if (companyId) {
+    cache.delPrefix(`packages:list:${companyId}`);
+  } else {
+    cache.delPrefix('packages:list:');
+  }
+  if (packageId) {
+    cache.delPrefix(`package:${packageId}`);
+  }
+};
+
+// List packages with in-memory caching
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
@@ -20,6 +33,14 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const sortBy = (req.query.sortBy as string || 'createdAt').trim();
     const sortOrder = (req.query.sortOrder as string || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
 
+    const companyId = req.user!.companyId;
+    const cacheKey = `packages:list:${companyId}:${page}:${limit}:${search.toLowerCase()}:${destination.toLowerCase()}:${packageType.toLowerCase()}:${status.toLowerCase()}:${sortBy}:${sortOrder}`;
+    const cached = cache.get<any>(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
     const allowedSorts = ['packageName', 'destination', 'price', 'duration', 'status', 'createdAt'];
     const orderBy: any = {};
     if (allowedSorts.includes(sortBy)) {
@@ -28,7 +49,6 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       orderBy.createdAt = 'desc';
     }
 
-    const companyId = req.user!.companyId;
     const where: any = { companyId };
     if (search) {
       where.OR = [
@@ -59,7 +79,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       }),
     ]);
 
-    res.json({
+    const result = {
       data: packages,
       pagination: {
         page,
@@ -67,17 +87,30 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    });
+    };
+
+    cache.set(cacheKey, result, 300); // 5 mins cache
+    res.json(result);
   } catch (error) {
     next(error);
   }
 });
 
-// Single Package with itineraries
+// Single Package with itineraries with in-memory caching (< 1ms on cache hit)
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
+
+    const cacheKey = `package:${id}`;
+    const cached = cache.get<any>(cacheKey);
+    if (cached) {
+      if (!cached.companyId || cached.companyId === companyId) {
+        res.json(cached);
+        return;
+      }
+    }
+
     const pkg = await prisma.package.findUnique({
       where: { id },
       include: {
@@ -91,6 +124,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
+    cache.set(cacheKey, pkg, 900); // 15 mins cache
     res.json(pkg);
   } catch (error) {
     next(error);
@@ -154,6 +188,49 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const data = packageSchema.parse(req.body);
     const companyId = req.user!.companyId;
 
+    let optimizedCoverUrl = data.imageUrl?.trim() || null;
+    if (optimizedCoverUrl) {
+      optimizedCoverUrl = await optimizeBase64IfNeeded(optimizedCoverUrl) || null;
+    }
+
+    let itinerariesCreateData: any = undefined;
+    if (data.itineraries && data.itineraries.length > 0) {
+      const sanitized = await Promise.all(
+        data.itineraries.map(async (d, index) => {
+          let optImageUrl = d.imageUrl ? await optimizeBase64IfNeeded(String(d.imageUrl).trim()) : null;
+          let optHotelImageUrl = d.hotelImageUrl ? await optimizeBase64IfNeeded(String(d.hotelImageUrl).trim()) : null;
+          let imagesStr: string | null = null;
+          if (d.images) {
+            imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
+          }
+          return {
+            dayNumber: parseInt(String(d.dayNumber), 10) || (index + 1),
+            title: String(d.title || `Day ${index + 1}`).trim(),
+            description: String(d.description || '').trim(),
+            activities: d.activities ? String(d.activities).trim() : null,
+            places: d.places ? String(d.places).trim() : null,
+            date: d.date ? String(d.date).trim() : null,
+            highlights: d.highlights ? String(d.highlights).trim() : null,
+            travelDetails: d.travelDetails ? String(d.travelDetails).trim() : null,
+            imageUrl: optImageUrl,
+            images: imagesStr,
+            hotelId: d.hotelId ? String(d.hotelId).trim() : null,
+            hotelName: d.hotelName ? String(d.hotelName).trim() : null,
+            hotelStarCategory: d.hotelStarCategory ? String(d.hotelStarCategory).trim() : null,
+            hotelImageUrl: optHotelImageUrl,
+            hotelLocation: d.hotelLocation ? String(d.hotelLocation).trim() : null,
+            hotelDetails: d.hotelDetails ? String(d.hotelDetails).trim() : null,
+            mealPlan: d.mealPlan ? String(d.mealPlan).trim() : null,
+            hotelCheckIn: d.hotelCheckIn ? String(d.hotelCheckIn).trim() : null,
+            hotelCheckOut: d.hotelCheckOut ? String(d.hotelCheckOut).trim() : null,
+            startTime: d.startTime ? String(d.startTime).trim() : null,
+            endTime: d.endTime ? String(d.endTime).trim() : null,
+          };
+        })
+      );
+      itinerariesCreateData = { create: sanitized };
+    }
+
     const pkg = await prisma.package.create({
       data: {
         companyId,
@@ -165,7 +242,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         packageType: data.packageType || 'HOLIDAY',
         inclusions: data.inclusions || null,
         exclusions: data.exclusions || null,
-        imageUrl: data.imageUrl || null,
+        imageUrl: optimizedCoverUrl,
         gallery: data.gallery || null,
         status: data.status || 'ACTIVE',
         b2bAgentId: data.b2bAgentId || null,
@@ -182,42 +259,15 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         b2bWebsite: data.b2bWebsite || null,
         b2bTagline: data.b2bTagline || null,
         customBranding: data.customBranding || null,
-        itineraries: data.itineraries ? {
-          create: data.itineraries.map((d, index) => {
-            let imagesStr: string | null = null;
-            if (d.images) {
-              imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
-            }
-            return {
-              dayNumber: parseInt(String(d.dayNumber), 10) || (index + 1),
-              title: String(d.title || `Day ${index + 1}`).trim(),
-              description: String(d.description || '').trim(),
-              activities: d.activities ? String(d.activities).trim() : null,
-              places: d.places ? String(d.places).trim() : null,
-              date: d.date ? String(d.date).trim() : null,
-              highlights: d.highlights ? String(d.highlights).trim() : null,
-              travelDetails: d.travelDetails ? String(d.travelDetails).trim() : null,
-              imageUrl: d.imageUrl ? String(d.imageUrl).trim() : null,
-              images: imagesStr,
-              hotelId: d.hotelId ? String(d.hotelId).trim() : null,
-              hotelName: d.hotelName ? String(d.hotelName).trim() : null,
-              hotelStarCategory: d.hotelStarCategory ? String(d.hotelStarCategory).trim() : null,
-              hotelImageUrl: d.hotelImageUrl ? String(d.hotelImageUrl).trim() : null,
-              hotelLocation: d.hotelLocation ? String(d.hotelLocation).trim() : null,
-              hotelDetails: d.hotelDetails ? String(d.hotelDetails).trim() : null,
-              mealPlan: d.mealPlan ? String(d.mealPlan).trim() : null,
-              hotelCheckIn: d.hotelCheckIn ? String(d.hotelCheckIn).trim() : null,
-              hotelCheckOut: d.hotelCheckOut ? String(d.hotelCheckOut).trim() : null,
-              startTime: d.startTime ? String(d.startTime).trim() : null,
-              endTime: d.endTime ? String(d.endTime).trim() : null,
-            };
-          }),
-        } : undefined,
+        itineraries: itinerariesCreateData,
       },
       include: {
         itineraries: { orderBy: { dayNumber: 'asc' } },
       },
     });
+
+    cache.set(`package:${pkg.id}`, pkg, 900);
+    invalidatePackageCache(companyId, pkg.id);
 
     await logAudit({
       userId: req.user!.id,
@@ -252,41 +302,51 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const updatePayload: any = { ...data };
     delete updatePayload.itineraries;
 
+    if (updatePayload.imageUrl) {
+      updatePayload.imageUrl = await optimizeBase64IfNeeded(updatePayload.imageUrl.trim()) || null;
+    }
+
     const incomingItineraries = data.itineraries;
     if (incomingItineraries && Array.isArray(incomingItineraries)) {
+      const sanitizedItineraries = await Promise.all(
+        incomingItineraries.map(async (d: any, index: number) => {
+          let optImageUrl = d.imageUrl ? await optimizeBase64IfNeeded(String(d.imageUrl).trim()) : null;
+          let optHotelImageUrl = d.hotelImageUrl ? await optimizeBase64IfNeeded(String(d.hotelImageUrl).trim()) : null;
+          let imagesStr: string | null = null;
+          if (d.images) {
+            imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
+          }
+          return {
+            packageId: id,
+            dayNumber: parseInt(String(d.dayNumber), 10) || (index + 1),
+            title: String(d.title || `Day ${index + 1}`).trim(),
+            description: String(d.description || '').trim(),
+            activities: d.activities ? String(d.activities).trim() : null,
+            places: d.places ? String(d.places).trim() : null,
+            date: d.date ? String(d.date).trim() : null,
+            highlights: d.highlights ? String(d.highlights).trim() : null,
+            travelDetails: d.travelDetails ? String(d.travelDetails).trim() : null,
+            imageUrl: optImageUrl,
+            images: imagesStr,
+            hotelId: d.hotelId ? String(d.hotelId).trim() : null,
+            hotelName: d.hotelName ? String(d.hotelName).trim() : null,
+            hotelStarCategory: d.hotelStarCategory ? String(d.hotelStarCategory).trim() : null,
+            hotelImageUrl: optHotelImageUrl,
+            hotelLocation: d.hotelLocation ? String(d.hotelLocation).trim() : null,
+            hotelDetails: d.hotelDetails ? String(d.hotelDetails).trim() : null,
+            mealPlan: d.mealPlan ? String(d.mealPlan).trim() : null,
+            hotelCheckIn: d.hotelCheckIn ? String(d.hotelCheckIn).trim() : null,
+            hotelCheckOut: d.hotelCheckOut ? String(d.hotelCheckOut).trim() : null,
+            startTime: d.startTime ? String(d.startTime).trim() : null,
+            endTime: d.endTime ? String(d.endTime).trim() : null,
+          };
+        })
+      );
+
       await prisma.$transaction(async (tx) => {
         await tx.itineraryDay.deleteMany({ where: { packageId: id } });
         await tx.itineraryDay.createMany({
-          data: incomingItineraries.map((d: any, index: number) => {
-            let imagesStr: string | null = null;
-            if (d.images) {
-              imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
-            }
-            return {
-              packageId: id,
-              dayNumber: parseInt(String(d.dayNumber), 10) || (index + 1),
-              title: String(d.title || `Day ${index + 1}`).trim(),
-              description: String(d.description || '').trim(),
-              activities: d.activities ? String(d.activities).trim() : null,
-              places: d.places ? String(d.places).trim() : null,
-              date: d.date ? String(d.date).trim() : null,
-              highlights: d.highlights ? String(d.highlights).trim() : null,
-              travelDetails: d.travelDetails ? String(d.travelDetails).trim() : null,
-              imageUrl: d.imageUrl ? String(d.imageUrl).trim() : null,
-              images: imagesStr,
-              hotelId: d.hotelId ? String(d.hotelId).trim() : null,
-              hotelName: d.hotelName ? String(d.hotelName).trim() : null,
-              hotelStarCategory: d.hotelStarCategory ? String(d.hotelStarCategory).trim() : null,
-              hotelImageUrl: d.hotelImageUrl ? String(d.hotelImageUrl).trim() : null,
-              hotelLocation: d.hotelLocation ? String(d.hotelLocation).trim() : null,
-              hotelDetails: d.hotelDetails ? String(d.hotelDetails).trim() : null,
-              mealPlan: d.mealPlan ? String(d.mealPlan).trim() : null,
-              hotelCheckIn: d.hotelCheckIn ? String(d.hotelCheckIn).trim() : null,
-              hotelCheckOut: d.hotelCheckOut ? String(d.hotelCheckOut).trim() : null,
-              startTime: d.startTime ? String(d.startTime).trim() : null,
-              endTime: d.endTime ? String(d.endTime).trim() : null,
-            };
-          }),
+          data: sanitizedItineraries,
         });
       }, {
         timeout: 30000,
@@ -301,6 +361,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
         itineraries: { orderBy: { dayNumber: 'asc' } },
       },
     });
+
+    cache.set(`package:${id}`, updated, 900);
+    invalidatePackageCache(companyId, id);
 
     await logAudit({
       userId: req.user!.id,
@@ -339,36 +402,40 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
       return;
     }
 
-    const sanitizedData = days.map((d: any, index: number) => {
-      let imagesStr: string | null = null;
-      if (d.images) {
-        imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
-      }
-      return {
-        packageId: id,
-        dayNumber: parseInt(String(d.dayNumber), 10) || (index + 1),
-        title: String(d.title || `Day ${index + 1}`).trim(),
-        description: String(d.description || '').trim(),
-        activities: d.activities ? String(d.activities).trim() : null,
-        places: d.places ? String(d.places).trim() : null,
-        date: d.date ? String(d.date).trim() : null,
-        highlights: d.highlights ? String(d.highlights).trim() : null,
-        travelDetails: d.travelDetails ? String(d.travelDetails).trim() : null,
-        hotelId: d.hotelId ? String(d.hotelId).trim() : null,
-        hotelName: d.hotelName ? String(d.hotelName).trim() : null,
-        hotelStarCategory: d.hotelStarCategory ? String(d.hotelStarCategory).trim() : null,
-        hotelImageUrl: d.hotelImageUrl ? String(d.hotelImageUrl).trim() : null,
-        hotelLocation: d.hotelLocation ? String(d.hotelLocation).trim() : null,
-        hotelDetails: d.hotelDetails ? String(d.hotelDetails).trim() : null,
-        mealPlan: d.mealPlan ? String(d.mealPlan).trim() : null,
-        hotelCheckIn: d.hotelCheckIn ? String(d.hotelCheckIn).trim() : null,
-        hotelCheckOut: d.hotelCheckOut ? String(d.hotelCheckOut).trim() : null,
-        imageUrl: d.imageUrl ? String(d.imageUrl).trim() : null,
-        images: imagesStr,
-        startTime: d.startTime ? String(d.startTime).trim() : null,
-        endTime: d.endTime ? String(d.endTime).trim() : null,
-      };
-    });
+    const sanitizedData = await Promise.all(
+      days.map(async (d: any, index: number) => {
+        let optImageUrl = d.imageUrl ? await optimizeBase64IfNeeded(String(d.imageUrl).trim()) : null;
+        let optHotelImageUrl = d.hotelImageUrl ? await optimizeBase64IfNeeded(String(d.hotelImageUrl).trim()) : null;
+        let imagesStr: string | null = null;
+        if (d.images) {
+          imagesStr = typeof d.images === 'string' ? d.images : JSON.stringify(d.images);
+        }
+        return {
+          packageId: id,
+          dayNumber: parseInt(String(d.dayNumber), 10) || (index + 1),
+          title: String(d.title || `Day ${index + 1}`).trim(),
+          description: String(d.description || '').trim(),
+          activities: d.activities ? String(d.activities).trim() : null,
+          places: d.places ? String(d.places).trim() : null,
+          date: d.date ? String(d.date).trim() : null,
+          highlights: d.highlights ? String(d.highlights).trim() : null,
+          travelDetails: d.travelDetails ? String(d.travelDetails).trim() : null,
+          hotelId: d.hotelId ? String(d.hotelId).trim() : null,
+          hotelName: d.hotelName ? String(d.hotelName).trim() : null,
+          hotelStarCategory: d.hotelStarCategory ? String(d.hotelStarCategory).trim() : null,
+          hotelImageUrl: optHotelImageUrl,
+          hotelLocation: d.hotelLocation ? String(d.hotelLocation).trim() : null,
+          hotelDetails: d.hotelDetails ? String(d.hotelDetails).trim() : null,
+          mealPlan: d.mealPlan ? String(d.mealPlan).trim() : null,
+          hotelCheckIn: d.hotelCheckIn ? String(d.hotelCheckIn).trim() : null,
+          hotelCheckOut: d.hotelCheckOut ? String(d.hotelCheckOut).trim() : null,
+          imageUrl: optImageUrl,
+          images: imagesStr,
+          startTime: d.startTime ? String(d.startTime).trim() : null,
+          endTime: d.endTime ? String(d.endTime).trim() : null,
+        };
+      })
+    );
 
     // Delete existing days and insert updated days inside a transaction
     await prisma.$transaction(async (tx) => {
@@ -385,6 +452,11 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
       where: { id },
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
+
+    if (updatedPackage) {
+      cache.set(`package:${id}`, updatedPackage, 900);
+      invalidatePackageCache(companyId, id);
+    }
 
     if (req.user?.id) {
       await logAudit({
@@ -428,6 +500,9 @@ router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next
       return;
     }
 
+    let optImageUrl = day.imageUrl ? await optimizeBase64IfNeeded(String(day.imageUrl).trim()) : null;
+    let optHotelImageUrl = day.hotelImageUrl ? await optimizeBase64IfNeeded(String(day.hotelImageUrl).trim()) : null;
+
     let imagesStr: string | null = null;
     if (day.images) {
       imagesStr = typeof day.images === 'string' ? day.images : JSON.stringify(day.images);
@@ -447,13 +522,13 @@ router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next
       hotelId: day.hotelId ? String(day.hotelId).trim() : null,
       hotelName: day.hotelName ? String(day.hotelName).trim() : null,
       hotelStarCategory: day.hotelStarCategory ? String(day.hotelStarCategory).trim() : null,
-      hotelImageUrl: day.hotelImageUrl ? String(day.hotelImageUrl).trim() : null,
+      hotelImageUrl: optHotelImageUrl,
       hotelLocation: day.hotelLocation ? String(day.hotelLocation).trim() : null,
       hotelDetails: day.hotelDetails ? String(day.hotelDetails).trim() : null,
       mealPlan: day.mealPlan ? String(day.mealPlan).trim() : null,
       hotelCheckIn: day.hotelCheckIn ? String(day.hotelCheckIn).trim() : null,
       hotelCheckOut: day.hotelCheckOut ? String(day.hotelCheckOut).trim() : null,
-      imageUrl: day.imageUrl ? String(day.imageUrl).trim() : null,
+      imageUrl: optImageUrl,
       images: imagesStr,
       startTime: day.startTime ? String(day.startTime).trim() : null,
       endTime: day.endTime ? String(day.endTime).trim() : null,
@@ -491,6 +566,11 @@ router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next
       where: { id },
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
+
+    if (updatedPackage) {
+      cache.set(`package:${id}`, updatedPackage, 900);
+      invalidatePackageCache(companyId, id);
+    }
 
     if (req.user?.id) {
       await logAudit({
@@ -574,6 +654,11 @@ router.post('/:id/itineraries/reorder', async (req: AuthRequest, res: Response, 
       where: { id },
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
+
+    if (updatedPackage) {
+      cache.set(`package:${id}`, updatedPackage, 900);
+      invalidatePackageCache(companyId, id);
+    }
 
     if (req.user?.id) {
       await logAudit({
@@ -672,6 +757,11 @@ router.post('/:id/itineraries/day/:dayId/copy', async (req: AuthRequest, res: Re
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
 
+    if (updatedPackage) {
+      cache.set(`package:${id}`, updatedPackage, 900);
+      invalidatePackageCache(companyId, id);
+    }
+
     if (req.user?.id) {
       await logAudit({
         userId: req.user.id,
@@ -755,6 +845,11 @@ router.delete('/:id/itineraries/day/:dayIdentifier', async (req: AuthRequest, re
       where: { id },
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
+
+    if (updatedPackage) {
+      cache.set(`package:${id}`, updatedPackage, 900);
+      invalidatePackageCache(companyId, id);
+    }
 
     res.json(updatedPackage);
   } catch (error: any) {
@@ -842,6 +937,8 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       prisma.itineraryDay.deleteMany({ where: { packageId: id } }),
       prisma.package.delete({ where: { id } }),
     ]);
+
+    invalidatePackageCache(companyId, id);
 
     await logAudit({
       userId: req.user!.id,

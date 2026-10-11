@@ -36,9 +36,11 @@ const STAR_CATEGORIES = [
   'Premium Homestay',
 ];
 
+const memoryHotelsCache = new Map<string, Hotel[]>();
+
 export const HotelList: React.FC = () => {
-  const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [hotels, setHotels] = useState<Hotel[]>(() => memoryHotelsCache.get('::::::') || []);
+  const [isLoading, setIsLoading] = useState(() => !memoryHotelsCache.has('::::::'));
 
   // Filters
   const [selectedState, setSelectedState] = useState('');
@@ -75,7 +77,14 @@ export const HotelList: React.FC = () => {
 
   // Fetch hotels
   const fetchHotels = async () => {
-    setIsLoading(true);
+    const cacheKey = `${selectedState}::${selectedDistrict}::${selectedStarCategory}::${searchTerm.trim()}`;
+    if (memoryHotelsCache.has(cacheKey)) {
+      setHotels(memoryHotelsCache.get(cacheKey)!);
+      setIsLoading(false);
+    } else if (hotels.length === 0) {
+      setIsLoading(true);
+    }
+
     try {
       const params = new URLSearchParams();
       if (selectedState) params.append('state', selectedState);
@@ -86,7 +95,9 @@ export const HotelList: React.FC = () => {
       if (searchTerm.trim()) params.append('search', searchTerm.trim());
 
       const res = await api.get(`/hotels?${params.toString()}`);
-      setHotels(res.data.hotels || []);
+      const list = res.data.hotels || [];
+      memoryHotelsCache.set(cacheKey, list);
+      setHotels(list);
     } catch (err) {
       console.error('Failed to fetch hotels:', err);
     } finally {
@@ -107,6 +118,7 @@ export const HotelList: React.FC = () => {
     setIsDeleting(true);
     try {
       await api.delete(`/hotels/${deletingHotel.id}`);
+      memoryHotelsCache.clear();
       setHotels((prev) => prev.filter((h) => h.id !== deletingHotel.id));
       showToast(`Hotel "${deletingHotel.name}" removed successfully.`);
       setDeletingHotel(null);
@@ -419,6 +431,7 @@ export const HotelList: React.FC = () => {
         defaultState={selectedState || 'Tamil Nadu'}
         defaultDistrict={selectedDistrict || 'The Nilgiris (Ooty)'}
         onSuccess={(savedHotel) => {
+          memoryHotelsCache.clear();
           fetchHotels();
           showToast(`Hotel "${savedHotel.name}" saved successfully.`);
         }}

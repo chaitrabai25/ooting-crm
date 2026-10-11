@@ -110,3 +110,44 @@ export async function processAndSaveImage(
   };
 }
 
+/**
+ * Optimizes an incoming base64 data URL if it exceeds 100KB:
+ * - Resizes to maxWidth (default 800px)
+ * - Converts to efficient WebP (quality 75)
+ * - Keeps visual fidelity while cutting byte size by 80-90%
+ */
+export async function optimizeBase64IfNeeded(
+  dataUrl?: string | null,
+  maxWidth = 800,
+  quality = 75
+): Promise<string | null> {
+  if (!dataUrl || typeof dataUrl !== 'string') return dataUrl || null;
+  const trimmed = dataUrl.trim();
+  if (!trimmed.startsWith('data:image/')) return trimmed;
+  // If already compact (< 100KB), return as is
+  if (trimmed.length < 100000) return trimmed;
+
+  try {
+    const commaIdx = trimmed.indexOf(',');
+    if (commaIdx === -1) return trimmed;
+    const base64Str = trimmed.slice(commaIdx + 1);
+    const buffer = Buffer.from(base64Str, 'base64');
+
+    const optimized = await sharp(buffer)
+      .rotate()
+      .resize({
+        width: maxWidth,
+        height: maxWidth,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality, effort: 3 })
+      .toBuffer();
+
+    return `data:image/webp;base64,${optimized.toString('base64')}`;
+  } catch (err) {
+    console.warn('[ImageService] Failed to optimize base64 image, keeping original:', err);
+    return trimmed;
+  }
+}
+

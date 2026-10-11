@@ -2,6 +2,8 @@ import { Router, Response } from 'express';
 import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { cache } from '../services/cache.service.js';
+import { optimizeBase64IfNeeded } from '../services/image.service.js';
 
 const router = Router();
 router.use(authenticate);
@@ -49,12 +51,19 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// GET /api/places: Search and list places directly from database
+// GET /api/places: Search and list places directly from database with high-speed in-memory cache
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const state = (req.query.state as string || '').trim();
     const district = (req.query.district as string || '').trim();
     const search = (req.query.search as string || '').trim();
+
+    const cacheKey = `places:${state.toLowerCase()}:${district.toLowerCase()}:${search.toLowerCase()}`;
+    const cached = cache.get<any>(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
 
     // Query permanent database places (zero dummy data)
     const where: any = { isDeleted: false };
@@ -79,7 +88,9 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       orderBy: [{ state: 'asc' }, { district: 'asc' }, { name: 'asc' }],
     });
 
-    res.json({ places, total: places.length });
+    const responseData = { places, total: places.length };
+    cache.set(cacheKey, responseData, 900); // 15 mins cache
+    res.json(responseData);
   } catch (error) {
     next(error);
   }
@@ -141,6 +152,8 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
+    const optimizedImageUrl = await optimizeBase64IfNeeded(imageUrl?.trim() || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80');
+
     const place = await prisma.place.create({
       data: {
         name: cleanName,
@@ -153,13 +166,15 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         bestTime: bestTime?.trim() || null,
         suggestedDuration: suggestedDuration?.trim() || '2 Hours',
         distanceFromCenter: distanceFromCenter?.trim() || '',
-        imageUrl: imageUrl?.trim() || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
+        imageUrl: optimizedImageUrl,
         gallery: typeof gallery === 'string' ? gallery : (gallery ? JSON.stringify(gallery) : null),
         activities: activities?.trim() || '',
         notes: notes?.trim() || '',
         createdById: req.user?.id || null,
       },
     });
+
+    cache.delPrefix('places:');
 
     res.status(201).json({
       message: `Place "${cleanName}" permanently added to database.`,
@@ -204,6 +219,11 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       ? (typeof gallery === 'string' ? gallery : (gallery ? JSON.stringify(gallery) : null))
       : existing.gallery;
 
+    let optimizedImageUrl = imageUrl !== undefined ? imageUrl?.trim() || '' : undefined;
+    if (optimizedImageUrl) {
+      optimizedImageUrl = await optimizeBase64IfNeeded(optimizedImageUrl) || '';
+    }
+
     const updated = await prisma.place.update({
       where: { id },
       data: {
@@ -217,12 +237,14 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
         ...(bestTime !== undefined ? { bestTime: bestTime?.trim() || null } : {}),
         ...(suggestedDuration !== undefined ? { suggestedDuration: suggestedDuration?.trim() || '2 Hours' } : {}),
         ...(distanceFromCenter !== undefined ? { distanceFromCenter: distanceFromCenter?.trim() || '' } : {}),
-        ...(imageUrl !== undefined ? { imageUrl: imageUrl?.trim() || '' } : {}),
+        ...(optimizedImageUrl !== undefined ? { imageUrl: optimizedImageUrl } : {}),
         ...(gallery !== undefined ? { gallery: galleryJson } : {}),
         ...(activities !== undefined ? { activities: activities?.trim() || '' } : {}),
         ...(notes !== undefined ? { notes: notes?.trim() || '' } : {}),
       },
     });
+
+    cache.delPrefix('places:');
 
     res.json({
       message: `Place "${updated.name}" updated successfully.`,
@@ -341,6 +363,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
         toInsert.map((item) => prisma.place.create({ data: item }))
       );
       insertedCount = toInsert.length;
+      cache.delPrefix('places:');
     }
 
     res.json({
@@ -366,6 +389,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       where: { id },
       data: { isDeleted: true },
     });
+    cache.delPrefix('places:');
     res.json({ message: 'Place successfully deleted.' });
   } catch (error) {
     next(error);
