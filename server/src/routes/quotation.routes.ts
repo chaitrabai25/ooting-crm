@@ -17,6 +17,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     const search = (req.query.search as string || '').trim();
     const status = (req.query.status as string || '').trim();
     const customerId = (req.query.customerId as string || '').trim();
+    const agentId = (req.query.agentId as string || '').trim();
     const packageId = (req.query.packageId as string || '').trim();
     const createdById = (req.query.createdById as string || '').trim();
     const companyId = req.user!.companyId;
@@ -28,10 +29,14 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
         { destination: { contains: search } },
         { customer: { fullName: { contains: search } } },
         { customer: { phone: { contains: search } } },
+        { agent: { companyName: { contains: search } } },
+        { agent: { contactPerson: { contains: search } } },
+        { agent: { phone: { contains: search } } },
       ];
     }
     if (status) where.status = status;
     if (customerId) where.customerId = customerId;
+    if (agentId) where.agentId = agentId;
     if (packageId) where.packageId = packageId;
     if (createdById) where.createdById = createdById;
 
@@ -39,35 +44,50 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
       where,
       include: {
         customer: true,
+        agent: true,
         package: true,
         createdByUser: true,
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    const rows = quotations.map((q, idx) => ({
-      'S.No': idx + 1,
-      'Quotation No': q.quotationNumber,
-      'Customer Name': q.customer?.fullName || 'N/A',
-      'Phone': q.customer?.phone || 'N/A',
-      'Email': q.customer?.email || 'N/A',
-      'Destination': q.destination,
-      'Package': q.package?.packageName || 'Custom Itinerary',
-      'Travel Start Date': q.travelStartDate ? new Date(q.travelStartDate).toLocaleDateString('en-IN') : 'N/A',
-      'Travel End Date': q.travelEndDate ? new Date(q.travelEndDate).toLocaleDateString('en-IN') : 'N/A',
-      'Adults': q.adults,
-      'Children': q.children,
-      'Infants': q.infants,
-      'Cab Details': q.cabDetails || 'N/A',
-      'Base Price (INR)': Number(q.basePrice),
-      'Discount (INR)': Number(q.discount),
-      'Tax (INR)': Number(q.tax),
-      'Additional Charges (INR)': Number(q.additionalCharges),
-      'Final Amount (INR)': Number(q.finalAmount),
-      'Status': q.status,
-      'Created By': q.createdByUser?.name || 'Admin',
-      'Created Date': new Date(q.createdAt).toLocaleDateString('en-IN'),
-    }));
+    const rows = quotations.map((q: any, idx: number) => {
+      const isAgent = q.recipientType === 'AGENT' || Boolean(q.agentId);
+      const recipientName = isAgent
+        ? (q.agent?.companyName || 'Agent')
+        : (q.customer?.fullName || 'N/A');
+      const contactPerson = isAgent
+        ? (q.agent?.contactPerson || 'N/A')
+        : (q.customer?.fullName || 'N/A');
+      const phone = isAgent ? (q.agent?.phone || 'N/A') : (q.customer?.phone || 'N/A');
+      const email = isAgent ? (q.agent?.email || 'N/A') : (q.customer?.email || 'N/A');
+
+      return {
+        'S.No': idx + 1,
+        'Quotation No': q.quotationNumber,
+        'Recipient Type': isAgent ? 'B2B Travel Agent' : 'Individual Customer',
+        'Customer / Agency': recipientName,
+        'Contact Person': contactPerson,
+        'Phone': phone,
+        'Email': email,
+        'Destination': q.destination,
+        'Package': q.package?.packageName || 'Custom Itinerary',
+        'Travel Start Date': q.travelStartDate ? new Date(q.travelStartDate).toLocaleDateString('en-IN') : 'N/A',
+        'Travel End Date': q.travelEndDate ? new Date(q.travelEndDate).toLocaleDateString('en-IN') : 'N/A',
+        'Adults': q.adults,
+        'Children': q.children,
+        'Infants': q.infants,
+        'Cab Details': q.cabDetails || 'N/A',
+        'Base Price (INR)': Number(q.basePrice),
+        'Discount (INR)': Number(q.discount),
+        'Tax (INR)': Number(q.tax),
+        'Additional Charges (INR)': Number(q.additionalCharges),
+        'Final Amount (INR)': Number(q.finalAmount),
+        'Status': q.status,
+        'Created By': q.createdByUser?.name || 'Admin',
+        'Created Date': new Date(q.createdAt).toLocaleDateString('en-IN'),
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
@@ -102,6 +122,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const search = (req.query.search as string || '').trim();
     const status = (req.query.status as string || '').trim();
     const customerId = (req.query.customerId as string || '').trim();
+    const agentId = (req.query.agentId as string || '').trim();
     const packageId = (req.query.packageId as string || '').trim();
     const createdById = (req.query.createdById as string || '').trim();
     const startDate = (req.query.startDate as string || '').trim();
@@ -115,10 +136,14 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         { destination: { contains: search } },
         { customer: { fullName: { contains: search } } },
         { customer: { phone: { contains: search } } },
+        { agent: { companyName: { contains: search } } },
+        { agent: { contactPerson: { contains: search } } },
+        { agent: { phone: { contains: search } } },
       ];
     }
     if (status) where.status = status;
     if (customerId) where.customerId = customerId;
+    if (agentId) where.agentId = agentId;
     if (packageId) where.packageId = packageId;
     if (createdById) where.createdById = createdById;
 
@@ -138,6 +163,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         where,
         include: {
           customer: { select: { id: true, fullName: true, phone: true, email: true } },
+          agent: { select: { id: true, companyName: true, contactPerson: true, phone: true, email: true, city: true, state: true } },
           package: { select: { id: true, packageName: true, duration: true } },
           lead: { select: { id: true, source: true } },
           createdByUser: { select: { id: true, name: true, email: true } },
@@ -171,6 +197,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       where: { id },
       include: {
         customer: true,
+        agent: true,
         lead: true,
         createdByUser: { select: { id: true, name: true, email: true, phone: true } },
         package: {
@@ -199,7 +226,9 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
 
 const quotationSchema = z.object({
   leadId: z.string().optional().nullable(),
-  customerId: z.string().min(1, 'Customer ID is required'),
+  customerId: z.string().optional().nullable(),
+  agentId: z.string().optional().nullable(),
+  recipientType: z.enum(['CUSTOMER', 'AGENT']).default('CUSTOMER').optional(),
   packageId: z.string().optional().nullable(),
   destination: z.string().min(2, 'Destination is required'),
   travelStartDate: z.string().optional().nullable(),
@@ -226,7 +255,18 @@ const quotationSchema = z.object({
   tax: z.number().min(0).default(0),
   status: z.enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED']).default('DRAFT'),
   termsAndConditions: z.string().optional().nullable(),
-});
+}).refine(
+  (data) => {
+    if (data.recipientType === 'AGENT') {
+      return Boolean(data.agentId && data.agentId.trim().length > 0);
+    }
+    return Boolean(data.customerId && data.customerId.trim().length > 0) || Boolean(data.agentId && data.agentId.trim().length > 0);
+  },
+  {
+    message: 'Either an Individual Customer or a B2B Travel Agent must be selected.',
+    path: ['customerId'],
+  }
+);
 
 // Create Quotation
 router.post('/', async (req: AuthRequest, res: Response, next) => {
@@ -251,12 +291,16 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 4. Itinerary sequence may change based on local weather and operational conditions.
 5. All disputes subject to jurisdiction.`;
 
+    const recipientType = data.recipientType || (data.agentId ? 'AGENT' : 'CUSTOMER');
+
     const quotation = await prisma.quotation.create({
       data: {
         companyId,
         quotationNumber,
         leadId: data.leadId || null,
-        customerId: data.customerId,
+        customerId: recipientType === 'AGENT' ? (data.customerId || null) : (data.customerId || null),
+        agentId: data.agentId || null,
+        recipientType,
         packageId: data.packageId || null,
         destination: data.destination.trim(),
         travelStartDate: data.travelStartDate ? new Date(data.travelStartDate) : null,
@@ -289,6 +333,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       },
       include: {
         customer: true,
+        agent: true,
         package: true,
         createdByUser: true,
       },
@@ -302,6 +347,10 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       });
     }
 
+    const recipientLogName = (quotation as any).recipientType === 'AGENT'
+      ? `${(quotation as any).agent?.companyName || 'Agent'} (B2B Agent)`
+      : ((quotation as any).customer?.fullName || 'Customer');
+
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
@@ -309,7 +358,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       action: 'CREATE',
       entity: 'QUOTATION',
       entityId: quotation.id,
-      details: `Generated quotation ${quotation.quotationNumber} for ${quotation.customer.fullName} (₹${finalAmount})`,
+      details: `Generated quotation ${quotation.quotationNumber} for ${recipientLogName} (₹${finalAmount})`,
       newValue: JSON.stringify(quotation),
       ipAddress: req.ip,
     });
@@ -336,11 +385,15 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const additionalCharges = data.additionalCharges || 0;
     const finalAmount = Math.max(0, (data.basePrice - data.discount) + data.tax + additionalCharges);
 
+    const recipientType = data.recipientType || (data.agentId ? 'AGENT' : 'CUSTOMER');
+
     const updated = await prisma.quotation.update({
       where: { id },
       data: {
         leadId: data.leadId || null,
-        customerId: data.customerId,
+        customerId: recipientType === 'AGENT' ? (data.customerId || null) : (data.customerId || null),
+        agentId: data.agentId || null,
+        recipientType,
         packageId: data.packageId || null,
         destination: data.destination.trim(),
         travelStartDate: data.travelStartDate ? new Date(data.travelStartDate) : null,
@@ -372,10 +425,15 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       },
       include: {
         customer: true,
+        agent: true,
         package: true,
         createdByUser: true,
       },
     });
+
+    const recipientLogName = (updated as any).recipientType === 'AGENT'
+      ? `${(updated as any).agent?.companyName || 'Agent'} (B2B Agent)`
+      : ((updated as any).customer?.fullName || 'Customer');
 
     await logAudit({
       userId: req.user!.id,
@@ -384,7 +442,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       action: 'UPDATE',
       entity: 'QUOTATION',
       entityId: id,
-      details: `Updated quotation ${updated.quotationNumber} for ${updated.customer.fullName} (₹${finalAmount})`,
+      details: `Updated quotation ${updated.quotationNumber} for ${recipientLogName} (₹${finalAmount})`,
       oldValue: JSON.stringify(existing),
       newValue: JSON.stringify(updated),
       ipAddress: req.ip,
@@ -403,7 +461,7 @@ router.post('/:id/duplicate', async (req: AuthRequest, res: Response, next) => {
     const companyId = req.user!.companyId;
     const source = await prisma.quotation.findUnique({
       where: { id },
-      include: { customer: true },
+      include: { customer: true, agent: true },
     });
 
     if (!source || source.isDeleted || (source.companyId && source.companyId !== companyId)) {
@@ -423,6 +481,8 @@ router.post('/:id/duplicate', async (req: AuthRequest, res: Response, next) => {
         quotationNumber,
         leadId: source.leadId,
         customerId: source.customerId,
+        agentId: (source as any).agentId || null,
+        recipientType: (source as any).recipientType || 'CUSTOMER',
         packageId: source.packageId,
         destination: source.destination,
         travelStartDate: source.travelStartDate,
@@ -451,6 +511,7 @@ router.post('/:id/duplicate', async (req: AuthRequest, res: Response, next) => {
       },
       include: {
         customer: true,
+        agent: true,
         package: true,
         createdByUser: true,
       },
@@ -490,7 +551,7 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
     const quotation = await prisma.quotation.update({
       where: { id },
       data: { status, updatedById: req.user?.id || null },
-      include: { customer: true },
+      include: { customer: true, agent: true },
     });
 
     await logAudit({
@@ -519,7 +580,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
     const companyId = req.user!.companyId;
     const existing = await prisma.quotation.findUnique({
       where: { id },
-      include: { customer: true },
+      include: { customer: true, agent: true },
     });
 
     if (!existing || existing.isDeleted || (existing.companyId && existing.companyId !== companyId)) {
@@ -536,6 +597,10 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
+    const recipientLogName = (existing as any).recipientType === 'AGENT'
+      ? `${(existing as any).agent?.companyName || 'Agent'} (B2B Agent)`
+      : ((existing as any).customer?.fullName || 'Unknown');
+
     await logAudit({
       userId: req.user!.id,
       userName: req.user!.name,
@@ -543,7 +608,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       action: 'DELETE',
       entity: 'QUOTATION',
       entityId: id,
-      details: `Soft-deleted quotation ${existing.quotationNumber} for ${existing.customer?.fullName || 'Unknown'}`,
+      details: `Soft-deleted quotation ${existing.quotationNumber} for ${recipientLogName}`,
       oldValue: JSON.stringify({ isDeleted: false }),
       newValue: JSON.stringify({ isDeleted: true, deletedAt: new Date(), deletedById: req.user!.id }),
       ipAddress: req.ip,
@@ -564,6 +629,7 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
       where: { id },
       include: {
         customer: true,
+        agent: true,
         package: true,
       },
     });
@@ -599,6 +665,35 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
+    // Handle B2B Agent quotation where customerId might be null
+    let bookingCustomerId = quotation.customerId;
+    const qAgent = (quotation as any).agent;
+    if (!bookingCustomerId && (quotation as any).agentId && qAgent) {
+      const existingCust = await prisma.customer.findFirst({
+        where: {
+          companyId,
+          phone: qAgent.phone,
+          isDeleted: false,
+        },
+      });
+      if (existingCust) {
+        bookingCustomerId = existingCust.id;
+      } else {
+        const newCust = await prisma.customer.create({
+          data: {
+            companyId,
+            fullName: qAgent.contactPerson || qAgent.companyName,
+            phone: qAgent.phone,
+            email: qAgent.email || null,
+            city: qAgent.city || null,
+            state: qAgent.state || null,
+            source: 'B2B_AGENT',
+          },
+        });
+        bookingCustomerId = newCust.id;
+      }
+    }
+
     // Generate collision-free booking number with company prefix
     const tag = (req.user?.company?.name || 'CRM').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'CRM';
     const companyPrefix = req.user?.company?.isOoting ? 'OOT' : tag;
@@ -612,7 +707,7 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
       data: {
         companyId,
         bookingNumber,
-        customerId: quotation.customerId,
+        customerId: bookingCustomerId!,
         leadId: quotation.leadId || null,
         packageId: quotation.packageId || null,
         assignedUserId: req.user!.id,
@@ -626,6 +721,15 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response, next) => {
         notes: `Confirmed from Quotation ${quotation.quotationNumber}.${quotation.notes ? ` ${quotation.notes}` : ''}`,
         createdById: req.user?.id || null,
         updatedById: req.user?.id || null,
+        agentBooking: (quotation as any).agentId ? {
+          create: {
+            agentId: (quotation as any).agentId,
+            commissionRate: 0,
+            commissionAmount: 0,
+            netAmount: quotation.finalAmount,
+            payoutStatus: 'PENDING',
+          },
+        } : undefined,
       },
       include: {
         customer: true,

@@ -24,6 +24,7 @@ import {
   Calendar,
   X,
   MapPin,
+  Building2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
@@ -147,17 +148,37 @@ export const QuotationList: React.FC = () => {
       ),
     },
     {
-      header: 'Customer',
-      render: (q) => (
-        <div>
-          <span className="font-semibold text-slate-800 dark:text-slate-100 text-xs block">
-            {q.customer?.fullName || 'N/A'}
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            {q.customer?.phone}
-          </span>
-        </div>
-      ),
+      header: 'Recipient / Customer',
+      render: (q) => {
+        const isAgent = q.recipientType === 'AGENT' || Boolean(q.agentId);
+        if (isAgent) {
+          return (
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-800 dark:text-slate-100 text-xs block truncate max-w-[170px]" title={q.agent?.companyName || 'B2B Partner'}>
+                  {q.agent?.companyName || 'B2B Partner'}
+                </span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+                  B2B
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono block">
+                {q.agent?.phone || q.agent?.contactPerson || 'Agent'}
+              </span>
+            </div>
+          );
+        }
+        return (
+          <div>
+            <span className="font-semibold text-slate-800 dark:text-slate-100 text-xs block truncate max-w-[170px]" title={q.customer?.fullName || 'N/A'}>
+              {q.customer?.fullName || 'N/A'}
+            </span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono block">
+              {q.customer?.phone || '—'}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: 'Destination & Package',
@@ -315,7 +336,7 @@ export const QuotationList: React.FC = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search quotation #, customer, phone, destination..."
+            placeholder="Search quotation #, customer, agent, phone, destination..."
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-slate-900 dark:text-white"
           />
         </form>
@@ -410,7 +431,13 @@ export const QuotationList: React.FC = () => {
               <strong className="text-slate-900 dark:text-white">
                 {deleteTarget.quotationNumber}
               </strong>{' '}
-              for {deleteTarget.customer?.fullName}? This action cannot be undone.
+              for{' '}
+              <strong className="text-slate-900 dark:text-white">
+                {deleteTarget.recipientType === 'AGENT' || deleteTarget.agentId
+                  ? (deleteTarget.agent?.companyName || 'B2B Partner')
+                  : (deleteTarget.customer?.fullName || 'this client')}
+              </strong>
+              ? This action cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-3">
               <button

@@ -129,8 +129,11 @@ export const QuotationView: React.FC = () => {
   const handleShareWhatsApp = async () => {
     if (!quotation) return;
 
+    const isAgent = quotation.recipientType === 'AGENT' || Boolean(quotation.agentId);
     // Normalize phone number to international format (India: +91)
-    const rawPhone = quotation.customer?.phone || quotation.lead?.phone || '';
+    const rawPhone = isAgent
+      ? (quotation.agent?.phone || '')
+      : (quotation.customer?.phone || quotation.lead?.phone || '');
     const digits = rawPhone.replace(/\D/g, '');
     let formattedPhone = digits;
     if (digits.length === 10) {
@@ -143,8 +146,12 @@ export const QuotationView: React.FC = () => {
       ? `${new Date(quotation.travelStartDate).toLocaleDateString('en-IN')} to ${quotation.travelEndDate ? new Date(quotation.travelEndDate).toLocaleDateString('en-IN') : 'TBD'}`
       : 'TBD';
 
+    const recipientName = isAgent
+      ? (quotation.agent?.contactPerson ? `${quotation.agent.contactPerson} (${quotation.agent.companyName})` : (quotation.agent?.companyName || 'Valued B2B Partner'))
+      : (quotation.customer?.fullName || 'Valued Client');
+
     const messageText =
-      `Hello *${quotation.customer?.fullName || 'Valued Client'}*,\n\n` +
+      `Hello *${recipientName}*,\n\n` +
       `Here is your travel quotation from *${company?.name || 'Ooting'} - ${company?.tagline || 'Journeys Beyond Ordinary'}*:\n\n` +
       `📋 *Quotation #:* ${quotation.quotationNumber}\n` +
       `📍 *Destination:* ${quotation.destination}\n` +
@@ -194,9 +201,14 @@ export const QuotationView: React.FC = () => {
 
   const handleApprove = async () => {
     if (!quotation) return;
+    const isAgent = quotation.recipientType === 'AGENT' || Boolean(quotation.agentId);
+    const targetRecipient = isAgent
+      ? (quotation.agent?.companyName || 'this B2B partner')
+      : (quotation.customer?.fullName || 'this client');
+
     const confirmed = await confirmAction({
       title: 'Approve Quotation & Confirm Booking?',
-      text: `Are you sure you want to approve Quotation #${quotation.quotationNumber} and create a confirmed booking for ${quotation.customer?.fullName || 'this client'}?`,
+      text: `Are you sure you want to approve Quotation #${quotation.quotationNumber} and create a confirmed booking for ${targetRecipient}?`,
       confirmText: 'Yes, Approve & Book',
       cancelText: 'Cancel',
       icon: 'question',
@@ -256,6 +268,8 @@ export const QuotationView: React.FC = () => {
       </div>
     );
   }
+
+  const isAgent = quotation.recipientType === 'AGENT' || Boolean(quotation.agentId);
 
   return (
     <div className="space-y-6 pb-16 max-w-4xl mx-auto print:max-w-none print:w-full print:p-0 print:m-0 print:space-y-0 print:pb-0">
@@ -339,9 +353,24 @@ export const QuotationView: React.FC = () => {
           {/* Left: Client & Destination Context */}
           <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600 dark:text-slate-400">
             <span className="text-slate-500 whitespace-nowrap font-medium">Prepared for:</span>
-            <span className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
-              {quotation.customer?.fullName || 'Client'}
-            </span>
+            {isAgent ? (
+              <span className="inline-flex items-center gap-1.5 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>{quotation.agent?.companyName || 'B2B Partner'}</span>
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  B2B Partner
+                </span>
+                {quotation.agent?.contactPerson && (
+                  <span className="text-slate-500 dark:text-slate-400 font-normal">
+                    ({quotation.agent.contactPerson})
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                {quotation.customer?.fullName || 'Client'}
+              </span>
+            )}
             <span className="text-slate-300 dark:text-slate-700 font-bold">•</span>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black text-[#C91F28] bg-red-50 dark:bg-red-950/40 border border-red-200/90 dark:border-red-900/60 shadow-2xs whitespace-nowrap">
               <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
@@ -560,33 +589,75 @@ export const QuotationView: React.FC = () => {
         <div className="flex-1 px-8 py-3 flex flex-col justify-start space-y-3.5 text-xs">
           {/* Row 1: Client & Journey Summary Grid with Vertical Divider Line */}
           <div className="grid grid-cols-2 p-3.5 bg-slate-50/90 rounded-xl border border-slate-200 shadow-2xs">
-            {/* Left Column: Client Details */}
+            {/* Left Column: Recipient Profile (Client or B2B Partner) */}
             <div className="pr-4 border-r border-slate-200">
-              <span className="text-[10.5px] font-black uppercase tracking-wider text-[#C91F28] block pb-1 mb-1.5 border-b border-red-100 flex items-center gap-1.5">
-                <span className="w-1.5 h-3 bg-[#C91F28] rounded-full inline-block"></span>
-                <span>Client & Guest Profile</span>
-              </span>
-              <p className="font-black text-slate-950 text-xs mb-1.5">{quotation.customer?.fullName || 'Valued Client'}</p>
-              <div className="space-y-1.5 text-[11px] text-slate-700 font-medium">
-                {quotation.customer?.phone && (
-                  <div className="flex items-center">
-                    <Phone className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
-                    <span className="font-mono text-slate-900 font-bold">{quotation.customer.phone}</span>
-                  </div>
-                )}
-                {quotation.customer?.email && (
-                  <div className="flex items-center">
-                    <Mail className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
-                    <span className="text-slate-800 break-all">{quotation.customer.email}</span>
-                  </div>
-                )}
-                <div className="flex items-center">
-                  <MapPin className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
-                  <span className="text-slate-800">
-                    {quotation.customer?.city || 'India'}{quotation.customer?.state ? `, ${quotation.customer.state}` : ''}
+              {isAgent ? (
+                <>
+                  <span className="text-[10.5px] font-black uppercase tracking-wider text-[#C91F28] block pb-1 mb-1.5 border-b border-red-100 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-3 bg-[#C91F28] rounded-full inline-block"></span>
+                      <span>B2B Travel Partner</span>
+                    </span>
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                      B2B Agent
+                    </span>
                   </span>
-                </div>
-              </div>
+                  <p className="font-black text-slate-950 text-xs mb-0.5">{quotation.agent?.companyName || 'B2B Travel Partner'}</p>
+                  {quotation.agent?.contactPerson && (
+                    <p className="text-[10px] text-slate-500 font-semibold mb-1">
+                      Attn: <span className="text-slate-800">{quotation.agent.contactPerson}</span>
+                    </p>
+                  )}
+                  <div className="space-y-1 text-[11px] text-slate-700 font-medium">
+                    {quotation.agent?.phone && (
+                      <div className="flex items-center">
+                        <Phone className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
+                        <span className="font-mono text-slate-900 font-bold">{quotation.agent.phone}</span>
+                      </div>
+                    )}
+                    {quotation.agent?.email && (
+                      <div className="flex items-center">
+                        <Mail className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
+                        <span className="text-slate-800 break-all">{quotation.agent.email}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center">
+                      <MapPin className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
+                      <span className="text-slate-800 truncate" title={quotation.agent?.address || [quotation.agent?.city, quotation.agent?.state].filter(Boolean).join(', ') || 'India'}>
+                        {quotation.agent?.address || [quotation.agent?.city, quotation.agent?.state].filter(Boolean).join(', ') || 'India'}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="text-[10.5px] font-black uppercase tracking-wider text-[#C91F28] block pb-1 mb-1.5 border-b border-red-100 flex items-center gap-1.5">
+                    <span className="w-1.5 h-3 bg-[#C91F28] rounded-full inline-block"></span>
+                    <span>Client & Guest Profile</span>
+                  </span>
+                  <p className="font-black text-slate-950 text-xs mb-1.5">{quotation.customer?.fullName || 'Valued Client'}</p>
+                  <div className="space-y-1.5 text-[11px] text-slate-700 font-medium">
+                    {quotation.customer?.phone && (
+                      <div className="flex items-center">
+                        <Phone className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
+                        <span className="font-mono text-slate-900 font-bold">{quotation.customer.phone}</span>
+                      </div>
+                    )}
+                    {quotation.customer?.email && (
+                      <div className="flex items-center">
+                        <Mail className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
+                        <span className="text-slate-800 break-all">{quotation.customer.email}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center">
+                      <MapPin className="w-3 h-3 text-[#C91F28] shrink-0 mr-2" />
+                      <span className="text-slate-800">
+                        {quotation.customer?.city || 'India'}{quotation.customer?.state ? `, ${quotation.customer.state}` : ''}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Right Column: Tour Specifications */}

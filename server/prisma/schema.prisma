@@ -350,7 +350,9 @@ model Quotation {
   id                 String    @id @default(uuid()) @db.VarChar(36)
   quotationNumber    String    @unique @db.VarChar(100)
   leadId             String?   @db.VarChar(36)
-  customerId         String    @db.VarChar(36)
+  customerId         String?   @db.VarChar(36)
+  agentId            String?   @db.VarChar(36)
+  recipientType      String?   @default("CUSTOMER") @db.VarChar(50)
   packageId          String?   @db.VarChar(36)
   destination        String    @db.VarChar(191)
   travelStartDate    DateTime?
@@ -389,13 +391,15 @@ model Quotation {
   updatedAt          DateTime  @updatedAt
 
   lead               Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer           Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  agent              Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
   package            Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
   createdByUser      User?     @relation("QuotationCreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
   updatedByUser      User?     @relation("QuotationUpdatedByUser", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([quotationNumber])
   @@index([customerId])
+  @@index([agentId])
   @@index([leadId])
   @@index([status])
   @@index([createdById])
@@ -544,6 +548,7 @@ model Agent {
   updatedAt          DateTime @updatedAt
 
   agentBookings AgentBooking[]
+  quotations    Quotation[]
 
   @@index([companyName])
   @@index([phone])

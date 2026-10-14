@@ -214,12 +214,41 @@ export interface Package {
   };
 }
 
+export interface Agent {
+  id: string;
+  companyId?: string | null;
+  companyName: string;
+  contactPerson: string;
+  phone: string;
+  email?: string | null;
+  city?: string | null;
+  state?: string | null;
+  address?: string | null;
+  gstNumber?: string | null;
+  panNumber?: string | null;
+  agentType?: string | null;
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | string;
+  googleReviewUrl?: string | null;
+  googleReviewRating?: number | null;
+  googleReviewNotes?: string | null;
+  notes?: string | null;
+  totalBookings?: number;
+  totalRevenue?: number;
+  totalCommission?: number;
+  pendingCommission?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Quotation {
   id: string;
   quotationNumber: string;
   leadId?: string | null;
-  customerId: string;
-  customer: Customer;
+  customerId?: string | null;
+  customer?: Customer | null;
+  agentId?: string | null;
+  agent?: Agent | null;
+  recipientType?: 'CUSTOMER' | 'AGENT' | string;
   packageId?: string | null;
   package?: Package | null;
   destination: string;
@@ -234,6 +263,10 @@ export interface Quotation {
   inclusions?: string | null;
   exclusions?: string | null;
   basePrice: number;
+  basePackagePrice?: number;
+  adultUnitPrice?: number;
+  childUnitPrice?: number;
+  infantUnitPrice?: number;
   discount: number;
   tax: number;
   cabDetails?: string | null;
@@ -297,27 +330,6 @@ export interface Payment {
   createdAt: string;
 }
 
-export interface Agent {
-  id: string;
-  companyName: string;
-  contactPerson: string;
-  phone: string;
-  email?: string | null;
-  city?: string | null;
-  state?: string | null;
-  gstNumber?: string | null;
-  panNumber?: string | null;
-  agentType?: 'Diamond' | 'Gold' | 'Silver' | string;
-  googleReviewUrl?: string | null;
-  googleReviewRating?: number | null;
-  googleReviewNotes?: string | null;
-  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-  totalBookings?: number;
-  totalRevenue?: number;
-  totalCommission?: number;
-  pendingCommission?: number;
-  createdAt: string;
-}
 
 export interface Expense {
   id: string;
