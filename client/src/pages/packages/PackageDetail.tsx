@@ -48,6 +48,7 @@ import { ItineraryDay, Place, Hotel, Package } from '../../types/index.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { PlaceModal } from '../places/PlaceModal.js';
 import { HotelModal } from '../hotels/HotelModal.js';
+import { DayEditorWorkspace } from '../../components/packages/DayEditorWorkspace.js';
 import { B2BAgencyBrandingModal } from './B2BAgencyBrandingModal.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
@@ -217,6 +218,8 @@ export const PackageDetail: React.FC = () => {
   // Quick Modals from within day editor
   const [isQuickPlaceOpen, setIsQuickPlaceOpen] = useState(false);
   const [isQuickHotelOpen, setIsQuickHotelOpen] = useState(false);
+  const [externalSelectedHotel, setExternalSelectedHotel] = useState<Hotel | null>(null);
+  const [externalSelectedPlace, setExternalSelectedPlace] = useState<Place | null>(null);
 
   // Drag and drop state for day reordering
   const [draggedDayIndex, setDraggedDayIndex] = useState<number | null>(null);
@@ -571,6 +574,8 @@ export const PackageDetail: React.FC = () => {
       setDaySelectedDistrict(matchedDistrict);
     }
 
+    setExternalSelectedHotel(null);
+    setExternalSelectedPlace(null);
     setIsDayModalOpen(true);
   };
 
@@ -583,6 +588,8 @@ export const PackageDetail: React.FC = () => {
     setDayPlaces(item.places || '');
     setDayActivities(item.activities || '');
     setDayDate(item.date || '');
+    setExternalSelectedHotel(null);
+    setExternalSelectedPlace(null);
     setDayHighlights(item.highlights || '');
     setDayTravelDetails(item.travelDetails || '');
     setDayStartTime(item.startTime || '');
@@ -993,6 +1000,43 @@ export const PackageDetail: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to save day itinerary:', err);
       notifyError('Failed to Save Itinerary Day', err.response?.data?.message || 'Failed to save itinerary changes to database.');
+    } finally {
+      setIsSavingDay(false);
+    }
+  };
+
+  const handleSaveDayWorkspace = async (dayPayload: any, andContinue: boolean = false): Promise<boolean | void> => {
+    setIsSavingDay(true);
+    try {
+      // Persist the specific day directly to avoid 413 (Content Too Large) payload limit on serverless
+      const res = await api.post('/packages/' + id + '/itineraries/day', { day: dayPayload });
+      if (res.data?.itineraries) {
+        setItineraries(res.data.itineraries);
+        setPkg((prev: any) => prev ? { ...prev, itineraries: res.data.itineraries } : prev);
+      } else {
+        let updated = [...itineraries];
+        if (dayIndex !== null) {
+          updated[dayIndex] = dayPayload;
+        } else {
+          updated.push(dayPayload);
+        }
+        updated.sort((a, b) => Number(a.dayNumber) - Number(b.dayNumber));
+        setItineraries(updated);
+      }
+
+      setHasUnsavedChanges(false);
+      showToast(dayIndex !== null ? 'Day itinerary updated successfully!' : 'Day itinerary added successfully!');
+      if (!andContinue) {
+        setIsDayModalOpen(false);
+      } else {
+        setDayIndex(null);
+        setDayNumber(Number(dayPayload.dayNumber) + 1);
+      }
+      return true;
+    } catch (err: any) {
+      console.error('Failed to save day itinerary:', err);
+      notifyError('Failed to Save Itinerary Day', err.response?.data?.message || 'Failed to save itinerary changes to database.');
+      return false;
     } finally {
       setIsSavingDay(false);
     }
@@ -1650,749 +1694,31 @@ export const PackageDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Add / Edit Day Modal with Multi-Image Support */}
-      <Modal
+      {/* Full-Screen Workspace for Day Add / Edit */}
+      <DayEditorWorkspace
         isOpen={isDayModalOpen}
         onClose={() => setIsDayModalOpen(false)}
-        title={dayIndex !== null ? `Edit Day ${dayNumber}` : `Add Day ${dayNumber}`}
-        subtitle="Configure daily schedule, multiple sightseeing photos, place captions, and travel logistics"
-        maxWidth="2xl"
-      >
-        <form onSubmit={handleSaveDayModal} className="space-y-4 text-xs max-h-[80vh] overflow-y-auto pr-1">
-          {copiedDayInfo && (
-            <div className="flex items-center justify-between p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs">
-              <div className="flex items-center gap-2">
-                <ClipboardPaste className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="text-emerald-800 dark:text-emerald-300 font-medium">
-                  Copied from {copiedDayInfo.sourcePackageName || 'another package'}: <strong>{copiedDayInfo.day?.title || `Day ${copiedDayInfo.day?.dayNumber}`}</strong>
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handlePasteIntoDayModal}
-                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[11px] shadow-2xs transition-colors cursor-pointer shrink-0"
-              >
-                Paste Into This Day
-              </button>
-            </div>
-          )}
-
-          {/* Day #, Day Title, Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Day # *</label>
-              <input
-                type="number"
-                min="1"
-                required
-                value={dayNumber}
-                onChange={(e) => setDayNumber(Number(e.target.value))}
-                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Day Title *</label>
-              <input
-                type="text"
-                required
-                value={dayTitle}
-                onChange={(e) => setDayTitle(e.target.value)}
-                placeholder="e.g. Arrival in Ooty & Botanical Gardens"
-                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none font-semibold"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Date (Optional)</label>
-              <input
-                type="text"
-                value={dayDate}
-                onChange={(e) => setDayDate(e.target.value)}
-                placeholder="e.g. 15 Oct 2026"
-                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="font-semibold text-slate-700 dark:text-slate-300">Description of the Day *</label>
-            <textarea
-              rows={3}
-              required
-              value={dayDescription}
-              onChange={(e) => setDayDescription(e.target.value)}
-              placeholder="Detail morning pickup, sightseeing route, lunch stops, and evening relaxation..."
-              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-            />
-          </div>
-
-          {/* PLACE & DESTINATION MASTER SECTION */}
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <label className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-[#C91F28]" />
-                  <span>Places & Attractions for Day {dayNumber}</span>
-                </label>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                  Pick sightseeing spots from the Place Master library or type custom destinations
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5 self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickPlaceOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-600 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>New Place</span>
-                </button>
-              </div>
-            </div>
-
-            {/* State & District selectors for Place filtering */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-              <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">State</span>
-                <select
-                  value={daySelectedState}
-                  onChange={(e) => {
-                    const newState = e.target.value;
-                    setDaySelectedState(newState);
-                    setDaySelectedDistrict('');
-                  }}
-                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                >
-                  {INDIA_STATES_AND_DISTRICTS.map((s) => (
-                    <option key={s.state} value={s.state}>
-                      {s.state}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">District (Optional)</span>
-                <select
-                  value={daySelectedDistrict}
-                  onChange={(e) => setDaySelectedDistrict(e.target.value)}
-                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                >
-                  <option value="">All Districts ({daySelectedState})</option>
-                  {dayAvailableDistricts.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Search Place</span>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={dayPlaceSearch}
-                    onChange={(e) => setDayPlaceSearch(e.target.value)}
-                    placeholder="Filter by name..."
-                    className="w-full p-2 pl-7 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-xs"
-                  />
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-2.5" />
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Pick from Master Places */}
-            <div>
-              <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between mb-1.5">
-                <span>Add Place from Library ({daySelectedDistrict ? daySelectedDistrict : daySelectedState}):</span>
-                {isLoadingMasterData && <span className="text-[10px] text-slate-400">Loading catalog...</span>}
-              </span>
-
-              {(() => {
-                const filtered = masterPlaces.filter((mp) => {
-                  if (!dayPlaceSearch.trim()) return true;
-                  const q = dayPlaceSearch.toLowerCase();
-                  return (
-                    mp.name.toLowerCase().includes(q) ||
-                    mp.district.toLowerCase().includes(q) ||
-                    mp.category?.toLowerCase().includes(q) ||
-                    mp.activities?.toLowerCase().includes(q)
-                  );
-                });
-
-                if (filtered.length > 0) {
-                  return (
-                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                      {filtered.map((mp) => {
-                        const isSelected = selectedPlaceChips.includes(mp.name);
-                        return (
-                          <button
-                            type="button"
-                            key={mp.id}
-                            onClick={() => handleSelectMasterPlace(mp)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-red-50 text-[#C91F28] border border-red-300 dark:bg-red-950/40 dark:border-red-800'
-                                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
-                            }`}
-                          >
-                            <MapPin className="w-3 h-3 text-[#C91F28]" />
-                            <span>{mp.name}</span>
-                            {isSelected ? <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-0.5" /> : <Plus className="w-3 h-3 text-slate-400 ml-0.5" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="p-3 text-center text-[11px] text-slate-500 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1.5">
-                    <span>No places found for {daySelectedDistrict ? daySelectedDistrict : daySelectedState}.</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsQuickPlaceOpen(true)}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#C91F28] hover:underline cursor-pointer"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Create and add new place to library</span>
-                    </button>
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Selected Places Ordered Chips */}
-            <div>
-              <span className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                Selected Places for this Day (Drag or use arrows to order itinerary stops):
-              </span>
-
-              {selectedPlaceChips.length > 0 ? (
-                <div className="space-y-1.5">
-                  {selectedPlaceChips.map((chip, chipIdx) => (
-                    <div
-                      key={chipIdx}
-                      className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-red-100 dark:bg-red-950/60 text-[#C91F28] font-bold text-[10px] flex items-center justify-center">
-                          {chipIdx + 1}
-                        </span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">{chip}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1 text-slate-400">
-                        <button
-                          type="button"
-                          disabled={chipIdx === 0}
-                          onClick={() => handleMovePlaceChip(chipIdx, 'up')}
-                          title="Move place earlier"
-                          className="p-1 hover:text-slate-700 dark:hover:text-white disabled:opacity-30 cursor-pointer"
-                        >
-                          <ChevronUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={chipIdx === selectedPlaceChips.length - 1}
-                          onClick={() => handleMovePlaceChip(chipIdx, 'down')}
-                          title="Move place later"
-                          className="p-1 hover:text-slate-700 dark:hover:text-white disabled:opacity-30 cursor-pointer"
-                        >
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePlaceChip(chip)}
-                          title="Remove place"
-                          className="p-1 hover:text-rose-600 cursor-pointer ml-1"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-2 text-[11px] text-slate-400 italic">
-                  No places selected yet. Pick from above or type manually below.
-                </div>
-              )}
-            </div>
-
-            {/* Manual Places text input fallback */}
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                Places Summary Text (Automatically synced with selected places)
-              </label>
-              <input
-                type="text"
-                value={dayPlaces}
-                onChange={(e) => {
-                  setDayPlaces(e.target.value);
-                  setSelectedPlaceChips(e.target.value.split(',').map((p) => p.trim()).filter(Boolean));
-                }}
-                placeholder="e.g. Ooty Lake, Botanical Garden, Doddabetta Peak"
-                className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-xs"
-              />
-            </div>
-          </div>
-
-          {/* Activities */}
-          <div>
-            <label className="font-semibold text-slate-700 dark:text-slate-300">Activities & Sightseeing Highlights</label>
-            <input
-              type="text"
-              value={dayActivities}
-              onChange={(e) => setDayActivities(e.target.value)}
-              placeholder="e.g. Boating, heritage walk, sunset tea tasting"
-              className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none text-xs"
-            />
-          </div>
-
-          {/* HOTEL ACCOMMODATION SECTION */}
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <label className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
-                  <Building className="w-4 h-4 text-amber-600" />
-                  <span>Hotel Accommodation for Night {dayNumber}</span>
-                </label>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                  Choose from existing hotel library or add a new hotel
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5 self-start sm:self-auto">
-                {dayHotelName && (
-                  <button
-                    type="button"
-                    onClick={handleClearHotel}
-                    className="px-2 py-1 text-[11px] font-semibold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
-                  >
-                    Clear Hotel
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsHotelPickerOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-amber-700 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-colors cursor-pointer"
-                >
-                  <Building className="w-3.5 h-3.5" />
-                  <span>Add Hotel from Library</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsQuickHotelOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-600 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>New Hotel</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Currently Selected Hotel Card */}
-            {dayHotelName ? (
-              <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-300 dark:border-amber-800 shadow-2xs flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  {dayHotelImageUrl ? (
-                    <img
-                      src={dayHotelImageUrl}
-                      alt={dayHotelName}
-                      className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-slate-200"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center flex-shrink-0 text-amber-700">
-                      <Building className="w-6 h-6" />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                        {dayHotelName}
-                      </span>
-                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
-                        {dayHotelStarCategory || '3 Star'}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
-                      {dayHotelLocation || 'Location specified in itinerary'} • {dayMealPlan}
-                      {dayHotelCheckIn && dayHotelCheckOut ? ` • In: ${dayHotelCheckIn} / Out: ${dayHotelCheckOut}` : ''}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsHotelPickerOpen(true)}
-                    className="px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 cursor-pointer"
-                  >
-                    Change
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClearHotel}
-                    className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
-                    title="Remove hotel from this day"
-                  >
-                    <XCircle className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center">
-                <span className="text-xs text-slate-500 block">No hotel selected for Night {dayNumber} yet.</span>
-                <button
-                  type="button"
-                  onClick={() => setIsHotelPickerOpen(true)}
-                  className="mt-1 text-xs font-semibold text-[#C91F28] hover:underline cursor-pointer"
-                >
-                  Click "Add Hotel from Library" to choose an existing hotel
-                </button>
-              </div>
-            )}
-
-            {/* Hotel Form Fields for fine-tuning */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-2">
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Selected Hotel / Resort Name
-                </label>
-                <input
-                  type="text"
-                  value={dayHotelName}
-                  onChange={(e) => setDayHotelName(e.target.value)}
-                  placeholder="e.g. Heritage Hill Resort / Sterling Ooty"
-                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Star Category
-                </label>
-                <input
-                  type="text"
-                  value={dayHotelStarCategory}
-                  onChange={(e) => setDayHotelStarCategory(e.target.value)}
-                  placeholder="e.g. 4 Star, Heritage Resort"
-                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Meal Plan & Location */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Meal Plan Included
-                </label>
-                <select
-                  value={dayMealPlan}
-                  onChange={(e) => setDayMealPlan(e.target.value)}
-                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                >
-                  <option value="Breakfast & Dinner (MAP)">Breakfast & Dinner Included (MAP Plan)</option>
-                  <option value="Breakfast Included (CP)">Breakfast Included (CP Plan)</option>
-                  <option value="All Meals Included (AP)">All Meals Included - Breakfast, Lunch & Dinner (AP Plan)</option>
-                  <option value="Room Only (EP)">Room Only (EP Plan - No Meals)</option>
-                  <option value="Welcome Drink & Dinner">Welcome Drink & Dinner</option>
-                  <option value="Custom Meal Plan">Custom Meal Plan</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Hotel Area / District
-                </label>
-                <input
-                  type="text"
-                  value={dayHotelLocation}
-                  onChange={(e) => setDayHotelLocation(e.target.value)}
-                  placeholder="e.g. Ooty Town, Madikeri Hills"
-                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Hotel Check-in / Check-out Times */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Hotel Check-in Time
-                </label>
-                <input
-                  type="text"
-                  value={dayHotelCheckIn}
-                  onChange={(e) => setDayHotelCheckIn(e.target.value)}
-                  placeholder="e.g. 12:00 PM or 02:00 PM"
-                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Hotel Check-out Time
-                </label>
-                <input
-                  type="text"
-                  value={dayHotelCheckOut}
-                  onChange={(e) => setDayHotelCheckOut(e.target.value)}
-                  placeholder="e.g. 11:00 AM or 10:00 AM"
-                  className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Highlights summary & Travel Details */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Key Highlights (Short)</label>
-              <input
-                type="text"
-                value={dayHighlights}
-                onChange={(e) => setDayHighlights(e.target.value)}
-                placeholder="e.g. Royal Palace Light Show, Tea Factory Visit"
-                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Travel & Logistics Details</label>
-              <input
-                type="text"
-                value={dayTravelDetails}
-                onChange={(e) => setDayTravelDetails(e.target.value)}
-                placeholder="e.g. Private AC Sedan Transfer from Coimbatore (3.5 hrs)"
-                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Timing */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Start Time</label>
-              <input
-                type="text"
-                value={dayStartTime}
-                onChange={(e) => setDayStartTime(e.target.value)}
-                placeholder="09:00 AM"
-                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">End Time</label>
-              <input
-                type="text"
-                value={dayEndTime}
-                onChange={(e) => setDayEndTime(e.target.value)}
-                placeholder="06:00 PM"
-                className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* MULTI-IMAGE SIGHTSEEING GALLERY SECTION */}
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <label className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-[#C91F28]" />
-                  <span>Sightseeing Photos & Destination Gallery (Multiple Images)</span>
-                </label>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                  Upload multiple photos for this day. Give each image a place name label underneath.
-                </span>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-md self-start sm:self-auto">
-                {dayImages.length} {dayImages.length === 1 ? 'photo' : 'photos'} added
-              </span>
-            </div>
-
-            {/* Recommended Image Size Banner */}
-            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2.5">
-              <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <span className="font-bold block text-xs">Recommended Formal Photo Resolution & Sizing:</span>
-                <p className="text-blue-800 dark:text-blue-300 leading-relaxed">
-                  • <strong>Single Photo (Full Width):</strong> <strong>1200 × 750 px</strong> (Ratio <strong>16:10</strong>) or <strong>1280 × 720 px</strong> (Ratio <strong>16:9</strong>) — fits the A4 PDF page width with high clarity.<br />
-                  • <strong>Multiple Photos (2-3 Grid):</strong> <strong>800 × 600 px</strong> (Ratio <strong>4:3</strong>) or <strong>1200 × 800 px</strong> (Ratio <strong>3:2</strong>).<br />
-                  • <strong>Recommended File Size:</strong> Under <strong>5 MB</strong> per photo (JPG, PNG, WebP) for fast PDF generation and print sharpness.
-                </p>
-              </div>
-            </div>
-
-            {/* Multi-Image Action Bar: Upload File(s) + Add URL */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              {/* Multi-file upload button */}
-              <label className="px-3.5 py-2 bg-[#C91F28] hover:bg-[#a81920] text-white font-bold rounded-xl text-xs cursor-pointer flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0">
-                {isUploadingImage ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Upload className="w-3.5 h-3.5" />
-                )}
-                <span>{isUploadingImage ? 'Uploading Photos...' : '+ Upload Multiple Photos'}</span>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  disabled={isUploadingImage}
-                  onChange={handleMultipleImageUpload}
-                  className="hidden"
-                />
-              </label>
-
-              {/* Add by URL input */}
-              <div className="flex items-center gap-1.5 flex-1">
-                <input
-                  type="text"
-                  value={newImageUrlInput}
-                  onChange={(e) => setNewImageUrlInput(e.target.value)}
-                  placeholder="Or paste image URL (https://...)"
-                  className="flex-1 p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddImageUrl}
-                  disabled={!newImageUrlInput.trim()}
-                  className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-semibold rounded-xl text-xs transition-colors disabled:opacity-40 cursor-pointer shrink-0"
-                >
-                  + Add URL
-                </button>
-              </div>
-            </div>
-
-            {/* Gallery of Uploaded Photos */}
-            {dayImages.length === 0 ? (
-              <div className="p-4 text-center border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-500">
-                <Camera className="w-6 h-6 mx-auto mb-1 text-slate-400" />
-                <p className="font-semibold text-xs text-slate-700 dark:text-slate-300">No photos added for this day</p>
-                <p className="text-[10.5px] text-slate-400 mt-0.5">
-                  Click "+ Upload Multiple Photos" above to select one or multiple images from your computer or phone.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                {dayImages.map((imgItem, idx) => (
-                  <div
-                    key={idx}
-                    className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-2 relative"
-                  >
-                    <div className="flex items-start gap-2.5">
-                      {/* Photo Thumbnail */}
-                      <div className="relative w-28 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shrink-0">
-                        <img
-                          src={imgItem.url}
-                          alt={imgItem.label || `Day photo ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        {idx === 0 && (
-                          <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-[#C91F28] text-white text-[8.5px] font-black uppercase rounded shadow-xs">
-                            Cover
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Photo Actions & Controls */}
-                      <div className="flex-1 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase">
-                            Photo #{idx + 1}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {idx > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleMoveImage(idx, 'up')}
-                                title="Move up"
-                                className="p-1 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer"
-                              >
-                                <ArrowUp className="w-3 h-3" />
-                              </button>
-                            )}
-                            {idx < dayImages.length - 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleMoveImage(idx, 'down')}
-                                title="Move down"
-                                className="p-1 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer"
-                              >
-                                <ArrowDown className="w-3 h-3" />
-                              </button>
-                            )}
-                            {idx !== 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleSetPrimaryImage(idx)}
-                                title="Set as Cover Photo"
-                                className="p-1 text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded transition-colors cursor-pointer"
-                              >
-                                <Star className="w-3 h-3" />
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveImage(idx)}
-                              title="Delete photo"
-                              className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Place Name / Caption input for this specific photo */}
-                        <div>
-                          <label className="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 block mb-0.5">
-                            Place Name / Caption Label:
-                          </label>
-                          <input
-                            type="text"
-                            value={imgItem.label || ''}
-                            onChange={(e) => handleImageLabelChange(idx, e.target.value)}
-                            placeholder="e.g. Botanical Garden, Doddabetta..."
-                            className="w-full p-1.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-            <button
-              type="button"
-              disabled={isSavingDay}
-              onClick={() => setIsDayModalOpen(false)}
-              className="px-3.5 py-1.5 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSavingDay || isUploadingImage}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              {isSavingDay && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              <span>
-                {isSavingDay
-                  ? 'Saving to Database...'
-                  : dayIndex !== null
-                  ? 'Update & Save Day'
-                  : 'Add & Save Day'}
-              </span>
-            </button>
-          </div>
-        </form>
-      </Modal>
+        pkg={pkg}
+        itineraries={itineraries}
+        dayIndex={dayIndex}
+        dayNumber={dayNumber}
+        initialData={dayIndex !== null ? itineraries[dayIndex] : undefined}
+        isSaving={isSavingDay}
+        onSave={handleSaveDayWorkspace}
+        masterPlaces={masterPlaces}
+        masterHotels={masterHotels}
+        isLoadingMasterData={isLoadingMasterData}
+        onOpenQuickPlace={() => setIsQuickPlaceOpen(true)}
+        onOpenQuickHotel={() => setIsQuickHotelOpen(true)}
+        onOpenHotelPicker={() => setIsHotelPickerOpen(true)}
+        copiedDayInfo={copiedDayInfo}
+        onLocationChange={(st, dt) => {
+          setDaySelectedState(st);
+          setDaySelectedDistrict(dt);
+        }}
+        externalSelectedHotel={externalSelectedHotel}
+        externalSelectedPlace={externalSelectedPlace}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
@@ -2415,6 +1741,7 @@ export const PackageDetail: React.FC = () => {
           masterDataCache.current.clear();
           loadMasterDataForDay(daySelectedState, daySelectedDistrict);
           handleSelectMasterPlace(savedPlace);
+          setExternalSelectedPlace(savedPlace);
           showToast(`Place "${savedPlace.name}" added to Place Library and selected for Day ${dayNumber}!`);
         }}
       />
@@ -2429,6 +1756,7 @@ export const PackageDetail: React.FC = () => {
           masterDataCache.current.clear();
           loadMasterDataForDay(daySelectedState, daySelectedDistrict);
           handleSelectMasterHotel(savedHotel);
+          setExternalSelectedHotel(savedHotel);
           showToast(`Hotel "${savedHotel.name}" added to Hotel Library and selected for Day ${dayNumber}!`);
         }}
       />
@@ -2600,6 +1928,7 @@ export const PackageDetail: React.FC = () => {
                               type="button"
                               onClick={() => {
                                 handleSelectMasterHotel(h);
+                                setExternalSelectedHotel(h);
                                 setIsHotelPickerOpen(false);
                                 showToast(`Hotel "${h.name}" selected for Day ${dayNumber}!`);
                               }}
