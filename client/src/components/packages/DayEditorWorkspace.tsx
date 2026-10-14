@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ArrowLeft,
   Calendar,
@@ -29,6 +29,8 @@ import {
   ChevronRight,
   ClipboardPaste,
   Compass,
+  X,
+  ExternalLink,
 } from 'lucide-react';
 import { DatePicker } from '../ui/DatePicker.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
@@ -121,13 +123,12 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
   const [newImageUrlInput, setNewImageUrlInput] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  // Section Accordion Visibility
+  // Section Accordion Visibility (Activities collapsed by default for speed, others open)
   const [expandedSections, setExpandedSections] = useState({
-    details: true,
     places: true,
     hotel: true,
-    activities: true,
     photos: true,
+    activities: false,
   });
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -454,8 +455,6 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
     if (onPasteCopiedDay) onPasteCopiedDay();
   };
 
-  if (!isOpen) return null;
-
   // Image Gallery Handling
   const compressImage = (file: File): Promise<{ blob: Blob; dataUrl: string }> => {
     return new Promise((resolve) => {
@@ -638,61 +637,66 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
       setDayHotelImageUrl('');
       setDayHotelLocation('');
 
-      // Scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Scroll modal body to top
+      const scrollableBody = document.getElementById('day-editor-modal-body');
+      if (scrollableBody) {
+        scrollableBody.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-40 bg-slate-50 dark:bg-slate-950 overflow-y-auto flex flex-col min-h-screen">
-      {/* 1. TOP HEADER (Sticky) */}
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 py-3.5 shadow-xs">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Left: Navigation & Package Metadata */}
+    /* OUTER BACKDROP: Centered with generous, balanced top/bottom/left/right spacing */
+    <div className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs overflow-y-auto flex items-center justify-center p-3 sm:p-5 md:p-6 lg:p-8 animate-in fade-in duration-150">
+      
+      {/* 75% WIDTH MODAL WINDOW: Clean, elevated, rounded-2xl with clean border and deep soft shadow */}
+      <div className="bg-white dark:bg-slate-900 w-full sm:w-[92%] md:w-[86%] lg:w-[75%] max-w-6xl rounded-2xl md:rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden my-auto transition-all">
+        
+        {/* 1. TOP HEADER (Fixed inside modal card) */}
+        <header className="px-5 sm:px-7 py-3.5 sm:py-4 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 shrink-0"
-              title="Return to Package"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+            {/* Day Number Pill */}
+            <div className="w-10 h-10 rounded-xl bg-[#C91F28] text-white flex flex-col items-center justify-center shadow-xs shrink-0 font-mono">
+              <span className="text-[9px] font-bold uppercase tracking-wider leading-none">DAY</span>
+              <span className="text-sm font-black leading-none mt-0.5">{String(currentDayNumber).padStart(2, '0')}</span>
+            </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[#C91F28] text-white">
+                <h2 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white truncate">
                   {dayIndex !== null ? `Edit Day ${currentDayNumber}` : `Add Day ${currentDayNumber}`}
-                </span>
-                <span className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                  {pkg?.packageName || 'Travel Package'}
-                </span>
+                </h2>
+                {dayDate && (
+                  <span className="text-xs font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md border border-slate-200 dark:border-slate-700">
+                    📅 {dayDate}
+                  </span>
+                )}
+                {recommendedDate && dayDate === recommendedDate && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    <span>Auto-Suggested</span>
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2 truncate">
-                <span className="inline-flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-[#C91F28]" />
-                  <span>{pkg?.destination || 'Destination'}</span>
-                </span>
-                <span>•</span>
-                <span>{pkg?.duration || 'Multi-Day'}</span>
-                <span>•</span>
-                <span>{itineraries.length} total days configured</span>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                {pkg?.packageName ? `Package: ${pkg.packageName}` : 'Travel Package'} {pkg?.destination ? `• ${pkg.destination}` : ''}
               </p>
             </div>
           </div>
 
-          {/* Right: Primary Save Actions */}
-          <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+          {/* Header Action Controls */}
+          <div className="flex items-center gap-2 shrink-0">
             {copiedDayInfo && (
               <button
                 type="button"
                 onClick={handlePasteIntoWorkspace}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-xl border border-emerald-300 dark:border-emerald-700 transition-colors cursor-pointer shadow-2xs"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-xl border border-emerald-300 dark:border-emerald-700 transition-colors cursor-pointer"
                 title="Paste details from clipboard"
               >
                 <ClipboardPaste className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Paste Copied Day</span>
+                <span>Paste Day</span>
               </button>
             )}
 
@@ -700,7 +704,7 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
               type="button"
               disabled={isSaving}
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              className="hidden sm:inline-flex px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -709,7 +713,7 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
               type="button"
               disabled={isSaving || isUploadingImage}
               onClick={() => handleSaveOnly()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
             >
               {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>{isSaving ? 'Saving...' : 'Save Day'}</span>
@@ -719,7 +723,7 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
               type="button"
               disabled={isSaving || isUploadingImage}
               onClick={handleSaveAndContinue}
-              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer disabled:opacity-50 active:scale-98"
             >
               {isSaving ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -728,878 +732,714 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
               )}
               <span>{isSaving ? 'Saving...' : 'Save & Continue →'}</span>
             </button>
-          </div>
-        </div>
-      </header>
 
-      {/* 2. HERO DAY HEADER */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 text-white border-b border-slate-800 px-4 sm:px-8 py-5">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl sm:text-3xl font-black tracking-tight text-white font-mono">
-                DAY {String(currentDayNumber).padStart(2, '0')}
-              </span>
-              <span className="text-slate-500 font-bold text-xl">•</span>
-              <span className="text-lg sm:text-xl font-bold text-amber-400">
-                {dayDate ? formatDateLong(dayDate) : 'Date Not Assigned'}
-              </span>
-              {recommendedDate && dayDate === recommendedDate && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                  <Sparkles className="w-3 h-3 text-emerald-300" />
-                  <span>Auto-Recommended</span>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ml-1"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        {/* 2. MAIN SCROLLABLE FORM BODY */}
+        <div id="day-editor-modal-body" className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-6">
+          
+          {/* Clipboard Banner (if available) */}
+          {copiedDayInfo && (
+            <div className="flex items-center justify-between p-3 bg-emerald-50/90 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ClipboardPaste className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-emerald-900 dark:text-emerald-300 font-medium truncate">
+                  Clipboard has day from {copiedDayInfo.sourcePackageName || 'another package'}: <strong>{copiedDayInfo.day?.title || `Day ${copiedDayInfo.day?.dayNumber}`}</strong>
                 </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-300 font-medium mt-1 truncate max-w-2xl">
-              {dayTitle || 'Enter day title and daily sightseeing itinerary below'}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="text-[11px] text-slate-400 font-medium">Quick Jump:</span>
-            <span className="text-xs font-bold px-2.5 py-1 bg-white/10 rounded-lg text-white">
-              {selectedPlaceChips.length} places
-            </span>
-            <span className="text-xs font-bold px-2.5 py-1 bg-white/10 rounded-lg text-white">
-              {dayHotelName ? 'Hotel Added' : 'No Hotel'}
-            </span>
-            <span className="text-xs font-bold px-2.5 py-1 bg-white/10 rounded-lg text-white">
-              {dayImages.length} photos
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. MAIN WORKSPACE BODY (Spacious 2-Column Desktop Grid) */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-8 py-6 flex-1">
-        <form onSubmit={handleSaveOnly} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* LEFT COLUMN: Data Entry & Configuration (7 cols on lg, 8 on xl) */}
-          <div className="lg:col-span-7 xl:col-span-8 space-y-5">
-            {copiedDayInfo && (
-              <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs shadow-2xs">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <ClipboardPaste className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="text-emerald-800 dark:text-emerald-300 font-medium truncate">
-                    Day in clipboard from {copiedDayInfo.sourcePackageName || 'another package'}: <strong>{copiedDayInfo.day?.title || `Day ${copiedDayInfo.day?.dayNumber}`}</strong>
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handlePasteIntoWorkspace}
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs shadow-2xs transition-colors cursor-pointer shrink-0 ml-2"
-                >
-                  Paste Into This Day
-                </button>
               </div>
-            )}
-
-            {/* SECTION 1: DAY INFORMATION & TIMING */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-xs space-y-4">
-              <div
-                onClick={() => toggleSection('details')}
-                className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 cursor-pointer select-none"
+              <button
+                type="button"
+                onClick={handlePasteIntoWorkspace}
+                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs shadow-2xs transition-colors cursor-pointer shrink-0 ml-2"
               >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-lg bg-red-50 dark:bg-red-950/60 text-[#C91F28] font-black text-xs flex items-center justify-center">
-                    1
-                  </span>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                    Day Information & Schedule
-                  </h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  {dayTitle.trim() && dayDate && (
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200">
-                      ✓ Completed
-                    </span>
-                  )}
-                  {expandedSections.details ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                  )}
-                </div>
-              </div>
+                Paste Into This Day
+              </button>
+            </div>
+          )}
 
-              {expandedSections.details && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  {/* Row 1: Day #, Date Picker, and Timing */}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
-                    <div className="sm:col-span-3">
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Day Number <span className="text-[#C91F28]">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        required
-                        value={currentDayNumber}
-                        onChange={(e) => setCurrentDayNumber(Number(e.target.value))}
-                        className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl font-mono font-bold text-xs focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-5">
-                      <DatePicker
-                        label="Day Date (Optional)"
-                        value={dayDate}
-                        onChange={(newDate) => setDayDate(newDate)}
-                        recommendedDate={recommendedDate}
-                        duplicateWarning={duplicateDateWarning}
-                        placeholder="Pick date from calendar..."
-                      />
-                    </div>
-
-                    <div className="sm:col-span-4">
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Timing Hours
-                      </label>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="text"
-                          value={dayStartTime}
-                          onChange={(e) => setDayStartTime(e.target.value)}
-                          placeholder="09:00 AM"
-                          className="w-1/2 p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl text-xs font-mono text-center focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                        />
-                        <span className="text-slate-400 text-xs">to</span>
-                        <input
-                          type="text"
-                          value={dayEndTime}
-                          onChange={(e) => setDayEndTime(e.target.value)}
-                          placeholder="06:00 PM"
-                          className="w-1/2 p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl text-xs font-mono text-center focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Day Title */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Day Title / Headline <span className="text-[#C91F28]">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={dayTitle}
-                      onChange={(e) => setDayTitle(e.target.value)}
-                      placeholder="e.g. Arrival in Ooty, Tea Garden Walks & Botanical Gardens"
-                      className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl font-bold text-sm focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Row 3: Day Description */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Day Description & Route Narrative <span className="text-[#C91F28]">*</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      required
-                      value={dayDescription}
-                      onChange={(e) => setDayDescription(e.target.value)}
-                      placeholder="Detail the morning departure, scenic road stops, sightseeing sequence, lunch arrangements, and leisure evening..."
-                      className="w-full p-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl text-xs leading-relaxed focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                    />
-                  </div>
-                </div>
-              )}
+          {/* SECTION 1: SCHEDULE & NARRATIVE (Full Width Aligned Grid) */}
+          <div className="bg-slate-50/70 dark:bg-slate-850/50 rounded-2xl p-4 sm:p-5 border border-slate-200/70 dark:border-slate-800 space-y-4">
+            <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200/60 dark:border-slate-750">
+              <span className="w-5 h-5 rounded-md bg-[#C91F28] text-white text-[11px] font-bold flex items-center justify-center">
+                1
+              </span>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                Day Schedule & Description
+              </h3>
             </div>
 
-            {/* SECTION 2: PLACES & SIGHTSEEING */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-xs space-y-4">
-              <div
-                onClick={() => toggleSection('places')}
-                className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 cursor-pointer select-none"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-lg bg-red-50 dark:bg-red-950/60 text-[#C91F28] font-black text-xs flex items-center justify-center">
-                    2
-                  </span>
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <MapPin className="w-4 h-4 text-[#C91F28]" />
-                      <span>Places & Sightseeing Attractions</span>
-                    </h3>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                    {selectedPlaceChips.length} {selectedPlaceChips.length === 1 ? 'place' : 'places'} selected
-                  </span>
-                  {expandedSections.places ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                  )}
-                </div>
+            {/* Row 1: Day #, DatePicker, Timing (Clean 12-col grid) */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+              {/* Day # */}
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-1">
+                  Day Number <span className="text-[#C91F28]">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={currentDayNumber}
+                  onChange={(e) => setCurrentDayNumber(Number(e.target.value))}
+                  className="w-full h-10 px-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl font-mono font-bold text-xs text-center focus:ring-2 focus:ring-[#C91F28]/20 focus:border-[#C91F28] focus:outline-none"
+                />
               </div>
 
-              {expandedSections.places && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  {/* Library State/District Selector & Search */}
-                  <div className="p-3.5 bg-slate-50 dark:bg-slate-850/60 rounded-xl border border-slate-200 dark:border-slate-700/80 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        Select from Verified Place Master:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={onOpenQuickPlace}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 transition-colors cursor-pointer self-start sm:self-auto shadow-2xs"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-[#C91F28]" />
-                        <span>Add New Place to Library</span>
-                      </button>
-                    </div>
+              {/* DatePicker */}
+              <div className="sm:col-span-5">
+                <DatePicker
+                  label="Day Date (Interactive Calendar)"
+                  value={dayDate}
+                  onChange={(newDate) => setDayDate(newDate)}
+                  recommendedDate={recommendedDate}
+                  duplicateWarning={duplicateDateWarning}
+                  placeholder="Click to pick date from calendar..."
+                />
+              </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">State</span>
-                        <select
-                          value={daySelectedState}
-                          onChange={(e) => {
-                            setDaySelectedState(e.target.value);
-                            setDaySelectedDistrict('');
-                          }}
-                          className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                        >
-                          {INDIA_STATES_AND_DISTRICTS.map((s) => (
-                            <option key={s.state} value={s.state}>
-                              {s.state}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                          District / City
-                        </span>
-                        <select
-                          value={daySelectedDistrict}
-                          onChange={(e) => setDaySelectedDistrict(e.target.value)}
-                          className="w-full p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                        >
-                          <option value="">All Districts ({daySelectedState})</option>
-                          {availableDistricts.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                          Filter by Name
-                        </span>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={dayPlaceSearch}
-                            onChange={(e) => setDayPlaceSearch(e.target.value)}
-                            placeholder="Type spot name..."
-                            className="w-full p-2 pl-7 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none text-xs"
-                          />
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-2.5" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quick Pick Clickable Chips */}
-                    <div>
-                      {(() => {
-                        const filtered = masterPlaces.filter((mp) => {
-                          if (daySelectedDistrict && mp.district !== daySelectedDistrict) return false;
-                          if (!dayPlaceSearch.trim()) return true;
-                          const q = dayPlaceSearch.toLowerCase();
-                          return (
-                            mp.name.toLowerCase().includes(q) ||
-                            mp.district.toLowerCase().includes(q) ||
-                            mp.category?.toLowerCase().includes(q) ||
-                            mp.activities?.toLowerCase().includes(q)
-                          );
-                        });
-
-                        if (filtered.length > 0) {
-                          return (
-                            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                              {filtered.map((mp) => {
-                                const isSelected = selectedPlaceChips.includes(mp.name);
-                                return (
-                                  <button
-                                    type="button"
-                                    key={mp.id}
-                                    onClick={() => handleSelectPlace(mp)}
-                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
-                                      isSelected
-                                        ? 'bg-red-50 text-[#C91F28] border border-red-300 dark:bg-red-950/40 dark:border-red-800'
-                                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
-                                    }`}
-                                  >
-                                    <MapPin className="w-3 h-3 text-[#C91F28]" />
-                                    <span>{mp.name}</span>
-                                    {isSelected ? (
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-0.5" />
-                                    ) : (
-                                      <Plus className="w-3 h-3 text-slate-400 ml-0.5" />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div className="p-3 text-center text-[11px] text-slate-500 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1">
-                            <span>No places matching filter in {daySelectedDistrict || daySelectedState}.</span>
-                            <button
-                              type="button"
-                              onClick={onOpenQuickPlace}
-                              className="text-[#C91F28] hover:underline font-semibold cursor-pointer"
-                            >
-                              + Click to add this spot to library
-                            </button>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Selected Places Ordered Cards */}
-                  <div>
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                      Itinerary Stops for Day {currentDayNumber} (In Visiting Sequence):
-                    </span>
-
-                    {selectedPlaceChips.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {selectedPlaceChips.map((chip, chipIdx) => (
-                          <div
-                            key={chipIdx}
-                            className="flex items-center justify-between p-2.5 bg-slate-50/80 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="w-5 h-5 rounded-full bg-[#C91F28] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
-                                {chipIdx + 1}
-                              </span>
-                              <span className="font-bold text-slate-900 dark:text-white truncate">
-                                {chip}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1 text-slate-400 shrink-0">
-                              <button
-                                type="button"
-                                disabled={chipIdx === 0}
-                                onClick={() => handleMovePlaceChip(chipIdx, 'up')}
-                                title="Visit earlier"
-                                className="p-1 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer"
-                              >
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                disabled={chipIdx === selectedPlaceChips.length - 1}
-                                onClick={() => handleMovePlaceChip(chipIdx, 'down')}
-                                title="Visit later"
-                                className="p-1 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer"
-                              >
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRemovePlaceChip(chip)}
-                                title="Remove stop"
-                                className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer ml-1"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-400">
-                        No sightseeing spots selected yet. Click any place above to add to itinerary.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Manual Places text input */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                      Places Summary Text (Appears on printed voucher & itinerary timeline)
-                    </label>
+              {/* Timing Hours */}
+              <div className="sm:col-span-5">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-1">
+                  Tour Timing (Start to End)
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
                     <input
                       type="text"
-                      value={dayPlaces}
+                      value={dayStartTime}
+                      onChange={(e) => setDayStartTime(e.target.value)}
+                      placeholder="09:00 AM"
+                      className="w-full h-10 pl-8 pr-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs font-mono text-center focus:ring-2 focus:ring-[#C91F28]/20 focus:border-[#C91F28] focus:outline-none"
+                    />
+                    <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" />
+                  </div>
+                  <span className="text-slate-400 text-xs font-semibold">to</span>
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={dayEndTime}
+                      onChange={(e) => setDayEndTime(e.target.value)}
+                      placeholder="06:00 PM"
+                      className="w-full h-10 pl-8 pr-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs font-mono text-center focus:ring-2 focus:ring-[#C91F28]/20 focus:border-[#C91F28] focus:outline-none"
+                    />
+                    <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: Day Title Headline */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-1">
+                Day Title / Headline <span className="text-[#C91F28]">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={dayTitle}
+                onChange={(e) => setDayTitle(e.target.value)}
+                placeholder="e.g. Arrival in Ooty, Tea Garden Walks & Botanical Gardens"
+                className="w-full h-10 px-3.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl font-semibold text-xs focus:ring-2 focus:ring-[#C91F28]/20 focus:border-[#C91F28] focus:outline-none"
+              />
+            </div>
+
+            {/* Row 3: Day Route Narrative / Description */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-1">
+                Day Description & Route Narrative <span className="text-[#C91F28]">*</span>
+              </label>
+              <textarea
+                rows={3}
+                required
+                value={dayDescription}
+                onChange={(e) => setDayDescription(e.target.value)}
+                placeholder="Detail morning departure, scenic road stops, sightseeing sequence, lunch arrangements, and leisure evening..."
+                className="w-full p-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs leading-relaxed focus:ring-2 focus:ring-[#C91F28]/20 focus:border-[#C91F28] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* SECTION 2: PLACES & SIGHTSEEING */}
+          <div className="bg-slate-50/70 dark:bg-slate-850/50 rounded-2xl p-4 sm:p-5 border border-slate-200/70 dark:border-slate-800 space-y-4">
+            <div
+              onClick={() => toggleSection('places')}
+              className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-slate-750 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-md bg-[#C91F28] text-white text-[11px] font-bold flex items-center justify-center">
+                  2
+                </span>
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#C91F28]" />
+                  <span>Places & Sightseeing Spots</span>
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  {selectedPlaceChips.length} {selectedPlaceChips.length === 1 ? 'place' : 'places'} selected
+                </span>
+                {expandedSections.places ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                )}
+              </div>
+            </div>
+
+            {expandedSections.places && (
+              <div className="space-y-3.5 animate-in fade-in duration-150">
+                {/* Filter and Library Control Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                  {/* State */}
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">State</label>
+                    <select
+                      value={daySelectedState}
                       onChange={(e) => {
-                        setDayPlaces(e.target.value);
-                        setSelectedPlaceChips(
-                          e.target.value.split(',').map((p) => p.trim()).filter(Boolean)
-                        );
+                        setDaySelectedState(e.target.value);
+                        setDaySelectedDistrict('');
+                        if (onLocationChange) onLocationChange(e.target.value, '');
                       }}
-                      placeholder="e.g. Ooty Lake, Botanical Garden, Tea Factory & Doddabetta Peak"
-                      className="w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl text-xs focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                    />
+                      className="w-full h-9 px-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                    >
+                      {INDIA_STATES_AND_DISTRICTS.map((s) => (
+                        <option key={s.state} value={s.state}>
+                          {s.state}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
-              )}
-            </div>
 
-            {/* SECTION 3: HOTEL & ACCOMMODATION */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-xs space-y-4">
-              <div
-                onClick={() => toggleSection('hotel')}
-                className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 cursor-pointer select-none"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 font-black text-xs flex items-center justify-center">
-                    3
-                  </span>
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <Building className="w-4 h-4 text-amber-600" />
-                      <span>Hotel & Night Stay Accommodation</span>
-                    </h3>
+                  {/* District */}
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">District / City</label>
+                    <select
+                      value={daySelectedDistrict}
+                      onChange={(e) => {
+                        setDaySelectedDistrict(e.target.value);
+                        if (onLocationChange) onLocationChange(daySelectedState, e.target.value);
+                      }}
+                      className="w-full h-9 px-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                    >
+                      <option value="">All Districts ({daySelectedState})</option>
+                      {availableDistricts.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {dayHotelName ? (
-                    <span className="text-[10.5px] font-bold text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-300">
-                      ✓ {dayHotelName}
-                    </span>
-                  ) : (
-                    <span className="text-[10.5px] text-slate-400">No hotel</span>
-                  )}
-                  {expandedSections.hotel ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                  )}
-                </div>
-              </div>
 
-              {expandedSections.hotel && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  {/* Selected Hotel Card or Prompt */}
-                  {dayHotelName ? (
-                    <div className="p-3.5 bg-amber-50/40 dark:bg-amber-950/20 rounded-xl border border-amber-300 dark:border-amber-800 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {dayHotelImageUrl ? (
-                          <img
-                            src={dayHotelImageUrl}
-                            alt={dayHotelName}
-                            className="w-14 h-14 rounded-lg object-cover shrink-0 border border-amber-200"
-                          />
-                        ) : (
-                          <div className="w-14 h-14 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0 text-amber-700">
-                            <Building className="w-6 h-6" />
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                              {dayHotelName}
-                            </span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 rounded">
-                              {dayHotelStarCategory || '3 Star'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 truncate">
-                            {dayHotelLocation || 'Location specified'} • {dayMealPlan}
-                          </p>
-                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                            Check-in: {dayHotelCheckIn || '12:00 PM'} | Check-out: {dayHotelCheckOut || '11:00 AM'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={onOpenHotelPicker}
-                          className="px-2.5 py-1 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors cursor-pointer"
-                        >
-                          Change
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleClearHotel}
-                          title="Remove hotel"
-                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center">
-                      <Building className="w-7 h-7 text-slate-400 mx-auto mb-1.5" />
-                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        No hotel accommodation selected for Night {currentDayNumber}
-                      </p>
-                      <div className="flex items-center justify-center gap-2 mt-2">
-                        <button
-                          type="button"
-                          onClick={onOpenHotelPicker}
-                          className="px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
-                        >
-                          + Pick from Hotel Library
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onOpenQuickHotel}
-                          className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 rounded-xl transition-colors cursor-pointer"
-                        >
-                          + Add New Hotel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Meal Plan & Location Details */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Meal Plan Included
-                      </label>
-                      <select
-                        value={dayMealPlan}
-                        onChange={(e) => setDayMealPlan(e.target.value)}
-                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                      >
-                        <option value="Breakfast & Dinner (MAP)">Breakfast & Dinner Included (MAP Plan)</option>
-                        <option value="Breakfast Included (CP)">Breakfast Included (CP Plan)</option>
-                        <option value="All Meals Included (AP)">All Meals Included - Breakfast, Lunch & Dinner (AP Plan)</option>
-                        <option value="Room Only (EP)">Room Only (EP Plan - No Meals)</option>
-                        <option value="Welcome Drink & Dinner">Welcome Drink & Dinner</option>
-                        <option value="Custom Meal Plan">Custom Meal Plan</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Hotel Area / Location
-                      </label>
+                  {/* Name Filter Search */}
+                  <div className="sm:col-span-4">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Search Spots</label>
+                    <div className="relative">
                       <input
                         type="text"
-                        value={dayHotelLocation}
-                        onChange={(e) => setDayHotelLocation(e.target.value)}
-                        placeholder="e.g. Ooty Town, Madikeri Hills"
-                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+                        value={dayPlaceSearch}
+                        onChange={(e) => setDayPlaceSearch(e.target.value)}
+                        placeholder="Search spot name..."
+                        className="w-full h-9 pl-7 pr-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                       />
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                     </div>
                   </div>
+
+                  {/* Quick Add Place to Master */}
+                  <div className="sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={onOpenQuickPlace}
+                      className="w-full h-9 inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl border border-slate-300 dark:border-slate-600 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-[#C91F28]" />
+                      <span>+ New Place</span>
+                    </button>
+                  </div>
                 </div>
-              )}
+
+                {/* Available Library Spots Chips */}
+                <div>
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">
+                    Click to add spots from verified master:
+                  </span>
+                  {(() => {
+                    const filtered = masterPlaces.filter((mp) => {
+                      if (daySelectedDistrict && mp.district !== daySelectedDistrict) return false;
+                      if (!dayPlaceSearch.trim()) return true;
+                      const q = dayPlaceSearch.toLowerCase();
+                      return (
+                        mp.name.toLowerCase().includes(q) ||
+                        mp.district.toLowerCase().includes(q) ||
+                        mp.category?.toLowerCase().includes(q)
+                      );
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-400">
+                          No places found in this district. Click "+ New Place" above to add one instantly.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                        {filtered.map((mp) => {
+                          const isSelected = selectedPlaceChips.includes(mp.name);
+                          return (
+                            <button
+                              type="button"
+                              key={mp.id}
+                              onClick={() => handleSelectPlace(mp)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-red-50 text-[#C91F28] border border-red-300 dark:bg-red-950/40 dark:border-red-800 font-bold'
+                                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              <MapPin className="w-3 h-3 text-[#C91F28]" />
+                              <span>{mp.name}</span>
+                              {isSelected ? (
+                                <CheckCircle2 className="w-3 h-3 text-[#C91F28]" />
+                              ) : (
+                                <Plus className="w-3 h-3 text-slate-400" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Selected Sequence Chips */}
+                {selectedPlaceChips.length > 0 && (
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">
+                      Visiting Sequence for Day {currentDayNumber} ({selectedPlaceChips.length} spots):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                      {selectedPlaceChips.map((chip, chipIdx) => (
+                        <div
+                          key={chipIdx}
+                          className="inline-flex items-center gap-1.5 pl-2 pr-1.5 py-1 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-slate-700 text-xs shadow-2xs"
+                        >
+                          <span className="w-4 h-4 rounded-full bg-[#C91F28] text-white font-bold text-[9px] flex items-center justify-center shrink-0">
+                            {chipIdx + 1}
+                          </span>
+                          <span className="font-semibold text-xs">{chip}</span>
+                          <button
+                            type="button"
+                            disabled={chipIdx === 0}
+                            onClick={() => handleMovePlaceChip(chipIdx, 'up')}
+                            title="Visit earlier"
+                            className="p-0.5 hover:text-slate-950 disabled:opacity-20 cursor-pointer"
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={chipIdx === selectedPlaceChips.length - 1}
+                            onClick={() => handleMovePlaceChip(chipIdx, 'down')}
+                            title="Visit later"
+                            className="p-0.5 hover:text-slate-950 disabled:opacity-20 cursor-pointer"
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePlaceChip(chip)}
+                            title="Remove"
+                            className="p-0.5 text-rose-500 hover:text-rose-700 cursor-pointer ml-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Places Summary Text Input */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Places Summary Text (Appears on printed itinerary timeline)
+                  </label>
+                  <input
+                    type="text"
+                    value={dayPlaces}
+                    onChange={(e) => {
+                      setDayPlaces(e.target.value);
+                      setSelectedPlaceChips(
+                        e.target.value.split(',').map((p) => p.trim()).filter(Boolean)
+                      );
+                    }}
+                    placeholder="e.g. Ooty Lake, Botanical Garden, Tea Factory & Doddabetta Peak"
+                    className="w-full h-9 px-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 3: HOTEL & ACCOMMODATION */}
+          <div className="bg-slate-50/70 dark:bg-slate-850/50 rounded-2xl p-4 sm:p-5 border border-slate-200/70 dark:border-slate-800 space-y-4">
+            <div
+              onClick={() => toggleSection('hotel')}
+              className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-slate-750 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-md bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center">
+                  3
+                </span>
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Building className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Hotel & Night Stay Accommodation</span>
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                {dayHotelName ? (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-300">
+                    ✓ {dayHotelName}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400">No hotel assigned</span>
+                )}
+                {expandedSections.hotel ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                )}
+              </div>
             </div>
 
-            {/* SECTION 4: ACTIVITIES, HIGHLIGHTS & LOGISTICS */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-xs space-y-4">
-              <div
-                onClick={() => toggleSection('activities')}
-                className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 cursor-pointer select-none"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 font-black text-xs flex items-center justify-center">
-                    4
-                  </span>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Compass className="w-4 h-4 text-blue-600" />
-                    <span>Activities, Highlights & Travel Logistics</span>
-                  </h3>
+            {expandedSections.hotel && (
+              <div className="space-y-3.5 animate-in fade-in duration-150">
+                {/* Hotel Card if selected, else quick picker buttons */}
+                {dayHotelName ? (
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {dayHotelImageUrl ? (
+                        <img
+                          src={dayHotelImageUrl}
+                          alt={dayHotelName}
+                          className="w-12 h-12 rounded-lg object-cover shrink-0 border border-slate-200"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                          <Building className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                            {dayHotelName}
+                          </span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 rounded">
+                            {dayHotelStarCategory || '3 Star'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                          {dayHotelLocation || 'Location specified'} • {dayMealPlan}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={onOpenHotelPicker}
+                        className="px-2.5 py-1 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearHotel}
+                        title="Remove"
+                        className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 text-slate-500 text-xs">
+                      <Building className="w-4 h-4 text-slate-400" />
+                      <span>No hotel accommodation selected for Night {currentDayNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={onOpenHotelPicker}
+                        className="px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        + Pick from Hotel Library
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onOpenQuickHotel}
+                        className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                      >
+                        + Create New Hotel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Meal Plan & Location 2-col row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                      Meal Plan Included
+                    </label>
+                    <select
+                      value={dayMealPlan}
+                      onChange={(e) => setDayMealPlan(e.target.value)}
+                      className="w-full h-9 px-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                    >
+                      <option value="Breakfast & Dinner (MAP)">Breakfast & Dinner Included (MAP Plan)</option>
+                      <option value="Breakfast Included (CP)">Breakfast Included (CP Plan)</option>
+                      <option value="All Meals Included (AP)">All Meals Included - Breakfast, Lunch & Dinner (AP Plan)</option>
+                      <option value="Room Only (EP)">Room Only (EP Plan - No Meals)</option>
+                      <option value="Welcome Drink & Dinner">Welcome Drink & Dinner</option>
+                      <option value="Custom Meal Plan">Custom Meal Plan</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                      Hotel Area / Location
+                    </label>
+                    <input
+                      type="text"
+                      value={dayHotelLocation}
+                      onChange={(e) => setDayHotelLocation(e.target.value)}
+                      placeholder="e.g. Ooty Town, Lake View Road"
+                      className="w-full h-9 px-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                    />
+                  </div>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 4: SIGHTSEEING PHOTO GALLERY */}
+          <div className="bg-slate-50/70 dark:bg-slate-850/50 rounded-2xl p-4 sm:p-5 border border-slate-200/70 dark:border-slate-800 space-y-4">
+            <div
+              onClick={() => toggleSection('photos')}
+              className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-slate-750 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-md bg-purple-600 text-white text-[11px] font-bold flex items-center justify-center">
+                  4
+                </span>
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Sightseeing Photos & Visual Gallery</span>
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  {dayImages.length} {dayImages.length === 1 ? 'photo' : 'photos'}
+                </span>
+                {expandedSections.photos ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                )}
+              </div>
+            </div>
+
+            {expandedSections.photos && (
+              <div className="space-y-3.5 animate-in fade-in duration-150">
+                {/* Upload & URL Input Row */}
+                <div className="flex flex-col sm:flex-row items-center gap-2.5">
+                  <label className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 h-9 bg-white dark:bg-slate-800 hover:bg-slate-100 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs">
+                    <Upload className="w-3.5 h-3.5 text-purple-600" />
+                    <span>{isUploadingImage ? 'Compressing...' : 'Upload Photos'}</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleMultipleImageUpload}
+                      disabled={isUploadingImage}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <div className="flex-1 w-full flex items-center gap-1.5">
+                    <input
+                      type="url"
+                      value={newImageUrlInput}
+                      onChange={(e) => setNewImageUrlInput(e.target.value)}
+                      placeholder="Or paste image URL (https://...)"
+                      className="flex-1 h-9 px-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddImageUrl}
+                      disabled={!newImageUrlInput.trim()}
+                      className="h-9 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold disabled:opacity-40 cursor-pointer shrink-0"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </div>
+
+                {/* Photos Thumbnail Grid */}
+                {dayImages.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
+                    {dayImages.map((img, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-white dark:bg-slate-900 rounded-xl p-1.5 border border-slate-200 dark:border-slate-700 space-y-1.5 shadow-2xs relative group"
+                      >
+                        <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-100">
+                          <img src={img.url} alt={img.label || `Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                          {idx === 0 ? (
+                            <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase bg-[#C91F28] text-white">
+                              Cover
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSetPrimaryImage(idx)}
+                              className="absolute top-1 left-1 px-1 py-0.5 rounded text-[8.5px] font-bold bg-slate-900/80 text-white hover:bg-[#C91F28] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            >
+                              Make Cover
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/80 text-white hover:bg-rose-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          value={img.label || ''}
+                          onChange={(e) => handleImageLabelChange(idx, e.target.value)}
+                          placeholder="Caption / Place..."
+                          className="w-full text-[10.5px] p-1 border border-slate-200 dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-800 focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-400">
+                    No photos added yet. Upload photos to make this itinerary visually stunning on customer vouchers.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 5: ACTIVITIES, HIGHLIGHTS & LOGISTICS (Collapsible) */}
+          <div className="bg-slate-50/70 dark:bg-slate-850/50 rounded-2xl p-4 sm:p-5 border border-slate-200/70 dark:border-slate-800 space-y-4">
+            <div
+              onClick={() => toggleSection('activities')}
+              className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-slate-750 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-md bg-blue-600 text-white text-[11px] font-bold flex items-center justify-center">
+                  5
+                </span>
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Compass className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Activities, Highlights & Travel Logistics</span>
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400">
+                  {expandedSections.activities ? 'Click to collapse' : 'Click to expand'}
+                </span>
                 {expandedSections.activities ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
                   <ChevronDown className="w-4 h-4 text-slate-400" />
                 )}
               </div>
-
-              {expandedSections.activities && (
-                <div className="space-y-3.5 animate-in fade-in duration-150 text-xs">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Activities & Sightseeing Highlights
-                    </label>
-                    <input
-                      type="text"
-                      value={dayActivities}
-                      onChange={(e) => setDayActivities(e.target.value)}
-                      placeholder="e.g. Boating on lake, Botanical flora walk, tea factory tasting"
-                      className="w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Key Short Highlights
-                      </label>
-                      <input
-                        type="text"
-                        value={dayHighlights}
-                        onChange={(e) => setDayHighlights(e.target.value)}
-                        placeholder="e.g. Sunset view from Doddabetta"
-                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Travel Details & Transport
-                      </label>
-                      <input
-                        type="text"
-                        value={dayTravelDetails}
-                        onChange={(e) => setDayTravelDetails(e.target.value)}
-                        placeholder="e.g. AC Sedan Transfer (3 hrs)"
-                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* RIGHT COLUMN: SIGHTSEEING PHOTOS & LIVE PREVIEW (5 cols on lg, 4 on xl) */}
-          <div className="lg:col-span-5 xl:col-span-4 space-y-5">
-            {/* SECTION 5: PHOTOS & GALLERY */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-xs space-y-4">
-              <div
-                onClick={() => toggleSection('photos')}
-                className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 cursor-pointer select-none"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 font-black text-xs flex items-center justify-center">
-                    5
-                  </span>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <ImageIcon className="w-4 h-4 text-emerald-600" />
-                    <span>Photos & Gallery</span>
-                  </h3>
+            {expandedSections.activities && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-150">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Key Highlights
+                  </label>
+                  <input
+                    type="text"
+                    value={dayHighlights}
+                    onChange={(e) => setDayHighlights(e.target.value)}
+                    placeholder="e.g. Scenic Sunset, Toy Train..."
+                    className="w-full h-9 px-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                  />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                    {dayImages.length} {dayImages.length === 1 ? 'photo' : 'photos'}
-                  </span>
-                  {expandedSections.photos ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                  )}
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Activities Included
+                  </label>
+                  <input
+                    type="text"
+                    value={dayActivities}
+                    onChange={(e) => setDayActivities(e.target.value)}
+                    placeholder="e.g. Boating, Trekking..."
+                    className="w-full h-9 px-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Travel Logistics / Instructions
+                  </label>
+                  <input
+                    type="text"
+                    value={dayTravelDetails}
+                    onChange={(e) => setDayTravelDetails(e.target.value)}
+                    placeholder="e.g. Pickup at 9 AM, AC Sedan..."
+                    className="w-full h-9 px-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                  />
                 </div>
               </div>
-
-              {expandedSections.photos && (
-                <div className="space-y-3.5 animate-in fade-in duration-150">
-                  {/* Upload Controls */}
-                  <div className="space-y-2">
-                    <label className="w-full py-2.5 px-4 bg-[#C91F28] hover:bg-[#a81920] text-white font-bold rounded-xl text-xs cursor-pointer flex items-center justify-center gap-2 shadow-xs transition-colors">
-                      {isUploadingImage ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Upload className="w-4 h-4" />
-                      )}
-                      <span>{isUploadingImage ? 'Compressing & Uploading...' : '+ Upload Photos from Device'}</span>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        disabled={isUploadingImage}
-                        onChange={handleMultipleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        value={newImageUrlInput}
-                        onChange={(e) => setNewImageUrlInput(e.target.value)}
-                        placeholder="Or paste photo URL..."
-                        className="flex-1 p-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddImageUrl}
-                        disabled={!newImageUrlInput.trim()}
-                        className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs transition-colors disabled:opacity-40 cursor-pointer shrink-0"
-                      >
-                        + Add
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Photo List Cards */}
-                  {dayImages.length > 0 ? (
-                    <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                      {dayImages.map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-2.5 relative"
-                        >
-                          <div className="relative w-20 h-16 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 shrink-0">
-                            <img
-                              src={img.url}
-                              alt={img.label || `Photo ${idx + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                            {idx === 0 && (
-                              <span className="absolute top-1 left-1 px-1 py-0.2 bg-[#C91F28] text-white text-[8px] font-black uppercase rounded">
-                                Cover
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-500 uppercase">
-                                Photo #{idx + 1}
-                              </span>
-                              <div className="flex items-center gap-1">
-                                {idx > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleMoveImage(idx, 'up')}
-                                    title="Move up"
-                                    className="p-0.5 text-slate-400 hover:text-slate-700"
-                                  >
-                                    <ArrowUp className="w-3 h-3" />
-                                  </button>
-                                )}
-                                {idx < dayImages.length - 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleMoveImage(idx, 'down')}
-                                    title="Move down"
-                                    className="p-0.5 text-slate-400 hover:text-slate-700"
-                                  >
-                                    <ArrowDown className="w-3 h-3" />
-                                  </button>
-                                )}
-                                {idx !== 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSetPrimaryImage(idx)}
-                                    title="Set as Cover Photo"
-                                    className="p-0.5 text-amber-500 hover:text-amber-700"
-                                  >
-                                    <Star className="w-3 h-3" />
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveImage(idx)}
-                                  title="Delete photo"
-                                  className="p-0.5 text-rose-500 hover:text-rose-700"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-
-                            <input
-                              type="text"
-                              value={img.label || ''}
-                              onChange={(e) => handleImageLabelChange(idx, e.target.value)}
-                              placeholder="Caption / place label..."
-                              className="w-full p-1 text-[11px] border border-slate-200 dark:border-slate-700 dark:bg-slate-900 rounded-md focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-400">
-                      <Camera className="w-6 h-6 mx-auto mb-1 text-slate-400" />
-                      <span>No photos added yet. Upload from device or add image URL above.</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* LIVE DAY ITINERARY CARD PREVIEW */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-xs space-y-3">
-              <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider block">
-                Itinerary Timeline Preview
-              </span>
-
-              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-850/50 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="px-2 py-0.5 bg-[#C91F28] text-white text-[10px] font-black rounded-md">
-                      DAY {currentDayNumber}
-                    </span>
-                    <h4 className="font-bold text-xs text-slate-900 dark:text-white mt-1">
-                      {dayTitle || 'Day Title Here'}
-                    </h4>
-                  </div>
-                  {dayDate && (
-                    <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 shrink-0">
-                      {dayDate}
-                    </span>
-                  )}
-                </div>
-
-                {dayDescription && (
-                  <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-3 leading-relaxed">
-                    {dayDescription}
-                  </p>
-                )}
-
-                {selectedPlaceChips.length > 0 && (
-                  <div className="flex items-center gap-1 flex-wrap pt-1">
-                    {selectedPlaceChips.map((c, i) => (
-                      <span
-                        key={i}
-                        className="px-1.5 py-0.5 bg-red-50 text-[#C91F28] dark:bg-red-950/40 text-[10px] font-semibold rounded"
-                      >
-                        {c}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {dayHotelName && (
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700 flex items-center gap-2 text-[11px] text-amber-800 dark:text-amber-400 font-medium">
-                    <Building className="w-3 h-3 text-amber-600 shrink-0" />
-                    <span className="truncate">{dayHotelName} ({dayHotelStarCategory || 'Hotel'})</span>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </div>
-        </form>
-      </main>
+        </div>
 
-      {/* 4. BOTTOM ACTION AREA (Sticky Bottom) */}
-      <footer className="sticky bottom-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 sm:px-8 py-3.5 shadow-lg">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+        {/* 3. STICKY BOTTOM ACTION BAR (Inside Modal Card) */}
+        <footer className="px-5 sm:px-7 py-3.5 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 flex items-center justify-between gap-3 shrink-0">
           <button
             type="button"
             disabled={isSaving}
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Cancel & Back</span>
           </button>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={isSaving || isUploadingImage}
               onClick={() => handleSaveOnly()}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 text-xs font-bold text-slate-800 dark:text-white bg-white dark:bg-slate-800 hover:bg-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
             >
               {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>{isSaving ? 'Saving...' : 'Save Day'}</span>
@@ -1609,7 +1449,7 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
               type="button"
               disabled={isSaving || isUploadingImage}
               onClick={handleSaveAndContinue}
-              className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+              className="inline-flex items-center gap-1.5 px-5 sm:px-6 py-2 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer disabled:opacity-50 active:scale-98"
             >
               {isSaving ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1619,8 +1459,8 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
               <span>{isSaving ? 'Saving...' : 'Save & Continue →'}</span>
             </button>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 };
