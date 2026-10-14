@@ -237,6 +237,11 @@ export async function ensureColumns() {
       `ALTER TABLE \`Package\` ADD COLUMN \`b2bWebsite\` VARCHAR(191) NULL`,
       `ALTER TABLE \`Package\` ADD COLUMN \`b2bTagline\` VARCHAR(255) NULL`,
       `ALTER TABLE \`Package\` ADD COLUMN \`customBranding\` LONGTEXT NULL`,
+
+      // Quotation B2B Travel Agent Integration
+      `ALTER TABLE \`Quotation\` MODIFY COLUMN \`customerId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Quotation\` ADD COLUMN \`agentId\` VARCHAR(36) NULL`,
+      `ALTER TABLE \`Quotation\` ADD COLUMN \`recipientType\` VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER'`,
     ];
 
   for (const sql of mysqlMigrations) {
