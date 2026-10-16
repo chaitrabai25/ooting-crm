@@ -86,6 +86,7 @@ model Company {
   guideAvailabilities GuideAvailability[]
   tourAssignments     TourAssignment[]
   guideActivities     GuideActivity[]
+  tourExpenses        TourExpense[]
 
   @@index([status])
   @@index([slug])
@@ -1145,6 +1146,7 @@ model TourGuide {
   primaryAssignments        TourAssignment[] @relation("PrimaryGuide")
   secondaryAssignments      TourAssignment[] @relation("SecondaryGuide")
   activities                 GuideActivity[]
+  tourExpenses               TourExpense[]
 
   @@index([companyId])
   @@index([phone])
@@ -1244,6 +1246,7 @@ model TourAssignment {
   secondaryGuide        TourGuide?  @relation("SecondaryGuide", fields: [secondaryGuideId], references: [id], onDelete: SetNull)
   company               Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   activities            GuideActivity[]
+  tourExpenses          TourExpense[]
 
   @@index([companyId])
   @@index([bookingId])
@@ -1281,5 +1284,63 @@ model GuideActivity {
   @@index([createdAt])
 }
 
+// ------------------------------------------------------------------------------
+// 18. Per-Tour & Per-Passenger Field Expenses
+// ------------------------------------------------------------------------------
+model TourExpense {
+  id           String  @id @default(uuid()) @db.VarChar(36)
+  companyId    String? @db.VarChar(36)
+  assignmentId String  @db.VarChar(36)
+  bookingId    String? @db.VarChar(36)
+  guideId      String? @db.VarChar(36)
 
+  // Expense Classification
+  expenseType String @default("PASSENGER") @db.VarChar(50) // PASSENGER (individual extra), GENERAL (shared group expense)
 
+  // Passenger Specific (when expenseType == PASSENGER)
+  passengerId   String? @db.VarChar(36)
+  passengerName String? @db.VarChar(191)
+  passengerRole String? @db.VarChar(100)
+  roomNumber    String? @db.VarChar(50)
+
+  // Shared / General Specific (when expenseType == GENERAL)
+  splitType String? @default("SPLIT_EQUALLY") @db.VarChar(50) // SPLIT_EQUALLY, COMPANY_EXPENSE, NO_SPLIT
+
+  // Expense Details
+  category      String   @default("MISCELLANEOUS") @db.VarChar(50) // WATER_BOTTLES, ENTRY_TICKETS, MEALS_FOOD, SNACKS_BEVERAGES, PARKING_TOLL, ACTIVITIES_SPORTS, EMERGENCY_MEDICAL, SHOPPING_EXTRAS, DRIVER_ALLOWANCE, MISCELLANEOUS
+  title         String   @db.VarChar(191)
+  amount        Float    @default(0)
+  expenseDate   DateTime @default(now())
+  expenseTime   String?  @db.VarChar(50)
+  receiptNumber String?  @db.VarChar(100)
+  receiptUrl    String?  @db.LongText
+  notes         String?  @db.Text
+
+  // Settlement & Recovery
+  settlementStatus    String    @default("UNSETTLED") @db.VarChar(50) // UNSETTLED, SETTLED, WAIVED
+  settledWithCustomer Boolean   @default(false)
+  settledAt           DateTime?
+  settledAmount       Float?    @default(0)
+  settledNotes        String?   @db.Text
+
+  // Audit & Attribution
+  recordedById   String? @db.VarChar(36)
+  recordedByName String? @db.VarChar(191)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignment TourAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  guide      TourGuide?     @relation(fields: [guideId], references: [id], onDelete: SetNull)
+  company    Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([assignmentId])
+  @@index([bookingId])
+  @@index([guideId])
+  @@index([expenseType])
+  @@index([passengerId])
+  @@index([category])
+  @@index([settlementStatus])
+  @@index([expenseDate])
+}
