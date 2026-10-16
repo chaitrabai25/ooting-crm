@@ -18,6 +18,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const search = (req.query.search as string || '').trim();
     const source = (req.query.source as string || '').trim();
     const status = (req.query.status as string || '').trim();
+    const customerType = (req.query.customerType as string || '').trim();
     const assignedToId = (req.query.assignedToId as string || '').trim();
     const packageId = (req.query.packageId as string || '').trim();
     const sortByParam = (req.query.sortBy as string || 'createdAt').trim();
@@ -36,10 +37,15 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         { phone: { contains: search } },
         { email: { contains: search } },
         { city: { contains: search } },
+        { organizationName: { contains: search } },
+        { organizationCode: { contains: search } },
+        { primaryContactName: { contains: search } },
+        { primaryContactPhone: { contains: search } },
       ];
     }
     if (source) where.source = source;
     if (status) where.status = status;
+    if (customerType && customerType !== 'ALL') where.customerType = customerType;
     if (assignedToId) where.assignedToId = assignedToId;
     if (packageId) {
       where.bookings = { some: { packageId } };
@@ -54,7 +60,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
           createdByUser: { select: { id: true, name: true, email: true } },
           updatedByUser: { select: { id: true, name: true, email: true } },
           _count: {
-            select: { leads: true, bookings: true },
+            select: { leads: true, bookings: true, members: true },
           },
         },
         skip: (page - 1) * limit,
@@ -105,6 +111,16 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
         quotations: {
           orderBy: { createdAt: 'desc' },
         },
+        members: {
+          orderBy: { createdAt: 'desc' },
+        },
+        assignments: {
+          include: {
+            primaryGuide: { select: { id: true, guideCode: true, fullName: true, phone: true } },
+            secondaryGuide: { select: { id: true, guideCode: true, fullName: true, phone: true } },
+          },
+          orderBy: { startDate: 'desc' },
+        },
       },
     });
 
@@ -153,6 +169,20 @@ const customerSchema = z.object({
   notes: z.string().optional().nullable(),
   assignedToId: z.string().optional().nullable(),
   status: z.string().optional().default('ACTIVE'),
+
+  // Multi-Category Organization Architecture
+  customerType: z.enum(['INDIVIDUAL', 'CORPORATE', 'GROUP', 'CLUB', 'SCHOOL', 'INSTITUTE']).optional().default('INDIVIDUAL'),
+  organizationName: z.string().optional().nullable(),
+  organizationCode: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
+  website: z.string().optional().nullable(),
+  gstin: z.string().optional().nullable(),
+  billingAddress: z.string().optional().nullable(),
+  primaryContactName: z.string().optional().nullable(),
+  primaryContactPhone: z.string().optional().nullable(),
+  primaryContactEmail: z.string().optional().nullable(),
+  primaryContactDesignation: z.string().optional().nullable(),
+  accountManagerId: z.string().optional().nullable(),
 });
 
 // Create Customer
@@ -193,6 +223,18 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         companyId: req.user!.companyId,
         status: data.status || 'ACTIVE',
         isDeleted: false,
+        customerType: data.customerType || 'INDIVIDUAL',
+        organizationName: data.organizationName?.trim() || null,
+        organizationCode: data.organizationCode?.trim() || null,
+        category: data.category?.trim() || null,
+        website: data.website?.trim() || null,
+        gstin: data.gstin?.trim() || null,
+        billingAddress: data.billingAddress?.trim() || null,
+        primaryContactName: data.primaryContactName?.trim() || null,
+        primaryContactPhone: data.primaryContactPhone?.trim() || null,
+        primaryContactEmail: data.primaryContactEmail?.trim() || null,
+        primaryContactDesignation: data.primaryContactDesignation?.trim() || null,
+        accountManagerId: data.accountManagerId || null,
       },
       include: {
         assignedTo: { select: { id: true, name: true } },
@@ -250,6 +292,18 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     if (data.notes !== undefined) updatePayload.notes = data.notes?.trim() || null;
     if (data.assignedToId !== undefined) updatePayload.assignedToId = data.assignedToId || null;
     if (data.status !== undefined) updatePayload.status = data.status;
+    if (data.customerType !== undefined) updatePayload.customerType = data.customerType;
+    if (data.organizationName !== undefined) updatePayload.organizationName = data.organizationName?.trim() || null;
+    if (data.organizationCode !== undefined) updatePayload.organizationCode = data.organizationCode?.trim() || null;
+    if (data.category !== undefined) updatePayload.category = data.category?.trim() || null;
+    if (data.website !== undefined) updatePayload.website = data.website?.trim() || null;
+    if (data.gstin !== undefined) updatePayload.gstin = data.gstin?.trim() || null;
+    if (data.billingAddress !== undefined) updatePayload.billingAddress = data.billingAddress?.trim() || null;
+    if (data.primaryContactName !== undefined) updatePayload.primaryContactName = data.primaryContactName?.trim() || null;
+    if (data.primaryContactPhone !== undefined) updatePayload.primaryContactPhone = data.primaryContactPhone?.trim() || null;
+    if (data.primaryContactEmail !== undefined) updatePayload.primaryContactEmail = data.primaryContactEmail?.trim() || null;
+    if (data.primaryContactDesignation !== undefined) updatePayload.primaryContactDesignation = data.primaryContactDesignation?.trim() || null;
+    if (data.accountManagerId !== undefined) updatePayload.accountManagerId = data.accountManagerId || null;
 
     const customer = await prisma.customer.update({
       where: { id },
@@ -620,6 +674,498 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
     res.json({
       message: `Successfully imported ${imported} customers. Skipped ${skipped} records.`,
       imported,
+      skipped,
+      errors,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==============================================================================
+// Organization Members Directory & Universal Excel Import Engine
+// ==============================================================================
+
+const memberSchema = z.object({
+  memberId: z.string().optional().nullable(),
+  name: z.string().min(1, 'Name is required'),
+  roleCategory: z.string().optional().default('MEMBER'),
+  designation: z.string().optional().nullable(),
+  department: z.string().optional().nullable(),
+  section: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  email: z.string().optional().nullable(),
+  gender: z.string().optional().nullable(),
+  age: z.coerce.number().optional().nullable(),
+  dob: z.string().optional().nullable(),
+  bloodGroup: z.string().optional().nullable(),
+  idProofType: z.string().optional().nullable(),
+  idProofNumber: z.string().optional().nullable(),
+  emergencyContactName: z.string().optional().nullable(),
+  emergencyContactPhone: z.string().optional().nullable(),
+  emergencyContactRelation: z.string().optional().nullable(),
+  dietaryPreferences: z.string().optional().nullable(),
+  medicalNotes: z.string().optional().nullable(),
+  accessibilityNotes: z.string().optional().nullable(),
+  status: z.string().optional().default('ACTIVE'),
+  notes: z.string().optional().nullable(),
+});
+
+function sanitizeExcelValue(val: any): string {
+  if (val === null || val === undefined) return '';
+  let str = String(val).trim();
+  // Protection against Formula/CSV Injection
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
+  return str;
+}
+
+// GET /api/customers/:id/members
+router.get('/:id/members', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const customerId = req.params.id as string;
+    const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
+    const limit = Math.max(1, parseInt(req.query.limit as string || '50', 10));
+    const search = (req.query.search as string || '').trim();
+    const roleCategory = (req.query.roleCategory as string || '').trim();
+    const department = (req.query.department as string || '').trim();
+    const status = (req.query.status as string || '').trim();
+
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, companyId: req.user!.companyId, isDeleted: false },
+    });
+    if (!customer) {
+      res.status(404).json({ message: 'Customer organization not found.' });
+      return;
+    }
+
+    const where: any = { customerId };
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { memberId: { contains: search } },
+        { phone: { contains: search } },
+        { email: { contains: search } },
+        { department: { contains: search } },
+        { designation: { contains: search } },
+      ];
+    }
+    if (roleCategory && roleCategory !== 'ALL') where.roleCategory = roleCategory;
+    if (department) where.department = department;
+    if (status) where.status = status;
+
+    const [total, members] = await Promise.all([
+      prisma.organizationMember.count({ where }),
+      prisma.organizationMember.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    res.json({
+      data: members,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/customers/:id/members
+router.post('/:id/members', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const customerId = req.params.id as string;
+    const data = memberSchema.parse(req.body);
+
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, companyId: req.user!.companyId, isDeleted: false },
+    });
+    if (!customer) {
+      res.status(404).json({ message: 'Customer organization not found.' });
+      return;
+    }
+
+    const member = await prisma.organizationMember.create({
+      data: {
+        customerId,
+        companyId: req.user!.companyId,
+        memberId: data.memberId ? String(data.memberId).trim() : null,
+        name: data.name.trim(),
+        roleCategory: data.roleCategory || 'MEMBER',
+        designation: data.designation?.trim() || null,
+        department: data.department?.trim() || null,
+        section: data.section?.trim() || null,
+        phone: data.phone?.trim() || null,
+        email: data.email?.trim() || null,
+        gender: data.gender?.trim() || null,
+        age: data.age !== undefined && data.age !== null ? Number(data.age) : null,
+        dob: data.dob ? new Date(data.dob) : null,
+        bloodGroup: data.bloodGroup?.trim() || null,
+        idProofType: data.idProofType?.trim() || null,
+        idProofNumber: data.idProofNumber?.trim() || null,
+        emergencyContactName: data.emergencyContactName?.trim() || null,
+        emergencyContactPhone: data.emergencyContactPhone?.trim() || null,
+        emergencyContactRelation: data.emergencyContactRelation?.trim() || null,
+        dietaryPreferences: data.dietaryPreferences?.trim() || null,
+        medicalNotes: data.medicalNotes?.trim() || null,
+        accessibilityNotes: data.accessibilityNotes?.trim() || null,
+        status: data.status || 'ACTIVE',
+        notes: data.notes?.trim() || null,
+      },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      companyId: req.user!.companyId,
+      action: 'CREATE',
+      entity: 'ORGANIZATION_MEMBER',
+      entityId: member.id,
+      details: `Added member ${member.name} (${member.memberId || 'No ID'}) to organization ${customer.organizationName || customer.fullName}`,
+      newValue: member,
+      ipAddress: req.ip,
+    });
+
+    res.status(201).json(member);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/customers/:id/members/:memberId
+router.put('/:id/members/:memberId', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const customerId = req.params.id as string;
+    const memberId = req.params.memberId as string;
+    const data = memberSchema.partial().parse(req.body);
+
+    const existing = await prisma.organizationMember.findFirst({
+      where: { id: memberId, customerId },
+    });
+    if (!existing) {
+      res.status(404).json({ message: 'Member not found.' });
+      return;
+    }
+
+    const updatePayload: any = {};
+    if (data.memberId !== undefined) updatePayload.memberId = data.memberId ? String(data.memberId).trim() : null;
+    if (data.name !== undefined) updatePayload.name = data.name.trim();
+    if (data.roleCategory !== undefined) updatePayload.roleCategory = data.roleCategory;
+    if (data.designation !== undefined) updatePayload.designation = data.designation?.trim() || null;
+    if (data.department !== undefined) updatePayload.department = data.department?.trim() || null;
+    if (data.section !== undefined) updatePayload.section = data.section?.trim() || null;
+    if (data.phone !== undefined) updatePayload.phone = data.phone?.trim() || null;
+    if (data.email !== undefined) updatePayload.email = data.email?.trim() || null;
+    if (data.gender !== undefined) updatePayload.gender = data.gender?.trim() || null;
+    if (data.age !== undefined) updatePayload.age = data.age !== null && data.age !== undefined ? Number(data.age) : null;
+    if (data.dob !== undefined) updatePayload.dob = data.dob ? new Date(data.dob) : null;
+    if (data.bloodGroup !== undefined) updatePayload.bloodGroup = data.bloodGroup?.trim() || null;
+    if (data.idProofType !== undefined) updatePayload.idProofType = data.idProofType?.trim() || null;
+    if (data.idProofNumber !== undefined) updatePayload.idProofNumber = data.idProofNumber?.trim() || null;
+    if (data.emergencyContactName !== undefined) updatePayload.emergencyContactName = data.emergencyContactName?.trim() || null;
+    if (data.emergencyContactPhone !== undefined) updatePayload.emergencyContactPhone = data.emergencyContactPhone?.trim() || null;
+    if (data.emergencyContactRelation !== undefined) updatePayload.emergencyContactRelation = data.emergencyContactRelation?.trim() || null;
+    if (data.dietaryPreferences !== undefined) updatePayload.dietaryPreferences = data.dietaryPreferences?.trim() || null;
+    if (data.medicalNotes !== undefined) updatePayload.medicalNotes = data.medicalNotes?.trim() || null;
+    if (data.accessibilityNotes !== undefined) updatePayload.accessibilityNotes = data.accessibilityNotes?.trim() || null;
+    if (data.status !== undefined) updatePayload.status = data.status;
+    if (data.notes !== undefined) updatePayload.notes = data.notes?.trim() || null;
+
+    const updated = await prisma.organizationMember.update({
+      where: { id: memberId },
+      data: updatePayload,
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/customers/:id/members/:memberId
+router.delete('/:id/members/:memberId', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const customerId = req.params.id as string;
+    const memberId = req.params.memberId as string;
+
+    const existing = await prisma.organizationMember.findFirst({
+      where: { id: memberId, customerId },
+    });
+    if (!existing) {
+      res.status(404).json({ message: 'Member not found.' });
+      return;
+    }
+
+    await prisma.organizationMember.delete({
+      where: { id: memberId },
+    });
+
+    res.json({ message: 'Member removed successfully.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/customers/:id/members/template
+router.get('/:id/members/template', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const customerId = req.params.id as string;
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, companyId: req.user!.companyId, isDeleted: false },
+    });
+    if (!customer) {
+      res.status(404).json({ message: 'Customer organization not found.' });
+      return;
+    }
+
+    const type = customer.customerType || 'ORGANIZATION';
+    const isSchool = type === 'SCHOOL' || type === 'INSTITUTE';
+
+    // Sample data rows to guide users
+    const sampleRows = isSchool
+      ? [
+          {
+            'Member ID / Roll No': 'ST-001',
+            'Full Name *': 'Aarav Sharma',
+            'Role Category': 'STUDENT',
+            'Department / Class': 'Grade 10',
+            'Section': 'A',
+            'Designation': 'Student Head',
+            'Phone': '9876543210',
+            'Email': 'aarav@school.edu',
+            'Gender': 'Male',
+            'Age': 15,
+            'Blood Group': 'O+',
+            'Emergency Contact Name': 'Rajesh Sharma',
+            'Emergency Contact Phone': '9876543211',
+            'Emergency Contact Relation': 'Father',
+            'Dietary Preferences': 'Vegetarian',
+            'Medical Notes': 'None',
+          },
+          {
+            'Member ID / Roll No': 'TC-042',
+            'Full Name *': 'Priya Nair',
+            'Role Category': 'TEACHER',
+            'Department / Class': 'Science',
+            'Section': '',
+            'Designation': 'Senior Teacher',
+            'Phone': '9876543220',
+            'Email': 'priya@school.edu',
+            'Gender': 'Female',
+            'Age': 38,
+            'Blood Group': 'B+',
+            'Emergency Contact Name': 'Kiran Nair',
+            'Emergency Contact Phone': '9876543221',
+            'Emergency Contact Relation': 'Spouse',
+            'Dietary Preferences': 'Jain Vegetarian',
+            'Medical Notes': 'Mild asthma',
+          },
+        ]
+      : [
+          {
+            'Member ID / Roll No': 'EMP-0101',
+            'Full Name *': 'Rahul Verma',
+            'Role Category': 'EMPLOYEE',
+            'Department / Class': 'Engineering',
+            'Section': 'Team Alpha',
+            'Designation': 'Staff Software Engineer',
+            'Phone': '9876543230',
+            'Email': 'rahul@corporate.com',
+            'Gender': 'Male',
+            'Age': 32,
+            'Blood Group': 'A+',
+            'Emergency Contact Name': 'Sunita Verma',
+            'Emergency Contact Phone': '9876543231',
+            'Emergency Contact Relation': 'Mother',
+            'Dietary Preferences': 'Non-Veg',
+            'Medical Notes': 'None',
+          },
+        ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sampleRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Members');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const filename = `${(customer.organizationName || customer.fullName).replace(/[^a-zA-Z0-9_-]/g, '_')}_Members_Template.xlsx`;
+
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/customers/:id/members/import (Universal Excel Import Engine)
+router.post('/:id/members/import', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const customerId = req.params.id as string;
+    const { rows: incomingRows, fileData, duplicateAction = 'skip' } = req.body;
+
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, companyId: req.user!.companyId, isDeleted: false },
+    });
+    if (!customer) {
+      res.status(404).json({ message: 'Customer organization not found.' });
+      return;
+    }
+
+    let parsedRows: any[] = [];
+    if (incomingRows && Array.isArray(incomingRows)) {
+      parsedRows = incomingRows;
+    } else if (fileData) {
+      const base64Content = fileData.includes(',') ? fileData.split(',')[1] : fileData;
+      const fileBuffer = Buffer.from(base64Content, 'base64');
+      const workbook = XLSX.read(fileBuffer, { type: 'buffer', raw: false });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      parsedRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+    } else {
+      res.status(400).json({ message: 'No rows or file data provided for import.' });
+      return;
+    }
+
+    if (parsedRows.length === 0) {
+      res.status(400).json({ message: 'The uploaded file contains no data rows.' });
+      return;
+    }
+
+    let imported = 0;
+    let updated = 0;
+    let skipped = 0;
+    const errors: { row: number; error: string }[] = [];
+
+    for (let i = 0; i < parsedRows.length; i++) {
+      const row = parsedRows[i];
+      const rowNum = i + 1;
+
+      // Extract and sanitize name
+      const rawName = row['Full Name *'] || row['Full Name'] || row.fullName || row.name || '';
+      const name = sanitizeExcelValue(rawName);
+
+      if (!name || name.length < 2) {
+        errors.push({ row: rowNum, error: `Row ${rowNum}: Name is required and must be at least 2 characters.` });
+        skipped++;
+        continue;
+      }
+
+      // Preserve memberId string with leading zeroes
+      const rawMemberId = row['Member ID / Roll No'] || row['Member ID'] || row['Roll No'] || row.memberId || '';
+      const memberId = rawMemberId ? sanitizeExcelValue(rawMemberId) : null;
+
+      const rawRole = row['Role Category'] || row.roleCategory || row.role || 'MEMBER';
+      const roleCategory = sanitizeExcelValue(rawRole).toUpperCase() || 'MEMBER';
+
+      const designation = sanitizeExcelValue(row['Designation'] || row.designation || '') || null;
+      const department = sanitizeExcelValue(row['Department / Class'] || row['Department'] || row['Class'] || row.department || '') || null;
+      const section = sanitizeExcelValue(row['Section'] || row.section || '') || null;
+      const phone = sanitizeExcelValue(row['Phone'] || row['Mobile'] || row.phone || '') || null;
+      const email = sanitizeExcelValue(row['Email'] || row.email || '') || null;
+      const gender = sanitizeExcelValue(row['Gender'] || row.gender || '') || null;
+
+      const rawAge = row['Age'] || row.age;
+      const age = rawAge && !isNaN(Number(rawAge)) ? Number(rawAge) : null;
+
+      const bloodGroup = sanitizeExcelValue(row['Blood Group'] || row.bloodGroup || '') || null;
+      const emergencyContactName = sanitizeExcelValue(row['Emergency Contact Name'] || row.emergencyContactName || '') || null;
+      const emergencyContactPhone = sanitizeExcelValue(row['Emergency Contact Phone'] || row.emergencyContactPhone || '') || null;
+      const emergencyContactRelation = sanitizeExcelValue(row['Emergency Contact Relation'] || row.emergencyContactRelation || '') || null;
+      const dietaryPreferences = sanitizeExcelValue(row['Dietary Preferences'] || row.dietaryPreferences || '') || null;
+      const medicalNotes = sanitizeExcelValue(row['Medical Notes'] || row.medicalNotes || '') || null;
+
+      // Duplicate detection within customer directory by memberId or phone
+      let existingMember = null;
+      if (memberId) {
+        existingMember = await prisma.organizationMember.findFirst({
+          where: { customerId, memberId },
+        });
+      }
+      if (!existingMember && phone && phone.length >= 7) {
+        existingMember = await prisma.organizationMember.findFirst({
+          where: { customerId, phone },
+        });
+      }
+
+      if (existingMember) {
+        if (duplicateAction === 'update') {
+          await prisma.organizationMember.update({
+            where: { id: existingMember.id },
+            data: {
+              name,
+              memberId: memberId || existingMember.memberId,
+              roleCategory: roleCategory || existingMember.roleCategory,
+              designation: designation || existingMember.designation,
+              department: department || existingMember.department,
+              section: section || existingMember.section,
+              phone: phone || existingMember.phone,
+              email: email || existingMember.email,
+              gender: gender || existingMember.gender,
+              age: age !== null ? age : existingMember.age,
+              bloodGroup: bloodGroup || existingMember.bloodGroup,
+              emergencyContactName: emergencyContactName || existingMember.emergencyContactName,
+              emergencyContactPhone: emergencyContactPhone || existingMember.emergencyContactPhone,
+              emergencyContactRelation: emergencyContactRelation || existingMember.emergencyContactRelation,
+              dietaryPreferences: dietaryPreferences || existingMember.dietaryPreferences,
+              medicalNotes: medicalNotes || existingMember.medicalNotes,
+            },
+          });
+          updated++;
+        } else {
+          skipped++;
+          const idInfo = memberId ? `ID: ${memberId}` : `Phone: ${phone}`;
+          errors.push({ row: rowNum, error: `Row ${rowNum}: Member already exists with ${idInfo} (${existingMember.name}). Skipped.` });
+        }
+      } else {
+        await prisma.organizationMember.create({
+          data: {
+            customerId,
+            companyId: req.user!.companyId,
+            memberId,
+            name,
+            roleCategory,
+            designation,
+            department,
+            section,
+            phone,
+            email,
+            gender,
+            age,
+            bloodGroup,
+            emergencyContactName,
+            emergencyContactPhone,
+            emergencyContactRelation,
+            dietaryPreferences,
+            medicalNotes,
+            status: 'ACTIVE',
+          },
+        });
+        imported++;
+      }
+    }
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      companyId: req.user!.companyId,
+      action: 'IMPORT',
+      entity: 'ORGANIZATION_MEMBER',
+      details: `Universal Excel Import: ${imported} imported, ${updated} updated, ${skipped} skipped for organization ${customer.organizationName || customer.fullName}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: `Successfully processed ${parsedRows.length} rows. Imported: ${imported}, Updated: ${updated}, Skipped: ${skipped}.`,
+      imported,
+      updated,
       skipped,
       errors,
     });

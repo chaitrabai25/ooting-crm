@@ -197,6 +197,7 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
         travellers = [{
           id: `primary-${b.id}`,
           bookingId: b.id,
+          memberId: null,
           name: b.customer?.fullName || 'Primary Traveller',
           age: null,
           gender: null,
@@ -204,6 +205,10 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
           email: b.customer?.email || null,
           idNumber: null,
           address: null,
+          roleInTrip: 'PRIMARY',
+          emergencyContact: null,
+          roomAllocation: null,
+          notes: null,
           isPrimary: true,
           createdAt: b.createdAt,
           updatedAt: b.updatedAt,
@@ -624,6 +629,11 @@ router.post('/:id/passengers/import', async (req: AuthRequest, res: Response, ne
         idNumber: p.idNumber ? String(p.idNumber).trim() : null,
         address: p.address ? String(p.address).trim() : null,
         isPrimary: currentCount === 0 && idx === 0,
+        memberId: p.memberId ? String(p.memberId).trim() : null,
+        roleInTrip: p.roleInTrip ? String(p.roleInTrip).trim() : null,
+        emergencyContact: p.emergencyContact ? String(p.emergencyContact).trim() : null,
+        roomAllocation: p.roomAllocation ? String(p.roomAllocation).trim() : null,
+        notes: p.notes ? String(p.notes).trim() : null,
       })),
     });
 

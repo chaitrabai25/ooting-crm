@@ -22,6 +22,11 @@ import {
   Square,
   AlertCircle,
   CheckCircle2,
+  Building2,
+  School,
+  GraduationCap,
+  User,
+  Trophy,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
@@ -85,6 +90,7 @@ export const CustomerList: React.FC = () => {
   const [search, setSearch] = useState('');
   const [selectedSource, setSelectedSource] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedType, setSelectedType] = useState<string>('ALL');
 
   const fetchCustomers = async (silent = false) => {
     try {
@@ -95,6 +101,7 @@ export const CustomerList: React.FC = () => {
       if (search) params.append('search', search);
       if (selectedSource) params.append('source', selectedSource);
       if (selectedStatus) params.append('status', selectedStatus);
+      if (selectedType && selectedType !== 'ALL') params.append('customerType', selectedType);
 
       const res = await api.get(`/customers?${params.toString()}`);
       setCustomers(res.data.data || []);
@@ -108,7 +115,7 @@ export const CustomerList: React.FC = () => {
   };
 
   // Visibility-aware live synchronization (refreshes on focus and relaxed 60s background cycle)
-  useLiveSync(fetchCustomers, [page, selectedSource, selectedStatus], { intervalMs: 60000 });
+  useLiveSync(fetchCustomers, [page, selectedSource, selectedStatus, selectedType], { intervalMs: 60000 });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +129,7 @@ export const CustomerList: React.FC = () => {
     if (search) params.append('search', search);
     if (selectedSource) params.append('source', selectedSource);
     if (selectedStatus) params.append('status', selectedStatus);
+    if (selectedType && selectedType !== 'ALL') params.append('customerType', selectedType);
     await downloadExcel(`/customers/export/excel?${params.toString()}`, `ooting-customers-${Date.now()}.xlsx`);
   };
 
@@ -195,18 +203,46 @@ export const CustomerList: React.FC = () => {
       className: 'w-16 text-center',
     },
     {
-      header: 'Customer Name',
+      header: 'Customer / Organization',
       render: (c) => (
         <div>
-          <span
-            onClick={() => navigate(`/customers/${c.id}`)}
-            className="font-semibold text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer block text-xs sm:text-sm"
-          >
-            {c.fullName}
-          </span>
-          <span className="text-[11px] text-slate-400">
-            Added {new Date(c.createdAt).toLocaleDateString()}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              onClick={() => navigate(`/customers/${c.id}`)}
+              className="font-semibold text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer text-xs sm:text-sm"
+            >
+              {c.organizationName || c.fullName}
+            </span>
+            {c.customerType && c.customerType !== 'INDIVIDUAL' && (
+              <span
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                  c.customerType === 'CORPORATE'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
+                    : c.customerType === 'SCHOOL' || c.customerType === 'INSTITUTE'
+                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                }`}
+              >
+                {c.customerType}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5 flex-wrap">
+            {c.organizationCode && (
+              <span className="font-mono text-brand-600 dark:text-brand-400 font-semibold">
+                {c.organizationCode}
+              </span>
+            )}
+            {c.primaryContactName && (
+              <span>Contact: {c.primaryContactName}</span>
+            )}
+            {c._count?.members !== undefined && c._count.members > 0 && (
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                • {c._count.members} Members
+              </span>
+            )}
+            <span>Added {new Date(c.createdAt).toLocaleDateString()}</span>
+          </div>
         </div>
       ),
     },
@@ -429,6 +465,40 @@ export const CustomerList: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Customer Category Filter Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
+        {[
+          { id: 'ALL', label: 'All Customers', icon: Users },
+          { id: 'INDIVIDUAL', label: 'Individuals', icon: User },
+          { id: 'CORPORATE', label: 'Corporates', icon: Building2 },
+          { id: 'SCHOOL', label: 'Schools', icon: School },
+          { id: 'INSTITUTE', label: 'Colleges & Institutes', icon: GraduationCap },
+          { id: 'GROUP', label: 'Tour Groups', icon: Users },
+          { id: 'CLUB', label: 'Clubs & Societies', icon: Trophy },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = selectedType === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setSelectedType(tab.id);
+                setPage(1);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                isActive
+                  ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'}`} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">

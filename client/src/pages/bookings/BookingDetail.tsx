@@ -30,6 +30,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { BookingInvoiceModal } from './BookingInvoiceModal.js';
 import { PaymentOcrModal } from '../../components/payments/PaymentOcrModal.js';
 import { PassengerImportModal } from '../../components/passengers/PassengerImportModal.js';
+import { SelectFromDirectoryModal } from '../../components/passengers/SelectFromDirectoryModal.js';
 import { notifyError } from '../../utils/sweetalert.js';
 
 export const BookingDetail: React.FC = () => {
@@ -43,6 +44,7 @@ export const BookingDetail: React.FC = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPassengerImportOpen, setIsPassengerImportOpen] = useState(false);
+  const [isSelectDirectoryOpen, setIsSelectDirectoryOpen] = useState(false);
 
   // Add Payment Modal
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -455,15 +457,28 @@ export const BookingDetail: React.FC = () => {
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">Verified travellers and contact information for this trip</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsPassengerImportOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
-                title="Bulk import group passengers from Excel (.xlsx) or CSV"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Import Excel / CSV</span>
-              </button>
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                {booking.customerId && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSelectDirectoryOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 dark:hover:bg-brand-900 border border-brand-200 dark:border-brand-800 shadow-2xs transition-colors cursor-pointer"
+                    title="Select and enroll passengers directly from the organization member directory"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>From Organization Directory</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsPassengerImportOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors cursor-pointer"
+                  title="Bulk import group passengers from Excel (.xlsx) or CSV"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Import Excel / CSV</span>
+                </button>
+              </div>
             </div>
 
             {(!booking.travellersList || booking.travellersList.length === 0) ? (
@@ -734,6 +749,18 @@ export const BookingDetail: React.FC = () => {
           onClose={() => setIsPassengerImportOpen(false)}
           bookingId={booking?.id}
           bookingNumber={booking?.bookingNumber}
+          onSuccess={fetchBooking}
+        />
+      )}
+
+      {/* Select from Member Directory Modal */}
+      {isSelectDirectoryOpen && booking?.customerId && (
+        <SelectFromDirectoryModal
+          isOpen={isSelectDirectoryOpen}
+          onClose={() => setIsSelectDirectoryOpen(false)}
+          bookingId={booking.id}
+          customerId={booking.customerId}
+          customerName={booking.customer?.organizationName || booking.customer?.fullName}
           onSuccess={fetchBooking}
         />
       )}

@@ -49,6 +49,7 @@ import placeRoutes from './routes/place.routes.js';
 import hotelRoutes from './routes/hotel.routes.js';
 import companyRoutes from './routes/company.routes.js';
 import saasRoutes from './routes/saas.routes.js';
+import guideRoutes from './routes/guide.routes.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import { compressionMiddleware } from './middleware/compression.js';
@@ -127,6 +128,7 @@ app.use('/api/places', placeRoutes);
 app.use('/api/hotels', hotelRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/saas', saasRoutes);
+app.use('/api/guides', guideRoutes);
 
 // Multi-path candidate search for compiled frontend (Hostinger / PM2 / Local Full-Stack Mode)
 const candidateClientPaths = [

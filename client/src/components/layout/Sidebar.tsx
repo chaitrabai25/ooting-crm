@@ -88,6 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     'leads-enquiries': true,
     bookings: true,
+    'tour-guides': true,
     b2b: true,
     'import-export': false,
   });
@@ -210,6 +211,42 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
               path: '/cabs',
               icon: Car,
               module: 'cabs',
+            },
+          ],
+        },
+        {
+          type: 'group',
+          id: 'tour-guides',
+          title: 'Tour Guides',
+          icon: Compass,
+          items: [
+            {
+              type: 'link',
+              name: 'Field Dashboard',
+              path: '/guides/dashboard',
+              icon: LayoutDashboard,
+              module: 'guides',
+            },
+            {
+              type: 'link',
+              name: 'Guide Directory',
+              path: '/guides',
+              icon: Users,
+              module: 'guides',
+            },
+            {
+              type: 'link',
+              name: 'Tour Assignments',
+              path: '/guides/assignments',
+              icon: BookmarkCheck,
+              module: 'guides',
+            },
+            {
+              type: 'link',
+              name: 'Availability Roster',
+              path: '/guides/availability',
+              icon: Calendar,
+              module: 'guides',
             },
           ],
         },

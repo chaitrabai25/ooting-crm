@@ -317,6 +317,17 @@ export function requirePermission(moduleName: string, action: string = 'view') {
       }
     }
 
+    if (req.user.role === 'TOUR_GUIDE') {
+      if (moduleName === 'guides' && ['view', 'report', 'progress', 'complete', 'expense'].includes(action)) {
+        next();
+        return;
+      }
+      if (moduleName === 'dashboard' && action === 'view') {
+        next();
+        return;
+      }
+    }
+
     res.status(403).json({ message: `Access denied: You do not have permission to ${action} ${moduleName}.` });
   };
 }

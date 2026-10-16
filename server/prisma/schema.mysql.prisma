@@ -80,6 +80,12 @@ model Company {
   tenantDatabase    TenantDatabase?
   staffRequests     StaffAccessRequest[]
   sessionRevocations SessionRevocation[]
+  organizationMembers OrganizationMember[]
+  tourGuides          TourGuide[]
+  guideDocuments      GuideDocument[]
+  guideAvailabilities GuideAvailability[]
+  tourAssignments     TourAssignment[]
+  guideActivities     GuideActivity[]
 
   @@index([status])
   @@index([slug])
@@ -129,6 +135,7 @@ model User {
   assignedSuppliers      Supplier[]       @relation("SupplierAssignedUser")
   auditLogs              AuditLog[]       @relation("UserAuditLogs")
   staffRequests          StaffAccessRequest[] @relation("UserStaffRequests")
+  tourGuide              TourGuide?
 
   @@index([email])
   @@index([phone])
@@ -158,6 +165,20 @@ model Customer {
   assignedToId   String?   @db.VarChar(36)
   status         String    @default("ACTIVE") @db.VarChar(50)
 
+  // Multi-Category Organization Architecture (Individual, Corporate, School, Institute, Group, Club)
+  customerType              String    @default("INDIVIDUAL") @db.VarChar(50) // INDIVIDUAL, CORPORATE, GROUP, CLUB, SCHOOL, INSTITUTE
+  organizationName          String?   @db.VarChar(191)
+  organizationCode          String?   @db.VarChar(100)
+  category                  String?   @db.VarChar(100)
+  website                   String?   @db.VarChar(191)
+  gstin                     String?   @db.VarChar(50)
+  billingAddress            String?   @db.Text
+  primaryContactName        String?   @db.VarChar(191)
+  primaryContactPhone       String?   @db.VarChar(50)
+  primaryContactEmail       String?   @db.VarChar(191)
+  primaryContactDesignation String?   @db.VarChar(100)
+  accountManagerId          String?   @db.VarChar(36)
+
   createdById    String?   @db.VarChar(36)
   updatedById    String?   @db.VarChar(36)
   isDeleted      Boolean   @default(false)
@@ -175,10 +196,14 @@ model Customer {
   bookings       Booking[]
   quotations     Quotation[]
   cabBookings    CabBooking[]
+  members        OrganizationMember[]
+  assignments    TourAssignment[]
 
   @@index([phone])
   @@index([email])
   @@index([fullName])
+  @@index([customerType])
+  @@index([organizationName])
   @@index([assignedToId])
   @@index([isDeleted])
 
@@ -311,6 +336,7 @@ model Package {
   bookings    Booking[]
   quotations  Quotation[]
   cabBookings CabBooking[]
+  assignments TourAssignment[]
 
   @@index([destination])
   @@index([packageType])
@@ -471,6 +497,7 @@ model Booking {
   agentBooking     AgentBooking?
   travellersList   Traveller[]
   cabBookings      CabBooking[]
+  assignments      TourAssignment[]
 
   @@index([bookingNumber])
   @@index([customerId])
@@ -488,22 +515,29 @@ model Booking {
 // 9. Passengers & Travellers
 // ------------------------------------------------------------------------------
 model Traveller {
-  id        String   @id @default(uuid()) @db.VarChar(36)
-  bookingId String   @db.VarChar(36)
-  name      String   @db.VarChar(191)
-  age       Int?
-  gender    String?  @db.VarChar(50)
-  phone     String?  @db.VarChar(50)
-  email     String?  @db.VarChar(191)
-  idNumber  String?  @db.VarChar(100)
-  address   String?  @db.Text
-  isPrimary Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String              @id @default(uuid()) @db.VarChar(36)
+  bookingId        String              @db.VarChar(36)
+  memberId         String?             @db.VarChar(36)
+  name             String              @db.VarChar(191)
+  age              Int?
+  gender           String?             @db.VarChar(50)
+  phone            String?             @db.VarChar(50)
+  email            String?             @db.VarChar(191)
+  idNumber         String?             @db.VarChar(100)
+  address          String?             @db.Text
+  roleInTrip       String?             @default("PASSENGER") @db.VarChar(100)
+  emergencyContact String?             @db.VarChar(191)
+  roomAllocation   String?             @db.VarChar(100)
+  notes            String?             @db.Text
+  isPrimary        Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
-  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking          Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  member           OrganizationMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
 
   @@index([bookingId])
+  @@index([memberId])
 }
 
 // ------------------------------------------------------------------------------
@@ -1016,5 +1050,236 @@ model SubscriptionPlan {
 
   @@index([code])
 }
+
+// ==============================================================================
+// 12. Reusable Organization Member Directory
+// Supports Corporate Employees, School Students/Staff, Institute Faculty, Club Members
+// ==============================================================================
+model OrganizationMember {
+  id                         String    @id @default(uuid()) @db.VarChar(36)
+  companyId                  String?   @db.VarChar(36)
+  customerId                 String    @db.VarChar(36)
+  memberId                   String?   @db.VarChar(100) // Preserves leading zeros (e.g. "00482", "ST-092")
+  name                       String    @db.VarChar(191)
+  roleCategory               String?   @default("MEMBER") @db.VarChar(100) // EMPLOYEE, STUDENT, TEACHER, FACULTY, STAFF, MEMBER, COORDINATOR, PARTICIPANT
+  designation                String?   @db.VarChar(100)
+  department                 String?   @db.VarChar(100) // Or Class/Grade
+  section                    String?   @db.VarChar(50)  // Class section or sub-unit
+  phone                      String?   @db.VarChar(50)
+  email                      String?   @db.VarChar(191)
+  gender                     String?   @db.VarChar(50)
+  age                        Int?
+  dob                        DateTime?
+  bloodGroup                 String?   @db.VarChar(20)
+  idProofType                String?   @db.VarChar(50)
+  idProofNumber              String?   @db.VarChar(100)
+  emergencyContactName       String?   @db.VarChar(191)
+  emergencyContactPhone      String?   @db.VarChar(50)
+  emergencyContactRelation   String?   @db.VarChar(100)
+  dietaryPreferences         String?   @db.VarChar(191)
+  medicalNotes               String?   @db.Text
+  accessibilityNotes         String?   @db.Text
+  status                     String    @default("ACTIVE") @db.VarChar(50) // ACTIVE, INACTIVE
+  notes                      String?   @db.Text
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  customer                   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  company                    Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  travellerTrips             Traveller[]
+
+  @@index([customerId])
+  @@index([companyId])
+  @@index([memberId])
+  @@index([phone])
+  @@index([roleCategory])
+  @@index([department])
+  @@index([status])
+}
+
+// ==============================================================================
+// 13. Tour Guide Master
+// ==============================================================================
+model TourGuide {
+  id                         String    @id @default(uuid()) @db.VarChar(36)
+  companyId                  String?   @db.VarChar(36)
+  guideCode                  String    @unique @db.VarChar(50) // e.g. "GD-001"
+  fullName                   String    @db.VarChar(191)
+  photoUrl                   String?   @db.LongText
+  phone                      String    @db.VarChar(50)
+  alternatePhone             String?   @db.VarChar(50)
+  email                      String?   @db.VarChar(191)
+  address                    String?   @db.Text
+  city                       String?   @db.VarChar(100)
+  state                      String?   @db.VarChar(100)
+  country                    String?   @default("India") @db.VarChar(100)
+  pincode                    String?   @db.VarChar(20)
+  languages                  String?   @db.Text // JSON string array of languages e.g. ["Kannada","English","Hindi"]
+  expertise                  String?   @db.Text // e.g. "Wildlife, Heritage, Trekking, Pilgrimage"
+  destinations               String?   @db.Text // e.g. "Coorg, Ooty, Dandeli, Hampi, Mysore"
+  experienceYears            Float?    @default(0)
+  guideType                  String    @default("FREELANCE") @db.VarChar(50) // INTERNAL, FREELANCE, CONTRACT
+  dailyRate                  Float?    @default(0)
+  perTripRate                Float?    @default(0)
+  emergencyContactName       String?   @db.VarChar(191)
+  emergencyContactPhone      String?   @db.VarChar(50)
+  emergencyContactRelation   String?   @db.VarChar(100)
+  qualifications             String?   @db.Text
+  badgeNumber                String?   @db.VarChar(100)
+  licenseNumber              String?   @db.VarChar(100)
+  licenseExpiry              DateTime?
+  rating                     Float?    @default(5.0)
+  status                     String    @default("ACTIVE") @db.VarChar(50) // ACTIVE, INACTIVE, SUSPENDED
+  notes                      String?   @db.Text
+
+  // Optional User Login linkage (Decoupled profile vs login activation)
+  userId                     String?   @unique @db.VarChar(36)
+  user                       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  company                    Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documents                  GuideDocument[]
+  availabilities             GuideAvailability[]
+  primaryAssignments        TourAssignment[] @relation("PrimaryGuide")
+  secondaryAssignments      TourAssignment[] @relation("SecondaryGuide")
+  activities                 GuideActivity[]
+
+  @@index([companyId])
+  @@index([phone])
+  @@index([status])
+  @@index([guideType])
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------------------
+// 14. Guide Qualification & Compliance Documents
+// ------------------------------------------------------------------------------
+model GuideDocument {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  companyId          String?   @db.VarChar(36)
+  guideId            String    @db.VarChar(36)
+  documentType       String    @default("ID_PROOF") @db.VarChar(50) // ID_PROOF, POLICE_VERIFICATION, TOURISM_LICENSE, FIRST_AID_CERT, CONTRACT, RESUME, OTHER
+  title              String    @db.VarChar(191)
+  fileUrl            String    @db.LongText
+  fileName           String?   @db.VarChar(191)
+  fileSize           Int?
+  mimeType           String?   @db.VarChar(100)
+  expiryDate         DateTime?
+  verificationStatus String    @default("VERIFIED") @db.VarChar(50) // PENDING, VERIFIED, EXPIRED, REJECTED
+  verifiedBy         String?   @db.VarChar(191)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  guide              TourGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  company            Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([guideId])
+  @@index([documentType])
+}
+
+// ------------------------------------------------------------------------------
+// 15. Guide Availability Roster & Leave Management
+// ------------------------------------------------------------------------------
+model GuideAvailability {
+  id        String    @id @default(uuid()) @db.VarChar(36)
+  companyId String?   @db.VarChar(36)
+  guideId   String    @db.VarChar(36)
+  startDate DateTime
+  endDate   DateTime
+  status    String    @default("AVAILABLE") @db.VarChar(50) // AVAILABLE, UNAVAILABLE, ON_TOUR, LEAVE
+  reason    String?   @db.VarChar(255)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  guide     TourGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  company   Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([guideId])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+// ------------------------------------------------------------------------------
+// 16. Tour Assignments & Operational Manifests
+// ------------------------------------------------------------------------------
+model TourAssignment {
+  id                    String      @id @default(uuid()) @db.VarChar(36)
+  companyId             String?     @db.VarChar(36)
+  assignmentCode        String      @unique @db.VarChar(50) // e.g. "ASN-001"
+  bookingId             String?     @db.VarChar(36)
+  packageId             String?     @db.VarChar(36)
+  customerId            String?     @db.VarChar(36)
+  primaryGuideId        String      @db.VarChar(36)
+  secondaryGuideId      String?     @db.VarChar(36)
+  startDate             DateTime
+  endDate               DateTime
+  reportingTime         String?     @db.VarChar(50) // e.g. "06:30 AM"
+  reportingLocation     String?     @db.VarChar(191)
+  route                 String?     @db.Text
+  destination           String?     @db.VarChar(191)
+  passengerCount        Int         @default(1)
+  groupName             String?     @db.VarChar(191)
+  coordinatorName       String?     @db.VarChar(191)
+  coordinatorPhone      String?     @db.VarChar(50)
+  status                String      @default("ASSIGNED") @db.VarChar(50) // ASSIGNED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
+  progressNotes         String?     @db.Text
+  completionReport      String?     @db.Text
+  completedAt           DateTime?
+  emergencyReported     Boolean     @default(false)
+  emergencyNotes        String?     @db.Text
+  allowOverlapOverride  Boolean     @default(false)
+  assignedById          String?     @db.VarChar(36)
+  notes                 String?     @db.Text
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  booking               Booking?    @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  package               Package?    @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  customer              Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  primaryGuide          TourGuide   @relation("PrimaryGuide", fields: [primaryGuideId], references: [id], onDelete: Restrict)
+  secondaryGuide        TourGuide?  @relation("SecondaryGuide", fields: [secondaryGuideId], references: [id], onDelete: SetNull)
+  company               Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  activities            GuideActivity[]
+
+  @@index([companyId])
+  @@index([bookingId])
+  @@index([packageId])
+  @@index([customerId])
+  @@index([primaryGuideId])
+  @@index([secondaryGuideId])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([status])
+}
+
+// ------------------------------------------------------------------------------
+// 17. Guide Activity & Operational Audit History
+// ------------------------------------------------------------------------------
+model GuideActivity {
+  id              String          @id @default(uuid()) @db.VarChar(36)
+  companyId       String?         @db.VarChar(36)
+  guideId         String          @db.VarChar(36)
+  assignmentId    String?         @db.VarChar(36)
+  activityType    String          @db.VarChar(50) // STATUS_CHANGE, ASSIGNMENT, TOUR_STARTED, PROGRESS_UPDATE, TOUR_COMPLETED, INCIDENT_REPORT, DOCUMENT_UPLOAD, LOGIN_ACTIVATED
+  description     String          @db.Text
+  metadata        String?         @db.Text
+  performedById   String?         @db.VarChar(36)
+  performedByName String?         @db.VarChar(191)
+  createdAt       DateTime        @default(now())
+
+  guide           TourGuide       @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  assignment      TourAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  company         Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([guideId])
+  @@index([assignmentId])
+  @@index([createdAt])
+}
+
 
 

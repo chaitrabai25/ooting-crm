@@ -1,4 +1,4 @@
-export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'SALES' | 'OPERATIONS' | 'ACCOUNTANT' | 'AGENT';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'SALES' | 'OPERATIONS' | 'ACCOUNTANT' | 'AGENT' | 'TOUR_GUIDE';
 
 export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'QUOTATION_SENT' | 'FOLLOW_UP' | 'WON' | 'LOST' | 'CANCELLED';
 
@@ -27,6 +27,8 @@ export interface User {
   createdAt: string;
 }
 
+export type CustomerType = 'INDIVIDUAL' | 'CORPORATE' | 'GROUP' | 'CLUB' | 'SCHOOL' | 'INSTITUTE';
+
 export interface Customer {
   id: string;
   fullName: string;
@@ -41,11 +43,26 @@ export interface Customer {
   assignedToId?: string | null;
   assignedTo?: { id: string; name: string; email: string } | null;
   status: 'ACTIVE' | 'INACTIVE';
+  customerType?: CustomerType;
+  organizationName?: string | null;
+  organizationCode?: string | null;
+  category?: string | null;
+  website?: string | null;
+  gstin?: string | null;
+  billingAddress?: string | null;
+  primaryContactName?: string | null;
+  primaryContactPhone?: string | null;
+  primaryContactEmail?: string | null;
+  primaryContactDesignation?: string | null;
+  accountManagerId?: string | null;
+  members?: OrganizationMember[];
+  assignments?: TourAssignment[];
   createdAt: string;
   updatedAt: string;
   _count?: {
     leads: number;
     bookings: number;
+    members?: number;
   };
 }
 
@@ -107,6 +124,12 @@ export interface Traveller {
   idNumber?: string | null;
   address?: string | null;
   isPrimary?: boolean;
+  memberId?: string | null;
+  roleInTrip?: string | null;
+  emergencyContact?: string | null;
+  roomAllocation?: string | null;
+  notes?: string | null;
+  member?: OrganizationMember | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -723,3 +746,241 @@ export interface Hotel {
   createdAt: string;
   updatedAt?: string;
 }
+
+export interface OrganizationMember {
+  id: string;
+  customerId: string;
+  companyId?: string | null;
+  memberId?: string | null;
+  name: string;
+  roleCategory?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  section?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  gender?: string | null;
+  age?: number | null;
+  dob?: string | null;
+  bloodGroup?: string | null;
+  idProofType?: string | null;
+  idProofNumber?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  emergencyContactRelation?: string | null;
+  dietaryPreferences?: string | null;
+  medicalNotes?: string | null;
+  accessibilityNotes?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+  notes?: string | null;
+  customer?: Customer;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type GuideType = 'INTERNAL' | 'FREELANCE' | 'CONTRACT';
+export type GuideStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+
+export interface TourGuide {
+  id: string;
+  companyId?: string | null;
+  guideCode: string;
+  fullName: string;
+  photoUrl?: string | null;
+  phone: string;
+  alternatePhone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  pincode?: string | null;
+  languages?: string | null;
+  expertise?: string | null;
+  destinations?: string | null;
+  experienceYears?: number | null;
+  guideType: GuideType;
+  dailyRate?: number | null;
+  perTripRate?: number | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  emergencyContactRelation?: string | null;
+  qualifications?: string | null;
+  badgeNumber?: string | null;
+  licenseNumber?: string | null;
+  licenseExpiry?: string | null;
+  rating?: number | null;
+  status: GuideStatus;
+  notes?: string | null;
+  userId?: string | null;
+  user?: User | null;
+  documents?: GuideDocument[];
+  availabilities?: GuideAvailability[];
+  primaryAssignments?: TourAssignment[];
+  secondaryAssignments?: TourAssignment[];
+  activities?: GuideActivity[];
+  _count?: {
+    primaryAssignments: number;
+    documents: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GuideDocument {
+  id: string;
+  guideId: string;
+  companyId?: string | null;
+  documentType: string;
+  documentName: string;
+  fileUrl: string;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  verifiedAt?: string | null;
+  verifiedById?: string | null;
+  rejectionReason?: string | null;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GuideAvailability {
+  id: string;
+  guideId: string;
+  companyId?: string | null;
+  startDate: string;
+  endDate: string;
+  status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED' | 'LEAVE';
+  reason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TourAssignmentStatus = 'ASSIGNED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface TourAssignment {
+  id: string;
+  companyId?: string | null;
+  assignmentCode: string;
+  packageId?: string | null;
+  bookingId?: string | null;
+  customerId?: string | null;
+  primaryGuideId: string;
+  secondaryGuideId?: string | null;
+  tourName: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  pickupLocation?: string | null;
+  dropLocation?: string | null;
+  reportingTime?: string | null;
+  passengerCount: number;
+  guideFee?: number | null;
+  perDiemAllowance?: number | null;
+  specialInstructions?: string | null;
+  operationalNotes?: string | null;
+  status: TourAssignmentStatus;
+  progressNotes?: string | null;
+  checkInStatus?: string | null;
+  completedAt?: string | null;
+  completionReport?: string | null;
+  feedbackRating?: number | null;
+  feedbackComments?: string | null;
+  package?: any;
+  booking?: any;
+  customer?: Customer;
+  primaryGuide: TourGuide;
+  secondaryGuide?: TourGuide | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GuideActivity {
+  id: string;
+  guideId: string;
+  companyId?: string | null;
+  action: string;
+  description: string;
+  performedBy?: string | null;
+  metadata?: string | null;
+  createdAt: string;
+}
+
+export type TourExpenseType = 'PASSENGER' | 'GENERAL';
+
+export type TourExpenseCategory =
+  | 'WATER_BOTTLES'
+  | 'ENTRY_TICKETS'
+  | 'MEALS_FOOD'
+  | 'SNACKS_BEVERAGES'
+  | 'PARKING_TOLL'
+  | 'ACTIVITIES_SPORTS'
+  | 'EMERGENCY_MEDICAL'
+  | 'SHOPPING_EXTRAS'
+  | 'DRIVER_ALLOWANCE'
+  | 'MISCELLANEOUS';
+
+export type TourExpenseSettlementStatus = 'UNSETTLED' | 'SETTLED' | 'WAIVED';
+
+export interface TourExpense {
+  id: string;
+  companyId?: string | null;
+  assignmentId: string;
+  bookingId?: string | null;
+  guideId?: string | null;
+  expenseType: TourExpenseType;
+  passengerId?: string | null;
+  passengerName?: string | null;
+  passengerRole?: string | null;
+  roomNumber?: string | null;
+  splitType?: string | null;
+  category: TourExpenseCategory | string;
+  title: string;
+  amount: number;
+  expenseDate: string;
+  expenseTime?: string | null;
+  receiptNumber?: string | null;
+  receiptUrl?: string | null;
+  notes?: string | null;
+  settlementStatus: TourExpenseSettlementStatus;
+  settledWithCustomer: boolean;
+  settledAt?: string | null;
+  settledAmount?: number | null;
+  settledNotes?: string | null;
+  recordedById?: string | null;
+  recordedByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PassengerExpenseBreakdown {
+  passengerId: string;
+  passengerName: string;
+  passengerRole?: string;
+  roomNumber?: string;
+  phone?: string;
+  individualExpenses?: TourExpense[];
+  expenses?: TourExpense[];
+  individualTotal: number;
+  sharedPortion?: number;
+  sharedSplitCost: number;
+  totalPayable: number;
+  settledAmount: number;
+  pendingAmount: number;
+  isSettled?: boolean;
+  settlementStatus: 'UNSETTLED' | 'PARTIAL' | 'PAID' | string;
+}
+
+export interface TourExpenseSummary {
+  totalTourExpenses: number;
+  totalGeneralExpenses: number;
+  totalSharedSplitExpenses: number;
+  totalPassengerExpenses: number;
+  passengerExpensesCount: number;
+  passengerCount: number;
+  perPassengerSharedCost: number;
+  passengerBreakdown: PassengerExpenseBreakdown[];
+  expenses: TourExpense[];
+}
+

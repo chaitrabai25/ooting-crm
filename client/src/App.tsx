@@ -44,6 +44,13 @@ const CabList = lazy(() => import('./pages/cabs/CabList.js').then(m => ({ defaul
 const CabDetail = lazy(() => import('./pages/cabs/CabDetail.js').then(m => ({ default: m.CabDetail })));
 const CabVoucher = lazy(() => import('./pages/cabs/CabVoucher.js').then(m => ({ default: m.CabVoucher })));
 
+const GuideDashboard = lazy(() => import('./pages/guides/GuideDashboard.js').then(m => ({ default: m.GuideDashboard })));
+const GuideList = lazy(() => import('./pages/guides/GuideList.js').then(m => ({ default: m.GuideList })));
+const GuideDetail = lazy(() => import('./pages/guides/GuideDetail.js').then(m => ({ default: m.GuideDetail })));
+const GuideAssignments = lazy(() => import('./pages/guides/GuideAssignments.js').then(m => ({ default: m.GuideAssignments })));
+const AssignedTourManifest = lazy(() => import('./pages/guides/AssignedTourManifest.js').then(m => ({ default: m.AssignedTourManifest })));
+const GuideAvailabilityPage = lazy(() => import('./pages/guides/GuideAvailabilityPage.js').then(m => ({ default: m.GuideAvailabilityPage })));
+
 const BulkWhatsAppPage = lazy(() => import('./pages/whatsapp/BulkWhatsAppPage.js').then(m => ({ default: m.BulkWhatsAppPage })));
 
 const PaymentList = lazy(() => import('./pages/payments/PaymentList.js').then(m => ({ default: m.PaymentList })));
@@ -131,6 +138,14 @@ export const App: React.FC = () => {
                     <Route path="/cabs" element={<CabList />} />
                     <Route path="/cabs/:id" element={<CabDetail />} />
                     <Route path="/cabs/:id/voucher" element={<CabVoucher />} />
+
+                    {/* Tour Guides & Field Operations */}
+                    <Route path="/guides/dashboard" element={<GuideDashboard />} />
+                    <Route path="/guides" element={<GuideList />} />
+                    <Route path="/guides/:id" element={<GuideDetail />} />
+                    <Route path="/guides/assignments" element={<GuideAssignments />} />
+                    <Route path="/guides/assignments/:id/manifest" element={<AssignedTourManifest />} />
+                    <Route path="/guides/availability" element={<GuideAvailabilityPage />} />
 
                     {/* Automated & Bulk WhatsApp */}
                     <Route path="/whatsapp" element={<BulkWhatsAppPage />} />
