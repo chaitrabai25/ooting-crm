@@ -1,0 +1,110 @@
+# ==============================================================================
+# Ooting CRM - Hostinger Production Web Server Configuration (.htaccess)
+# Supports: Hostinger LiteSpeed, Apache, Passenger, Cloud & VPS Deployments
+# ==============================================================================
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Force HTTPS
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # 2. Prevent directory listing
+  Options -Indexes
+
+  # 3. Prevent direct access to sensitive files and directories
+  RewriteRule ^(\.git|\.env|node_modules|server/prisma|server/scripts|server/src) - [F,L,NC]
+  RewriteRule ^.*\.(env|prisma|ts|log|sh|bat)$ - [F,L,NC]
+</IfModule>
+
+# ==============================================================================
+# 4. High-Performance Gzip / Brotli Compression
+# Reduces transferred payload sizes by 70-85% for lightning-fast page loads
+# ==============================================================================
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/plain
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/xml
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE application/xml
+  AddOutputFilterByType DEFLATE application/xhtml+xml
+  AddOutputFilterByType DEFLATE application/rss+xml
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/x-javascript
+  AddOutputFilterByType DEFLATE application/json
+  AddOutputFilterByType DEFLATE image/svg+xml
+  AddOutputFilterByType DEFLATE font/ttf
+  AddOutputFilterByType DEFLATE font/otf
+  AddOutputFilterByType DEFLATE font/woff
+  AddOutputFilterByType DEFLATE font/woff2
+</IfModule>
+
+# ==============================================================================
+# 5. Browser Caching Rules
+# Vite bundles are hashed (immutable) -> Cache for 1 Year for 0ms repeat loads
+# HTML entrypoint is set to 0 seconds -> Ensures instant updates on deploy
+# ==============================================================================
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 month"
+
+  # Images & Icons
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+
+  # Fonts
+  ExpiresByType font/ttf "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType application/font-woff "access plus 1 year"
+  ExpiresByType application/font-woff2 "access plus 1 year"
+
+  # Scripts & Stylesheets
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType application/x-javascript "access plus 1 year"
+
+  # HTML documents (always validate with server to pick up new deploys)
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+# ==============================================================================
+# 6. Production Security Headers
+# ==============================================================================
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set X-XSS-Protection "1; mode=block"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # HTML caching prevention
+  <FilesMatch "\.(html|htm)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Static hashed assets 1-year immutable caching
+  <FilesMatch "\.(js|css|woff2|woff|ttf|png|jpg|jpeg|svg|webp)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# ==============================================================================
+# 7. Reverse Proxy to Node.js Backend (Port 5000)
+# Used when Hostinger Apache / LiteSpeed acts as a reverse proxy front-end
+# ==============================================================================
+<IfModule mod_rewrite.c>
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} !^/\.well-known
+  RewriteRule ^(.*)$ http://127.0.0.1:5000/$1 [P,L]
+</IfModule>

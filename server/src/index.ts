@@ -16,7 +16,9 @@ const __dirname = path.dirname(__filename);
 import { ensureColumns } from './db/migrations.js';
 
 async function ensureDBSchema() {
-  await ensureColumns();
+  if (process.env.RUN_AUTO_MIGRATIONS === 'true') {
+    await ensureColumns();
+  }
 
   try {
     console.log('🔄 Checking database connection and schema...');

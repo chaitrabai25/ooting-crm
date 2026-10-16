@@ -79,14 +79,6 @@ if (!fs.existsSync(uploadsDir)) {
 app.use('/uploads', express.static(uploadsDir));
 app.use('/api/uploads', express.static(uploadsDir));
 
-// Ensure database connection and columns exist before serving any API route (crucial for Vercel Serverless)
-app.use(async (req, res, next) => {
-  if (req.path.startsWith('/api') && req.path !== '/api/health') {
-    await ensureDbReady();
-  }
-  next();
-});
-
 // Health check
 app.get('/api/health', async (req, res) => {
   let dbStatus = 'disconnected';
@@ -136,14 +128,42 @@ app.use('/api/hotels', hotelRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/saas', saasRoutes);
 
-// Serve compiled client frontend if available (Production Full-Stack Mode)
-const clientDistPath = path.resolve(__dirname, '../../client/dist');
-if (fs.existsSync(clientDistPath)) {
-  app.use(express.static(clientDistPath));
+// Multi-path candidate search for compiled frontend (Hostinger / PM2 / Local Full-Stack Mode)
+const candidateClientPaths = [
+  path.resolve(__dirname, '../../client/dist'),
+  path.resolve(__dirname, '../client/dist'),
+  path.resolve(process.cwd(), 'client/dist'),
+  path.resolve(process.cwd(), 'dist/client'),
+  path.resolve(process.cwd(), 'public'),
+];
+const clientDistPath = candidateClientPaths.find((p) => fs.existsSync(path.resolve(p, 'index.html')));
+
+if (clientDistPath) {
+  // Serve static assets with long-term immutable caching for Vite hashed chunks
+  app.use(
+    express.static(clientDistPath, {
+      maxAge: '1y',
+      immutable: true,
+      index: false,
+      setHeaders: (res, filePath) => {
+        // HTML entrypoint must NEVER be cached by browsers
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      },
+    })
+  );
+
+  // Single Page Application (SPA) catch-all route
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
       return next();
     }
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.sendFile(path.resolve(clientDistPath, 'index.html'));
   });
 }
