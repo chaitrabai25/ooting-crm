@@ -282,7 +282,7 @@ export function requirePermission(moduleName: string, action: string = 'view') {
 
     // Role-based defaults
     if (req.user.role === 'SALES') {
-      if (['leads', 'customers', 'bookings', 'cabs', 'suppliers', 'calendar', 'dashboard', 'quotations', 'packages'].includes(moduleName)) {
+      if (['leads', 'customers', 'bookings', 'cabs', 'suppliers', 'calendar', 'dashboard', 'quotations', 'packages', 'guides'].includes(moduleName)) {
         if (action !== 'delete') {
           next();
           return;
@@ -291,7 +291,7 @@ export function requirePermission(moduleName: string, action: string = 'view') {
     }
 
     if (req.user.role === 'OPERATIONS') {
-      if (['bookings', 'cabs', 'calendar', 'suppliers', 'dashboard', 'packages', 'places', 'hotels'].includes(moduleName)) {
+      if (['bookings', 'cabs', 'calendar', 'suppliers', 'dashboard', 'packages', 'places', 'hotels', 'guides'].includes(moduleName)) {
         if (action !== 'delete') {
           next();
           return;
@@ -300,7 +300,16 @@ export function requirePermission(moduleName: string, action: string = 'view') {
     }
 
     if (req.user.role === 'ACCOUNTANT') {
-      if (['reports', 'payments', 'bookings', 'cabs', 'dashboard', 'expenses'].includes(moduleName)) {
+      if (['reports', 'payments', 'bookings', 'cabs', 'dashboard', 'expenses', 'guides'].includes(moduleName)) {
+        if (action !== 'delete') {
+          next();
+          return;
+        }
+      }
+    }
+
+    if (req.user.role === 'STAFF') {
+      if (['leads', 'customers', 'bookings', 'cabs', 'calendar', 'dashboard', 'packages', 'guides'].includes(moduleName)) {
         if (action !== 'delete') {
           next();
           return;

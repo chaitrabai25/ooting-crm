@@ -69,8 +69,13 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       }),
     ]);
 
+    const sanitizedCustomers = customers.map((c) => ({
+      ...c,
+      udid: c.organizationCode || null,
+    }));
+
     res.json({
-      data: customers,
+      data: sanitizedCustomers,
       pagination: {
         page,
         limit,
@@ -145,6 +150,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
 
     res.json({
       ...customer,
+      udid: customer.organizationCode || null,
       metrics: {
         totalBookings: customer.bookings.length,
         lifetimeValue,
@@ -171,9 +177,10 @@ const customerSchema = z.object({
   status: z.string().optional().default('ACTIVE'),
 
   // Multi-Category Organization Architecture
-  customerType: z.enum(['INDIVIDUAL', 'CORPORATE', 'GROUP', 'CLUB', 'SCHOOL', 'INSTITUTE']).optional().default('INDIVIDUAL'),
+  customerType: z.enum(['INDIVIDUAL', 'CORPORATE', 'GROUP', 'GROUP_DEPARTURE', 'CLUB', 'SCHOOL', 'INSTITUTE']).optional().default('INDIVIDUAL'),
   organizationName: z.string().optional().nullable(),
   organizationCode: z.string().optional().nullable(),
+  udid: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
   website: z.string().optional().nullable(),
   gstin: z.string().optional().nullable(),
@@ -206,6 +213,9 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
+    const resolvedCustomerType = data.customerType === 'GROUP_DEPARTURE' ? 'GROUP' : (data.customerType || 'INDIVIDUAL');
+    const resolvedUdid = data.udid?.trim() || data.organizationCode?.trim() || null;
+
     const customer = await prisma.customer.create({
       data: {
         fullName: data.fullName.trim(),
@@ -223,9 +233,9 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         companyId: req.user!.companyId,
         status: data.status || 'ACTIVE',
         isDeleted: false,
-        customerType: data.customerType || 'INDIVIDUAL',
+        customerType: resolvedCustomerType,
         organizationName: data.organizationName?.trim() || null,
-        organizationCode: data.organizationCode?.trim() || null,
+        organizationCode: resolvedUdid,
         category: data.category?.trim() || null,
         website: data.website?.trim() || null,
         gstin: data.gstin?.trim() || null,
@@ -255,7 +265,10 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       ipAddress: req.ip,
     });
 
-    res.status(201).json(customer);
+    res.status(201).json({
+      ...customer,
+      udid: customer.organizationCode || null,
+    });
   } catch (error) {
     next(error);
   }
@@ -292,9 +305,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     if (data.notes !== undefined) updatePayload.notes = data.notes?.trim() || null;
     if (data.assignedToId !== undefined) updatePayload.assignedToId = data.assignedToId || null;
     if (data.status !== undefined) updatePayload.status = data.status;
-    if (data.customerType !== undefined) updatePayload.customerType = data.customerType;
+    if (data.customerType !== undefined) updatePayload.customerType = data.customerType === 'GROUP_DEPARTURE' ? 'GROUP' : data.customerType;
     if (data.organizationName !== undefined) updatePayload.organizationName = data.organizationName?.trim() || null;
-    if (data.organizationCode !== undefined) updatePayload.organizationCode = data.organizationCode?.trim() || null;
+    if (data.organizationCode !== undefined || data.udid !== undefined) updatePayload.organizationCode = data.udid?.trim() || data.organizationCode?.trim() || null;
     if (data.category !== undefined) updatePayload.category = data.category?.trim() || null;
     if (data.website !== undefined) updatePayload.website = data.website?.trim() || null;
     if (data.gstin !== undefined) updatePayload.gstin = data.gstin?.trim() || null;
@@ -328,7 +341,10 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       ipAddress: req.ip,
     });
 
-    res.json(customer);
+    res.json({
+      ...customer,
+      udid: customer.organizationCode || null,
+    });
   } catch (error) {
     next(error);
   }

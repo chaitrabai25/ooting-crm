@@ -325,7 +325,7 @@ export const CompanyList: React.FC = () => {
                   <th className="py-3.5 px-4">Organization</th>
                   <th className="py-3.5 px-4">Tenant Status</th>
                   <th className="py-3.5 px-4">Contact Details</th>
-                  <th className="py-3.5 px-4 text-center">Staff</th>
+                  <th className="py-3.5 px-4 text-center">Staff Seats</th>
                   <th className="py-3.5 px-4 text-center">Leads</th>
                   <th className="py-3.5 px-4 text-center">Bookings</th>
                   <th className="py-3.5 px-4 text-center">Clients</th>
@@ -430,8 +430,14 @@ export const CompanyList: React.FC = () => {
                       </td>
 
                       {/* Metrics Cells */}
-                      <td className="py-3.5 px-4 text-center font-bold text-slate-900 dark:text-white">
-                        {c._count?.users || 0}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                          !c.isOoting && (c._count?.users || 0) >= (c.maxStaffLimit ?? 1)
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                            : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200'
+                        }`}>
+                          {c._count?.users || 0} / {c.isOoting ? '∞' : (c.maxStaffLimit ?? 1)}
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-center font-bold text-blue-600 dark:text-blue-400">
                         {c._count?.leads || 0}
@@ -620,10 +626,10 @@ export const CompanyList: React.FC = () => {
                   <div className="grid grid-cols-4 gap-1.5 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 mb-3.5 text-center">
                     <div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">
-                        Staff
+                        Staff Seats
                       </div>
-                      <div className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">
-                        {c._count?.users || 0}
+                      <div className="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">
+                        {c._count?.users || 0} / {c.isOoting ? '∞' : (c.maxStaffLimit ?? 1)}
                       </div>
                     </div>
                     <div>

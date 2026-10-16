@@ -187,9 +187,9 @@ export const CustomerDetail: React.FC = () => {
                   {customer.customerType}
                 </span>
               )}
-              {customer.organizationCode && (
-                <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                  {customer.organizationCode}
+              {(customer.organizationCode || customer.udid) && (
+                <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                  UDID: {customer.udid || customer.organizationCode}
                 </span>
               )}
               <Badge status={customer.status} />

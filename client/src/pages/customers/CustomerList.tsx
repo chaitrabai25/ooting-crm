@@ -220,17 +220,19 @@ export const CustomerList: React.FC = () => {
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
                     : c.customerType === 'SCHOOL' || c.customerType === 'INSTITUTE'
                     ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300'
+                    : c.customerType === 'GROUP'
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
                     : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
                 }`}
               >
-                {c.customerType}
+                {c.customerType === 'GROUP' ? 'GROUP DEPARTURE' : c.customerType === 'CLUB' ? 'TOUR CLUB' : c.customerType === 'CORPORATE' ? 'ORGANIZATION' : c.customerType}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5 flex-wrap">
-            {c.organizationCode && (
-              <span className="font-mono text-brand-600 dark:text-brand-400 font-semibold">
-                {c.organizationCode}
+            {(c.organizationCode || (c as any).udid) && (
+              <span className="font-mono text-brand-600 dark:text-brand-400 font-bold bg-brand-50 dark:bg-brand-950/60 px-1.5 py-0.5 rounded border border-brand-200 dark:border-brand-800 text-[10px]">
+                UDID: {c.organizationCode || (c as any).udid}
               </span>
             )}
             {c.primaryContactName && (
@@ -470,12 +472,12 @@ export const CustomerList: React.FC = () => {
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
         {[
           { id: 'ALL', label: 'All Customers', icon: Users },
-          { id: 'INDIVIDUAL', label: 'Individuals', icon: User },
-          { id: 'CORPORATE', label: 'Corporates', icon: Building2 },
+          { id: 'GROUP', label: 'Group Departures', icon: Users },
           { id: 'SCHOOL', label: 'Schools', icon: School },
           { id: 'INSTITUTE', label: 'Colleges & Institutes', icon: GraduationCap },
-          { id: 'GROUP', label: 'Tour Groups', icon: Users },
-          { id: 'CLUB', label: 'Clubs & Societies', icon: Trophy },
+          { id: 'CLUB', label: 'Tour Clubs', icon: Trophy },
+          { id: 'CORPORATE', label: 'Organizations & Corporates', icon: Building2 },
+          { id: 'INDIVIDUAL', label: 'Individuals', icon: User },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = selectedType === tab.id;
@@ -508,7 +510,7 @@ export const CustomerList: React.FC = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, phone, email, city..."
+            placeholder="Search name, phone, UDID, email, city..."
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
           />
         </form>

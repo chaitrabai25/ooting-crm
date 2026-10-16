@@ -164,7 +164,7 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
       setIsSubmitting(true);
       const payload = {
         expenseType,
-        passengerId: expenseType === 'PASSENGER' ? passengerId || null : null,
+        passengerId: expenseType === 'PASSENGER' && passengerId !== '__manual__' ? passengerId || null : null,
         passengerName: expenseType === 'PASSENGER' ? passengerName.trim() : null,
         passengerRole: expenseType === 'PASSENGER' ? passengerRole || null : null,
         roomNumber: expenseType === 'PASSENGER' ? roomNumber || null : null,
@@ -239,14 +239,44 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
         {/* PASSENGER EXPENSE: Passenger Selector */}
         {expenseType === 'PASSENGER' ? (
           <div className="p-3 bg-brand-50/50 dark:bg-brand-950/20 border border-brand-200/60 dark:border-brand-900/40 rounded-xl space-y-2">
-            <label className="block font-bold text-slate-800 dark:text-slate-200">
-              Select Passenger / Customer *
-            </label>
-            {passengers.length > 0 ? (
+            <div className="flex items-center justify-between">
+              <label className="block font-bold text-slate-800 dark:text-slate-200">
+                Select or Enter Passenger Name *
+              </label>
+              {passengers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (passengerId === '__manual__') {
+                      handlePassengerSelect(passengers[0]?.id || '');
+                    } else {
+                      setPassengerId('__manual__');
+                      setPassengerName('');
+                      setRoomNumber('');
+                      setPassengerRole('');
+                    }
+                  }}
+                  className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 underline"
+                >
+                  {passengerId === '__manual__' ? '← Select from Manifest List' : '+ Enter Name Manually'}
+                </button>
+              )}
+            </div>
+
+            {passengers.length > 0 && passengerId !== '__manual__' ? (
               <select
                 required
                 value={passengerId}
-                onChange={(e) => handlePassengerSelect(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value === '__manual__') {
+                    setPassengerId('__manual__');
+                    setPassengerName('');
+                    setRoomNumber('');
+                    setPassengerRole('');
+                  } else {
+                    handlePassengerSelect(e.target.value);
+                  }
+                }}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
               >
                 <option value="">-- Choose passenger from manifest --</option>
@@ -255,19 +285,33 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
                     {p.name} {p.roomAllocation ? `(Room ${p.roomAllocation})` : ''} - {p.roleInTrip || 'Passenger'}
                   </option>
                 ))}
+                <option value="__manual__">+ Other / Enter Custom Name Directly...</option>
               </select>
             ) : (
-              <input
-                type="text"
-                required
-                placeholder="Enter Passenger Name..."
-                value={passengerName}
-                onChange={(e) => setPassengerName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="sm:col-span-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter Passenger / Customer Name..."
+                    value={passengerName}
+                    onChange={(e) => setPassengerName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Room # (Optional)"
+                    value={roomNumber}
+                    onChange={(e) => setRoomNumber(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
             )}
 
-            {passengerName && (
+            {passengerName && passengerId !== '__manual__' && (
               <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400 pt-1">
                 <span>Selected: <strong className="text-slate-900 dark:text-white">{passengerName}</strong></span>
                 {roomNumber && (
@@ -389,6 +433,19 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
             >
               <Car className="w-3 h-3" />
               <span>Driver Allowance</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleQuickCategorySelect('MISCELLANEOUS', 'Other General Tour Expense')}
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                category === 'MISCELLANEOUS'
+                  ? 'bg-slate-700 text-white border-slate-700'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <Tag className="w-3 h-3" />
+              <span>Other Expenses</span>
             </button>
           </div>
         </div>

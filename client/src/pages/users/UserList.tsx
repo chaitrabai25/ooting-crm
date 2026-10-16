@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Plus, Search, Shield, Phone, Mail, Edit, CheckCircle, XCircle, Trash2, AlertTriangle, Sparkles, Send } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
@@ -260,7 +261,17 @@ export const UserList: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          {!staffUsage?.isOoting && (
+          {isSuperAdmin && (
+            <Link
+              to="/saas/organizations"
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium text-xs rounded-lg transition"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+              Adjust Staff Quotas
+            </Link>
+          )}
+
+          {!staffUsage?.isOoting && !isSuperAdmin && (
             <button
               onClick={() => setIsRequestModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs rounded-lg transition cursor-pointer"
@@ -274,8 +285,8 @@ export const UserList: React.FC = () => {
             onClick={() => {
               if (staffUsage?.isLimitReached) {
                 notifyError(
-                  '1-Staff Seat Limit Reached',
-                  'Your organization has reached its current limit of staff accounts. Please submit a request to increase your staff quota.'
+                  `${staffUsage?.maxStaffLimit || 1}-Staff Seat Limit Reached`,
+                  `Your organization has reached its current limit of ${staffUsage?.maxStaffLimit || 1} staff account(s). Please submit a request or contact the platform administrator to increase your staff quota.`
                 );
                 setIsRequestModalOpen(true);
                 return;

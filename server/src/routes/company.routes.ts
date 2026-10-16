@@ -138,6 +138,7 @@ const createCompanySchema = z.object({
   gstin: z.string().optional(),
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
+  maxStaffLimit: z.number().int().min(1).default(1),
   adminName: z.string().min(2, 'Admin full name is required'),
   adminEmail: z.string().email('Valid admin email is required'),
   adminPassword: z.string().min(6, 'Password must be at least 6 characters'),
@@ -187,6 +188,7 @@ router.post('/', requirePlatformMasterAdmin, async (req: AuthRequest, res: Respo
           gstin: data.gstin?.trim() || null,
           primaryColor: data.primaryColor || '#1E3A8A',
           secondaryColor: data.secondaryColor || '#E11D48',
+          maxStaffLimit: data.maxStaffLimit || 1,
           isOoting: false,
         },
       });
@@ -261,6 +263,7 @@ const updateCompanySchema = z.object({
   faviconUrl: z.string().optional(),
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
+  maxStaffLimit: z.number().int().min(1).optional(),
 });
 
 // Update company profile or toggle status (Platform Master Admin only)

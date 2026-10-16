@@ -46,6 +46,7 @@ export interface Customer {
   customerType?: CustomerType;
   organizationName?: string | null;
   organizationCode?: string | null;
+  udid?: string | null;
   category?: string | null;
   website?: string | null;
   gstin?: string | null;

@@ -39,6 +39,7 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
     faviconUrl: '',
     primaryColor: '#2563eb',
     secondaryColor: '#1e40af',
+    maxStaffLimit: 1,
     // Admin fields (only for creation)
     adminName: '',
     adminEmail: '',
@@ -65,6 +66,7 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
         faviconUrl: company.faviconUrl || '',
         primaryColor: company.primaryColor || '#2563eb',
         secondaryColor: company.secondaryColor || '#1e40af',
+        maxStaffLimit: (company as any).maxStaffLimit || 1,
         adminName: '',
         adminEmail: '',
         adminPassword: '',
@@ -89,6 +91,7 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
         faviconUrl: '',
         primaryColor: '#2563eb',
         secondaryColor: '#1e40af',
+        maxStaffLimit: 1,
         adminName: '',
         adminEmail: '',
         adminPassword: '',
@@ -134,6 +137,7 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
           pincode: formData.pincode || undefined,
           gstin: formData.gstin || undefined,
           status: formData.status,
+          maxStaffLimit: Number(formData.maxStaffLimit) || 1,
           logoUrl: formData.logoUrl || undefined,
           faviconUrl: formData.faviconUrl || undefined,
           primaryColor: formData.primaryColor || undefined,
@@ -165,6 +169,7 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
           gstin: formData.gstin || undefined,
           primaryColor: formData.primaryColor || undefined,
           secondaryColor: formData.secondaryColor || undefined,
+          maxStaffLimit: Number(formData.maxStaffLimit) || 1,
           adminName: formData.adminName,
           adminEmail: formData.adminEmail,
           adminPassword: formData.adminPassword,
@@ -421,6 +426,38 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 font-medium"
                   />
                 </div>
+              </div>
+
+              <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200/80 dark:border-blue-900/60">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-blue-950 dark:text-blue-300">
+                    Staff Seat Quota (Employee Logins) <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                    Default: 1 Staff
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="maxStaffLimit"
+                  min="1"
+                  required
+                  value={formData.maxStaffLimit}
+                  onChange={handleChange}
+                  placeholder="1"
+                  disabled={company?.isOoting}
+                  className={`w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold ${
+                    company?.isOoting ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''
+                  }`}
+                />
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Controls how many staff accounts and employee logins this organization can create. If set to 1, only 1 employee login will be allowed.
+                </p>
+                {company?.isOoting && (
+                  <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 block font-medium">
+                    Primary Ooting instance has unlimited staff access.
+                  </span>
+                )}
               </div>
 
               {isEdit && (

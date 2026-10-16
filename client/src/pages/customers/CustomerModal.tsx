@@ -33,7 +33,9 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
 
   // Multi-Category Organization Fields
   const [organizationName, setOrganizationName] = useState(initialData?.organizationName || '');
-  const [organizationCode, setOrganizationCode] = useState(initialData?.organizationCode || '');
+  const [organizationCode, setOrganizationCode] = useState(
+    initialData?.organizationCode || (initialData as any)?.udid || ''
+  );
   const [category, setCategory] = useState(initialData?.category || '');
   const [website, setWebsite] = useState(initialData?.website || '');
   const [gstin, setGstin] = useState(initialData?.gstin || '');
@@ -58,11 +60,11 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
 
   const customerTypeOptions: { type: CustomerType; label: string; icon: React.ElementType }[] = [
     { type: 'INDIVIDUAL', label: 'Individual', icon: User },
-    { type: 'CORPORATE', label: 'Corporate', icon: Building2 },
+    { type: 'GROUP', label: 'Group Departures', icon: Users },
     { type: 'SCHOOL', label: 'School', icon: School },
     { type: 'INSTITUTE', label: 'College / Institute', icon: GraduationCap },
-    { type: 'GROUP', label: 'Tour Group', icon: Users },
-    { type: 'CLUB', label: 'Club / Association', icon: Trophy },
+    { type: 'CLUB', label: 'Tour Club', icon: Trophy },
+    { type: 'CORPORATE', label: 'Organization / Corporate', icon: Building2 },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,11 +104,12 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
         notes: notes || null,
         status,
         customerType,
+        organizationCode: organizationCode.trim() || null,
+        udid: organizationCode.trim() || null,
       };
 
       if (isOrganization) {
         payload.organizationName = organizationName.trim();
-        payload.organizationCode = organizationCode.trim() || null;
         payload.category = category.trim() || null;
         payload.website = website.trim() || null;
         payload.gstin = gstin.trim() || null;
@@ -220,15 +223,30 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
               </div>
             </div>
 
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="anand@example.com"
-                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="anand@example.com"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">
+                  UDID / Directory ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={organizationCode}
+                  onChange={(e) => setOrganizationCode(e.target.value)}
+                  placeholder="e.g. UDID-9042 / CUST-01"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 font-mono"
+                />
+              </div>
             </div>
           </>
         ) : (
@@ -243,7 +261,9 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                     ? 'College / Institute Name *'
                     : customerType === 'CORPORATE'
                     ? 'Company / Corporate Name *'
-                    : 'Organization / Group Name *'}
+                    : customerType === 'GROUP'
+                    ? 'Group / Departure Name *'
+                    : 'Organization / Club Name *'}
                 </label>
                 <input
                   type="text"
@@ -255,6 +275,8 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                       ? 'e.g. Delhi Public School'
                       : customerType === 'CORPORATE'
                       ? 'e.g. Infosys Ltd'
+                      : customerType === 'GROUP'
+                      ? 'e.g. Himalayan Trek Departure 2026'
                       : 'e.g. Rotary Club Bangalore'
                   }
                   className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 font-medium"
@@ -262,13 +284,13 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
               </div>
               <div>
                 <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  Organization Code
+                  UDID / Org Code
                 </label>
                 <input
                   type="text"
                   value={organizationCode}
                   onChange={(e) => setOrganizationCode(e.target.value)}
-                  placeholder="e.g. DPS-BLR / INF-01"
+                  placeholder="e.g. UDID-9042 / DPS-BLR"
                   className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-brand-500 font-mono"
                 />
               </div>
