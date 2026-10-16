@@ -324,6 +324,7 @@ export const CompanyList: React.FC = () => {
                 <tr>
                   <th className="py-3.5 px-4">Organization</th>
                   <th className="py-3.5 px-4">Tenant Status</th>
+                  <th className="py-3.5 px-4">Plan & Subscription</th>
                   <th className="py-3.5 px-4">Contact Details</th>
                   <th className="py-3.5 px-4 text-center">Staff Seats</th>
                   <th className="py-3.5 px-4 text-center">Leads</th>
@@ -409,6 +410,60 @@ export const CompanyList: React.FC = () => {
                           />
                           {c.status}
                         </span>
+                      </td>
+
+                      {/* Subscription Plan Column */}
+                      <td className="py-3.5 px-4">
+                        {c.isOoting ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
+                            <Crown className="w-3 h-3 text-amber-500" /> Core Engine
+                          </span>
+                        ) : (() => {
+                          const tier = c.subscriptionTier || 'STARTER';
+                          const expiresAt = c.subscriptionExpiresAt;
+                          if (!expiresAt) {
+                            return (
+                              <div className="space-y-0.5">
+                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                                  {tier}
+                                </span>
+                                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                  Lifetime Access
+                                </div>
+                              </div>
+                            );
+                          }
+                          const expDate = new Date(expiresAt);
+                          const diffMs = expDate.getTime() - Date.now();
+                          const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                          const formattedDate = expDate.toLocaleDateString('en-GB');
+
+                          return (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                                  {tier}
+                                </span>
+                                {daysLeft <= 0 ? (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                                    Expired
+                                  </span>
+                                ) : daysLeft <= 7 ? (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                                    {daysLeft}d left
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                                    {daysLeft}d left
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                Till {formattedDate}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Contact Details */}
@@ -589,6 +644,48 @@ export const CompanyList: React.FC = () => {
                       />
                       {c.status}
                     </span>
+                  </div>
+
+                  {/* SaaS Plan & Expiry Pill */}
+                  <div className="mb-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                      <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>{c.isOoting ? 'Master Core Engine' : `${c.subscriptionTier || 'STARTER'} Plan`}</span>
+                    </div>
+                    {c.isOoting ? (
+                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                        Permanent
+                      </span>
+                    ) : c.subscriptionExpiresAt ? (() => {
+                      const expDate = new Date(c.subscriptionExpiresAt);
+                      const diffMs = expDate.getTime() - Date.now();
+                      const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                      const formattedDate = expDate.toLocaleDateString('en-GB');
+
+                      if (daysLeft <= 0) {
+                        return (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                            Expired ({formattedDate})
+                          </span>
+                        );
+                      }
+                      if (daysLeft <= 7) {
+                        return (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                            Expires in {daysLeft}d
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                          {daysLeft}d left • {formattedDate}
+                        </span>
+                      );
+                    })() : (
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                        Lifetime Access
+                      </span>
+                    )}
                   </div>
 
                   {/* Contact Information */}

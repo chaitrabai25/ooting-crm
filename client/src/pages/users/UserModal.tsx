@@ -72,6 +72,12 @@ const getDefaultPermissionsForRole = (r: Role): PermissionsMap => {
         } else {
           map[mod.id][act] = false;
         }
+      } else if (r === 'TOUR_GUIDE') {
+        if (['bookings', 'customers'].includes(mod.id)) {
+          map[mod.id][act] = act === 'view';
+        } else {
+          map[mod.id][act] = false;
+        }
       } else {
         map[mod.id][act] = false;
       }
@@ -294,6 +300,7 @@ export const UserModal: React.FC<UserModalProps> = ({
               <option value="SALES">Sales Staff</option>
               <option value="OPERATIONS">Operations</option>
               <option value="ACCOUNTANT">Accountant</option>
+              <option value="TOUR_GUIDE">Tour Guide / Field Staff</option>
               <option value="ADMIN">Administrator</option>
               <option value="SUPER_ADMIN">Super Admin</option>
               <option value="AGENT">Travel Agent Partner</option>

@@ -71,6 +71,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
             suspendedAt: true,
             subscriptionTier: true,
             subscriptionExpiresAt: true,
+            enabledModules: true,
           },
         },
       },
@@ -96,8 +97,29 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
     }
 
     // -------------------------------------------------------------------------
-    // CRITICAL SECURITY: Immediate Server-Side Suspension Enforcement
+    // CRITICAL SECURITY: Immediate Server-Side Suspension & Expiry Enforcement
     // -------------------------------------------------------------------------
+    if (company && !company.isOoting && company.subscriptionExpiresAt && new Date() > new Date(company.subscriptionExpiresAt)) {
+      if (company.status !== 'SUSPENDED') {
+        prisma.company.update({
+          where: { id: company.id },
+          data: {
+            status: 'SUSPENDED',
+            suspensionReason: `Subscription period expired on ${new Date(company.subscriptionExpiresAt).toLocaleDateString('en-IN')}. Please contact Master Admin to renew access.`,
+            suspendedAt: new Date(),
+          },
+        }).catch((e) => console.error('Failed to auto-suspend expired company:', e));
+      }
+      res.status(403).json({
+        code: 'ORGANIZATION_EXPIRED',
+        error: 'ORGANIZATION_EXPIRED',
+        message: `Your organization subscription expired on ${new Date(company.subscriptionExpiresAt).toLocaleDateString('en-IN')}. Please contact Master Admin to renew access.`,
+        supportEmail: 'support@ooting.com',
+        supportPhone: '+91 6362845243',
+      });
+      return;
+    }
+
     if (company && company.status === 'SUSPENDED') {
       res.status(403).json({
         code: 'ORGANIZATION_SUSPENDED',

@@ -222,13 +222,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
           items: [
             {
               type: 'link',
-              name: 'Field Dashboard',
-              path: '/guides/dashboard',
-              icon: LayoutDashboard,
-              module: 'guides',
-            },
-            {
-              type: 'link',
               name: 'Guide Directory',
               path: '/guides',
               icon: Users,
@@ -236,16 +229,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
             },
             {
               type: 'link',
-              name: 'Tour Assignments',
+              name: 'Tour Assignments & Expenses',
               path: '/guides/assignments',
               icon: BookmarkCheck,
-              module: 'guides',
-            },
-            {
-              type: 'link',
-              name: 'Availability Roster',
-              path: '/guides/availability',
-              icon: Calendar,
               module: 'guides',
             },
           ],
@@ -363,6 +349,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
     }] : []),
   ];
 
+  // Allowed modules for tenant organization (configured by Master Admin)
+  const allowedModules: string[] | null = React.useMemo(() => {
+    if (company?.isOoting) return null;
+    if (!company?.enabledModules) return null;
+    try {
+      const parsed = JSON.parse(company.enabledModules);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {
+      const list = company.enabledModules.split(',').map((s) => s.trim()).filter(Boolean);
+      if (list.length > 0) return list;
+    }
+    return null;
+  }, [company?.isOoting, company?.enabledModules]);
+
+  const guideSections: NavigationSection[] = [
+    {
+      title: 'Guide Field Portal',
+      items: [
+        { type: 'link', name: 'My Assigned Tours', path: '/guides/assignments', icon: BookmarkCheck, module: 'guides' },
+        { type: 'link', name: 'Tour & Passenger Expenses', path: '/guides/assignments?tab=expenses', icon: Receipt, module: 'guides' },
+      ],
+    },
+  ];
+
+  const activeNavigationSections = user?.role === 'TOUR_GUIDE' ? guideSections : navigationSections;
+
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Brand Header */}
@@ -433,7 +445,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
       {/* Navigation Menu */}
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-        {navigationSections.map((section, idx) => {
+        {activeNavigationSections.map((section, idx) => {
           if (section.adminOnly && user?.role !== 'SUPER_ADMIN' && user?.role !== 'ADMIN') {
             return null;
           }
@@ -441,10 +453,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
           const visibleItems = section.items
             .map((item) => {
               if (item.type === 'link') {
+                if (allowedModules && item.module && !allowedModules.includes(item.module)) {
+                  return null;
+                }
                 if (!item.module) return item;
                 return can(item.module, 'view') ? item : null;
               } else {
                 const visibleChildren = item.items.filter((child) => {
+                  if (allowedModules && child.module && !allowedModules.includes(child.module)) {
+                    return false;
+                  }
                   if (!child.module) return true;
                   return can(child.module, 'view');
                 });

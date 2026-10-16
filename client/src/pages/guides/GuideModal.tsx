@@ -84,6 +84,11 @@ export const GuideModal: React.FC<GuideModalProps> = ({
   const [qualifications, setQualifications] = useState(initialData?.qualifications || '');
   const [status, setStatus] = useState<GuideStatus>(initialData?.status || 'ACTIVE');
 
+  // CRM Login Access (Staff Seat) State
+  const [enableLogin, setEnableLogin] = useState<boolean>(Boolean(initialData?.userId));
+  const [loginEmail, setLoginEmail] = useState<string>(initialData?.user?.email || initialData?.email || '');
+  const [loginPassword, setLoginPassword] = useState<string>('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +114,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const payload = {
+      const payload: any = {
         fullName: fullName.trim(),
         phone: phone.trim(),
         alternatePhone: alternatePhone.trim() || null,
@@ -132,10 +137,19 @@ export const GuideModal: React.FC<GuideModalProps> = ({
         badgeNumber: badgeNumber.trim() || null,
         qualifications: qualifications.trim() || null,
         status,
+        enableLogin,
+        loginEmail: loginEmail.trim() || email.trim() || null,
+        loginPassword: loginPassword.trim() || undefined,
       };
 
       if (initialData?.id) {
         await api.put(`/guides/${initialData.id}`, payload);
+        if (enableLogin && loginPassword.trim()) {
+          await api.post(`/guides/${initialData.id}/account`, {
+            email: loginEmail.trim() || email.trim(),
+            password: loginPassword.trim(),
+          });
+        }
       } else {
         await api.post('/guides', payload);
       }
@@ -394,6 +408,63 @@ export const GuideModal: React.FC<GuideModalProps> = ({
               <option value="SUSPENDED">Suspended (Blocked from assignments)</option>
             </select>
           </div>
+        </div>
+
+        {/* CRM Portal Login Access (Staff Seat) */}
+        <div className="p-4 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900/60 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-900 dark:text-white">
+                🔐 Grant Guide CRM Login Access
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                Staff Seat Account
+              </span>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableLogin}
+                onChange={(e) => setEnableLogin(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Allow this guide to log into the CRM using their Email & Password to view assigned tours, passenger manifests, and enter passenger & package expenses.
+          </p>
+
+          {enableLogin && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-blue-200/60 dark:border-blue-900/40">
+              <div>
+                <label className="font-semibold text-xs text-slate-700 dark:text-slate-300 block mb-1">
+                  Login Email *
+                </label>
+                <input
+                  type="email"
+                  required={enableLogin}
+                  value={loginEmail || email}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="guide@ooting.com"
+                  className="w-full p-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-xs text-slate-700 dark:text-slate-300 block mb-1">
+                  {initialData?.userId ? 'Change Password (leave blank to keep)' : 'Login Password *'}
+                </label>
+                <input
+                  type="password"
+                  required={enableLogin && !initialData?.userId}
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder={initialData?.userId ? '••••••••' : 'Minimum 6 characters'}
+                  className="w-full p-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">

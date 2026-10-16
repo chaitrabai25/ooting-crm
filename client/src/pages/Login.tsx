@@ -232,7 +232,11 @@ export const Login: React.FC = () => {
             localStorage.setItem('crm_last_tenant', res.data.company.slug);
           }
         }
-        navigate('/');
+        if (res.data?.user?.role === 'TOUR_GUIDE') {
+          navigate('/guides/assignments');
+        } else {
+          navigate('/');
+        }
       } else {
         setError('Failed to establish session. Please try again.');
       }

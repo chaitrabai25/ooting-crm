@@ -93,7 +93,7 @@ const createUserSchema = z.object({
   name: z.string().min(2, 'Name is required'),
   email: z.string().email('Valid email is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'SALES', 'OPERATIONS', 'ACCOUNTANT', 'AGENT']),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'SALES', 'OPERATIONS', 'ACCOUNTANT', 'AGENT', 'TOUR_GUIDE']),
   phone: z.string().optional(),
   permissions: z.string().optional().nullable(),
   companyId: z.string().optional(),
@@ -306,7 +306,7 @@ router.post('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res
         throw existErr;
       }
 
-      return tx.user.create({
+      const userRecord = await tx.user.create({
         data: {
           name: data.name.trim(),
           email: data.email.toLowerCase().trim(),
@@ -329,6 +329,43 @@ router.post('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res
           createdAt: true,
         },
       });
+
+      // If user is a Tour Guide, auto-link or create TourGuide profile
+      if (userRecord.role === 'TOUR_GUIDE') {
+        const existingGuide = await tx.tourGuide.findFirst({
+          where: {
+            companyId: targetCompanyId,
+            OR: [
+              { email: userRecord.email },
+              ...(userRecord.phone ? [{ phone: userRecord.phone }] : []),
+            ],
+          },
+        });
+
+        if (existingGuide) {
+          await tx.tourGuide.update({
+            where: { id: existingGuide.id },
+            data: { userId: userRecord.id },
+          });
+        } else {
+          const guideCount = await tx.tourGuide.count({ where: { companyId: targetCompanyId } });
+          const guideCode = `GD-${String(guideCount + 1).padStart(3, '0')}`;
+          await tx.tourGuide.create({
+            data: {
+              companyId: targetCompanyId,
+              guideCode,
+              fullName: userRecord.name,
+              email: userRecord.email,
+              phone: userRecord.phone || 'N/A',
+              userId: userRecord.id,
+              status: 'ACTIVE',
+              guideType: 'INTERNAL',
+            },
+          });
+        }
+      }
+
+      return userRecord;
     }, {
       maxWait: 10000,
       timeout: 25000,
@@ -358,7 +395,7 @@ router.post('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res
 const inviteUserSchema = z.object({
   email: z.string().email('Valid email is required'),
   name: z.string().min(2, 'Name is required').optional(),
-  role: z.enum(['ADMIN', 'SALES', 'OPERATIONS', 'ACCOUNTANT', 'AGENT']).default('SALES'),
+  role: z.enum(['ADMIN', 'SALES', 'OPERATIONS', 'ACCOUNTANT', 'AGENT', 'TOUR_GUIDE']).default('SALES'),
   phone: z.string().optional().nullable(),
   password: z.string().min(6).optional(),
 });
@@ -462,7 +499,7 @@ router.post('/invite', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthReques
 const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'SALES', 'OPERATIONS', 'ACCOUNTANT', 'AGENT']).optional(),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'SALES', 'OPERATIONS', 'ACCOUNTANT', 'AGENT', 'TOUR_GUIDE']).optional(),
   phone: z.string().optional().nullable(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
   password: z.string().min(6).optional(),

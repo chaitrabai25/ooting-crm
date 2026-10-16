@@ -176,8 +176,28 @@ router.post('/login', async (req, res, next) => {
     if (user.companyId) {
       const company = await prisma.company.findUnique({
         where: { id: user.companyId },
-        select: { status: true, name: true },
+        select: { status: true, name: true, isOoting: true, subscriptionExpiresAt: true },
       });
+
+      if (company && !company.isOoting && company.subscriptionExpiresAt && new Date() > new Date(company.subscriptionExpiresAt)) {
+        if (company.status !== 'SUSPENDED') {
+          prisma.company.update({
+            where: { id: user.companyId },
+            data: {
+              status: 'SUSPENDED',
+              suspensionReason: `Subscription period expired on ${new Date(company.subscriptionExpiresAt).toLocaleDateString('en-IN')}. Please contact Master Admin to renew access.`,
+              suspendedAt: new Date(),
+            },
+          }).catch((e) => console.error('Failed to auto-suspend expired company on login:', e));
+        }
+        res.status(403).json({
+          error: 'ORGANIZATION_EXPIRED',
+          message: `Your organization subscription expired on ${new Date(company.subscriptionExpiresAt).toLocaleDateString('en-IN')}. Please contact Master Admin to renew access.`,
+          supportEmail: 'support@ooting.com',
+          supportPhone: '+91 6362845243',
+        });
+        return;
+      }
 
       if (company && company.status === 'SUSPENDED') {
         res.status(403).json({

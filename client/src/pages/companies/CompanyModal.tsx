@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Building2, User, Palette, Shield } from 'lucide-react';
+import { X, Building2, User, Palette, Shield, Crown, CheckSquare, Square, Calendar, Sparkles, Check } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Company } from '../../types/index.js';
 import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
@@ -11,6 +11,20 @@ interface CompanyModalProps {
   company: Company | null;
 }
 
+export const AVAILABLE_MODULES = [
+  { id: 'leads', label: 'Leads & Enquiries', desc: 'Inbound inquiries, follow-up scheduler, conversions' },
+  { id: 'quotations', label: 'Quotations & Itineraries', desc: 'Custom proposals, price calculations, and PDF generation' },
+  { id: 'bookings', label: 'Tour Bookings & Manifests', desc: 'Passenger bookings, manifests, and vouchers' },
+  { id: 'cabs', label: 'Cab Bookings & Duty Slips', desc: 'Vehicle transfers, driver duty slips, and outstation trips' },
+  { id: 'guides', label: 'Tour Guides & Field Expenses', desc: 'Guide directory, tour manifests, passenger & package expenses' },
+  { id: 'customers', label: 'Customers & UDID Registry', desc: 'Tourists, Group Departure, School Tour, Club & Org members' },
+  { id: 'packages', label: 'Travel Packages & Places Master', desc: 'Package itineraries, hotel & sightseeing directories' },
+  { id: 'whatsapp', label: 'Bulk WhatsApp Broadcasts', desc: 'Direct messaging and bulk WhatsApp promotions' },
+  { id: 'b2b', label: 'B2B Travel Agents & Suppliers', desc: 'Agent commissions and supplier vendor directories' },
+  { id: 'payments', label: 'Financials & Expenses', desc: 'Payment tracking, receipts, and general expense ledger' },
+  { id: 'reports', label: 'Business Reports & Analytics', desc: 'Revenue analytics, sales graphs, and spreadsheets' },
+];
+
 export const CompanyModal: React.FC<CompanyModalProps> = ({
   isOpen,
   onClose,
@@ -19,7 +33,7 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
 }) => {
   const isEdit = !!company;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'branding' | 'admin'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'branding' | 'plan' | 'admin'>('details');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -40,6 +54,8 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
     primaryColor: '#2563eb',
     secondaryColor: '#1e40af',
     maxStaffLimit: 1,
+    subscriptionTier: 'STARTER',
+    subscriptionExpiresAt: '',
     // Admin fields (only for creation)
     adminName: '',
     adminEmail: '',
@@ -47,8 +63,23 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
     adminPhone: '',
   });
 
+  const [selectedModules, setSelectedModules] = useState<string[]>(() => AVAILABLE_MODULES.map((m) => m.id));
+
   useEffect(() => {
     if (company) {
+      // Parse enabledModules if existing
+      let initialModules = AVAILABLE_MODULES.map((m) => m.id);
+      if ((company as any).enabledModules) {
+        try {
+          const parsed = JSON.parse((company as any).enabledModules);
+          if (Array.isArray(parsed) && parsed.length > 0) initialModules = parsed;
+        } catch {
+          const split = (company as any).enabledModules.split(',').map((s: string) => s.trim()).filter(Boolean);
+          if (split.length > 0) initialModules = split;
+        }
+      }
+      setSelectedModules(initialModules);
+
       setFormData({
         name: company.name || '',
         slug: company.slug || '',
@@ -67,6 +98,8 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
         primaryColor: company.primaryColor || '#2563eb',
         secondaryColor: company.secondaryColor || '#1e40af',
         maxStaffLimit: (company as any).maxStaffLimit || 1,
+        subscriptionTier: company.subscriptionTier || 'STARTER',
+        subscriptionExpiresAt: company.subscriptionExpiresAt ? company.subscriptionExpiresAt.split('T')[0] : '',
         adminName: '',
         adminEmail: '',
         adminPassword: '',
@@ -74,6 +107,11 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
       });
       setActiveTab('details');
     } else {
+      setSelectedModules(AVAILABLE_MODULES.map((m) => m.id));
+      // Default new tenant to 1 year expiration
+      const defaultOneYear = new Date();
+      defaultOneYear.setFullYear(defaultOneYear.getFullYear() + 1);
+
       setFormData({
         name: '',
         slug: '',
@@ -92,6 +130,8 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
         primaryColor: '#2563eb',
         secondaryColor: '#1e40af',
         maxStaffLimit: 1,
+        subscriptionTier: 'STARTER',
+        subscriptionExpiresAt: defaultOneYear.toISOString().split('T')[0],
         adminName: '',
         adminEmail: '',
         adminPassword: '',
@@ -107,7 +147,6 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
     const { name, value } = e.target;
     setFormData((prev) => {
       const next = { ...prev, [name]: value };
-      // Auto-generate slug from name on create if slug hasn't been manually diverged
       if (!isEdit && name === 'name') {
         const autoSlug = value
           .toLowerCase()
@@ -119,11 +158,30 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
     });
   };
 
+  const handleSetDurationPreset = (days: number) => {
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + days);
+    setFormData((prev) => ({
+      ...prev,
+      subscriptionExpiresAt: targetDate.toISOString().split('T')[0],
+    }));
+  };
+
+  const toggleModule = (modId: string) => {
+    setSelectedModules((prev) =>
+      prev.includes(modId) ? prev.filter((id) => id !== modId) : [...prev, modId]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
+      const formattedExpiresAt = formData.subscriptionExpiresAt
+        ? new Date(formData.subscriptionExpiresAt + 'T23:59:59.999Z').toISOString()
+        : null;
+
       if (isEdit) {
         const payload: Record<string, any> = {
           name: formData.name,
@@ -138,6 +196,9 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
           gstin: formData.gstin || undefined,
           status: formData.status,
           maxStaffLimit: Number(formData.maxStaffLimit) || 1,
+          subscriptionTier: formData.subscriptionTier,
+          subscriptionExpiresAt: formattedExpiresAt,
+          enabledModules: JSON.stringify(selectedModules),
           logoUrl: formData.logoUrl || undefined,
           faviconUrl: formData.faviconUrl || undefined,
           primaryColor: formData.primaryColor || undefined,
@@ -145,7 +206,7 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
         };
 
         await api.put(`/companies/${company.id}`, payload);
-        notifySuccess('Company Updated', `Updated settings for ${formData.name}.`);
+        notifySuccess('Company Updated', `Updated license & settings for ${formData.name}.`);
       } else {
         // Create new company with admin
         if (!formData.adminEmail || !formData.adminPassword || !formData.adminName) {
@@ -170,6 +231,9 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
           primaryColor: formData.primaryColor || undefined,
           secondaryColor: formData.secondaryColor || undefined,
           maxStaffLimit: Number(formData.maxStaffLimit) || 1,
+          subscriptionTier: formData.subscriptionTier,
+          subscriptionExpiresAt: formattedExpiresAt,
+          enabledModules: JSON.stringify(selectedModules),
           adminName: formData.adminName,
           adminEmail: formData.adminEmail,
           adminPassword: formData.adminPassword,
@@ -231,6 +295,17 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
             }`}
           >
             <Building2 className="w-4 h-4" /> Company Details
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('plan')}
+            className={`py-3 px-4 font-semibold text-xs border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+              activeTab === 'plan'
+                ? 'border-amber-600 text-amber-600 dark:border-amber-500 dark:text-amber-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Crown className="w-4 h-4 text-amber-500" /> Plan & Feature Access
           </button>
           <button
             type="button"
@@ -581,6 +656,223 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white font-mono"
                     />
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'plan' && (
+            <div className="space-y-5">
+              {/* Top Banner Notice */}
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3">
+                <Crown className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-1">
+                  <div className="font-bold text-sm">SaaS Licensing, Staff Limits & Feature Monetization</div>
+                  <div className="text-amber-800 dark:text-amber-300">
+                    Master Admin controls the staff seat capacity, subscription duration, and sidebar module access.
+                    Organizations default to 1 staff seat. When duration expires, login is automatically suspended.
+                  </div>
+                </div>
+              </div>
+
+              {/* 1. Subscription Tier & Expiration Date */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Subscription Tier & Duration
+                  </h3>
+                  {company?.isOoting && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                      Core Platform Tenant
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Subscription Tier
+                    </label>
+                    <select
+                      name="subscriptionTier"
+                      value={formData.subscriptionTier}
+                      onChange={handleChange}
+                      disabled={company?.isOoting}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="STARTER">Starter Tier (Essential)</option>
+                      <option value="GROWTH">Growth Tier (Pro Agency)</option>
+                      <option value="ENTERPRISE">Enterprise Tier (Full Suite)</option>
+                      <option value="CUSTOM">Custom Enterprise</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Expiry Date (YYYY-MM-DD)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="subscriptionExpiresAt"
+                        value={formData.subscriptionExpiresAt}
+                        onChange={handleChange}
+                        disabled={company?.isOoting}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {!company?.isOoting && (
+                  <div>
+                    <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
+                      Quick Set Duration Presets:
+                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleSetDurationPreset(30)}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-slate-700 hover:border-blue-300 rounded-lg text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                      >
+                        +1 Month (30d)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetDurationPreset(90)}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-slate-700 hover:border-blue-300 rounded-lg text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                      >
+                        +3 Months (90d)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetDurationPreset(180)}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-slate-700 hover:border-blue-300 rounded-lg text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                      >
+                        +6 Months (180d)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetDurationPreset(365)}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 rounded-lg text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer"
+                      >
+                        +1 Year (365d)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData((p) => ({ ...p, subscriptionExpiresAt: '' }))}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 transition-colors cursor-pointer"
+                      >
+                        Lifetime (No Expiry)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Staff Seat Quota Enforcement */}
+              <div className="p-4 bg-blue-50/60 dark:bg-blue-950/20 rounded-xl border border-blue-200/80 dark:border-blue-900/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-blue-950 dark:text-blue-300">
+                    Staff Seat Quota (Max Staff Logins) <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                    Default: 1 Staff Seat
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    name="maxStaffLimit"
+                    min="1"
+                    required
+                    value={formData.maxStaffLimit}
+                    onChange={handleChange}
+                    placeholder="1"
+                    disabled={company?.isOoting}
+                    className="w-32 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-base text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="text-xs text-slate-600 dark:text-slate-400">
+                    Allowed user logins (including Staff, Operations, Accounts, and Tour Guides with login).
+                  </div>
+                </div>
+                <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed pt-1">
+                  🛡️ <strong>SaaS Quota Rule:</strong> If set to 1, this organization can only have 1 active employee login.
+                  If the organization administrator tries to add more staff or guides beyond this number, the CRM will block them
+                  and instruct them to contact Master Admin to upgrade. Only Master Admin can increase this limit to 2, 3, 5, etc.
+                </p>
+              </div>
+
+              {/* 3. Enabled Sidebar Modules & Feature Access */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-blue-500" /> Enabled Sidebar Modules ({selectedModules.length}/{AVAILABLE_MODULES.length})
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Unchecked modules will be completely hidden from this tenant's sidebar navigation.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedModules(AVAILABLE_MODULES.map((m) => m.id))}
+                      className="px-2 py-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 dark:bg-blue-950/60 rounded-md border border-blue-200 dark:border-blue-900 cursor-pointer"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedModules(['leads', 'quotations', 'bookings', 'customers', 'packages', 'payments'])}
+                      className="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer"
+                    >
+                      Standard Plan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedModules(['leads', 'quotations', 'bookings', 'customers'])}
+                      className="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer"
+                    >
+                      Core Essentials
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto p-1">
+                  {AVAILABLE_MODULES.map((mod) => {
+                    const isSelected = selectedModules.includes(mod.id);
+                    return (
+                      <div
+                        key={mod.id}
+                        onClick={() => toggleModule(mod.id)}
+                        className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-3 select-none ${
+                          isSelected
+                            ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 shadow-2xs'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        <div className="mt-0.5">
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-400" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between">
+                            <span>{mod.label}</span>
+                            {isSelected && (
+                              <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">Enabled</span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                            {mod.desc}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

@@ -52,6 +52,7 @@ model Company {
   maxStaffLimit     Int       @default(1)
   subscriptionTier  String    @default("STARTER") @db.VarChar(50) // STARTER, GROWTH, ENTERPRISE, CUSTOM
   subscriptionExpiresAt DateTime?
+  enabledModules    String?   @db.Text
   suspensionReason  String?   @db.Text
   suspendedAt       DateTime?
   suspendedBy       String?   @db.VarChar(191)

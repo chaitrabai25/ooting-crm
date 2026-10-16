@@ -785,9 +785,12 @@ const guideSchema = z.object({
   photoUrl: z.string().optional().nullable(),
   status: z.string().default('ACTIVE'),
   notes: z.string().optional().nullable(),
+  enableLogin: z.boolean().optional(),
+  loginEmail: z.string().email().optional().nullable(),
+  loginPassword: z.string().min(6).optional().nullable(),
 });
 
-// Create Guide
+// Create Guide (with optional CRM User Login creation)
 router.post('/', requirePermission('guides', 'create'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = guideSchema.parse(req.body);
@@ -811,6 +814,58 @@ router.post('/', requirePermission('guides', 'create'), async (req: AuthRequest,
       : typeof data.languages === 'string'
       ? data.languages
       : null;
+
+    // Handle optional login creation with staff seat quota enforcement
+    let linkedUserId: string | null = null;
+    if (data.enableLogin && data.loginPassword) {
+      const emailToUse = (data.loginEmail || data.email || '').trim().toLowerCase();
+      if (!emailToUse) {
+        res.status(400).json({ message: 'A valid email address is required to enable CRM login access for this guide.' });
+        return;
+      }
+
+      const company = await prisma.company.findUniqueOrThrow({ where: { id: companyId } });
+      if (!company.isOoting) {
+        const currentStaffCount = await prisma.user.count({
+          where: {
+            companyId,
+            role: { not: 'SUPER_ADMIN' },
+            status: { in: ['ACTIVE', 'INVITED'] },
+          },
+        });
+
+        if (currentStaffCount >= company.maxStaffLimit) {
+          res.status(403).json({
+            message: `Staff account limit reached (${currentStaffCount}/${company.maxStaffLimit}). To enable login for this guide, please request additional staff access from Ooting Master Admin.`,
+            code: 'STAFF_LIMIT_REACHED',
+          });
+          return;
+        }
+      }
+
+      // Check if user already exists
+      const existingUser = await prisma.user.findUnique({ where: { email: emailToUse } });
+      if (existingUser) {
+        linkedUserId = existingUser.id;
+      } else {
+        const passwordHash = await bcrypt.hash(data.loginPassword, 10);
+        const newUser = await prisma.user.create({
+          data: {
+            name: data.fullName.trim(),
+            email: emailToUse,
+            passwordHash,
+            role: 'TOUR_GUIDE',
+            phone: data.phone.trim(),
+            companyId,
+            status: 'ACTIVE',
+            permissions: JSON.stringify({
+              guides: { view: true, create: true, edit: true, progress: true, complete: true, expenses: true },
+            }),
+          },
+        });
+        linkedUserId = newUser.id;
+      }
+    }
 
     const guide = await prisma.tourGuide.create({
       data: {
@@ -842,6 +897,10 @@ router.post('/', requirePermission('guides', 'create'), async (req: AuthRequest,
         licenseExpiry: data.licenseExpiry ? new Date(data.licenseExpiry) : null,
         status: data.status || 'ACTIVE',
         notes: data.notes?.trim() || null,
+        userId: linkedUserId,
+      },
+      include: {
+        user: { select: { id: true, email: true, role: true, status: true } },
       },
     });
 
@@ -850,7 +909,7 @@ router.post('/', requirePermission('guides', 'create'), async (req: AuthRequest,
         companyId,
         guideId: guide.id,
         activityType: 'STATUS_CHANGE',
-        description: `Guide profile created with ID ${guide.guideCode}`,
+        description: `Guide profile created with ID ${guide.guideCode}${linkedUserId ? ' with CRM Login Access enabled' : ''}`,
         performedById: req.user!.id,
         performedByName: req.user!.name,
       },
@@ -993,6 +1052,24 @@ router.post('/:id/account', requirePermission('guides', 'create'), async (req: A
         },
       });
     } else {
+      const company = await prisma.company.findUniqueOrThrow({ where: { id: req.user!.companyId } });
+      if (!company.isOoting) {
+        const currentStaffCount = await prisma.user.count({
+          where: {
+            companyId: req.user!.companyId,
+            role: { not: 'SUPER_ADMIN' },
+            status: { in: ['ACTIVE', 'INVITED'] },
+          },
+        });
+        if (currentStaffCount >= company.maxStaffLimit) {
+          res.status(403).json({
+            message: `Staff seat quota reached (${currentStaffCount}/${company.maxStaffLimit}). To activate login for this guide, please request additional staff access from Ooting Master Admin.`,
+            code: 'STAFF_LIMIT_REACHED',
+          });
+          return;
+        }
+      }
+
       user = await prisma.user.create({
         data: {
           name: guide.fullName,

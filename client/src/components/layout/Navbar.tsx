@@ -15,10 +15,12 @@ import {
   Moon,
   Car,
   Menu,
+  Crown,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
+import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 interface NavbarProps {
   onOpenMobileMenu?: () => void;
@@ -29,8 +31,43 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onOpenMobileMenu }) => {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { company } = useCompanySettings();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Subscription notice calculation for customer organizations
+  const subscriptionNotice = React.useMemo(() => {
+    if (company?.isOoting) return null;
+    if (!company?.subscriptionExpiresAt) return null;
+    const expiry = new Date(company.subscriptionExpiresAt);
+    const now = new Date();
+    const diffMs = expiry.getTime() - now.getTime();
+    const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const formattedDate = expiry.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    if (daysLeft < 0) {
+      return {
+        type: 'expired',
+        daysLeft,
+        text: `Plan Expired (${formattedDate})`,
+        urgent: true,
+      };
+    }
+    if (daysLeft <= 14) {
+      return {
+        type: 'expiring_soon',
+        daysLeft,
+        text: `Plan expires in ${daysLeft}d (${formattedDate})`,
+        urgent: true,
+      };
+    }
+    return {
+      type: 'active',
+      daysLeft,
+      text: `Plan valid until ${formattedDate} (${daysLeft}d left)`,
+      urgent: false,
+    };
+  }, [company?.isOoting, company?.subscriptionExpiresAt]);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -273,6 +310,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMobileMenu }) => {
 
       {/* Right Actions */}
       <div className="flex items-center gap-2.5">
+        {/* Subscription Expiry Reminder */}
+        {subscriptionNotice && (
+          <div
+            title={`Your organization plan expires on ${new Date(company.subscriptionExpiresAt!).toLocaleDateString('en-IN')}. Please contact Master Admin to renew access.`}
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
+              subscriptionNotice.urgent
+                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 animate-pulse'
+                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+            }`}
+          >
+            <Crown className="w-3.5 h-3.5 text-amber-500" />
+            <span>{subscriptionNotice.text}</span>
+          </div>
+        )}
+
         {/* Dark / Light Mode Toggle Button */}
         <button
           type="button"

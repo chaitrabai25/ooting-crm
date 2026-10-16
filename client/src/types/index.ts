@@ -564,6 +564,10 @@ export interface CompanySettings {
   branch?: string;
   upiId?: string;
   paymentNotes?: string;
+  maxStaffLimit?: number;
+  subscriptionTier?: string;
+  subscriptionExpiresAt?: string | null;
+  enabledModules?: string | null;
 }
 
 export interface Company {
@@ -588,6 +592,7 @@ export interface Company {
   maxStaffLimit?: number;
   subscriptionTier?: string;
   subscriptionExpiresAt?: string | null;
+  enabledModules?: string | null;
   suspensionReason?: string | null;
   suspendedAt?: string | null;
   suspendedBy?: string | null;

@@ -263,7 +263,7 @@ export const UserList: React.FC = () => {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {isSuperAdmin && (
             <Link
-              to="/saas/organizations"
+              to="/companies"
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium text-xs rounded-lg transition"
             >
               <Sparkles className="w-3.5 h-3.5 text-blue-500" />

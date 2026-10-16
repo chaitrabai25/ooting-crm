@@ -139,6 +139,9 @@ const createCompanySchema = z.object({
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
   maxStaffLimit: z.number().int().min(1).default(1),
+  subscriptionTier: z.enum(['STARTER', 'GROWTH', 'ENTERPRISE', 'CUSTOM']).optional().default('STARTER'),
+  subscriptionExpiresAt: z.string().datetime().nullable().optional(),
+  enabledModules: z.string().nullable().optional(),
   adminName: z.string().min(2, 'Admin full name is required'),
   adminEmail: z.string().email('Valid admin email is required'),
   adminPassword: z.string().min(6, 'Password must be at least 6 characters'),
@@ -189,6 +192,9 @@ router.post('/', requirePlatformMasterAdmin, async (req: AuthRequest, res: Respo
           primaryColor: data.primaryColor || '#1E3A8A',
           secondaryColor: data.secondaryColor || '#E11D48',
           maxStaffLimit: data.maxStaffLimit || 1,
+          subscriptionTier: data.subscriptionTier || 'STARTER',
+          subscriptionExpiresAt: data.subscriptionExpiresAt ? new Date(data.subscriptionExpiresAt) : null,
+          enabledModules: data.enabledModules || null,
           isOoting: false,
         },
       });
@@ -264,6 +270,9 @@ const updateCompanySchema = z.object({
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
   maxStaffLimit: z.number().int().min(1).optional(),
+  subscriptionTier: z.enum(['STARTER', 'GROWTH', 'ENTERPRISE', 'CUSTOM']).optional(),
+  subscriptionExpiresAt: z.string().datetime().nullable().optional(),
+  enabledModules: z.string().nullable().optional(),
 });
 
 // Update company profile or toggle status (Platform Master Admin only)
@@ -284,9 +293,14 @@ router.put('/:id', requirePlatformMasterAdmin, async (req: AuthRequest, res: Res
       return;
     }
 
+    const updatePayload: any = { ...data };
+    if (data.subscriptionExpiresAt !== undefined) {
+      updatePayload.subscriptionExpiresAt = data.subscriptionExpiresAt ? new Date(data.subscriptionExpiresAt) : null;
+    }
+
     const updated = await prisma.company.update({
       where: { id },
-      data,
+      data: updatePayload,
     });
 
     invalidateCompanySettingsCache();
