@@ -8,17 +8,18 @@
  *  - Battery- & network-aware live sync (pauses when tab inactive; 60s background cycle).
  */
 
-import React, { useState } from 'react';
-import { Plus, Search, Shield, Phone, Mail, Edit, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Shield, Phone, Mail, Edit, CheckCircle, XCircle, Trash2, AlertTriangle, Sparkles, Send } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
+import { Modal } from '../../components/ui/Modal.js';
 import { UserModal } from './UserModal.js';
 import { User, Role } from '../../types/index.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useLiveSync } from '../../utils/useLiveSync.js';
-import { notifyError } from '../../utils/sweetalert.js';
+import { notifyError, notifySuccess } from '../../utils/sweetalert.js';
 
 export const UserList: React.FC = () => {
   const { user: currentUser, isSuperAdmin } = useAuth();
@@ -30,12 +31,36 @@ export const UserList: React.FC = () => {
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Staff limit and seat request state
+  const [staffUsage, setStaffUsage] = useState<{
+    currentStaff: number;
+    maxStaffLimit: number;
+    remainingSeats: number;
+    isLimitReached: boolean;
+    isOoting: boolean;
+    pendingRequests: any[];
+  } | null>(null);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [requestSeats, setRequestSeats] = useState(1);
+  const [requestReason, setRequestReason] = useState('New team member onboarding / expanding sales desk');
+  const [requestJustification, setRequestJustification] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  const fetchStaffUsage = async () => {
+    try {
+      const res = await api.get('/users/staff-usage');
+      setStaffUsage(res.data);
+    } catch (err) {
+      console.warn('Failed to fetch staff usage:', err);
+    }
+  };
 
   const fetchUsers = async (silent = false) => {
     try {
@@ -47,7 +72,10 @@ export const UserList: React.FC = () => {
       if (roleFilter) params.append('role', roleFilter);
       if (statusFilter) params.append('status', statusFilter);
 
-      const res = await api.get(`/users?${params.toString()}`);
+      const [res] = await Promise.all([
+        api.get(`/users?${params.toString()}`),
+        fetchStaffUsage(),
+      ]);
       setUsers(res.data.data || []);
       setTotal(res.data.pagination.total);
       setTotalPages(res.data.pagination.totalPages);
@@ -55,6 +83,25 @@ export const UserList: React.FC = () => {
       console.error('Failed to fetch users:', err);
     } finally {
       if (!silent) setIsLoading(false);
+    }
+  };
+
+  const handleRequestStaffSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSubmittingRequest(true);
+      await api.post('/users/request-staff', {
+        requestedSeats: Number(requestSeats),
+        reason: requestReason.trim(),
+        businessJustification: requestJustification.trim() || undefined,
+      });
+      notifySuccess('Request Submitted', 'Your request for additional staff seats has been submitted to the platform administrator for review.');
+      setIsRequestModalOpen(false);
+      fetchStaffUsage();
+    } catch (err: any) {
+      notifyError('Request Failed', err.response?.data?.message || 'Failed to submit staff seat request.');
+    } finally {
+      setIsSubmittingRequest(false);
     }
   };
 
@@ -189,21 +236,59 @@ export const UserList: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Staff & User Management</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Staff & User Management</h1>
+            {staffUsage && (
+              staffUsage.isOoting ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-brand-500/10 text-brand-500 border border-brand-500/20">
+                  Unlimited Seats (Ooting Master)
+                </span>
+              ) : (
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                  staffUsage.isLimitReached
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                }`}>
+                  Staff Seats: {staffUsage.currentStaff} / {staffUsage.maxStaffLimit} {staffUsage.isLimitReached ? '(Cap Reached)' : ''}
+                </span>
+              )
+            )}
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Manage system users, access roles, and permissions ({total} total staff)
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingUser(null);
-            setIsModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs rounded-lg shadow-sm transition self-start sm:self-auto cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Add Staff Member
-        </button>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {!staffUsage?.isOoting && (
+            <button
+              onClick={() => setIsRequestModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs rounded-lg transition cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              Request More Seats
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              if (staffUsage?.isLimitReached) {
+                notifyError(
+                  '1-Staff Seat Limit Reached',
+                  'Your organization has reached its current limit of staff accounts. Please submit a request to increase your staff quota.'
+                );
+                setIsRequestModalOpen(true);
+                return;
+              }
+              setEditingUser(null);
+              setIsModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs rounded-lg shadow-sm transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Add Staff Member
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -302,6 +387,87 @@ export const UserList: React.FC = () => {
         confirmLabel={isDeleting ? 'Deleting...' : 'Delete Staff'}
         isDanger={true}
       />
+
+      {/* Request Additional Staff Seats Modal */}
+      {isRequestModalOpen && (
+        <Modal
+          isOpen={isRequestModalOpen}
+          onClose={() => setIsRequestModalOpen(false)}
+          title="Request Additional Staff Seats"
+        >
+          <form onSubmit={handleRequestStaffSubmit} className="space-y-4">
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                <p className="font-bold">SaaS 1-Staff Seat Policy</p>
+                <p>
+                  Customer organizations are provisioned with 1 primary staff seat by default. Requests for additional staff seats are submitted to the platform administrator for approval.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Additional Seats Requested *
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                required
+                value={requestSeats}
+                onChange={(e) => setRequestSeats(parseInt(e.target.value) || 1)}
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Reason for Additional Staff *
+              </label>
+              <input
+                type="text"
+                required
+                value={requestReason}
+                onChange={(e) => setRequestReason(e.target.value)}
+                placeholder="e.g. Hiring new destination specialist..."
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Business Justification (Optional)
+              </label>
+              <textarea
+                value={requestJustification}
+                onChange={(e) => setRequestJustification(e.target.value)}
+                rows={3}
+                placeholder="Describe your current lead volume or expanding operations..."
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsRequestModalOpen(false)}
+                className="px-3.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingRequest || requestSeats < 1}
+                className="px-4 py-2 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                {isSubmittingRequest ? 'Submitting...' : 'Submit Request'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };

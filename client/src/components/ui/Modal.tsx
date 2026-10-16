@@ -8,6 +8,7 @@ interface ModalProps {
   subtitle?: string;
   children: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -16,8 +17,10 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   subtitle,
   children,
-  maxWidth = 'lg',
+  maxWidth,
+  size,
 }) => {
+  const effectiveMaxWidth = (maxWidth || size || 'lg') as 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl';
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -54,7 +57,7 @@ export const Modal: React.FC<ModalProps> = ({
         />
 
         <div
-          className={`relative transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 text-left shadow-2xl transition-all sm:my-8 w-full border border-transparent dark:border-slate-800 ${maxWidthClasses[maxWidth]}`}
+          className={`relative transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 text-left shadow-2xl transition-all sm:my-8 w-full border border-transparent dark:border-slate-800 ${maxWidthClasses[effectiveMaxWidth] || 'max-w-lg'}`}
         >
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-4 bg-slate-50/50 dark:bg-slate-850/60">
             <div>

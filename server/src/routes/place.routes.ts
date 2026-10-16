@@ -18,8 +18,16 @@ const sanitizeCell = (val: any): string => {
 // GET /api/places/export/excel: Export places to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const places = await prisma.place.findMany({
-      where: { isDeleted: false },
+      where: {
+        isDeleted: false,
+        OR: [
+          { companyId },
+          { companyId: null },
+          { company: { isOoting: true } },
+        ],
+      },
       orderBy: [{ state: 'asc' }, { district: 'asc' }, { name: 'asc' }],
     });
 
@@ -54,19 +62,28 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 // GET /api/places: Search and list places directly from database with high-speed in-memory cache
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const state = (req.query.state as string || '').trim();
     const district = (req.query.district as string || '').trim();
     const search = (req.query.search as string || '').trim();
 
-    const cacheKey = `places:${state.toLowerCase()}:${district.toLowerCase()}:${search.toLowerCase()}`;
+    const cacheKey = `places:${companyId}:${state.toLowerCase()}:${district.toLowerCase()}:${search.toLowerCase()}`;
     const cached = cache.get<any>(cacheKey);
     if (cached) {
       res.json(cached);
       return;
     }
 
-    // Query permanent database places (zero dummy data)
-    const where: any = { isDeleted: false };
+    // Query permanent database places with strict tenant isolation
+    const where: any = {
+      isDeleted: false,
+      OR: [
+        { companyId },
+        { companyId: null },
+        { company: { isOoting: true } },
+      ],
+    };
+
     if (state && state.toLowerCase() !== 'all' && state.toLowerCase() !== 'all states') {
       where.state = { equals: state };
     }
@@ -74,12 +91,16 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       where.district = { equals: district };
     }
     if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { district: { contains: search } },
-        { state: { contains: search } },
-        { activities: { contains: search } },
-        { category: { contains: search } },
+      where.AND = [
+        {
+          OR: [
+            { name: { contains: search } },
+            { district: { contains: search } },
+            { state: { contains: search } },
+            { activities: { contains: search } },
+            { category: { contains: search } },
+          ],
+        },
       ];
     }
 
@@ -171,6 +192,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         activities: activities?.trim() || '',
         notes: notes?.trim() || '',
         createdById: req.user?.id || null,
+        companyId: req.user!.companyId,
       },
     });
 
@@ -207,11 +229,18 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     } = req.body;
 
     const existing = await prisma.place.findFirst({
-      where: { id, isDeleted: false },
+      where: {
+        id,
+        isDeleted: false,
+        OR: [
+          { companyId: req.user!.companyId },
+          ...(req.user!.isPlatformMasterAdmin ? [{ companyId: null }] : []),
+        ],
+      },
     });
 
     if (!existing) {
-      res.status(404).json({ message: 'Place not found.' });
+      res.status(404).json({ message: 'Place not found or you do not have permission to modify it.' });
       return;
     }
 
@@ -353,6 +382,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
         activities: activities || '',
         notes: notes || '',
         createdById: req.user?.id || null,
+        companyId: req.user!.companyId,
       });
     });
 
@@ -381,10 +411,26 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// DELETE /api/places/:id: Soft delete
+// DELETE /api/places/:id: Soft delete (strictly scoped to company)
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
+    const existing = await prisma.place.findFirst({
+      where: {
+        id,
+        isDeleted: false,
+        OR: [
+          { companyId: req.user!.companyId },
+          ...(req.user!.isPlatformMasterAdmin ? [{ companyId: null }] : []),
+        ],
+      },
+    });
+
+    if (!existing) {
+      res.status(404).json({ message: 'Place not found or you do not have permission to delete it.' });
+      return;
+    }
+
     await prisma.place.update({
       where: { id },
       data: { isDeleted: true },

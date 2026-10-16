@@ -1,0 +1,82 @@
+%% Ooting CRM - Multi-Company SaaS UML Use Case Diagram
+%% Format: Mermaid Diagram (Can be rendered and edited in Mermaid Live / Markdown)
+
+flowchart LR
+    %% Actors
+    subgraph Actors["System Actors"]
+        PMA["Platform Master Admin\n(Root Ooting)"]
+        CSA["Customer Super Admin\n(Tenant Admin)"]
+        SM["Staff Member\n(Sales / Operations)"]
+        SYS["Tenant Routing Engine\n& Database Scheduler"]
+    end
+
+    %% Platform SaaS Operations (Layer A)
+    subgraph LayerA["Layer A: Platform SaaS Administration"]
+        UC_Prov["Provision Customer Organization"]
+        UC_Kill["Instant Kill-Switch\n(Server-Side Suspension)"]
+        UC_React["Reactivate Organization"]
+        UC_Audit["Inspect Cross-Tenant Audit Logs"]
+        UC_Tiers["Manage Subscription Plans & Pricing"]
+        UC_ApproveSeats["Approve / Reject Staff Seat Requests"]
+        UC_DbMon["Monitor Tenant Database Pools & Latency"]
+    end
+
+    %% Tenant Workspace Governance (Layer B)
+    subgraph LayerB["Layer B: Customer Organization Governance"]
+        UC_SeatReq["Request Additional Staff Seats (>1 Cap)"]
+        UC_ManageStaff["Manage Single Staff Member Account"]
+        UC_ViewTelemetry["View Company Profile & Subscriptions"]
+        UC_SuspendNotice["View Dedicated Suspension Notice Screen"]
+    end
+
+    %% CRM Core Business Operations (Isolated Data)
+    subgraph CRM_Ops["Tenant CRM Operations (companyId Scoped)"]
+        UC_Leads["Manage Leads & Enquiries"]
+        UC_Quotes["Build Quotations & Itineraries"]
+        UC_Bookings["Manage Tour & Cab Bookings"]
+        UC_Vouchers["Generate PDF Duty Slips & Invoices"]
+        UC_WhatsApp["Send WhatsApp Notifications"]
+    end
+
+    %% Layer C Data & Security Governance
+    subgraph LayerC["Layer C: Dynamic Routing & Fail-Closed Guard"]
+        UC_Route["Resolve Connection Pool (AES-256 Decryption)"]
+        UC_FailClosed["Enforce Fail-Closed Isolation\n(Block Central Table Fallback)"]
+        UC_TokenCheck["Validate Real-Time Token Revocation Version"]
+        UC_PingHealth["Heartbeat Ping & Latency Telemetry"]
+    end
+
+    %% Actor Relationships
+    PMA --> UC_Prov
+    PMA --> UC_Kill
+    PMA --> UC_React
+    PMA --> UC_Audit
+    PMA --> UC_Tiers
+    PMA --> UC_ApproveSeats
+    PMA --> UC_DbMon
+
+    CSA --> UC_SeatReq
+    CSA --> UC_ManageStaff
+    CSA --> UC_ViewTelemetry
+    CSA --> UC_SuspendNotice
+
+    CSA --> UC_Leads
+    CSA --> UC_Quotes
+    CSA --> UC_Bookings
+
+    SM --> UC_Leads
+    SM --> UC_Quotes
+    SM --> UC_Bookings
+    SM --> UC_Vouchers
+    SM --> UC_WhatsApp
+    SM --> UC_SuspendNotice
+
+    SYS --> UC_Route
+    SYS --> UC_FailClosed
+    SYS --> UC_TokenCheck
+    SYS --> UC_PingHealth
+
+    %% Inter-Use-Case Dependencies
+    UC_Kill -.-> |"triggers instant revocation"| UC_TokenCheck
+    UC_SeatReq -.-> |"submits to queue"| UC_ApproveSeats
+    UC_Route -.-> |"fails if unreachable"| UC_FailClosed

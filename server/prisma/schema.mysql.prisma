@@ -47,6 +47,15 @@ model Company {
   upiId             String?   @db.VarChar(100)
   paymentNotes      String?   @db.Text
   isOoting          Boolean   @default(false)
+  orgCode           String?   @unique @db.VarChar(50)
+  provisioningStatus String   @default("READY") @db.VarChar(50) // PENDING_PROVISIONING, PROVISIONING, READY, FAILED
+  maxStaffLimit     Int       @default(1)
+  subscriptionTier  String    @default("STARTER") @db.VarChar(50) // STARTER, GROWTH, ENTERPRISE, CUSTOM
+  subscriptionExpiresAt DateTime?
+  suspensionReason  String?   @db.Text
+  suspendedAt       DateTime?
+  suspendedBy       String?   @db.VarChar(191)
+  tokenRevocationVersion Int  @default(1)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -68,10 +77,15 @@ model Company {
   places            Place[]
   hotels            Hotel[]
   companySettings   CompanySetting[]
+  tenantDatabase    TenantDatabase?
+  staffRequests     StaffAccessRequest[]
+  sessionRevocations SessionRevocation[]
 
   @@index([status])
   @@index([slug])
   @@index([isOoting])
+  @@index([orgCode])
+  @@index([provisioningStatus])
 }
 
 model User {
@@ -114,6 +128,7 @@ model User {
   expensesCreated        Expense[]        @relation("ExpenseCreatedByUser")
   assignedSuppliers      Supplier[]       @relation("SupplierAssignedUser")
   auditLogs              AuditLog[]       @relation("UserAuditLogs")
+  staffRequests          StaffAccessRequest[] @relation("UserStaffRequests")
 
   @@index([email])
   @@index([phone])
@@ -913,4 +928,93 @@ model Hotel {
 
   @@index([companyId])
 }
+
+// ------------------------------------------------------------------------------
+// 21. SaaS Multi-Tenant Control Models
+// ------------------------------------------------------------------------------
+
+model TenantDatabase {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  companyId          String    @unique @db.VarChar(36)
+  dbHost             String    @db.VarChar(191)
+  dbPort             Int       @default(4000)
+  dbName             String    @db.VarChar(100)
+  dbUser             String    @db.VarChar(100)
+  dbSecretEncrypted  String?   @db.Text
+  status             String    @default("READY") @db.VarChar(50) // READY, PROVISIONING, FAILED, OFFLINE
+  schemaVersion      String    @default("1.0.0") @db.VarChar(50)
+  lastHealthCheck    DateTime?
+  lastPingMs         Int?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model StaffAccessRequest {
+  id                  String    @id @default(uuid()) @db.VarChar(36)
+  companyId           String    @db.VarChar(36)
+  requestingUserId    String    @db.VarChar(36)
+  currentStaffCount   Int
+  requestedStaffLimit Int
+  reason              String    @db.Text
+  status              String    @default("PENDING") @db.VarChar(50) // PENDING, APPROVED, REJECTED
+  reviewedByUserId    String?   @db.VarChar(36)
+  reviewedAt          DateTime?
+  reviewNotes         String?   @db.Text
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  company             Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requestingUser      User      @relation("UserStaffRequests", fields: [requestingUserId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([status])
+}
+
+model SessionRevocation {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  companyId  String   @db.VarChar(36)
+  userId     String?  @db.VarChar(36)
+  reason     String   @db.VarChar(255)
+  revokedAt  DateTime @default(now())
+
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([revokedAt])
+}
+
+model PlatformAuditLog {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  adminId    String   @db.VarChar(36)
+  adminEmail String   @db.VarChar(191)
+  action     String   @db.VarChar(50) // ORG_CREATED, ORG_ACTIVATED, ORG_SUSPENDED, ORG_REACTIVATED, STAFF_LIMIT_CHANGED, STAFF_REQUEST_APPROVED, STAFF_REQUEST_REJECTED, DB_PROVISIONED
+  targetType String   @db.VarChar(50) // ORGANIZATION, STAFF_REQUEST, DATABASE, SETTING
+  targetId   String   @db.VarChar(36)
+  details    String   @db.Text
+  ipAddress  String?  @db.VarChar(50)
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model SubscriptionPlan {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  name         String   @db.VarChar(100)
+  code         String   @unique @db.VarChar(50) // STARTER, GROWTH, ENTERPRISE, CUSTOM
+  maxStaff     Int      @default(1)
+  priceMonthly Float    @default(0)
+  features     String?  @db.Text
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([code])
+}
+
 

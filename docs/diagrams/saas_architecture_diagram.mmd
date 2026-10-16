@@ -1,0 +1,95 @@
+%% Ooting CRM - 3-Layer Multi-Company SaaS Architecture Diagram
+%% Format: Mermaid Diagram (Can be edited in Mermaid Live / GitHub / Markdown)
+
+flowchart TD
+    %% Client Tier
+    subgraph Clients["Presentation Layer (Vite + React + Tailwind + React-Router)"]
+        BrowserA["Platform Master Admin Browser\n(https://crm.ooting.com/saas)"]
+        BrowserB["Customer Tenant Browser\n(https://crm.ooting.com or custom domain)"]
+        BrowserSuspended["Suspended Customer Browser\n(/suspended - Resolution Screen)"]
+    end
+
+    %% Security & API Gateway
+    subgraph Gateway["API Gateway & Real-Time Security Layer (Express + Middleware)"]
+        CORS["CORS & Rate Limiter"]
+        AuthMiddleware["Authentication & JWT Verification\n(auth.ts)"]
+        
+        subgraph RealTimeGuards["Real-Time Security Enforcement"]
+            SuspensionGuard{"Company Status\nCheck\n(Real-Time DB Query)"}
+            RevocationGuard{"Token Revocation\nVersion Check\n(SessionRevocation)"}
+            RoleGuard{"Platform Master\nAdmin Guard\n(isPlatformMasterAdmin)"}
+            SeatLimitGuard{"Concurrency-Safe\nTransactional 1-Staff\nQuota Guard"}
+        end
+    end
+
+    %% 3-Layer Core Architecture
+    subgraph LayerA["Layer A: Platform SaaS Administration Engine"]
+        SaaSController["SaaS Platform Controller (/api/saas)"]
+        OrgManager["Organization & Tenant Provisioner"]
+        KillSwitch["Instant Kill-Switch & Session Invalidator"]
+        SeatApproval["Staff Seat Bump Approval Workflow"]
+        PlanCatalog["Subscription Plans & Tier Manager"]
+        PlatformAudit["Immutable Platform Audit Logger"]
+    end
+
+    subgraph LayerB["Layer B: Customer Organization Workspaces"]
+        TenantRouter["Business Logic Controllers\n(/api/leads, /api/bookings, /api/quotations)"]
+        TenantCompanyGuard["Strict companyId Boundary Filter\n(Enforced on every query)"]
+        StaffUsageEndpoint["Staff Quota & Request API\n(/api/users/staff-usage)"]
+        TenantRBAC["Tenant Roles: ADMIN, SALES, OPS, ACCOUNTS"]
+    end
+
+    subgraph LayerC["Layer C: Tenant Database Registry & Dynamic Routing"]
+        TenantDbRegistry["Tenant Database Registry\n(TenantDatabase Model)"]
+        AESCipher["AES-256-GCM Vault\n(Secret Encryptor / Decryptor)"]
+        PoolManager["Dynamic Connection Pool Manager\n(LRU Eviction & Health Monitor)"]
+        FailClosedGuard["Fail-Closed Routing Guard\n(Strictly Blocks Central Fallback)"]
+    end
+
+    %% Storage & Database Tier
+    subgraph DatabaseTier["Data Persistence Tier"]
+        CentralDB[("Primary TiDB Cloud MySQL Cluster\n- Central Platform Tables\n- Tenant Registry\n- Logical Tenant Partitions")]
+        DedicatedDB1[("Dedicated Customer DB 1\n(External MySQL / Aurora)")]
+        DedicatedDB2[("Dedicated Customer DB N\n(External MySQL / Aurora)")]
+    end
+
+    %% Wiring Connections
+    BrowserA --> CORS
+    BrowserB --> CORS
+    BrowserSuspended --> CORS
+
+    CORS --> AuthMiddleware
+    AuthMiddleware --> SuspensionGuard
+    
+    SuspensionGuard -- "STATUS == SUSPENDED" --> BrowserSuspended
+    SuspensionGuard -- "STATUS == ACTIVE" --> RevocationGuard
+    
+    RevocationGuard -- "REVOKED / MISMATCH" --> AuthMiddleware
+    RevocationGuard -- "VALID" --> RoleGuard
+
+    RoleGuard -- "requirePlatformMasterAdmin" --> SaaSController
+    RoleGuard -- "Standard Tenant Request" --> TenantCompanyGuard
+
+    TenantCompanyGuard --> TenantRouter
+    TenantRouter --> SeatLimitGuard
+
+    SaaSController --> OrgManager
+    SaaSController --> KillSwitch
+    SaaSController --> SeatApproval
+    SaaSController --> PlanCatalog
+    SaaSController --> PlatformAudit
+
+    KillSwitch --> CentralDB
+    OrgManager --> TenantDbRegistry
+    SeatApproval --> CentralDB
+
+    TenantRouter --> PoolManager
+    PoolManager --> AESCipher
+    AESCipher --> TenantDbRegistry
+    TenantDbRegistry --> CentralDB
+
+    PoolManager --> FailClosedGuard
+    FailClosedGuard -- "Route: Default Tenant" --> CentralDB
+    FailClosedGuard -- "Route: Dedicated Tenant 1" --> DedicatedDB1
+    FailClosedGuard -- "Route: Dedicated Tenant N" --> DedicatedDB2
+    FailClosedGuard -- "Unreachable / Error" --> RealTimeGuards

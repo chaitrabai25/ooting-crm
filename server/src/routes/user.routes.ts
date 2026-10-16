@@ -99,54 +99,239 @@ const createUserSchema = z.object({
   companyId: z.string().optional(),
 });
 
-// Create new user (SUPER_ADMIN or Company ADMIN)
+// Get staff usage and seat limit metrics for the current company
+router.get('/staff-usage', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const companyId = req.user!.companyId;
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, name: true, orgCode: true, maxStaffLimit: true, isOoting: true },
+    });
+
+    if (!company) {
+      res.status(404).json({ message: 'Company not found.' });
+      return;
+    }
+
+    const currentStaff = await prisma.user.count({
+      where: {
+        companyId,
+        role: { not: 'SUPER_ADMIN' },
+        status: { in: ['ACTIVE', 'INVITED'] },
+      },
+    });
+
+    const maxStaffLimit = company.isOoting ? 9999 : (company.maxStaffLimit || 1);
+    const remainingSeats = Math.max(0, maxStaffLimit - currentStaff);
+    const isLimitReached = !company.isOoting && currentStaff >= maxStaffLimit;
+
+    // Check for pending staff request
+    const pendingRequest = await prisma.staffAccessRequest.findFirst({
+      where: { companyId, status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      companyId: company.id,
+      companyName: company.name,
+      orgCode: company.orgCode,
+      currentStaff,
+      maxStaffLimit,
+      remainingSeats,
+      isLimitReached,
+      isOoting: company.isOoting,
+      pendingRequest,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const staffAccessRequestSchema = z.object({
+  requestedStaffLimit: z.number().int().optional(),
+  requestedSeats: z.number().int().optional(),
+  reason: z.string().min(3, 'Please provide a clear business reason for additional staff access'),
+  businessJustification: z.string().optional(),
+});
+
+// Customer Super Admin requests additional staff seat limit
+router.post('/request-staff', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const data = staffAccessRequestSchema.parse(req.body);
+    const companyId = req.user!.companyId;
+
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+    });
+
+    if (!company) {
+      res.status(404).json({ message: 'Organization not found.' });
+      return;
+    }
+
+    if (company.isOoting) {
+      res.status(400).json({ message: 'Primary Ooting instance does not require staff seat requests.' });
+      return;
+    }
+
+    // Check if an unresolved request already exists
+    const existingPending = await prisma.staffAccessRequest.findFirst({
+      where: { companyId, status: 'PENDING' },
+    });
+
+    if (existingPending) {
+      res.status(400).json({
+        message: 'A staff access request is already pending review with Ooting Master Admin.',
+        request: existingPending,
+      });
+      return;
+    }
+
+    const currentStaffCount = await prisma.user.count({
+      where: {
+        companyId,
+        role: { not: 'SUPER_ADMIN' },
+        status: { in: ['ACTIVE', 'INVITED'] },
+      },
+    });
+
+    const targetLimit = data.requestedStaffLimit ?? (company.maxStaffLimit + (data.requestedSeats || 1));
+
+    if (targetLimit <= company.maxStaffLimit) {
+      res.status(400).json({
+        message: `Requested limit (${targetLimit}) must be greater than your current limit (${company.maxStaffLimit}).`,
+      });
+      return;
+    }
+
+    const request = await prisma.staffAccessRequest.create({
+      data: {
+        companyId,
+        requestingUserId: req.user!.id,
+        currentStaffCount,
+        requestedStaffLimit: targetLimit,
+        reason: data.reason.trim(),
+        status: 'PENDING',
+      },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      companyId,
+      action: 'CREATE',
+      entity: 'SETTING',
+      entityId: request.id,
+      details: `Submitted Staff Access Request for ${targetLimit} seats (Current: ${company.maxStaffLimit})`,
+      ipAddress: req.ip,
+    });
+
+    res.status(201).json({
+      message: 'Staff access request submitted successfully. Ooting Master Admin has been notified for review.',
+      request,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// View organization's staff request history
+router.get('/my-staff-requests', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const companyId = req.user!.companyId;
+    const requests = await prisma.staffAccessRequest.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        requestingUser: { select: { id: true, name: true, email: true } },
+      },
+    });
+    res.json({ data: requests });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create new user (SUPER_ADMIN or Company ADMIN) with concurrency-safe 1-staff limit
 router.post('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = createUserSchema.parse(req.body);
 
     // Company Admin cannot create SUPER_ADMIN accounts
-    if (req.user!.role !== 'SUPER_ADMIN' && data.role === 'SUPER_ADMIN') {
-      res.status(403).json({ message: 'Only Ooting Super Admins can provision Super Admin accounts.' });
+    if (!req.user!.isPlatformMasterAdmin && data.role === 'SUPER_ADMIN') {
+      res.status(403).json({ message: 'Only Ooting Platform Master Admins can provision Super Admin accounts.' });
       return;
     }
 
-    // Determine tenant ID
-    const targetCompanyId = (req.user!.role === 'SUPER_ADMIN' && data.companyId)
+    // Determine tenant ID - non-platform admins are strictly bound to their own company
+    const targetCompanyId = (req.user!.isPlatformMasterAdmin && data.companyId)
       ? data.companyId
       : req.user!.companyId;
 
-    const existing = await prisma.user.findUnique({
-      where: { email: data.email.toLowerCase().trim() },
-    });
-
-    if (existing) {
-      res.status(400).json({ message: 'User with this email already exists.' });
-      return;
-    }
-
     const passwordHash = await bcrypt.hash(data.password, 10);
-    const user = await prisma.user.create({
-      data: {
-        name: data.name.trim(),
-        email: data.email.toLowerCase().trim(),
-        passwordHash,
-        role: data.role,
-        companyId: targetCompanyId,
-        phone: data.phone?.trim() || null,
-        permissions: data.permissions || null,
-        status: 'ACTIVE',
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        status: true,
-        companyId: true,
-        permissions: true,
-        createdAt: true,
-      },
+
+    // Transactional creation with concurrency-safe staff limit check
+    const newUser = await prisma.$transaction(async (tx) => {
+      const company = await tx.company.findUniqueOrThrow({
+        where: { id: targetCompanyId },
+      });
+
+      // Strict staff seat limit check for non-Ooting organizations
+      if (!company.isOoting && data.role !== 'SUPER_ADMIN') {
+        const currentStaffCount = await tx.user.count({
+          where: {
+            companyId: targetCompanyId,
+            role: { not: 'SUPER_ADMIN' },
+            status: { in: ['ACTIVE', 'INVITED'] },
+          },
+        });
+
+        if (currentStaffCount >= company.maxStaffLimit) {
+          const limitErr: any = new Error(
+            `Staff account limit reached (${currentStaffCount}/${company.maxStaffLimit}). Please request additional staff access from Ooting Master Admin.`
+          );
+          limitErr.status = 403;
+          limitErr.code = 'STAFF_LIMIT_REACHED';
+          throw limitErr;
+        }
+      }
+
+      const existing = await tx.user.findUnique({
+        where: { email: data.email.toLowerCase().trim() },
+      });
+
+      if (existing) {
+        const existErr: any = new Error('User with this email already exists.');
+        existErr.status = 400;
+        throw existErr;
+      }
+
+      return tx.user.create({
+        data: {
+          name: data.name.trim(),
+          email: data.email.toLowerCase().trim(),
+          passwordHash,
+          role: data.role,
+          companyId: targetCompanyId,
+          phone: data.phone?.trim() || null,
+          permissions: data.permissions || null,
+          status: 'ACTIVE',
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          phone: true,
+          status: true,
+          companyId: true,
+          permissions: true,
+          createdAt: true,
+        },
+      });
+    }, {
+      maxWait: 10000,
+      timeout: 25000,
     });
 
     await logAudit({
@@ -155,13 +340,17 @@ router.post('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res
       companyId: targetCompanyId,
       action: 'CREATE',
       entity: 'USER',
-      entityId: user.id,
-      details: `Created user ${user.name} (${user.role}) for company ${targetCompanyId}`,
+      entityId: newUser.id,
+      details: `Created user ${newUser.name} (${newUser.role}) for company ${targetCompanyId}`,
       ipAddress: req.ip,
     });
 
-    res.status(201).json(user);
-  } catch (error) {
+    res.status(201).json(newUser);
+  } catch (error: any) {
+    if (error.status) {
+      res.status(error.status).json({ message: error.message, code: error.code });
+      return;
+    }
     next(error);
   }
 });
@@ -174,47 +363,75 @@ const inviteUserSchema = z.object({
   password: z.string().min(6).optional(),
 });
 
-// Invite employee account for the current company tenant
+// Invite employee account with strict concurrency-safe staff seat limit
 router.post('/invite', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = inviteUserSchema.parse(req.body);
-
-    const targetCompanyId = req.user!.companyId || 'c0000000-0000-0000-0000-000000000001';
-
-    const existing = await prisma.user.findUnique({
-      where: { email: data.email.toLowerCase().trim() },
-    });
-
-    if (existing) {
-      res.status(400).json({ message: 'User with this email already exists.' });
-      return;
-    }
+    const targetCompanyId = req.user!.companyId;
 
     const tempPassword = data.password || `Welcome@${Math.floor(100000 + Math.random() * 900000)}`;
     const passwordHash = await bcrypt.hash(tempPassword, 10);
-
     const userName = data.name ? data.name.trim() : data.email.split('@')[0];
 
-    const newUser = await prisma.user.create({
-      data: {
-        name: userName,
-        email: data.email.toLowerCase().trim(),
-        passwordHash,
-        role: data.role,
-        companyId: targetCompanyId,
-        phone: data.phone?.trim() || null,
-        status: 'ACTIVE',
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        status: true,
-        companyId: true,
-        createdAt: true,
-      },
+    const newUser = await prisma.$transaction(async (tx) => {
+      const company = await tx.company.findUniqueOrThrow({
+        where: { id: targetCompanyId },
+      });
+
+      // Strict staff seat limit check
+      if (!company.isOoting) {
+        const currentStaffCount = await tx.user.count({
+          where: {
+            companyId: targetCompanyId,
+            role: { not: 'SUPER_ADMIN' },
+            status: { in: ['ACTIVE', 'INVITED'] },
+          },
+        });
+
+        if (currentStaffCount >= company.maxStaffLimit) {
+          const limitErr: any = new Error(
+            `Staff account limit reached (${currentStaffCount}/${company.maxStaffLimit}). Please request additional staff access from Ooting Master Admin.`
+          );
+          limitErr.status = 403;
+          limitErr.code = 'STAFF_LIMIT_REACHED';
+          throw limitErr;
+        }
+      }
+
+      const existing = await tx.user.findUnique({
+        where: { email: data.email.toLowerCase().trim() },
+      });
+
+      if (existing) {
+        const existErr: any = new Error('User with this email already exists.');
+        existErr.status = 400;
+        throw existErr;
+      }
+
+      return tx.user.create({
+        data: {
+          name: userName,
+          email: data.email.toLowerCase().trim(),
+          passwordHash,
+          role: data.role,
+          companyId: targetCompanyId,
+          phone: data.phone?.trim() || null,
+          status: 'ACTIVE',
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          phone: true,
+          status: true,
+          companyId: true,
+          createdAt: true,
+        },
+      });
+    }, {
+      maxWait: 10000,
+      timeout: 25000,
     });
 
     await logAudit({
@@ -233,7 +450,11 @@ router.post('/invite', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthReques
       user: newUser,
       temporaryPassword: tempPassword,
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.status) {
+      res.status(error.status).json({ message: error.message, code: error.code });
+      return;
+    }
     next(error);
   }
 });

@@ -1,0 +1,53 @@
+%% Ooting CRM - Tenant Data Security & Isolation Flowchart
+%% Format: Mermaid Diagram (Can be edited in Mermaid Live / GitHub / Markdown)
+
+flowchart TD
+    Start(["Incoming HTTP API Request"]) --> ExtractToken["Extract Bearer JWT Token from Authorization Header"]
+    
+    ExtractToken --> CheckTokenPresent{"Token Present?"}
+    CheckTokenPresent -- No --> Ret401["Return HTTP 401 Unauthorized\n{ message: 'Authentication required' }"]
+    CheckTokenPresent -- Yes --> VerifyJWT["Verify JWT Signature via Secret Key"]
+
+    VerifyJWT --> CheckJWTSig{"Signature Valid & Unexpired?"}
+    CheckJWTSig -- No --> Ret401
+    CheckJWTSig -- Yes --> DecodePayload["Decode Token Payload: { id, companyId, tokenVersion }"]
+
+    DecodePayload --> FetchRealtimeOrg["Real-Time Query: Fetch Company Status & Token Version from DB"]
+    
+    FetchRealtimeOrg --> CheckOrgExists{"Organization Exists?"}
+    CheckOrgExists -- No --> Ret401
+    CheckOrgExists -- Yes --> CheckSuspension{"Is Company Status == SUSPENDED?"}
+
+    %% Suspension Evaluation (Instant Kill-Switch)
+    CheckSuspension -- "YES (SUSPENDED)" --> DenySuspended["HALT EXECUTION IMMEDIATELY (Fail-Closed)\nReturn HTTP 403 Forbidden\ncode: 'ORGANIZATION_SUSPENDED'\nIncludes: Reason, SuspendedAt, Official Support Info"]
+    DenySuspended --> ClientRedirect["Frontend Axios Interceptor Intercepts 403\nRedirects User to Dedicated /suspended Screen"]
+
+    %% Revocation Check
+    CheckSuspension -- "NO (ACTIVE)" --> CheckRevocation{"Token Version < Company Version OR\nFound in SessionRevocation?"}
+    CheckRevocation -- "YES (REVOKED)" --> Ret401Revoked["Return HTTP 401 Unauthorized\n{ message: 'Session has been invalidated. Please log in again.' }"]
+    
+    %% Authorization Boundary
+    CheckRevocation -- "NO (VALID)" --> CheckEndpointType{"Is Request for /api/saas/* Platform Route?"}
+    
+    CheckEndpointType -- Yes --> CheckMasterAdmin{"isPlatformMasterAdmin == true\n(company.isOoting AND role == SUPER_ADMIN)?"}
+    CheckMasterAdmin -- No --> Ret403Admin["Return HTTP 403 Forbidden\n{ message: 'Platform Master Admin privileges required.' }"]
+    CheckMasterAdmin -- Yes --> ExecPlatform["Execute Platform SaaS Control Action\n(Provision, Suspend, Adjust Limit)"]
+    
+    %% Tenant Business Operation (Layer B & Layer C)
+    CheckEndpointType -- No --> RouteTenantDB{"Does Tenant Have Dedicated Database in Layer C Registry?"}
+
+    RouteTenantDB -- "No (Standard Isolation)" --> CentralLogical["Use Central TiDB Cloud Pool\nInject Mandatory WHERE companyId = req.user.companyId\n(Never Cross-Tenant Accessible)"]
+    
+    RouteTenantDB -- "Yes (Dedicated Tier)" --> DecryptSecrets["Retrieve Tenant DB Record\nDecrypt Password with AES-256-GCM"]
+    DecryptSecrets --> ConnectTenantDB["Acquire Connection from Dynamic Pool\n(Host, Port, User, Password)"]
+    
+    ConnectTenantDB --> CheckDbHealthy{"Connection Pool Alive & Responsive?"}
+    CheckDbHealthy -- "NO (UNREACHABLE)" --> FailClosedErr["FAIL-CLOSED GUARD ENGAGED\nNEVER Fall Back to Central Ooting DB\nReturn HTTP 503 Service Unavailable\n{ code: 'TENANT_DATABASE_UNREACHABLE' }"]
+    
+    CheckDbHealthy -- "YES (HEALTHY)" --> ExecDedicated["Execute Query in Dedicated Database Schema"]
+    
+    CentralLogical --> ExecQuery["Execute Query with Guaranteed Scope Isolation"]
+    ExecDedicated --> ExecQuery
+    
+    ExecQuery --> AuditRecord["Optionally Record Mutation in Audit Log"]
+    AuditRecord --> ReturnSuccess(["Return HTTP 200/201 JSON Response to Client"])

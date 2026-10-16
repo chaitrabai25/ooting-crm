@@ -31,6 +31,8 @@ import {
   X,
   MapPin,
   Hotel,
+  Database,
+  Server,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
@@ -309,6 +311,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
         { type: 'link', name: 'Audit Logs', path: '/audit-logs', icon: History, module: 'audit-logs' },
       ],
     },
+    ...(user?.isPlatformMasterAdmin ? [{
+      title: 'Platform SaaS Console',
+      adminOnly: true,
+      items: [
+        { type: 'link' as const, name: 'SaaS Telemetry Hub', path: '/saas', icon: LayoutDashboard },
+        { type: 'link' as const, name: 'Organizations', path: '/saas/organizations', icon: Building2 },
+        { type: 'link' as const, name: 'Subscription Plans', path: '/saas/plans', icon: CreditCard },
+        { type: 'link' as const, name: 'Staff Seat Requests', path: '/saas/staff-requests', icon: Users },
+        { type: 'link' as const, name: 'Tenant Databases', path: '/saas/databases', icon: Database },
+        { type: 'link' as const, name: 'Platform Audit Logs', path: '/saas/audit-logs', icon: History },
+        { type: 'link' as const, name: 'Platform Settings', path: '/saas/settings', icon: Settings },
+      ],
+    }] : []),
   ];
 
   const sidebarContent = (

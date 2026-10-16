@@ -63,6 +63,17 @@ const CompanyList = lazy(() => import('./pages/companies/CompanyList.js').then(m
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage.js').then(m => ({ default: m.SettingsPage })));
 const AuditLogsPage = lazy(() => import('./pages/audit-logs/AuditLogsPage.js').then(m => ({ default: m.AuditLogsPage })));
 const ImportExportPage = lazy(() => import('./pages/import-export/ImportExportPage.js').then(m => ({ default: m.ImportExportPage })));
+const SuspendedPage = lazy(() => import('./pages/SuspendedPage.js').then(m => ({ default: m.SuspendedPage })));
+
+// SaaS Platform Master Admin Pages
+const SaaSDashboard = lazy(() => import('./pages/saas/SaaSDashboard.js').then(m => ({ default: m.SaaSDashboard })));
+const OrganizationsDirectory = lazy(() => import('./pages/saas/OrganizationsDirectory.js').then(m => ({ default: m.OrganizationsDirectory })));
+const OrganizationDetail = lazy(() => import('./pages/saas/OrganizationDetail.js').then(m => ({ default: m.OrganizationDetail })));
+const SubscriptionsPage = lazy(() => import('./pages/saas/SubscriptionsPage.js').then(m => ({ default: m.SubscriptionsPage })));
+const StaffAccessRequests = lazy(() => import('./pages/saas/StaffAccessRequests.js').then(m => ({ default: m.StaffAccessRequests })));
+const TenantDatabaseStatus = lazy(() => import('./pages/saas/TenantDatabaseStatus.js').then(m => ({ default: m.TenantDatabaseStatus })));
+const PlatformAuditLogs = lazy(() => import('./pages/saas/PlatformAuditLogs.js').then(m => ({ default: m.PlatformAuditLogs })));
+const SaaSSettings = lazy(() => import('./pages/saas/SaaSSettings.js').then(m => ({ default: m.SaaSSettings })));
 
 export const App: React.FC = () => {
   return (
@@ -74,6 +85,7 @@ export const App: React.FC = () => {
               <Routes>
                 {/* Public routes */}
                 <Route path="/login" element={<Login />} />
+                <Route path="/suspended" element={<SuspendedPage />} />
 
                 {/* Protected routes */}
                 <Route element={<ProtectedRoute />}>
@@ -152,6 +164,18 @@ export const App: React.FC = () => {
                       <Route path="/users" element={<UserList />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/audit-logs" element={<AuditLogsPage />} />
+                    </Route>
+
+                    {/* SaaS Platform Infrastructure & Multi-Tenancy (Platform Master Admin only) */}
+                    <Route element={<ProtectedRoute requirePlatformMasterAdmin={true} />}>
+                      <Route path="/saas" element={<SaaSDashboard />} />
+                      <Route path="/saas/organizations" element={<OrganizationsDirectory />} />
+                      <Route path="/saas/organizations/:id" element={<OrganizationDetail />} />
+                      <Route path="/saas/plans" element={<SubscriptionsPage />} />
+                      <Route path="/saas/staff-requests" element={<StaffAccessRequests />} />
+                      <Route path="/saas/databases" element={<TenantDatabaseStatus />} />
+                      <Route path="/saas/audit-logs" element={<PlatformAuditLogs />} />
+                      <Route path="/saas/settings" element={<SaaSSettings />} />
                     </Route>
                   </Route>
                 </Route>

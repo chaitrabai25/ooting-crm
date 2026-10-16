@@ -19,8 +19,16 @@ const sanitizeCell = (val: any): string => {
 // GET /api/hotels/export/excel: Export hotels to Excel (.xlsx)
 router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const hotels = await (prisma as any).hotel.findMany({
-      where: { isDeleted: false },
+      where: {
+        isDeleted: false,
+        OR: [
+          { companyId },
+          { companyId: null },
+          { company: { isOoting: true } },
+        ],
+      },
       orderBy: [{ state: 'asc' }, { district: 'asc' }, { name: 'asc' }],
     });
 
@@ -58,6 +66,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 // GET /api/hotels: Search and list hotels
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    const companyId = req.user!.companyId;
     const state = (req.query.state as string || '').trim();
     const district = (req.query.district as string || '').trim();
     const city = (req.query.city as string || '').trim();
@@ -66,14 +75,21 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '50', 10));
 
-    const cacheKey = `hotels:${state.toLowerCase()}:${district.toLowerCase()}:${city.toLowerCase()}:${starCategory.toLowerCase()}:${search.toLowerCase()}:${page}:${limit}`;
+    const cacheKey = `hotels:${companyId}:${state.toLowerCase()}:${district.toLowerCase()}:${city.toLowerCase()}:${starCategory.toLowerCase()}:${search.toLowerCase()}:${page}:${limit}`;
     const cached = cache.get<any>(cacheKey);
     if (cached) {
       res.json(cached);
       return;
     }
 
-    const where: any = { isDeleted: false };
+    const where: any = {
+      isDeleted: false,
+      OR: [
+        { companyId },
+        { companyId: null },
+        { company: { isOoting: true } },
+      ],
+    };
     if (state && state.toLowerCase() !== 'all' && state.toLowerCase() !== 'all states') {
       where.state = { equals: state };
     }
@@ -84,13 +100,17 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     if (starCategory) where.starCategory = { equals: starCategory };
 
     if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { city: { contains: search } },
-        { district: { contains: search } },
-        { state: { contains: search } },
-        { description: { contains: search } },
-        { address: { contains: search } },
+      where.AND = [
+        {
+          OR: [
+            { name: { contains: search } },
+            { city: { contains: search } },
+            { district: { contains: search } },
+            { state: { contains: search } },
+            { description: { contains: search } },
+            { address: { contains: search } },
+          ],
+        },
       ];
     }
 
@@ -228,6 +248,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         checkOutTime: checkOutTime?.trim() || '11:00 AM',
         amenities: amenities?.trim() || null,
         createdById: req.user?.id || null,
+        companyId: req.user!.companyId,
       },
     });
 
@@ -254,7 +275,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// PUT /api/hotels/:id: Update hotel
+// PUT /api/hotels/:id: Update hotel (scoped to company)
 router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
@@ -277,11 +298,18 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     } = req.body;
 
     const existing = await (prisma as any).hotel.findFirst({
-      where: { id, isDeleted: false },
+      where: {
+        id,
+        isDeleted: false,
+        OR: [
+          { companyId: req.user!.companyId },
+          ...(req.user!.isPlatformMasterAdmin ? [{ companyId: null }] : []),
+        ],
+      },
     });
 
     if (!existing) {
-      res.status(404).json({ message: 'Hotel not found.' });
+      res.status(404).json({ message: 'Hotel not found or you do not have permission to modify it.' });
       return;
     }
 
@@ -331,10 +359,26 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// DELETE /api/hotels/:id: Soft delete
+// DELETE /api/hotels/:id: Soft delete (scoped to company)
 router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
+    const existing = await (prisma as any).hotel.findFirst({
+      where: {
+        id,
+        isDeleted: false,
+        OR: [
+          { companyId: req.user!.companyId },
+          ...(req.user!.isPlatformMasterAdmin ? [{ companyId: null }] : []),
+        ],
+      },
+    });
+
+    if (!existing) {
+      res.status(404).json({ message: 'Hotel not found or you do not have permission to delete it.' });
+      return;
+    }
+
     await (prisma as any).hotel.update({
       where: { id },
       data: { isDeleted: true },

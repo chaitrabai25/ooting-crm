@@ -23,6 +23,7 @@ export interface User {
   lastLoginAt?: string | null;
   companyId?: string | null;
   company?: Company | null;
+  isPlatformMasterAdmin?: boolean;
   createdAt: string;
 }
 
@@ -546,6 +547,7 @@ export interface Company {
   name: string;
   slug: string;
   domain?: string | null;
+  orgCode?: string | null;
   logoUrl?: string | null;
   faviconUrl?: string | null;
   primaryColor?: string | null;
@@ -558,6 +560,15 @@ export interface Company {
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   isOoting: boolean;
   plan: string;
+  provisioningStatus?: string;
+  maxStaffLimit?: number;
+  subscriptionTier?: string;
+  subscriptionExpiresAt?: string | null;
+  suspensionReason?: string | null;
+  suspendedAt?: string | null;
+  suspendedBy?: string | null;
+  tenantDatabase?: TenantDatabase | null;
+  users?: User[];
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -566,6 +577,107 @@ export interface Company {
     bookings: number;
     customers: number;
   };
+}
+
+export interface TenantDatabase {
+  id: string;
+  companyId: string;
+  company?: {
+    id: string;
+    name: string;
+    orgCode?: string | null;
+    status: string;
+  };
+  dbHost: string;
+  dbPort: number;
+  dbName: string;
+  dbUser: string;
+  sslEnabled: boolean;
+  status: 'ACTIVE' | 'PROVISIONING' | 'ERROR' | 'UNREACHABLE' | 'SUSPENDED';
+  lastPingAt?: string | null;
+  lastLatencyMs?: number | null;
+  schemaVersion: string;
+  errorMessage?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StaffAccessRequest {
+  id: string;
+  companyId: string;
+  company?: {
+    id: string;
+    name: string;
+    orgCode?: string | null;
+    maxStaffLimit: number;
+  };
+  requestedById: string;
+  requestedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  currentLimit: number;
+  requestedSeats: number;
+  reason: string;
+  businessJustification?: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  reviewedById?: string | null;
+  reviewedBy?: {
+    id: string;
+    name: string;
+  } | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformAuditLog {
+  id: string;
+  actorId: string;
+  actor?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  targetCompanyId?: string | null;
+  targetCompany?: {
+    id: string;
+    name: string;
+    orgCode?: string | null;
+  } | null;
+  action: string;
+  details?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  tier: string;
+  priceMonthly: number;
+  priceYearly: number;
+  defaultStaffLimit: number;
+  maxStaffLimit: number;
+  features: string;
+  isActive: boolean;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaaSStats {
+  totalOrganizations: number;
+  activeOrganizations: number;
+  suspendedOrganizations: number;
+  totalTenantDatabases: number;
+  healthyDatabases: number;
+  pendingStaffRequests: number;
+  totalStaffUsers: number;
+  estimatedMRR: number;
 }
 
 export interface Place {

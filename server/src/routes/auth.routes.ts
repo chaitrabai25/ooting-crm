@@ -172,6 +172,43 @@ router.post('/login', async (req, res, next) => {
       return;
     }
 
+    // Verify Organization Lifecycle & Suspension
+    if (user.companyId) {
+      const company = await prisma.company.findUnique({
+        where: { id: user.companyId },
+        select: { status: true, name: true },
+      });
+
+      if (company && company.status === 'SUSPENDED') {
+        res.status(403).json({
+          error: 'ORGANIZATION_SUSPENDED',
+          message: "Your organization's access has been suspended. Please contact Ooting Support for assistance.",
+          supportEmail: 'support@ooting.com',
+          supportPhone: '+91 6362845243',
+        });
+        return;
+      }
+
+      if (company && company.status === 'EXPIRED') {
+        res.status(403).json({
+          error: 'ORGANIZATION_EXPIRED',
+          message: 'Your organization subscription has expired. Please contact support to renew access.',
+          supportEmail: 'support@ooting.com',
+          supportPhone: '+91 6362845243',
+        });
+        return;
+      }
+
+      if (company && company.status === 'TERMINATED') {
+        res.status(403).json({
+          error: 'ORGANIZATION_TERMINATED',
+          message: 'Your organization account has been terminated.',
+          supportEmail: 'support@ooting.com',
+        });
+        return;
+      }
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);
     if (!isValidPassword) {
       res.status(401).json({ message: 'Invalid email/employee ID or password.' });
@@ -307,8 +344,25 @@ router.post('/verify-otp', async (req, res, next) => {
     });
 
     const companyId = updatedUser.companyId || 'c0000000-0000-0000-0000-000000000001';
+    const company = await prisma.company.findUnique({ where: { id: companyId } });
+
+    if (company && company.status === 'SUSPENDED') {
+      res.status(403).json({
+        error: 'ORGANIZATION_SUSPENDED',
+        message: "Your organization's access has been suspended. Please contact Ooting Support for assistance.",
+        supportEmail: 'support@ooting.com',
+        supportPhone: '+91 6362845243',
+      });
+      return;
+    }
+
+    const isPlatformMasterAdmin = Boolean(
+      (company?.isOoting === true || companyId === 'c0000000-0000-0000-0000-000000000001') &&
+      (updatedUser.role === 'SUPER_ADMIN' || updatedUser.role === 'PLATFORM_MASTER_ADMIN')
+    );
+
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, companyId },
+      { id: user.id, email: user.email, role: user.role, companyId, isPlatformMasterAdmin },
       config.jwtSecret,
       { expiresIn: config.jwtExpiresIn as any }
     );
@@ -336,6 +390,7 @@ router.post('/verify-otp', async (req, res, next) => {
         companyId,
         permissions: updatedUser.permissions,
         lastLoginAt: updatedUser.lastLoginAt,
+        isPlatformMasterAdmin,
       },
       company: await getCompanySettings(companyId),
     });

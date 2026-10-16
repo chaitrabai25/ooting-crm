@@ -102,10 +102,10 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
 
-    const cacheKey = `package:${id}`;
+    const cacheKey = `package:${companyId}:${id}`;
     const cached = cache.get<any>(cacheKey);
     if (cached) {
-      if (!cached.companyId || cached.companyId === companyId) {
+      if (req.user!.isPlatformMasterAdmin || cached.companyId === companyId) {
         res.json(cached);
         return;
       }
@@ -119,7 +119,8 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!pkg || (pkg.companyId && pkg.companyId !== companyId)) {
+    const isAuthorized = req.user!.isPlatformMasterAdmin || (pkg && pkg.companyId === companyId);
+    if (!pkg || !isAuthorized) {
       res.status(404).json({ message: 'Travel package not found.' });
       return;
     }
@@ -294,8 +295,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const data = packageSchema.partial().parse(req.body);
 
     const existingPkg = await prisma.package.findUnique({ where: { id } });
-    if (!existingPkg || (existingPkg.companyId && existingPkg.companyId !== companyId)) {
-      res.status(404).json({ message: 'Travel package not found.' });
+    const isAuthorized = req.user!.isPlatformMasterAdmin || (existingPkg && existingPkg.companyId === companyId);
+    if (!existingPkg || !isAuthorized) {
+      res.status(404).json({ message: 'Travel package not found or you do not have permission to modify it.' });
       return;
     }
 
@@ -397,8 +399,9 @@ router.post('/:id/itineraries', async (req: AuthRequest, res: Response, next) =>
     const targetPackage = await prisma.package.findUnique({
       where: { id },
     });
-    if (!targetPackage || (targetPackage.companyId && targetPackage.companyId !== companyId)) {
-      res.status(404).json({ message: 'Travel package not found.' });
+    const isAuthorized = req.user!.isPlatformMasterAdmin || (targetPackage && targetPackage.companyId === companyId);
+    if (!targetPackage || !isAuthorized) {
+      res.status(404).json({ message: 'Travel package not found or you do not have permission to modify it.' });
       return;
     }
 
@@ -495,8 +498,9 @@ router.post('/:id/itineraries/day', async (req: AuthRequest, res: Response, next
       include: { itineraries: true },
     });
 
-    if (!targetPackage || (targetPackage.companyId && targetPackage.companyId !== companyId)) {
-      res.status(404).json({ message: 'Travel package not found.' });
+    const isAuthorized = req.user!.isPlatformMasterAdmin || (targetPackage && targetPackage.companyId === companyId);
+    if (!targetPackage || !isAuthorized) {
+      res.status(404).json({ message: 'Travel package not found or you do not have permission to modify it.' });
       return;
     }
 
@@ -604,8 +608,9 @@ router.post('/:id/itineraries/reorder', async (req: AuthRequest, res: Response, 
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
 
-    if (!targetPackage || (targetPackage.companyId && targetPackage.companyId !== companyId)) {
-      res.status(404).json({ message: 'Travel package not found.' });
+    const isAuthorized = req.user!.isPlatformMasterAdmin || (targetPackage && targetPackage.companyId === companyId);
+    if (!targetPackage || !isAuthorized) {
+      res.status(404).json({ message: 'Travel package not found or you do not have permission to modify it.' });
       return;
     }
 
@@ -692,8 +697,9 @@ router.post('/:id/itineraries/day/:dayId/copy', async (req: AuthRequest, res: Re
       include: { itineraries: { orderBy: { dayNumber: 'asc' } } },
     });
 
-    if (!targetPackage || (targetPackage.companyId && targetPackage.companyId !== companyId)) {
-      res.status(404).json({ message: 'Travel package not found.' });
+    const isAuthorized = req.user!.isPlatformMasterAdmin || (targetPackage && targetPackage.companyId === companyId);
+    if (!targetPackage || !isAuthorized) {
+      res.status(404).json({ message: 'Travel package not found or you do not have permission to modify it.' });
       return;
     }
 
@@ -919,8 +925,9 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
-    if (!pkg || (pkg.companyId && pkg.companyId !== companyId)) {
-      res.status(404).json({ message: 'Package not found.' });
+    const isAuthorized = req.user!.isPlatformMasterAdmin || (pkg && pkg.companyId === companyId);
+    if (!pkg || !isAuthorized) {
+      res.status(404).json({ message: 'Package not found or you do not have permission to delete it.' });
       return;
     }
 

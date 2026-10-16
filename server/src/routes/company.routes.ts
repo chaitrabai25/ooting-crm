@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../db/prisma.js';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
+import { authenticate, authorize, requirePlatformMasterAdmin, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { getCompanySettings, invalidateCompanySettingsCache } from './setting.routes.js';
 
@@ -85,8 +85,8 @@ router.put('/my-company', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthReq
 // 2. Super Admin Management Endpoints (Strictly SUPER_ADMIN)
 // -----------------------------------------------------------------------------
 
-// List all tenants with statistics
-router.get('/', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// List all tenants with statistics (Strictly Platform Master Admin)
+router.get('/', requirePlatformMasterAdmin, async (req: AuthRequest, res: Response, next) => {
   try {
     const search = (req.query.search as string || '').trim();
     const status = (req.query.status as string || '').trim();
@@ -144,8 +144,8 @@ const createCompanySchema = z.object({
   adminPhone: z.string().optional(),
 });
 
-// Provision a new customer company with its Company Admin
-router.post('/', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Provision a new customer company with its Company Admin (Strictly Platform Master Admin)
+router.post('/', requirePlatformMasterAdmin, async (req: AuthRequest, res: Response, next) => {
   try {
     const data = createCompanySchema.parse(req.body);
 
@@ -263,8 +263,8 @@ const updateCompanySchema = z.object({
   secondaryColor: z.string().optional(),
 });
 
-// Update company profile or toggle status (Super Admin only)
-router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+// Update company profile or toggle status (Platform Master Admin only)
+router.put('/:id', requirePlatformMasterAdmin, async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
     const data = updateCompanySchema.parse(req.body);

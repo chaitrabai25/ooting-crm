@@ -33,6 +33,16 @@ api.interceptors.response.use(
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
+    } else if (
+      error.response?.status === 403 &&
+      error.response?.data?.code === 'ORGANIZATION_SUSPENDED'
+    ) {
+      try {
+        sessionStorage.setItem('ooting_crm_suspension', JSON.stringify(error.response.data));
+      } catch {}
+      if (window.location.pathname !== '/suspended') {
+        window.location.href = '/suspended';
+      }
     }
     return Promise.reject(error);
   }
