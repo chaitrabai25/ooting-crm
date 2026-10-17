@@ -166,7 +166,7 @@ export const AssignedTourManifest: React.FC = () => {
   const [manifest, setManifest] = useState<TourManifestData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [passengerSearch, setPassengerSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'itinerary' | 'passengers' | 'cabs' | 'expenses' | 'reports'>('itinerary');
+  const [activeTab, setActiveTab] = useState<'itinerary' | 'passengers' | 'cabs' | 'hotels' | 'expenses' | 'reports'>('itinerary');
 
   // Tour Expenses State
   const [expensesSummary, setExpensesSummary] = useState<TourExpenseSummary | null>(null);
@@ -174,6 +174,7 @@ export const AssignedTourManifest: React.FC = () => {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [selectedPassengerForExpense, setSelectedPassengerForExpense] = useState<string | null>(null);
   const [editingExpense, setEditingExpense] = useState<TourExpense | null>(null);
+  const [defaultExpenseType, setDefaultExpenseType] = useState<'PASSENGER' | 'GENERAL'>('PASSENGER');
   const [isSettlingPassenger, setIsSettlingPassenger] = useState<string | null>(null);
   const [isTogglingExpense, setIsTogglingExpense] = useState<string | null>(null);
 
@@ -192,6 +193,50 @@ export const AssignedTourManifest: React.FC = () => {
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [completionReportInput, setCompletionReportInput] = useState('');
   const [isSavingComplete, setIsSavingComplete] = useState(false);
+
+  // Custom Passenger Modal
+  const [isAddPaxModalOpen, setIsAddPaxModalOpen] = useState(false);
+  const [paxName, setPaxName] = useState('');
+  const [paxPhone, setPaxPhone] = useState('');
+  const [paxAge, setPaxAge] = useState('');
+  const [paxGender, setPaxGender] = useState('Male');
+  const [paxRole, setPaxRole] = useState('Traveller');
+  const [paxRoom, setPaxRoom] = useState('');
+  const [paxNotes, setPaxNotes] = useState('');
+  const [isSavingPax, setIsSavingPax] = useState(false);
+
+  // Itinerary Day Modal (Add / Edit day schedule)
+  const [isDayModalOpen, setIsDayModalOpen] = useState(false);
+  const [dayNumberInput, setDayNumberInput] = useState('1');
+  const [dayTitleInput, setDayTitleInput] = useState('');
+  const [dayDescInput, setDayDescInput] = useState('');
+  const [dayActivitiesInput, setDayActivitiesInput] = useState('');
+  const [dayPlacesInput, setDayPlacesInput] = useState('');
+  const [dayHotelNameInput, setDayHotelNameInput] = useState('');
+  const [dayHotelLocationInput, setDayHotelLocationInput] = useState('');
+  const [dayMealPlanInput, setDayMealPlanInput] = useState('Breakfast + Dinner');
+  const [dayHighlightsInput, setDayHighlightsInput] = useState('');
+  const [isSavingDay, setIsSavingDay] = useState(false);
+
+  // Cab & Driver Logistics Modal
+  const [isCabModalOpen, setIsCabModalOpen] = useState(false);
+  const [cabDriverNameInput, setCabDriverNameInput] = useState('');
+  const [cabDriverPhoneInput, setCabDriverPhoneInput] = useState('');
+  const [cabVehicleNumberInput, setCabVehicleNumberInput] = useState('');
+  const [cabVehicleTypeInput, setCabVehicleTypeInput] = useState('Innova Crysta');
+  const [isSavingCab, setIsSavingCab] = useState(false);
+
+  // Staying Hotel Logistics Modal
+  const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
+  const [hotelModalMode, setHotelModalMode] = useState<'B2B' | 'MANUAL'>('B2B');
+  const [hotelModalSelectedId, setHotelModalSelectedId] = useState('');
+  const [hotelModalNameInput, setHotelModalNameInput] = useState('');
+  const [hotelModalLocationInput, setHotelModalLocationInput] = useState('');
+  const [hotelModalStarCategoryInput, setHotelModalStarCategoryInput] = useState('3 Star');
+  const [hotelModalPhoneInput, setHotelModalPhoneInput] = useState('');
+  const [hotelModalMealPlanInput, setHotelModalMealPlanInput] = useState('Breakfast + Dinner');
+  const [hotelOptions, setHotelOptions] = useState<any[]>([]);
+  const [isSavingHotel, setIsSavingHotel] = useState(false);
 
   const fetchManifest = async () => {
     try {
@@ -276,16 +321,226 @@ export const AssignedTourManifest: React.FC = () => {
     }
   };
 
-  const handleOpenAddExpense = (passengerId?: string | null) => {
+  const handleOpenAddExpense = (passengerId?: string | null, type: 'PASSENGER' | 'GENERAL' = 'PASSENGER') => {
     setSelectedPassengerForExpense(passengerId || null);
     setEditingExpense(null);
+    setDefaultExpenseType(type);
     setIsExpenseModalOpen(true);
   };
 
   const handleOpenEditExpense = (exp: TourExpense) => {
     setEditingExpense(exp);
     setSelectedPassengerForExpense(exp.passengerId || null);
+    setDefaultExpenseType(exp.expenseType || 'PASSENGER');
     setIsExpenseModalOpen(true);
+  };
+
+  // Passenger Handlers
+  const handleAddPassenger = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !paxName.trim()) return;
+    try {
+      setIsSavingPax(true);
+      await api.post(`/guides/assignments/${id}/passengers`, {
+        name: paxName.trim(),
+        phone: paxPhone.trim(),
+        age: paxAge ? Number(paxAge) : null,
+        gender: paxGender,
+        roleInTrip: paxRole,
+        roomAllocation: paxRoom.trim(),
+        notes: paxNotes.trim(),
+      });
+      notifySuccess(`Passenger "${paxName}" added to tour manifest.`);
+      setIsAddPaxModalOpen(false);
+      setPaxName('');
+      setPaxPhone('');
+      setPaxAge('');
+      setPaxRoom('');
+      setPaxNotes('');
+      await fetchManifest();
+      await fetchExpenses();
+    } catch (err: any) {
+      notifyError(err.response?.data?.message || 'Failed to add passenger.');
+    } finally {
+      setIsSavingPax(false);
+    }
+  };
+
+  const handleDeletePassenger = async (passengerId: string, name: string) => {
+    if (!id) return;
+    if (!window.confirm(`Are you sure you want to remove passenger "${name}" from this manifest?`)) return;
+    try {
+      await api.delete(`/guides/assignments/${id}/passengers/${passengerId}`);
+      notifySuccess(`Passenger "${name}" removed.`);
+      await fetchManifest();
+      await fetchExpenses();
+    } catch (err: any) {
+      notifyError(err.response?.data?.message || 'Failed to remove passenger.');
+    }
+  };
+
+  // Itinerary Day Handlers
+  const handleOpenAddDay = () => {
+    setDayNumberInput(String(((manifest as any)?.package?.itineraries?.length || 0) + 1));
+    setDayTitleInput('');
+    setDayDescInput('');
+    setDayActivitiesInput('');
+    setDayPlacesInput('');
+    setDayHotelNameInput('');
+    setDayHotelLocationInput('');
+    setDayMealPlanInput('Breakfast + Dinner');
+    setDayHighlightsInput('');
+    setIsDayModalOpen(true);
+  };
+
+  const handleOpenEditDay = (day: ItineraryDay) => {
+    setDayNumberInput(String(day.dayNumber));
+    setDayTitleInput(day.title || '');
+    setDayDescInput(day.description || '');
+    setDayActivitiesInput(day.activities || '');
+    setDayPlacesInput(day.places || '');
+    setDayHotelNameInput(day.hotelName || '');
+    setDayHotelLocationInput(day.hotelLocation || '');
+    setDayMealPlanInput(day.mealPlan || 'Breakfast + Dinner');
+    setDayHighlightsInput(day.highlights || '');
+    setIsDayModalOpen(true);
+  };
+
+  const handleSaveDay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    try {
+      setIsSavingDay(true);
+      await api.post(`/guides/assignments/${id}/itinerary`, {
+        dayNumber: Number(dayNumberInput) || 1,
+        title: dayTitleInput.trim() || `Day ${dayNumberInput} Program`,
+        description: dayDescInput.trim(),
+        activities: dayActivitiesInput.trim(),
+        places: dayPlacesInput.trim(),
+        hotelName: dayHotelNameInput.trim(),
+        hotelLocation: dayHotelLocationInput.trim(),
+        mealPlan: dayMealPlanInput.trim(),
+        highlights: dayHighlightsInput.trim(),
+      });
+      notifySuccess(`Day ${dayNumberInput} schedule updated.`);
+      setIsDayModalOpen(false);
+      await fetchManifest();
+    } catch (err: any) {
+      notifyError(err.response?.data?.message || 'Failed to save itinerary day.');
+    } finally {
+      setIsSavingDay(false);
+    }
+  };
+
+  // Cab & Driver Handlers
+  const handleOpenCabModal = () => {
+    const directDriver = (manifest as any)?.driverName;
+    const directPhone = (manifest as any)?.driverPhone;
+    const directCar = (manifest as any)?.vehicleNumber;
+    const directType = (manifest as any)?.vehicleType;
+
+    const firstCab = (manifest?.booking?.cabBookings && manifest.booking.cabBookings[0]) as any;
+
+    setCabDriverNameInput(directDriver || firstCab?.driverName || '');
+    setCabDriverPhoneInput(directPhone || firstCab?.driverPhone || '');
+    setCabVehicleNumberInput(directCar || firstCab?.carNumber || '');
+    setCabVehicleTypeInput(directType || firstCab?.vehicleType || 'Innova Crysta');
+    setIsCabModalOpen(true);
+  };
+
+  const handleSaveCab = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    try {
+      setIsSavingCab(true);
+      await api.post(`/guides/assignments/${id}/logistics`, {
+        driverName: cabDriverNameInput.trim() || null,
+        driverPhone: cabDriverPhoneInput.trim() || null,
+        vehicleNumber: cabVehicleNumberInput.trim() || null,
+        vehicleType: cabVehicleTypeInput.trim() || null,
+      });
+      notifySuccess('Cab & driver logistics updated successfully.');
+      setIsCabModalOpen(false);
+      await fetchManifest();
+    } catch (err: any) {
+      notifyError(err.response?.data?.message || 'Failed to update cab & driver.');
+    } finally {
+      setIsSavingCab(false);
+    }
+  };
+
+  // Staying Hotel Handlers
+  const handleOpenHotelModal = async () => {
+    if (hotelOptions.length === 0) {
+      try {
+        const res = await api.get('/hotels?limit=100');
+        setHotelOptions(res.data.data || res.data || []);
+      } catch (e) {}
+    }
+    setHotelModalMode('B2B');
+    setHotelModalSelectedId('');
+    setHotelModalNameInput('');
+    setHotelModalLocationInput('');
+    setHotelModalStarCategoryInput('3 Star');
+    setHotelModalPhoneInput('');
+    setHotelModalMealPlanInput('Breakfast + Dinner');
+    setIsHotelModalOpen(true);
+  };
+
+  const handleSelectB2bHotel = (hotelId: string) => {
+    setHotelModalSelectedId(hotelId);
+    const h = hotelOptions.find((x) => x.id === hotelId);
+    if (h) {
+      setHotelModalNameInput(h.name);
+      setHotelModalLocationInput(h.city || h.district || h.state || '');
+      setHotelModalStarCategoryInput(h.starCategory || '3 Star');
+      setHotelModalPhoneInput(h.contactPhone || '');
+    }
+  };
+
+  const handleSaveHotel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !hotelModalNameInput.trim()) return;
+    try {
+      setIsSavingHotel(true);
+      const existingHotels = (manifest as any)?.hotels || [];
+      const newHotel = {
+        id: hotelModalSelectedId || `hotel-${Date.now()}`,
+        hotelName: hotelModalNameInput.trim(),
+        hotelLocation: hotelModalLocationInput.trim(),
+        hotelStarCategory: hotelModalStarCategoryInput,
+        hotelPhone: hotelModalPhoneInput.trim(),
+        mealPlan: hotelModalMealPlanInput,
+        source: hotelModalMode === 'B2B' ? 'B2B_SERVICE_PROVIDER' : 'MANUAL_ENTRY',
+      };
+      const updatedHotels = [...existingHotels, newHotel];
+      await api.post(`/guides/assignments/${id}/logistics`, {
+        hotelDetails: JSON.stringify(updatedHotels),
+      });
+      notifySuccess('Staying hotel added to manifest.');
+      setIsHotelModalOpen(false);
+      await fetchManifest();
+    } catch (err: any) {
+      notifyError(err.response?.data?.message || 'Failed to save staying hotel.');
+    } finally {
+      setIsSavingHotel(false);
+    }
+  };
+
+  const handleDeleteHotel = async (hotelId: string, name: string) => {
+    if (!id) return;
+    if (!window.confirm(`Are you sure you want to remove "${name}" from staying hotels?`)) return;
+    try {
+      const existingHotels = (manifest as any)?.hotels || [];
+      const filtered = existingHotels.filter((h: any) => h.id !== hotelId);
+      await api.post(`/guides/assignments/${id}/logistics`, {
+        hotelDetails: JSON.stringify(filtered),
+      });
+      notifySuccess('Hotel removed.');
+      await fetchManifest();
+    } catch (err: any) {
+      notifyError(err.response?.data?.message || 'Failed to remove hotel.');
+    }
   };
 
   const handleUpdateProgress = async (e: React.FormEvent) => {
@@ -681,6 +936,19 @@ export const AssignedTourManifest: React.FC = () => {
 
         <button
           type="button"
+          onClick={() => setActiveTab('hotels')}
+          className={`pb-2 whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'hotels'
+              ? 'text-brand-600 border-b-2 border-brand-600 -mb-2.5 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Hotel className="w-4 h-4" />
+          <span>Hotels & Stay ({((manifest as any)?.hotels || []).length})</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('expenses')}
           className={`pb-2 whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'expenses'
@@ -716,14 +984,37 @@ export const AssignedTourManifest: React.FC = () => {
       {/* TAB 1: DAY-BY-DAY ITINERARY */}
       {(activeTab === 'itinerary' || (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('print').matches)) && (
         <div className="space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-            <Compass className="w-4 h-4 text-brand-600" />
-            <span>Tour Itinerary & Daily Schedule</span>
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <Compass className="w-4 h-4 text-brand-600" />
+                <span>Tour Itinerary & Daily Schedule ({itineraries.length} Days)</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Day-by-day sightseeing programs, reporting schedules, hotel stay, and meal arrangements
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenAddDay}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors self-start sm:self-auto"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Add Day Details / Schedule</span>
+            </button>
+          </div>
 
           {itineraries.length === 0 ? (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
-              No daily itinerary attached to this package yet.
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-xs space-y-3">
+              <p>No daily itinerary schedule attached to this tour yet.</p>
+              <button
+                type="button"
+                onClick={handleOpenAddDay}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Day 1 Details</span>
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -732,7 +1023,7 @@ export const AssignedTourManifest: React.FC = () => {
                   key={day.id || day.dayNumber}
                   className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-xs space-y-3"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
                       <span className="w-7 h-7 rounded-lg bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 font-bold flex items-center justify-center text-xs shrink-0">
                         D{day.dayNumber}
@@ -741,11 +1032,22 @@ export const AssignedTourManifest: React.FC = () => {
                         {day.title || `Day ${day.dayNumber}`}
                       </h3>
                     </div>
-                    {day.date && (
-                      <span className="text-xs font-semibold text-slate-500">
-                        {new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {day.date && (
+                        <span className="text-xs font-semibold text-slate-500">
+                          {new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditDay(day)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:text-brand-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 rounded-md transition-colors"
+                        title="Edit Day Details"
+                      >
+                        <Edit className="w-3 h-3" />
+                        <span>Edit Day</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -817,26 +1119,50 @@ export const AssignedTourManifest: React.FC = () => {
       {activeTab === 'passengers' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4 text-brand-600" />
-              <span>Passenger Manifest, Room Allocations & Emergency Info</span>
-            </h2>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-4 h-4 text-brand-600" />
+                <span>Passenger Manifest, Room Allocations & Emergency Info ({passengers.length} Travellers)</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Roster of all registered travellers under the tour guide's care with room allocations & contact numbers
+              </p>
+            </div>
 
-            <div className="relative w-full sm:w-64">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search passenger, room, role..."
-                value={passengerSearch}
-                onChange={(e) => setPassengerSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-brand-500"
-              />
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setIsAddPaxModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Passenger</span>
+              </button>
+
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search passenger, room, role..."
+                  value={passengerSearch}
+                  onChange={(e) => setPassengerSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-brand-500"
+                />
+              </div>
             </div>
           </div>
 
           {passengers.length === 0 ? (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
-              No passengers enrolled in this booking manifest yet.
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-xs space-y-3">
+              <p>No passengers enrolled in this tour manifest yet.</p>
+              <button
+                type="button"
+                onClick={() => setIsAddPaxModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add First Passenger</span>
+              </button>
             </div>
           ) : (
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
@@ -858,6 +1184,7 @@ export const AssignedTourManifest: React.FC = () => {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {filteredPassengers.map((p, idx) => {
                       const breakdown = expensesSummary?.passengerBreakdown?.find((b) => b.passengerId === p.id);
+                      const isCustom = p.id && (p.id.startsWith('pax-') || p.id.startsWith('custom-'));
                       return (
                         <tr key={p.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                           <td className="px-3 py-2.5 font-mono text-[11px] text-slate-400">{idx + 1}</td>
@@ -946,7 +1273,7 @@ export const AssignedTourManifest: React.FC = () => {
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-2.5 text-right">
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap space-x-1">
                             <button
                               type="button"
                               onClick={() => handleOpenAddExpense(p.id)}
@@ -956,6 +1283,16 @@ export const AssignedTourManifest: React.FC = () => {
                               <Plus className="w-3 h-3" />
                               <span>Expense</span>
                             </button>
+                            {isCustom && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePassenger(p.id, p.name)}
+                                className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                title="Remove passenger from manifest"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -971,14 +1308,37 @@ export const AssignedTourManifest: React.FC = () => {
       {/* TAB 3: CAB & DRIVER DETAILS */}
       {activeTab === 'cabs' && (
         <div className="space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-            <Car className="w-4 h-4 text-brand-600" />
-            <span>Assigned Tourist Cabs, Vehicles & Drivers</span>
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <Car className="w-4 h-4 text-brand-600" />
+                <span>Assigned Tourist Cabs, Vehicles & Drivers</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Vehicle specifications, driver contact numbers, pickup points, and tour routing
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenCabModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors self-start sm:self-auto"
+            >
+              <Car className="w-3.5 h-3.5" />
+              <span>+ Update Cab & Driver Logistics</span>
+            </button>
+          </div>
 
           {cabs.length === 0 ? (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
-              No cabs or transport assignments attached to this tour booking.
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-xs space-y-3">
+              <p>No cabs or transport logistics assigned to this tour yet.</p>
+              <button
+                type="button"
+                onClick={handleOpenCabModal}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Assign Driver & Vehicle</span>
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1022,13 +1382,24 @@ export const AssignedTourManifest: React.FC = () => {
                       )}
                     </div>
                     {cab.driverPhone && (
-                      <a
-                        href={`tel:${cab.driverPhone}`}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>Call Driver</span>
-                      </a>
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={`tel:${cab.driverPhone}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Call</span>
+                        </a>
+                        <a
+                          href={`https://wa.me/${cab.driverPhone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1 text-emerald-600 hover:text-emerald-700"
+                          title="WhatsApp Driver"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </a>
+                      </div>
                     )}
                   </div>
 
@@ -1048,6 +1419,119 @@ export const AssignedTourManifest: React.FC = () => {
                       </div>
                     )}
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: STAYING HOTELS & ACCOMMODATION */}
+      {activeTab === 'hotels' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <Hotel className="w-4 h-4 text-brand-600" />
+                <span>Staying Hotels & Tour Accommodation</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                B2B service provider hotels and confirmed tour accommodation with room types & meal plans
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenHotelModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors self-start sm:self-auto"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Add Staying Hotel</span>
+            </button>
+          </div>
+
+          {!((manifest as any)?.hotels) || (manifest as any).hotels.length === 0 ? (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-xs space-y-3">
+              <p>No staying hotel accommodation assigned to this tour yet.</p>
+              <button
+                type="button"
+                onClick={handleOpenHotelModal}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Choose from B2B Hotels or Enter Hotel</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(manifest as any).hotels.map((h: any, idx: number) => (
+                <div
+                  key={h.id || idx}
+                  className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-xs space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-start gap-2">
+                      <div className="p-2 bg-amber-50 dark:bg-amber-950 text-amber-600 rounded-lg shrink-0 mt-0.5">
+                        <Hotel className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>{h.hotelName}</span>
+                          {h.hotelStarCategory && (
+                            <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                              {h.hotelStarCategory}
+                            </span>
+                          )}
+                        </h3>
+                        {h.hotelLocation && (
+                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                            <MapPin className="w-3 h-3 text-slate-400" />
+                            <span>{h.hotelLocation}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteHotel(h.id, h.hotelName)}
+                      className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                      title="Remove hotel"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {h.hotelPhone && (
+                      <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Contact Phone</span>
+                          <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{h.hotelPhone}</span>
+                        </div>
+                        <a
+                          href={`tel:${h.hotelPhone}`}
+                          className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center gap-1 px-2"
+                        >
+                          <Phone className="w-3 h-3" />
+                          <span>Call</span>
+                        </a>
+                      </div>
+                    )}
+                    {h.mealPlan && (
+                      <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Meal Plan</span>
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+                          <Coffee className="w-3 h-3" />
+                          <span>{h.mealPlan}</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {h.source && (
+                    <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <span>Source: {h.source === 'B2B_SERVICE_PROVIDER' ? 'B2B Hotel Master' : 'Manual Entry'}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1075,7 +1559,7 @@ export const AssignedTourManifest: React.FC = () => {
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => handleOpenAddExpense(null)}
+                onClick={() => handleOpenAddExpense(null, 'PASSENGER')}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -1084,24 +1568,7 @@ export const AssignedTourManifest: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedPassengerForExpense(null);
-                  setEditingExpense({
-                    id: '',
-                    assignmentId: id!,
-                    expenseType: 'GENERAL',
-                    category: 'WATER_BOTTLE',
-                    splitType: 'SPLIT_EQUALLY',
-                    amount: 0,
-                    title: '',
-                    notes: '',
-                    settledWithCustomer: false,
-                    settlementStatus: 'UNSETTLED',
-                    createdAt: '',
-                    updatedAt: '',
-                  } as any);
-                  setIsExpenseModalOpen(true);
-                }}
+                onClick={() => handleOpenAddExpense(null, 'GENERAL')}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
               >
                 <Droplet className="w-3.5 h-3.5" />
@@ -1372,24 +1839,7 @@ export const AssignedTourManifest: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedPassengerForExpense(null);
-                  setEditingExpense({
-                    id: '',
-                    assignmentId: id!,
-                    expenseType: 'GENERAL',
-                    category: 'WATER_BOTTLE',
-                    splitType: 'SPLIT_EQUALLY',
-                    amount: 0,
-                    title: '',
-                    notes: '',
-                    settledWithCustomer: false,
-                    settlementStatus: 'UNSETTLED',
-                    createdAt: '',
-                    updatedAt: '',
-                  } as any);
-                  setIsExpenseModalOpen(true);
-                }}
+                onClick={() => handleOpenAddExpense(null, 'GENERAL')}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors self-start sm:self-auto"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -1649,6 +2099,533 @@ export const AssignedTourManifest: React.FC = () => {
         </Modal>
       )}
 
+      {/* MODAL: Add Passenger */}
+      {isAddPaxModalOpen && (
+        <Modal
+          isOpen={isAddPaxModalOpen}
+          onClose={() => setIsAddPaxModalOpen(false)}
+          title="Add Passenger / Traveller to Manifest"
+        >
+          <form onSubmit={handleAddPassenger} className="space-y-3 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Passenger Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={paxName}
+                  onChange={(e) => setPaxName(e.target.value)}
+                  placeholder="e.g. Ramesh Kumar"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Contact Phone / WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  value={paxPhone}
+                  onChange={(e) => setPaxPhone(e.target.value)}
+                  placeholder="e.g. +91 9876543210"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Age
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={paxAge}
+                  onChange={(e) => setPaxAge(e.target.value)}
+                  placeholder="e.g. 35"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Gender
+                </label>
+                <select
+                  value={paxGender}
+                  onChange={(e) => setPaxGender(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Role in Tour
+                </label>
+                <select
+                  value={paxRole}
+                  onChange={(e) => setPaxRole(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="Primary Booker">Primary Booker</option>
+                  <option value="Family Head">Family Head</option>
+                  <option value="Adult">Adult</option>
+                  <option value="Child">Child</option>
+                  <option value="Senior Citizen">Senior Citizen</option>
+                  <option value="Traveller">Traveller</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Allocated Room Number / Type
+              </label>
+              <input
+                type="text"
+                value={paxRoom}
+                onChange={(e) => setPaxRoom(e.target.value)}
+                placeholder="e.g. Room 204 (Deluxe Double)"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Special Notes (Dietary / Medical / Preferences)
+              </label>
+              <textarea
+                rows={2}
+                value={paxNotes}
+                onChange={(e) => setPaxNotes(e.target.value)}
+                placeholder="e.g. Jain food required, vegetarian, ground floor room preferred..."
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsAddPaxModalOpen(false)}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingPax}
+                className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold disabled:opacity-50"
+              >
+                {isSavingPax ? 'Adding...' : 'Add Passenger'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: Itinerary Day Schedule */}
+      {isDayModalOpen && (
+        <Modal
+          isOpen={isDayModalOpen}
+          onClose={() => setIsDayModalOpen(false)}
+          title={`Day ${dayNumberInput} Schedule & Activities`}
+        >
+          <form onSubmit={handleSaveDay} className="space-y-3 text-xs">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Day Number *
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={dayNumberInput}
+                  onChange={(e) => setDayNumberInput(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Day Title / Headline *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={dayTitleInput}
+                  onChange={(e) => setDayTitleInput(e.target.value)}
+                  placeholder="e.g. Mysore Palace & Chamundi Hill Tour"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Day Description / Schedule Overview
+              </label>
+              <textarea
+                rows={3}
+                value={dayDescInput}
+                onChange={(e) => setDayDescInput(e.target.value)}
+                placeholder="Detailed timing and schedule for the day..."
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Places / Attractions to Visit
+                </label>
+                <input
+                  type="text"
+                  value={dayPlacesInput}
+                  onChange={(e) => setDayPlacesInput(e.target.value)}
+                  placeholder="e.g. Mysore Palace, Zoo, Brindavan Gardens"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Planned Activities
+                </label>
+                <input
+                  type="text"
+                  value={dayActivitiesInput}
+                  onChange={(e) => setDayActivitiesInput(e.target.value)}
+                  placeholder="e.g. Guided palace walk, boating, light show"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Staying Hotel
+                </label>
+                <input
+                  type="text"
+                  value={dayHotelNameInput}
+                  onChange={(e) => setDayHotelNameInput(e.target.value)}
+                  placeholder="e.g. Royal Orchid Metropole"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Hotel Location / City
+                </label>
+                <input
+                  type="text"
+                  value={dayHotelLocationInput}
+                  onChange={(e) => setDayHotelLocationInput(e.target.value)}
+                  placeholder="e.g. Mysore Central"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Meal Plan
+                </label>
+                <select
+                  value={dayMealPlanInput}
+                  onChange={(e) => setDayMealPlanInput(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="Breakfast + Dinner">Breakfast + Dinner (MAP)</option>
+                  <option value="Breakfast Only">Breakfast Only (CP)</option>
+                  <option value="All Meals (Breakfast + Lunch + Dinner)">All Meals (AP)</option>
+                  <option value="No Meals Included">No Meals (EP)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Day Highlights / Special Notes
+              </label>
+              <input
+                type="text"
+                value={dayHighlightsInput}
+                onChange={(e) => setDayHighlightsInput(e.target.value)}
+                placeholder="e.g. Palace illumination at 7:00 PM; carry valid ID"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsDayModalOpen(false)}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingDay}
+                className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold disabled:opacity-50"
+              >
+                {isSavingDay ? 'Saving...' : 'Save Day Details'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: Cab & Driver Logistics */}
+      {isCabModalOpen && (
+        <Modal
+          isOpen={isCabModalOpen}
+          onClose={() => setIsCabModalOpen(false)}
+          title="Assigned Cab & Driver Details"
+        >
+          <form onSubmit={handleSaveCab} className="space-y-3 text-xs">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-[11px]">
+              Assigned cab and driver details are visible to guides, operations staff, and travellers on their tour manifest.
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Driver Name
+                </label>
+                <input
+                  type="text"
+                  value={cabDriverNameInput}
+                  onChange={(e) => setCabDriverNameInput(e.target.value)}
+                  placeholder="e.g. Suresh Gowda"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Driver Phone Number / WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  value={cabDriverPhoneInput}
+                  onChange={(e) => setCabDriverPhoneInput(e.target.value)}
+                  placeholder="e.g. +91 9845012345"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Vehicle Registration Number
+                </label>
+                <input
+                  type="text"
+                  value={cabVehicleNumberInput}
+                  onChange={(e) => setCabVehicleNumberInput(e.target.value)}
+                  placeholder="e.g. KA-09-EA-4589"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white uppercase"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Vehicle Type / Model
+                </label>
+                <select
+                  value={cabVehicleTypeInput}
+                  onChange={(e) => setCabVehicleTypeInput(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="Innova Crysta">Innova Crysta (6+1 / 7+1)</option>
+                  <option value="Sedan (Dzire/Etios)">Sedan (Dzire / Etios)</option>
+                  <option value="Tempo Traveller (12S)">Tempo Traveller (12 Seater)</option>
+                  <option value="Tempo Traveller (16S)">Tempo Traveller (16 Seater)</option>
+                  <option value="Force Urbania">Force Urbania (Luxury 12S/16S)</option>
+                  <option value="SUV (Ertiga/Xylo)">SUV (Ertiga / Carens)</option>
+                  <option value="Mini Coach (21S)">Mini Coach (21 Seater)</option>
+                  <option value="Luxury Bus (40S)">Luxury Coach Bus (40+ Seater)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsCabModalOpen(false)}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingCab}
+                className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold disabled:opacity-50"
+              >
+                {isSavingCab ? 'Updating...' : 'Save Cab & Driver'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: Staying Hotel Logistics */}
+      {isHotelModalOpen && (
+        <Modal
+          isOpen={isHotelModalOpen}
+          onClose={() => setIsHotelModalOpen(false)}
+          title="Add Staying Hotel to Manifest"
+        >
+          <form onSubmit={handleSaveHotel} className="space-y-3 text-xs">
+            {/* Mode Toggle: B2B vs Manual */}
+            <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setHotelModalMode('B2B')}
+                className={`flex-1 py-1.5 text-center font-bold rounded-md transition-all ${
+                  hotelModalMode === 'B2B'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                🏢 Select from B2B Hotels
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setHotelModalMode('MANUAL');
+                  setHotelModalSelectedId('');
+                }}
+                className={`flex-1 py-1.5 text-center font-bold rounded-md transition-all ${
+                  hotelModalMode === 'MANUAL'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                ✏️ Enter Manually
+              </button>
+            </div>
+
+            {hotelModalMode === 'B2B' && (
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Choose B2B Hotel Provider
+                </label>
+                <select
+                  value={hotelModalSelectedId}
+                  onChange={(e) => handleSelectB2bHotel(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="">-- Choose Hotel from B2B Library --</option>
+                  {hotelOptions.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name} ({h.city || h.district || 'Karnataka'}) - {h.starCategory || 'Hotel'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Hotel Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={hotelModalNameInput}
+                  onChange={(e) => setHotelModalNameInput(e.target.value)}
+                  placeholder="e.g. Radisson Blu Plaza Mysore"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  City / Location
+                </label>
+                <input
+                  type="text"
+                  value={hotelModalLocationInput}
+                  onChange={(e) => setHotelModalLocationInput(e.target.value)}
+                  placeholder="e.g. MG Road, Mysore"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Star Category
+                </label>
+                <select
+                  value={hotelModalStarCategoryInput}
+                  onChange={(e) => setHotelModalStarCategoryInput(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="5 Star">5 Star Luxury</option>
+                  <option value="4 Star">4 Star Premium</option>
+                  <option value="3 Star">3 Star Comfort</option>
+                  <option value="2 Star / Budget">2 Star / Budget</option>
+                  <option value="Heritage / Resort">Heritage / Resort</option>
+                  <option value="Homestay">Homestay / Estate</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Front Desk / Contact Phone
+                </label>
+                <input
+                  type="tel"
+                  value={hotelModalPhoneInput}
+                  onChange={(e) => setHotelModalPhoneInput(e.target.value)}
+                  placeholder="e.g. +91 821 2577777"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Meal Plan Included
+                </label>
+                <select
+                  value={hotelModalMealPlanInput}
+                  onChange={(e) => setHotelModalMealPlanInput(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="Breakfast + Dinner">MAP (Breakfast + Dinner)</option>
+                  <option value="Breakfast Only">CP (Breakfast Only)</option>
+                  <option value="All Meals (Breakfast + Lunch + Dinner)">AP (All Meals)</option>
+                  <option value="Room Only">EP (Room Only)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsHotelModalOpen(false)}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingHotel}
+                className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold disabled:opacity-50"
+              >
+                {isSavingHotel ? 'Saving...' : 'Add Staying Hotel'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {/* MODAL 4: Tour Expense Recording / Editing Modal */}
       {isExpenseModalOpen && (
         <TourExpenseModal
@@ -1673,6 +2650,7 @@ export const AssignedTourManifest: React.FC = () => {
             phone: p.phone,
           }))}
           initialPassengerId={selectedPassengerForExpense}
+          initialExpenseType={defaultExpenseType}
           editingExpense={editingExpense}
         />
       )}

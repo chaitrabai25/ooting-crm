@@ -1237,6 +1237,13 @@ model TourAssignment {
   allowOverlapOverride  Boolean     @default(false)
   assignedById          String?     @db.VarChar(36)
   notes                 String?     @db.Text
+  driverName            String?     @db.VarChar(191)
+  driverPhone           String?     @db.VarChar(50)
+  vehicleNumber         String?     @db.VarChar(50)
+  vehicleType           String?     @db.VarChar(50)
+  hotelDetails          String?     @db.Text
+  customItinerary       String?     @db.Text
+  customPassengers      String?     @db.Text
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 

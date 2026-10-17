@@ -36,6 +36,7 @@ interface TourExpenseModalProps {
   assignmentId: string;
   passengers: PassengerOption[];
   initialPassengerId?: string | null;
+  initialExpenseType?: TourExpenseType;
   editingExpense?: TourExpense | null;
 }
 
@@ -46,6 +47,7 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
   assignmentId,
   passengers,
   initialPassengerId,
+  initialExpenseType,
   editingExpense,
 }) => {
   const [expenseType, setExpenseType] = useState<TourExpenseType>('PASSENGER');
@@ -68,9 +70,11 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const isEdit = Boolean(editingExpense && editingExpense.id);
+
   useEffect(() => {
-    if (editingExpense) {
-      setExpenseType(editingExpense.expenseType);
+    if (editingExpense && editingExpense.id) {
+      setExpenseType(editingExpense.expenseType || 'PASSENGER');
       setPassengerId(editingExpense.passengerId || '');
       setPassengerName(editingExpense.passengerName || '');
       setRoomNumber(editingExpense.roomNumber || '');
@@ -89,35 +93,44 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
       setNotes(editingExpense.notes || '');
     } else {
       // New expense
-      if (initialPassengerId) {
-        setExpenseType('PASSENGER');
-        const p = passengers.find((x) => x.id === initialPassengerId);
-        if (p) {
-          setPassengerId(p.id);
-          setPassengerName(p.name);
-          setRoomNumber(p.roomAllocation || '');
-          setPassengerRole(p.roleInTrip || '');
-        }
+      const effectiveType = initialExpenseType || (editingExpense?.expenseType as TourExpenseType) || 'PASSENGER';
+      setExpenseType(effectiveType);
+
+      if (effectiveType === 'GENERAL') {
+        setPassengerId('');
+        setPassengerName('');
+        setRoomNumber('');
+        setPassengerRole('');
+        setSplitType(editingExpense?.splitType || 'SPLIT_EQUALLY');
+        setCategory(editingExpense?.category || 'WATER_BOTTLE');
       } else {
-        setExpenseType('PASSENGER');
-        if (passengers.length > 0) {
+        if (initialPassengerId) {
+          const p = passengers.find((x) => x.id === initialPassengerId);
+          if (p) {
+            setPassengerId(p.id);
+            setPassengerName(p.name);
+            setRoomNumber(p.roomAllocation || '');
+            setPassengerRole(p.roleInTrip || '');
+          }
+        } else if (passengers.length > 0) {
           setPassengerId(passengers[0].id);
           setPassengerName(passengers[0].name);
           setRoomNumber(passengers[0].roomAllocation || '');
           setPassengerRole(passengers[0].roleInTrip || '');
         }
+        setSplitType('SPLIT_EQUALLY');
+        setCategory('MISCELLANEOUS');
       }
-      setCategory('MISCELLANEOUS');
-      setTitle('');
-      setAmount('');
+
+      setTitle(editingExpense?.title || '');
+      setAmount(editingExpense?.amount ? String(editingExpense.amount) : '');
       setExpenseDate(new Date().toISOString().split('T')[0]);
       setExpenseTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }));
       setReceiptNumber('');
-      setSplitType('SPLIT_EQUALLY');
       setNotes('');
     }
     setFormError(null);
-  }, [editingExpense, initialPassengerId, isOpen, passengers]);
+  }, [editingExpense, initialPassengerId, initialExpenseType, isOpen, passengers]);
 
   const handlePassengerSelect = (selectedId: string) => {
     setPassengerId(selectedId);
@@ -168,7 +181,7 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
         passengerName: expenseType === 'PASSENGER' ? passengerName.trim() : null,
         passengerRole: expenseType === 'PASSENGER' ? passengerRole || null : null,
         roomNumber: expenseType === 'PASSENGER' ? roomNumber || null : null,
-        splitType: expenseType === 'GENERAL' ? splitType : null,
+        splitType: expenseType === 'GENERAL' ? (splitType || 'SPLIT_EQUALLY') : 'NO_SPLIT',
         category,
         title: title.trim(),
         amount: parsedAmount,
@@ -178,8 +191,8 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
         notes: notes.trim() || null,
       };
 
-      if (editingExpense) {
-        await api.put(`/guides/assignments/${assignmentId}/expenses/${editingExpense.id}`, payload);
+      if (isEdit) {
+        await api.put(`/guides/assignments/${assignmentId}/expenses/${editingExpense!.id}`, payload);
       } else {
         await api.post(`/guides/assignments/${assignmentId}/expenses`, payload);
       }
@@ -197,7 +210,7 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editingExpense ? 'Edit Tour Expense' : 'Log Field Tour Expense'}
+      title={isEdit ? 'Edit Tour Expense' : 'Log Field Tour Expense'}
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">

@@ -15,6 +15,9 @@ import {
   Car,
   ChevronRight,
   Filter,
+  Phone,
+  Hotel,
+  Bed,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
@@ -28,6 +31,7 @@ export const GuideAssignments: React.FC = () => {
   const [assignments, setAssignments] = useState<TourAssignment[]>([]);
   const [guides, setGuides] = useState<TourGuide[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [b2bHotels, setB2bHotels] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Filter state
@@ -55,6 +59,21 @@ export const GuideAssignments: React.FC = () => {
   const [perDiemAllowance, setPerDiemAllowance] = useState<string>('500');
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [operationalNotes, setOperationalNotes] = useState('');
+
+  // Cab & Driver Logistics
+  const [driverName, setDriverName] = useState('');
+  const [driverPhone, setDriverPhone] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [vehicleType, setVehicleType] = useState('Innova Crysta');
+
+  // Tour Accommodation & Staying Hotels
+  const [hotelSourceMode, setHotelSourceMode] = useState<'B2B' | 'MANUAL'>('B2B');
+  const [selectedB2bHotelId, setSelectedB2bHotelId] = useState('');
+  const [hotelName, setHotelName] = useState('');
+  const [hotelLocation, setHotelLocation] = useState('');
+  const [hotelStarCategory, setHotelStarCategory] = useState('3 Star');
+  const [hotelPhone, setHotelPhone] = useState('');
+  const [mealPlan, setMealPlan] = useState('Breakfast + Dinner');
 
   // Conflict Warning State
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
@@ -84,14 +103,16 @@ export const GuideAssignments: React.FC = () => {
 
   const fetchDependencies = async () => {
     try {
-      const [guidesRes, bookingsRes] = await Promise.all([
+      const [guidesRes, bookingsRes, hotelsRes] = await Promise.all([
         api.get('/guides?limit=100&status=ACTIVE'),
         api.get('/bookings?limit=50&bookingStatus=CONFIRMED'),
+        api.get('/hotels?limit=100').catch(() => ({ data: { data: [] } })),
       ]);
       setGuides(guidesRes.data.data || []);
       setBookings(bookingsRes.data.data || []);
+      setB2bHotels(hotelsRes.data.data || hotelsRes.data || []);
     } catch (err) {
-      console.error('Failed to load guides or bookings:', err);
+      console.error('Failed to load guides, bookings, or hotels:', err);
     }
   };
 
@@ -112,6 +133,29 @@ export const GuideAssignments: React.FC = () => {
       setStartDate(b.travelStartDate ? b.travelStartDate.split('T')[0] : '');
       setEndDate(b.travelEndDate ? b.travelEndDate.split('T')[0] : '');
       setPassengerCount(String(b.travellers || 2));
+
+      // Auto-populate cab & driver if booking has cab assignments
+      if (b.cabBookings && b.cabBookings.length > 0) {
+        const cab = b.cabBookings[0];
+        if (cab.driverName) setDriverName(cab.driverName);
+        if (cab.driverPhone) setDriverPhone(cab.driverPhone);
+        if (cab.carNumber) setVehicleNumber(cab.carNumber);
+        if (cab.vehicleType) setVehicleType(cab.vehicleType);
+        if (cab.pickupPlace) setPickupLocation(cab.pickupPlace);
+        if (cab.dropPlace) setDropLocation(cab.dropPlace);
+        if (cab.pickupTime) setReportingTime(cab.pickupTime);
+      }
+    }
+  };
+
+  const handleB2bHotelSelect = (hotelId: string) => {
+    setSelectedB2bHotelId(hotelId);
+    const h = b2bHotels.find((x) => x.id === hotelId);
+    if (h) {
+      setHotelName(h.name);
+      setHotelLocation(h.city || h.district || h.state || '');
+      setHotelStarCategory(h.starCategory || '3 Star');
+      setHotelPhone(h.contactPhone || '');
     }
   };
 
@@ -131,6 +175,20 @@ export const GuideAssignments: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      const hotelList = hotelName.trim()
+        ? [
+            {
+              id: selectedB2bHotelId || `hotel-${Date.now()}`,
+              hotelName: hotelName.trim(),
+              hotelLocation: hotelLocation.trim(),
+              hotelStarCategory,
+              hotelPhone: hotelPhone.trim(),
+              mealPlan,
+              source: hotelSourceMode === 'B2B' ? 'B2B_SERVICE_PROVIDER' : 'MANUAL_ENTRY',
+            },
+          ]
+        : [];
+
       const payload: any = {
         bookingId: selectedBookingId || null,
         primaryGuideId,
@@ -148,6 +206,12 @@ export const GuideAssignments: React.FC = () => {
         specialInstructions: specialInstructions.trim() || null,
         operationalNotes: operationalNotes.trim() || null,
         canOverride,
+        allowOverlapOverride: canOverride,
+        driverName: driverName.trim() || null,
+        driverPhone: driverPhone.trim() || null,
+        vehicleNumber: vehicleNumber.trim() || null,
+        vehicleType: vehicleType.trim() || null,
+        hotelDetails: hotelList.length > 0 ? JSON.stringify(hotelList) : null,
       };
 
       await api.post('/guides/assignments', payload);
@@ -182,6 +246,17 @@ export const GuideAssignments: React.FC = () => {
     setPerDiemAllowance('500');
     setSpecialInstructions('');
     setOperationalNotes('');
+    setDriverName('');
+    setDriverPhone('');
+    setVehicleNumber('');
+    setVehicleType('Innova Crysta');
+    setHotelSourceMode('B2B');
+    setSelectedB2bHotelId('');
+    setHotelName('');
+    setHotelLocation('');
+    setHotelStarCategory('3 Star');
+    setHotelPhone('');
+    setMealPlan('Breakfast + Dinner');
     setConflictWarning(null);
     setCanOverride(false);
     setFormError(null);
@@ -557,6 +632,197 @@ export const GuideAssignments: React.FC = () => {
                   onChange={(e) => setPerDiemAllowance(e.target.value)}
                   className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg"
                 />
+              </div>
+            </div>
+
+            {/* Cab & Driver Logistics Section */}
+            <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/40 rounded-xl space-y-3">
+              <div className="flex items-center gap-2">
+                <Car className="w-4 h-4 text-blue-600" />
+                <span className="font-bold text-slate-900 dark:text-white text-xs">
+                  Assigned Tourist Vehicle & Driver Logistics
+                </span>
+                <span className="text-[10px] text-blue-600 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded font-semibold">
+                  For Guide & Ops
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Driver / Chauffeur Name</label>
+                  <input
+                    type="text"
+                    value={driverName}
+                    onChange={(e) => setDriverName(e.target.value)}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Driver Phone Number</label>
+                  <input
+                    type="tel"
+                    value={driverPhone}
+                    onChange={(e) => setDriverPhone(e.target.value)}
+                    placeholder="e.g. +91 98765 43210"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Vehicle Registration Number</label>
+                  <input
+                    type="text"
+                    value={vehicleNumber}
+                    onChange={(e) => setVehicleNumber(e.target.value)}
+                    placeholder="e.g. KA 04 ME 1234"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg font-mono font-bold uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Vehicle Type</label>
+                  <select
+                    value={vehicleType}
+                    onChange={(e) => setVehicleType(e.target.value)}
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg"
+                  >
+                    <option value="Innova Crysta">Innova Crysta (6+1)</option>
+                    <option value="Innova Hycross">Innova Hycross</option>
+                    <option value="Sedan / Dzire / Etios">Sedan / Dzire / Etios (4+1)</option>
+                    <option value="Tempo Traveller (12 Seater)">Tempo Traveller (12 Seater)</option>
+                    <option value="Tempo Traveller (17 Seater)">Tempo Traveller (17 Seater)</option>
+                    <option value="Mini Coach (21 Seater)">Mini Coach (21 Seater)</option>
+                    <option value="Luxury Coach (35+ Seater)">Luxury Coach (35+ Seater)</option>
+                    <option value="Volvo Multi-Axle (45 Seater)">Volvo Multi-Axle (45 Seater)</option>
+                    <option value="Dedicated Tour Vehicle">Other / Custom Vehicle</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Tour Accommodation & Staying Hotel Logistics Section */}
+            <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Hotel className="w-4 h-4 text-amber-600" />
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">
+                    Tour Accommodation & Staying Hotel
+                  </span>
+                </div>
+                {/* Mode Selector Toggle */}
+                <div className="flex items-center bg-white dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setHotelSourceMode('B2B')}
+                    className={`px-2.5 py-0.5 rounded-md transition-all ${
+                      hotelSourceMode === 'B2B'
+                        ? 'bg-amber-500 text-white font-bold shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    B2B Hotel Master
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHotelSourceMode('MANUAL');
+                      setSelectedB2bHotelId('');
+                    }}
+                    className={`px-2.5 py-0.5 rounded-md transition-all ${
+                      hotelSourceMode === 'MANUAL'
+                        ? 'bg-amber-500 text-white font-bold shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    Enter Manually
+                  </button>
+                </div>
+              </div>
+
+              {hotelSourceMode === 'B2B' ? (
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    Direct Select from B2B Hotels ({b2bHotels.length} available)
+                  </label>
+                  <select
+                    value={selectedB2bHotelId}
+                    onChange={(e) => handleB2bHotelSelect(e.target.value)}
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg font-medium"
+                  >
+                    <option value="">-- Choose Hotel from B2B Library --</option>
+                    {b2bHotels.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name} {h.city ? `(${h.city})` : ''} - {h.starCategory || 'Hotel'} {h.contactPhone ? `[Ph: ${h.contactPhone}]` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Hotel Name</label>
+                  <input
+                    type="text"
+                    value={hotelName}
+                    onChange={(e) => setHotelName(e.target.value)}
+                    placeholder="e.g. Heritage Resort Coorg"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">City / Location</label>
+                  <input
+                    type="text"
+                    value={hotelLocation}
+                    onChange={(e) => setHotelLocation(e.target.value)}
+                    placeholder="e.g. Madikeri, Coorg"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Star Rating</label>
+                  <select
+                    value={hotelStarCategory}
+                    onChange={(e) => setHotelStarCategory(e.target.value)}
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg"
+                  >
+                    <option value="3 Star">3 Star</option>
+                    <option value="4 Star">4 Star</option>
+                    <option value="5 Star">5 Star</option>
+                    <option value="Heritage / Resort">Heritage / Resort</option>
+                    <option value="Boutique / Homestay">Boutique / Homestay</option>
+                    <option value="Standard">Standard</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Hotel Contact Phone</label>
+                  <input
+                    type="tel"
+                    value={hotelPhone}
+                    onChange={(e) => setHotelPhone(e.target.value)}
+                    placeholder="Front Desk / Reservation"
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Meal Plan</label>
+                  <select
+                    value={mealPlan}
+                    onChange={(e) => setMealPlan(e.target.value)}
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg"
+                  >
+                    <option value="Breakfast Included (CP)">Breakfast Included (CP)</option>
+                    <option value="Breakfast + Dinner (MAP)">Breakfast + Dinner (MAP)</option>
+                    <option value="All Meals (AP)">All Meals (AP)</option>
+                    <option value="Room Only (EP)">Room Only (EP)</option>
+                  </select>
+                </div>
               </div>
             </div>
 

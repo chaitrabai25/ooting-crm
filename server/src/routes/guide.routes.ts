@@ -328,6 +328,51 @@ router.get('/assignments/:id/manifest', requirePermission('guides', 'view'), asy
             travelEndDate: true,
             travellers: true,
             bookingStatus: true,
+            package: {
+              select: {
+                id: true,
+                packageName: true,
+                destination: true,
+                duration: true,
+                description: true,
+                inclusions: true,
+                exclusions: true,
+                itineraries: {
+                  orderBy: { dayNumber: 'asc' },
+                  select: {
+                    id: true,
+                    dayNumber: true,
+                    title: true,
+                    description: true,
+                    activities: true,
+                    places: true,
+                    startTime: true,
+                    endTime: true,
+                    date: true,
+                    highlights: true,
+                    travelDetails: true,
+                    hotelName: true,
+                    hotelLocation: true,
+                    hotelStarCategory: true,
+                    hotelCheckIn: true,
+                    hotelCheckOut: true,
+                    mealPlan: true,
+                  },
+                },
+              },
+            },
+            customer: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                organizationName: true,
+                category: true,
+                customerType: true,
+                primaryContactName: true,
+                primaryContactPhone: true,
+              },
+            },
             travellersList: {
               select: {
                 id: true,
@@ -392,7 +437,97 @@ router.get('/assignments/:id/manifest', requirePermission('guides', 'view'), asy
       }
     }
 
-    res.json(assignment);
+    // Merge package if assignment.package was null but booking.package exists
+    const effectivePackage = assignment.package || assignment.booking?.package || null;
+    const effectiveCustomer = assignment.customer || assignment.booking?.customer || null;
+
+    // Combine custom day-by-day itinerary if stored
+    let combinedItineraries = effectivePackage?.itineraries ? [...effectivePackage.itineraries] : [];
+    if (assignment.customItinerary) {
+      try {
+        const parsed = JSON.parse(assignment.customItinerary);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          combinedItineraries = parsed;
+        }
+      } catch (e) {
+        console.warn('Failed to parse customItinerary:', e);
+      }
+    }
+
+    // Combine travellers: booking travellers + custom passengers
+    let combinedPassengers: any[] = assignment.booking?.travellersList ? [...assignment.booking.travellersList] : [];
+    if (assignment.customPassengers) {
+      try {
+        const parsed = JSON.parse(assignment.customPassengers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          combinedPassengers = [...combinedPassengers, ...parsed];
+        }
+      } catch (e) {
+        console.warn('Failed to parse customPassengers:', e);
+      }
+    }
+
+    // Combine cabs: booking cabBookings + assignment cab/driver if entered
+    let combinedCabs: any[] = assignment.booking?.cabBookings ? [...assignment.booking.cabBookings] : [];
+    if (assignment.driverName || assignment.vehicleNumber) {
+      const directCab = {
+        id: `direct-cab-${assignment.id}`,
+        vehicleType: assignment.vehicleType || 'Dedicated Tour Vehicle',
+        carNumber: assignment.vehicleNumber || 'Assigned Cab',
+        driverName: assignment.driverName || 'Designated Chauffeur',
+        driverPhone: assignment.driverPhone || 'N/A',
+        pickupPlace: assignment.reportingLocation || assignment.destination || 'Tour Origin',
+        dropPlace: assignment.destination || 'Tour Drop Point',
+        pickupDate: assignment.startDate.toISOString(),
+        pickupTime: assignment.reportingTime || '07:30 AM',
+        bookingStatus: 'CONFIRMED',
+      };
+      combinedCabs = [directCab, ...combinedCabs];
+    }
+
+    // Parse staying hotel details
+    let parsedHotels: any[] = [];
+    if (assignment.hotelDetails) {
+      try {
+        const parsed = JSON.parse(assignment.hotelDetails);
+        if (Array.isArray(parsed)) parsedHotels = parsed;
+        else if (parsed) parsedHotels = [parsed];
+      } catch (e) {
+        console.warn('Failed to parse hotelDetails:', e);
+      }
+    }
+
+    const payload = {
+      ...assignment,
+      package: effectivePackage ? {
+        ...effectivePackage,
+        itineraries: combinedItineraries,
+      } : (combinedItineraries.length > 0 ? {
+        id: 'custom-package',
+        packageName: assignment.destination ? `${assignment.destination} Tour Schedule` : 'Tour Schedule',
+        destination: assignment.destination || '',
+        duration: `${combinedItineraries.length} Days`,
+        itineraries: combinedItineraries,
+      } : null),
+      customer: effectiveCustomer,
+      booking: assignment.booking ? {
+        ...assignment.booking,
+        travellersList: combinedPassengers,
+        cabBookings: combinedCabs,
+      } : {
+        id: 'direct-tour',
+        bookingNumber: assignment.assignmentCode,
+        travellers: combinedPassengers.length || assignment.passengerCount,
+        bookingStatus: assignment.status,
+        travelStartDate: assignment.startDate.toISOString(),
+        travelEndDate: assignment.endDate.toISOString(),
+        travellersList: combinedPassengers,
+        cabBookings: combinedCabs,
+      },
+      hotels: parsedHotels,
+    };
+
+    res.json(payload);
   } catch (error) {
     next(error);
   }
@@ -411,16 +546,29 @@ const assignmentSchema = z.object({
   endDate: z.string().min(1, 'End date is required'),
   reportingTime: z.string().optional().nullable(),
   reportingLocation: z.string().optional().nullable(),
+  pickupLocation: z.string().optional().nullable(),
+  dropLocation: z.string().optional().nullable(),
   route: z.string().optional().nullable(),
   destination: z.string().optional().nullable(),
   passengerCount: z.number().int().min(1).default(1),
   groupName: z.string().optional().nullable(),
+  tourName: z.string().optional().nullable(),
   coordinatorName: z.string().optional().nullable(),
   coordinatorPhone: z.string().optional().nullable(),
   status: z.string().default('ASSIGNED'),
   progressNotes: z.string().optional().nullable(),
   allowOverlapOverride: z.boolean().default(false),
+  canOverride: z.boolean().optional(),
   notes: z.string().optional().nullable(),
+  specialInstructions: z.string().optional().nullable(),
+  operationalNotes: z.string().optional().nullable(),
+  driverName: z.string().optional().nullable(),
+  driverPhone: z.string().optional().nullable(),
+  vehicleNumber: z.string().optional().nullable(),
+  vehicleType: z.string().optional().nullable(),
+  hotelDetails: z.string().optional().nullable(),
+  customItinerary: z.string().optional().nullable(),
+  customPassengers: z.string().optional().nullable(),
 });
 
 router.post('/assignments', requirePermission('guides', 'create'), async (req: AuthRequest, res: Response, next) => {
@@ -429,6 +577,7 @@ router.post('/assignments', requirePermission('guides', 'create'), async (req: A
     const companyId = req.user!.companyId;
     const start = new Date(data.startDate);
     const end = new Date(data.endDate);
+    const isOverrideAllowed = Boolean(data.allowOverlapOverride || data.canOverride);
 
     // Overlap check for primary guide
     const guideIds = [data.primaryGuideId];
@@ -452,7 +601,7 @@ router.post('/assignments', requirePermission('guides', 'create'), async (req: A
       },
     });
 
-    if (overlapping.length > 0 && !data.allowOverlapOverride) {
+    if (overlapping.length > 0 && !isOverrideAllowed) {
       res.status(409).json({
         code: 'GUIDE_OVERLAP_DETECTED',
         message: `Date conflict: Guide has ${overlapping.length} overlapping tour(s) during these dates.`,
@@ -467,35 +616,60 @@ router.post('/assignments', requirePermission('guides', 'create'), async (req: A
       return;
     }
 
+    // Auto-resolve packageId and customerId if bookingId was provided
+    let resolvedPackageId = data.packageId || null;
+    let resolvedCustomerId = data.customerId || null;
+    if (data.bookingId && (!resolvedPackageId || !resolvedCustomerId)) {
+      const linkedBooking = await prisma.booking.findUnique({
+        where: { id: data.bookingId },
+        select: { packageId: true, customerId: true },
+      });
+      if (linkedBooking) {
+        if (!resolvedPackageId) resolvedPackageId = linkedBooking.packageId;
+        if (!resolvedCustomerId) resolvedCustomerId = linkedBooking.customerId;
+      }
+    }
+
     // Auto-generate Assignment Code
     const count = await prisma.tourAssignment.count({ where: { companyId } });
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const assignmentCode = `ASN-${dateStr}-${String(count + 1).padStart(3, '0')}`;
+
+    const effectiveReportingLocation = data.reportingLocation?.trim() || data.pickupLocation?.trim() || null;
+    const effectiveGroupName = data.groupName?.trim() || data.tourName?.trim() || null;
+    const effectiveNotes = [data.notes, data.specialInstructions, data.operationalNotes].filter(Boolean).join('\n\n') || null;
 
     const assignment = await prisma.tourAssignment.create({
       data: {
         companyId,
         assignmentCode,
         bookingId: data.bookingId || null,
-        packageId: data.packageId || null,
-        customerId: data.customerId || null,
+        packageId: resolvedPackageId,
+        customerId: resolvedCustomerId,
         primaryGuideId: data.primaryGuideId,
         secondaryGuideId: data.secondaryGuideId || null,
         startDate: start,
         endDate: end,
         reportingTime: data.reportingTime?.trim() || null,
-        reportingLocation: data.reportingLocation?.trim() || null,
-        route: data.route?.trim() || null,
+        reportingLocation: effectiveReportingLocation,
+        route: data.route?.trim() || (data.dropLocation ? `Pickup: ${effectiveReportingLocation || ''} -> Drop: ${data.dropLocation}` : null),
         destination: data.destination?.trim() || null,
         passengerCount: data.passengerCount,
-        groupName: data.groupName?.trim() || null,
+        groupName: effectiveGroupName,
         coordinatorName: data.coordinatorName?.trim() || null,
         coordinatorPhone: data.coordinatorPhone?.trim() || null,
         status: data.status || 'ASSIGNED',
         progressNotes: data.progressNotes?.trim() || null,
-        allowOverlapOverride: data.allowOverlapOverride,
+        allowOverlapOverride: isOverrideAllowed,
         assignedById: req.user!.id,
-        notes: data.notes?.trim() || null,
+        notes: effectiveNotes,
+        driverName: data.driverName?.trim() || null,
+        driverPhone: data.driverPhone?.trim() || null,
+        vehicleNumber: data.vehicleNumber?.trim() || null,
+        vehicleType: data.vehicleType?.trim() || null,
+        hotelDetails: data.hotelDetails?.trim() || null,
+        customItinerary: data.customItinerary?.trim() || null,
+        customPassengers: data.customPassengers?.trim() || null,
       },
       include: {
         primaryGuide: { select: { id: true, fullName: true, phone: true } },
@@ -543,20 +717,217 @@ router.put('/assignments/:id', requirePermission('guides', 'edit'), async (req: 
       where: { id },
       data: {
         status: data.status,
-        reportingTime: data.reportingTime,
-        reportingLocation: data.reportingLocation,
-        route: data.route,
-        destination: data.destination,
+        reportingTime: data.reportingTime !== undefined ? data.reportingTime : undefined,
+        reportingLocation: data.reportingLocation !== undefined ? data.reportingLocation : undefined,
+        route: data.route !== undefined ? data.route : undefined,
+        destination: data.destination !== undefined ? data.destination : undefined,
         passengerCount: data.passengerCount ? Number(data.passengerCount) : undefined,
-        groupName: data.groupName,
-        coordinatorName: data.coordinatorName,
-        coordinatorPhone: data.coordinatorPhone,
-        progressNotes: data.progressNotes,
-        notes: data.notes,
+        groupName: data.groupName !== undefined ? data.groupName : undefined,
+        coordinatorName: data.coordinatorName !== undefined ? data.coordinatorName : undefined,
+        coordinatorPhone: data.coordinatorPhone !== undefined ? data.coordinatorPhone : undefined,
+        progressNotes: data.progressNotes !== undefined ? data.progressNotes : undefined,
+        notes: data.notes !== undefined ? data.notes : undefined,
+        driverName: data.driverName !== undefined ? data.driverName : undefined,
+        driverPhone: data.driverPhone !== undefined ? data.driverPhone : undefined,
+        vehicleNumber: data.vehicleNumber !== undefined ? data.vehicleNumber : undefined,
+        vehicleType: data.vehicleType !== undefined ? data.vehicleType : undefined,
+        hotelDetails: data.hotelDetails !== undefined ? (typeof data.hotelDetails === 'string' ? data.hotelDetails : JSON.stringify(data.hotelDetails)) : undefined,
+        customItinerary: data.customItinerary !== undefined ? (typeof data.customItinerary === 'string' ? data.customItinerary : JSON.stringify(data.customItinerary)) : undefined,
+        customPassengers: data.customPassengers !== undefined ? (typeof data.customPassengers === 'string' ? data.customPassengers : JSON.stringify(data.customPassengers)) : undefined,
       },
     });
 
     res.json(assignment);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update Assignment Cab, Driver & Hotel Logistics
+router.post('/assignments/:id/logistics', requirePermission('guides', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { driverName, driverPhone, vehicleNumber, vehicleType, hotelDetails } = req.body;
+
+    const assignment = await prisma.tourAssignment.update({
+      where: { id },
+      data: {
+        driverName: driverName !== undefined ? driverName?.trim() || null : undefined,
+        driverPhone: driverPhone !== undefined ? driverPhone?.trim() || null : undefined,
+        vehicleNumber: vehicleNumber !== undefined ? vehicleNumber?.trim() || null : undefined,
+        vehicleType: vehicleType !== undefined ? vehicleType?.trim() || null : undefined,
+        hotelDetails: hotelDetails !== undefined ? (typeof hotelDetails === 'string' ? hotelDetails : JSON.stringify(hotelDetails)) : undefined,
+      },
+    });
+
+    res.json(assignment);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Manage Tour Passengers directly on assignment
+router.post('/assignments/:id/passengers', requirePermission('guides', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { name, phone, age, gender, roleInTrip, roomAllocation, notes } = req.body;
+
+    if (!name || !name.trim()) {
+      res.status(400).json({ message: 'Passenger name is required.' });
+      return;
+    }
+
+    const assignment = await prisma.tourAssignment.findUnique({ where: { id } });
+    if (!assignment) {
+      res.status(404).json({ message: 'Tour assignment not found.' });
+      return;
+    }
+
+    let existingPassengers: any[] = [];
+    if (assignment.customPassengers) {
+      try {
+        const parsed = JSON.parse(assignment.customPassengers);
+        if (Array.isArray(parsed)) existingPassengers = parsed;
+      } catch (e) {
+        console.warn('Failed to parse existing customPassengers:', e);
+      }
+    }
+
+    const newPassenger = {
+      id: `pax-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: name.trim(),
+      phone: phone?.trim() || '',
+      age: age ? Number(age) : null,
+      gender: gender || 'Other',
+      roleInTrip: roleInTrip?.trim() || 'Traveller',
+      roomAllocation: roomAllocation?.trim() || '',
+      notes: notes?.trim() || '',
+      createdAt: new Date().toISOString(),
+    };
+
+    existingPassengers.push(newPassenger);
+
+    const updated = await prisma.tourAssignment.update({
+      where: { id },
+      data: {
+        customPassengers: JSON.stringify(existingPassengers),
+        passengerCount: Math.max(assignment.passengerCount, existingPassengers.length),
+      },
+    });
+
+    res.status(201).json({
+      passenger: newPassenger,
+      passengers: existingPassengers,
+      totalCount: updated.passengerCount,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete custom passenger from tour assignment
+router.delete('/assignments/:id/passengers/:passengerId', requirePermission('guides', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const passengerId = req.params.passengerId as string;
+
+    const assignment = await prisma.tourAssignment.findUnique({ where: { id } });
+    if (!assignment) {
+      res.status(404).json({ message: 'Tour assignment not found.' });
+      return;
+    }
+
+    let existingPassengers: any[] = [];
+    if (assignment.customPassengers) {
+      try {
+        const parsed = JSON.parse(assignment.customPassengers);
+        if (Array.isArray(parsed)) existingPassengers = parsed;
+      } catch (e) {}
+    }
+
+    const filtered = existingPassengers.filter(p => p.id !== passengerId);
+
+    await prisma.tourAssignment.update({
+      where: { id },
+      data: {
+        customPassengers: JSON.stringify(filtered),
+      },
+    });
+
+    res.json({ message: 'Passenger removed.', passengers: filtered });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add / Update Day Details in Tour Itinerary
+router.post('/assignments/:id/itinerary', requirePermission('guides', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { dayNumber, title, description, activities, places, hotelName, hotelLocation, mealPlan, highlights } = req.body;
+
+    const assignment = await prisma.tourAssignment.findUnique({
+      where: { id },
+      include: {
+        package: { include: { itineraries: true } },
+        booking: { include: { package: { include: { itineraries: true } } } },
+      },
+    });
+
+    if (!assignment) {
+      res.status(404).json({ message: 'Tour assignment not found.' });
+      return;
+    }
+
+    let currentItineraries: any[] = [];
+    if (assignment.customItinerary) {
+      try {
+        const parsed = JSON.parse(assignment.customItinerary);
+        if (Array.isArray(parsed) && parsed.length > 0) currentItineraries = parsed;
+      } catch (e) {}
+    }
+
+    if (currentItineraries.length === 0) {
+      const base = assignment.package?.itineraries || assignment.booking?.package?.itineraries || [];
+      currentItineraries = JSON.parse(JSON.stringify(base));
+    }
+
+    const targetDay = Number(dayNumber) || (currentItineraries.length + 1);
+    const existingIndex = currentItineraries.findIndex((d: any) => Number(d.dayNumber) === targetDay);
+
+    const dayData = {
+      id: existingIndex >= 0 ? currentItineraries[existingIndex].id : `custom-day-${targetDay}-${Date.now()}`,
+      dayNumber: targetDay,
+      title: title?.trim() || `Day ${targetDay} Program`,
+      description: description?.trim() || '',
+      activities: activities?.trim() || '',
+      places: places?.trim() || '',
+      hotelName: hotelName?.trim() || '',
+      hotelLocation: hotelLocation?.trim() || '',
+      mealPlan: mealPlan?.trim() || '',
+      highlights: highlights?.trim() || '',
+    };
+
+    if (existingIndex >= 0) {
+      currentItineraries[existingIndex] = { ...currentItineraries[existingIndex], ...dayData };
+    } else {
+      currentItineraries.push(dayData);
+    }
+
+    currentItineraries.sort((a, b) => Number(a.dayNumber) - Number(b.dayNumber));
+
+    await prisma.tourAssignment.update({
+      where: { id },
+      data: {
+        customItinerary: JSON.stringify(currentItineraries),
+      },
+    });
+
+    res.status(201).json({
+      message: 'Itinerary day saved successfully.',
+      day: dayData,
+      itineraries: currentItineraries,
+    });
   } catch (error) {
     next(error);
   }
@@ -1498,21 +1869,26 @@ router.put('/assignments/:id/expenses/:expenseId', requirePermission('guides', '
       return;
     }
 
+    const expenseType = body.expenseType === 'GENERAL' ? 'GENERAL' : body.expenseType === 'PASSENGER' ? 'PASSENGER' : existing.expenseType;
+    const splitType = expenseType === 'GENERAL' ? (body.splitType || existing.splitType || 'SPLIT_EQUALLY') : 'NO_SPLIT';
+
     const updated = await prisma.tourExpense.update({
       where: { id: expenseId },
       data: {
+        expenseType,
+        splitType,
+        passengerId: expenseType === 'PASSENGER' ? (body.passengerId !== undefined ? body.passengerId : existing.passengerId) : null,
+        passengerName: expenseType === 'PASSENGER' ? (body.passengerName !== undefined ? body.passengerName : existing.passengerName) : null,
+        passengerRole: expenseType === 'PASSENGER' ? (body.passengerRole !== undefined ? body.passengerRole : existing.passengerRole) : null,
+        roomNumber: expenseType === 'PASSENGER' ? (body.roomNumber !== undefined ? body.roomNumber : existing.roomNumber) : null,
         title: body.title !== undefined ? body.title.trim() : undefined,
         amount: body.amount !== undefined ? Number(body.amount) : undefined,
         category: body.category || undefined,
-        splitType: body.splitType || undefined,
         expenseDate: body.expenseDate ? new Date(body.expenseDate) : undefined,
         expenseTime: body.expenseTime !== undefined ? body.expenseTime : undefined,
         receiptNumber: body.receiptNumber !== undefined ? body.receiptNumber : undefined,
         receiptUrl: body.receiptUrl !== undefined ? body.receiptUrl : undefined,
         notes: body.notes !== undefined ? body.notes : undefined,
-        roomNumber: body.roomNumber !== undefined ? body.roomNumber : undefined,
-        passengerName: body.passengerName !== undefined ? body.passengerName : undefined,
-        passengerRole: body.passengerRole !== undefined ? body.passengerRole : undefined,
       },
     });
 
