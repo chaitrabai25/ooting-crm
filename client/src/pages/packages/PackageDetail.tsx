@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -225,6 +225,33 @@ export const PackageDetail: React.FC = () => {
   // Drag and drop state for day reordering
   const [draggedDayIndex, setDraggedDayIndex] = useState<number | null>(null);
   const [isReordering, setIsReordering] = useState(false);
+
+  // Collapsed day cards state for Itinerary
+  const [collapsedDayIds, setCollapsedDayIds] = useState<Record<string | number, boolean>>({});
+
+  const toggleDayCollapse = (dayIdOrIdx: string | number) => {
+    setCollapsedDayIds((prev) => ({
+      ...prev,
+      [dayIdOrIdx]: !prev[dayIdOrIdx],
+    }));
+  };
+
+  const areAllDaysCollapsed = useMemo(() => {
+    if (itineraries.length === 0) return false;
+    return itineraries.every((day, idx) => Boolean(collapsedDayIds[day.id || idx]));
+  }, [itineraries, collapsedDayIds]);
+
+  const toggleAllDaysCollapse = () => {
+    if (areAllDaysCollapsed) {
+      setCollapsedDayIds({});
+    } else {
+      const all: Record<string | number, boolean> = {};
+      itineraries.forEach((day, idx) => {
+        all[day.id || idx] = true;
+      });
+      setCollapsedDayIds(all);
+    }
+  };
 
   // Cross-package copied day clipboard state
   const [copiedDayInfo, setCopiedDayInfo] = useState<{
@@ -1100,8 +1127,13 @@ export const PackageDetail: React.FC = () => {
         setPkg((prev: any) => prev ? { ...prev, itineraries: res.data.itineraries } : prev);
       } else {
         let updated = [...itineraries];
-        if (dayIndex !== null) {
-          updated[dayIndex] = dayPayload;
+        const editIdx = dayPayload.id
+          ? updated.findIndex((d: any) => d.id === dayPayload.id)
+          : (dayPayload.dayNumber
+              ? updated.findIndex((d: any) => Number(d.dayNumber) === Number(dayPayload.dayNumber))
+              : (dayIndex !== null ? dayIndex : -1));
+        if (editIdx >= 0) {
+          updated[editIdx] = dayPayload;
         } else {
           updated.push(dayPayload);
         }
@@ -1527,6 +1559,26 @@ export const PackageDetail: React.FC = () => {
                 <span>Paste Day ({copiedDayInfo.day?.title?.replace(/^Day\s*\d+:\s*/i, '').slice(0, 15) || `Day ${copiedDayInfo.day?.dayNumber}`})</span>
               </button>
             )}
+            {itineraries.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleAllDaysCollapse}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                title={areAllDaysCollapsed ? 'Expand all day cards' : 'Collapse all day cards'}
+              >
+                {areAllDaysCollapsed ? (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>Expand All</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span>Collapse All</span>
+                  </>
+                )}
+              </button>
+            )}
             <button
               type="button"
               disabled={isSaving}
@@ -1561,230 +1613,259 @@ export const PackageDetail: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {itineraries.map((day, idx) => (
-              <div
-                key={day.id || idx}
-                draggable
-                onDragStart={(e) => handleDragStart(e, idx)}
-                onDragOver={(e) => handleDragOver(e, idx)}
-                onDrop={(e) => handleDrop(e, idx)}
-                className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row items-start justify-between gap-4 ${
-                  draggedDayIndex === idx
-                    ? 'opacity-40 border-dashed border-red-400 bg-red-50/20'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/30 dark:bg-slate-850/40'
-                }`}
-              >
-                {/* Drag handle & Up/Down Arrows */}
-                <div className="flex items-center md:flex-col gap-1 self-start pt-0.5 text-slate-400">
-                  <div
-                    title="Drag to reorder day"
-                    className="p-1 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing rounded"
-                  >
-                    <GripVertical className="w-4 h-4" />
-                  </div>
-                  <button
-                    type="button"
-                    disabled={idx === 0 || isReordering}
-                    onClick={() => handleMoveDay(idx, 'up')}
-                    title="Move Day Up"
-                    className="p-1 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded transition-colors disabled:opacity-30 cursor-pointer"
-                  >
-                    <ArrowUp className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={idx === itineraries.length - 1 || isReordering}
-                    onClick={() => handleMoveDay(idx, 'down')}
-                    title="Move Day Down"
-                    className="p-1 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded transition-colors disabled:opacity-30 cursor-pointer"
-                  >
-                    <ArrowDown className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+            {itineraries.map((day, idx) => {
+              const isCollapsed = Boolean(collapsedDayIds[day.id || idx]);
+              const cleanDayTitle =
+                day.title?.replace(/^Day\s*\d+:?\s*/i, '').trim() || day.title || `Day ${day.dayNumber}`;
 
-                <div className="flex items-start gap-3.5 flex-1 w-full">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#C91F28] to-[#991B1B] text-white font-extrabold text-xs flex flex-col items-center justify-center flex-shrink-0 shadow-sm border border-red-400/30">
-                    <span className="text-[9px] uppercase tracking-wider opacity-90 leading-none">DAY</span>
-                    <span className="text-sm font-black leading-none mt-0.5">{day.dayNumber}</span>
-                  </div>
-
-                  <div className="space-y-2 text-xs flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-md bg-red-100 dark:bg-red-950/60 text-[#C91F28] dark:text-red-400 font-extrabold text-xs uppercase tracking-wider border border-red-200 dark:border-red-900/40">
-                        Day {day.dayNumber}
-                      </span>
-                      <h4 className="font-display font-bold text-slate-900 dark:text-white text-base leading-snug">
-                        {day.title.replace(/^Day\s*\d+:?\s*/i, '').trim() || day.title || (day.places ? `${day.places} Sightseeing` : `Day ${day.dayNumber} Sightseeing & Tour Schedule`)}
-                      </h4>
+              return (
+                <div
+                  key={day.id || idx}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col md:flex-row items-start justify-between gap-3 sm:gap-4 ${
+                    draggedDayIndex === idx
+                      ? 'opacity-40 border-dashed border-red-400 bg-red-50/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/30 dark:bg-slate-850/40'
+                  }`}
+                >
+                  {/* Drag handle & Up/Down Arrows */}
+                  <div className="flex items-center md:flex-col gap-1 self-start pt-0.5 text-slate-400">
+                    <div
+                      title="Drag to reorder day"
+                      className="p-1 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing rounded"
+                    >
+                      <GripVertical className="w-4 h-4" />
                     </div>
-                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
-                      {day.description || (day.places ? `Explore ${day.places} with curated sightseeing stops, leisure activities and local transfers.` : 'Sightseeing schedule planned. Click Edit Day to customize attractions, activities, and timings.')}
-                    </p>
+                    <button
+                      type="button"
+                      disabled={idx === 0 || isReordering}
+                      onClick={() => handleMoveDay(idx, 'up')}
+                      title="Move Day Up"
+                      className="p-1 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded transition-colors disabled:opacity-30 cursor-pointer"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === itineraries.length - 1 || isReordering}
+                      onClick={() => handleMoveDay(idx, 'down')}
+                      title="Move Day Down"
+                      className="p-1 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded transition-colors disabled:opacity-30 cursor-pointer"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-                    {(day.places || day.activities || (day as any).date || (day as any).highlights || (day as any).travelDetails) && (
-                      <div className="space-y-2 pt-1 text-[11px]">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {(day as any).date && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-[#C91F28] dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 font-bold text-[11px] shadow-2xs">
-                              <Calendar className="w-3.5 h-3.5 text-[#C91F28]" />
-                              <span>{(day as any).date}</span>
-                            </span>
-                          )}
-                          {day.places && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 font-semibold text-[11px] shadow-2xs">
-                              <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>{day.places}</span>
-                            </span>
-                          )}
-                          {day.activities && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-900/50 font-medium text-[11px] shadow-2xs">
-                              <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                              <span>{day.activities}</span>
-                            </span>
-                          )}
-                          {(day.startTime || day.endTime) && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-900/50 font-semibold text-[11px] shadow-2xs">
-                              <Clock className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
-                              <span>{day.startTime} - {day.endTime}</span>
-                            </span>
-                          )}
-                        </div>
-                        {(day as any).highlights && (
-                          <div className="text-[11px] text-slate-600 dark:text-slate-400">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">Highlights: </span>
-                            <span>{(day as any).highlights}</span>
-                          </div>
+                  <div className="flex items-start gap-3.5 flex-1 w-full min-w-0">
+                    {/* Day Number Badge */}
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#C91F28] to-[#991B1B] text-white font-extrabold text-xs flex flex-col items-center justify-center flex-shrink-0 shadow-sm border border-red-400/30">
+                      <span className="text-[9px] uppercase tracking-wider opacity-90 leading-none">DAY</span>
+                      <span className="text-sm font-black leading-none mt-0.5">{day.dayNumber}</span>
+                    </div>
+
+                    <div className="space-y-2 text-xs flex-1 min-w-0">
+                      {/* Day Header (Click to toggle minimize/expand) */}
+                      <div
+                        onClick={() => toggleDayCollapse(day.id || idx)}
+                        className="cursor-pointer group flex flex-wrap items-center gap-2"
+                      >
+                        <h4 className="font-display font-bold text-slate-900 dark:text-white text-base leading-snug group-hover:text-[#C91F28] transition-colors">
+                          {cleanDayTitle}
+                        </h4>
+                        {(day as any).date && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-[#C91F28] dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 font-bold text-[10.5px]">
+                            📅 {(day as any).date}
+                          </span>
                         )}
-                        {(day as any).travelDetails && (
-                          <div className="text-[11px] text-slate-600 dark:text-slate-400">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">Travel & Logistics: </span>
-                            <span>{(day as any).travelDetails}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Assigned Hotel Card */}
-                    {(day as any).hotelName && (
-                      <div className="mt-2.5 p-2 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-2">
-                          {(day as any).hotelImageUrl ? (
-                            <img
-                              src={(day as any).hotelImageUrl}
-                              alt={(day as any).hotelName}
-                              className="w-8 h-8 rounded-lg object-cover border border-amber-200"
-                            />
-                          ) : (
-                            <span className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
-                              <Building className="w-3.5 h-3.5" />
-                            </span>
-                          )}
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-800 dark:text-slate-200">
-                                {(day as any).hotelName}
-                              </span>
-                              {(day as any).hotelStarCategory && (
-                                <span className="text-[9.5px] px-1.5 py-0.2 bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-200 rounded font-semibold">
-                                  {(day as any).hotelStarCategory}
-                                </span>
-                              )}
-                            </div>
-                            {(day as any).hotelLocation && (
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
-                                {(day as any).hotelLocation}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {(day as any).mealPlan && (
-                          <span className="px-2 py-0.5 text-[10px] font-semibold bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-2xs">
-                            <Utensils className="w-3 h-3 text-emerald-600" />
-                            {(day as any).mealPlan}
+                        {isCollapsed && day.places && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 text-[10.5px] truncate max-w-xs">
+                            <MapPin className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                            <span className="truncate">{day.places}</span>
                           </span>
                         )}
                       </div>
-                    )}
+
+                      {/* Expandable Body */}
+                      {!isCollapsed && (
+                        <>
+                          {day.description && (
+                            <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                              {day.description}
+                            </p>
+                          )}
+
+                          {(day.places || day.activities || (day as any).highlights || (day as any).travelDetails || day.startTime || day.endTime) && (
+                            <div className="space-y-2 pt-1 text-[11px]">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {day.places && (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 font-semibold text-[11px] shadow-2xs">
+                                    <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    <span>{day.places}</span>
+                                  </span>
+                                )}
+                                {day.activities && (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-900/50 font-medium text-[11px] shadow-2xs">
+                                    <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                                    <span>{day.activities}</span>
+                                  </span>
+                                )}
+                                {(day.startTime || day.endTime) && (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-900/50 font-semibold text-[11px] shadow-2xs">
+                                    <Clock className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                                    <span>{day.startTime} - {day.endTime}</span>
+                                  </span>
+                                )}
+                              </div>
+                              {(day as any).highlights && (
+                                <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                                  <span className="font-semibold text-slate-800 dark:text-slate-200">Highlights: </span>
+                                  <span>{(day as any).highlights}</span>
+                                </div>
+                              )}
+                              {(day as any).travelDetails && (
+                                <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                                  <span className="font-semibold text-slate-800 dark:text-slate-200">Travel & Logistics: </span>
+                                  <span>{(day as any).travelDetails}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Assigned Hotel Card */}
+                          {(day as any).hotelName && (
+                            <div className="mt-2.5 p-2 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <div className="flex items-center gap-2">
+                                {(day as any).hotelImageUrl ? (
+                                  <img
+                                    src={(day as any).hotelImageUrl}
+                                    alt={(day as any).hotelName}
+                                    className="w-8 h-8 rounded-lg object-cover border border-amber-200"
+                                  />
+                                ) : (
+                                  <span className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
+                                    <Building className="w-3.5 h-3.5" />
+                                  </span>
+                                )}
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                                      {(day as any).hotelName}
+                                    </span>
+                                    {(day as any).hotelStarCategory && (
+                                      <span className="text-[9.5px] px-1.5 py-0.2 bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-200 rounded font-semibold">
+                                        {(day as any).hotelStarCategory}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {(day as any).hotelLocation && (
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
+                                      {(day as any).hotelLocation}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {(day as any).mealPlan && (
+                                <span className="px-2 py-0.5 text-[10px] font-semibold bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-2xs">
+                                  <Utensils className="w-3 h-3 text-emerald-600" />
+                                  {(day as any).mealPlan}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Day Photo Gallery Preview (when expanded) */}
+                  {!isCollapsed && (() => {
+                    let photos: { url: string; label?: string }[] = [];
+                    if ((day as any).images) {
+                      try {
+                        const parsed = JSON.parse((day as any).images);
+                        if (Array.isArray(parsed)) {
+                          photos = parsed
+                            .map((p: any) => ({
+                              url: typeof p === 'string' ? p : p.url || p.imageUrl || '',
+                              label: typeof p === 'string' ? '' : p.label || p.name || p.placeName || '',
+                            }))
+                            .filter((p) => Boolean(p.url));
+                        }
+                      } catch {}
+                    }
+                    if (photos.length === 0 && day.imageUrl) {
+                      photos = [{ url: day.imageUrl, label: day.places || '' }];
+                    }
+
+                    if (photos.length === 0) return null;
+
+                    return (
+                      <div className="flex flex-wrap gap-2 max-w-xs shrink-0 self-start">
+                        {photos.map((p, pIdx) => (
+                          <div
+                            key={pIdx}
+                            className="w-24 flex flex-col bg-white dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-2xs"
+                          >
+                            <div className="h-16 w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
+                              <img
+                                src={p.url}
+                                alt={p.label || `Day ${day.dayNumber} photo ${pIdx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            {p.label && (
+                              <span className="p-1 text-[9.5px] text-slate-700 dark:text-slate-300 font-medium truncate block text-center bg-slate-50 dark:bg-slate-850">
+                                {p.label}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Day Action Buttons: Minimize, Copy, Edit, Delete */}
+                  <div className="flex items-center gap-1 flex-shrink-0 self-end md:self-start">
+                    <button
+                      type="button"
+                      onClick={() => toggleDayCollapse(day.id || idx)}
+                      title={isCollapsed ? 'Expand Day' : 'Minimize Day'}
+                      className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                    >
+                      {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyDay(idx)}
+                      title="Copy / Duplicate Day"
+                      className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEditDay(idx)}
+                      title="Edit Day"
+                      className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteDay(idx)}
+                      title="Remove Day"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-
-                {/* Day Photo Gallery Preview */}
-                {(() => {
-                  let photos: { url: string; label?: string }[] = [];
-                  if ((day as any).images) {
-                    try {
-                      const parsed = JSON.parse((day as any).images);
-                      if (Array.isArray(parsed)) {
-                        photos = parsed
-                          .map((p: any) => ({
-                            url: typeof p === 'string' ? p : p.url || p.imageUrl || '',
-                            label: typeof p === 'string' ? '' : p.label || p.name || p.placeName || '',
-                          }))
-                          .filter((p) => Boolean(p.url));
-                      }
-                    } catch {}
-                  }
-                  if (photos.length === 0 && day.imageUrl) {
-                    photos = [{ url: day.imageUrl, label: day.places || '' }];
-                  }
-
-                  if (photos.length === 0) return null;
-
-                  return (
-                    <div className="flex flex-wrap gap-2 max-w-xs shrink-0 self-start">
-                      {photos.map((p, pIdx) => (
-                        <div
-                          key={pIdx}
-                          className="w-24 flex flex-col bg-white dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-2xs"
-                        >
-                          <div className="h-16 w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
-                            <img
-                              src={p.url}
-                              alt={p.label || `Day ${day.dayNumber} photo ${pIdx + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          {p.label && (
-                            <span className="p-1 text-[9.5px] text-slate-700 dark:text-slate-300 font-medium truncate block text-center bg-slate-50 dark:bg-slate-850">
-                              {p.label}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {/* Day Action Buttons: Copy, Edit, Delete */}
-                <div className="flex items-center gap-1 flex-shrink-0 self-end md:self-start">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyDay(idx)}
-                    title="Copy / Duplicate Day"
-                    className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openEditDay(idx)}
-                    title="Edit Day"
-                    className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteDay(idx)}
-                    title="Remove Day"
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

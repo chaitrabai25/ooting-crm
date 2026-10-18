@@ -31,6 +31,8 @@ import {
   Compass,
   X,
   ExternalLink,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 import { DatePicker } from '../ui/DatePicker.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
@@ -170,51 +172,42 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
     return stateObj ? stateObj.districts : [];
   }, [daySelectedState]);
 
-  // Populate data when workspace opens
-  useEffect(() => {
-    if (!isOpen) return;
+  const [activeEditingIndex, setActiveEditingIndex] = useState<number | null>(dayIndex);
+  const [isRightPanelMinimized, setIsRightPanelMinimized] = useState(false);
 
-    if (dayIndex !== null && initialData) {
-      // Editing existing day
-      setCurrentDayNumber(initialData.dayNumber || dayIndex + 1);
-      setDayTitle(initialData.title || `Day ${dayIndex + 1}`);
-      setDayDate(initialData.date || '');
-      setDayDescription(initialData.description || '');
-      setDayPlaces(initialData.places || '');
-      setDayActivities(initialData.activities || '');
-      setDayHighlights(initialData.highlights || '');
-      setDayTravelDetails(initialData.travelDetails || '');
-      setDayStartTime(initialData.startTime || '09:00 AM');
-      setDayEndTime(initialData.endTime || '06:00 PM');
-
-      // Chips
-      if (initialData.places) {
-        setSelectedPlaceChips(
-          initialData.places.split(',').map((p: string) => p.trim()).filter(Boolean)
-        );
-      } else {
-        setSelectedPlaceChips([]);
-      }
-
-      // Hotel
-      setDayHotelId(initialData.hotelId || '');
-      setDayHotelName(initialData.hotelName || '');
-      setDayHotelStarCategory(initialData.hotelStarCategory || '');
-      setDayHotelImageUrl(initialData.hotelImageUrl || '');
-      setDayHotelLocation(initialData.hotelLocation || '');
-      setDayHotelDetails(initialData.hotelDetails || '');
-      setDayMealPlan(initialData.mealPlan || 'Breakfast & Dinner (MAP)');
-      setDayHotelCheckIn(initialData.hotelCheckIn || '12:00 PM');
-      setDayHotelCheckOut(initialData.hotelCheckOut || '11:00 AM');
+  const loadDayIntoWorkspace = (targetData: any, targetIndex: number | null) => {
+    setActiveEditingIndex(targetIndex);
+    if (targetData) {
+      setCurrentDayNumber(targetData.dayNumber || (targetIndex !== null ? targetIndex + 1 : 1));
+      setDayTitle(targetData.title || `Day ${targetData.dayNumber || 1}: `);
+      setDayDescription(targetData.description || '');
+      setDayPlaces(targetData.places || '');
+      const placeTokens = (targetData.places || '')
+        .split(',')
+        .map((p: string) => p.trim())
+        .filter(Boolean);
+      setSelectedPlaceChips(placeTokens);
+      setDayActivities(targetData.activities || '');
+      setDayHighlights(targetData.highlights || '');
+      setDayTravelDetails(targetData.travelDetails || '');
+      setDayDate(targetData.date || '');
+      setDayStartTime(targetData.startTime || '09:00 AM');
+      setDayEndTime(targetData.endTime || '06:00 PM');
+      setDayHotelId(targetData.hotelId || '');
+      setDayHotelName(targetData.hotelName || '');
+      setDayHotelStarCategory(targetData.hotelStarCategory || '');
+      setDayHotelImageUrl(targetData.hotelImageUrl || '');
+      setDayHotelLocation(targetData.hotelLocation || '');
+      setDayHotelDetails(targetData.hotelDetails || '');
+      setDayMealPlan(targetData.mealPlan || 'Breakfast & Dinner (MAP)');
+      setDayHotelCheckIn(targetData.hotelCheckIn || '12:00 PM');
+      setDayHotelCheckOut(targetData.hotelCheckOut || '11:00 AM');
 
       // Photos
       let parsedImages: DayImageItem[] = [];
-      if (initialData.images) {
+      if (targetData.images) {
         try {
-          const parsed =
-            typeof initialData.images === 'string'
-              ? JSON.parse(initialData.images)
-              : initialData.images;
+          const parsed = typeof targetData.images === 'string' ? JSON.parse(targetData.images) : targetData.images;
           if (Array.isArray(parsed)) {
             parsedImages = parsed
               .map((p: any) => ({
@@ -224,21 +217,21 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
               .filter((p) => Boolean(p.url));
           }
         } catch {
-          if (typeof initialData.images === 'string' && initialData.images.includes(',')) {
-            parsedImages = initialData.images
+          if (typeof targetData.images === 'string' && targetData.images.includes(',')) {
+            parsedImages = targetData.images
               .split(',')
               .map((s: string) => ({ url: s.trim(), label: '' }))
               .filter((p: any) => Boolean(p.url));
           }
         }
       }
-      if (parsedImages.length === 0 && initialData.imageUrl) {
-        parsedImages = [{ url: initialData.imageUrl, label: initialData.places || '' }];
+      if (parsedImages.length === 0 && targetData.imageUrl) {
+        parsedImages = [{ url: targetData.imageUrl, label: targetData.places || '' }];
       }
       setDayImages(parsedImages);
     } else {
       // Adding new day
-      const nextNum = initialDayNumber || itineraries.length + 1;
+      const nextNum = itineraries.length + 1;
       setCurrentDayNumber(nextNum);
       setDayTitle(`Day ${nextNum}: `);
       setDayDescription('');
@@ -250,16 +243,7 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
       setDayStartTime('09:00 AM');
       setDayEndTime('06:00 PM');
       setDayImages([]);
-      setNewImageUrlInput('');
-
-      // Auto-suggest next date
-      if (recommendedDate) {
-        setDayDate(recommendedDate);
-      } else {
-        setDayDate('');
-      }
-
-      // Reset hotel
+      setDayDate(recommendNextDate(dayDate) || '');
       setDayHotelId('');
       setDayHotelName('');
       setDayHotelStarCategory('');
@@ -269,25 +253,23 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
       setDayMealPlan('Breakfast & Dinner (MAP)');
       setDayHotelCheckIn('12:00 PM');
       setDayHotelCheckOut('11:00 AM');
-
-      // Attempt match destination for places
-      if (pkg?.destination) {
-        const destLower = pkg.destination.toLowerCase();
-        for (const s of INDIA_STATES_AND_DISTRICTS) {
-          if (destLower.includes(s.state.toLowerCase())) {
-            setDaySelectedState(s.state);
-          }
-          for (const d of s.districts) {
-            if (destLower.includes(d.toLowerCase())) {
-              setDaySelectedState(s.state);
-              setDaySelectedDistrict(d);
-              break;
-            }
-          }
-        }
-      }
     }
-  }, [isOpen, dayIndex, initialData, initialDayNumber]);
+
+    const scrollableBody = document.getElementById('day-editor-modal-body');
+    if (scrollableBody) scrollableBody.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Populate data when workspace opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setActiveEditingIndex(dayIndex);
+
+    if (dayIndex !== null && initialData) {
+      loadDayIntoWorkspace(initialData, dayIndex);
+    } else {
+      loadDayIntoWorkspace(null, null);
+    }
+  }, [isOpen, dayIndex, initialData]);
 
   // Place Library Selection: Accumulates descriptions, highlights, activities and photos across ALL chosen places
   const handleSelectPlace = (place: Place) => {
@@ -656,15 +638,15 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
     const primaryUrl = dayImages[0]?.url || null;
     const imagesJson = dayImages.length > 0 ? JSON.stringify(dayImages) : null;
 
+    const targetId =
+      activeEditingIndex !== null && itineraries[activeEditingIndex]?.id
+        ? itineraries[activeEditingIndex].id
+        : (initialData?.id || (dayIndex !== null && itineraries[dayIndex]?.id ? itineraries[dayIndex].id : undefined));
+
     return {
-      ...(initialData?.id ? { id: initialData.id } : (dayIndex !== null && itineraries[dayIndex]?.id ? { id: itineraries[dayIndex].id } : {})),
+      ...(targetId ? { id: targetId } : {}),
       dayNumber: Number(currentDayNumber) || 1,
-      title: (() => {
-        const trimmed = dayTitle.trim();
-        const withoutPrefix = trimmed.replace(/^Day\s*\d+:?\s*/i, '').trim();
-        if (withoutPrefix) return trimmed;
-        return `Day ${currentDayNumber}: ${selectedPlaceChips.length > 0 ? selectedPlaceChips.join(' & ') : (dayPlaces || 'Sightseeing & Tour')}`;
-      })(),
+      title: dayTitle.trim() || `Day ${currentDayNumber}`,
       description: dayDescription.trim(),
       places:
         selectedPlaceChips.length > 0 ? selectedPlaceChips.join(', ') : dayPlaces.trim() || null,
@@ -741,8 +723,8 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
     /* OUTER BACKDROP: Centered with generous, balanced top/bottom/left/right spacing */
     <div className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs overflow-y-auto flex items-center justify-center p-3 sm:p-5 md:p-6 lg:p-8 animate-in fade-in duration-150">
       
-      {/* 75% WIDTH MODAL WINDOW: Clean, elevated, rounded-2xl with clean border and deep soft shadow */}
-      <div className="bg-white dark:bg-slate-900 w-full sm:w-[92%] md:w-[86%] lg:w-[75%] max-w-6xl rounded-2xl md:rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden my-auto transition-all">
+      {/* MODAL WINDOW: Clean, elevated, rounded-2xl with clean border and deep soft shadow */}
+      <div className="bg-white dark:bg-slate-900 w-full sm:w-[95%] md:w-[92%] lg:w-[88%] max-w-7xl rounded-2xl md:rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden my-auto transition-all">
         
         {/* 1. TOP HEADER (Fixed inside modal card) */}
         <header className="px-5 sm:px-7 py-3.5 sm:py-4 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shrink-0">
@@ -792,18 +774,9 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
 
             <button
               type="button"
-              disabled={isSaving}
-              onClick={onClose}
-              className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ml-1"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               title="Close"
             >
               <X className="w-4 h-4" />
@@ -811,8 +784,10 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
           </div>
         </header>
 
-        {/* 2. MAIN SCROLLABLE FORM BODY */}
-        <div id="day-editor-modal-body" className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-6">
+        {/* 2. MAIN BODY WITH RIGHT TOUR DAYS SIDEBAR */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          {/* Scrollable Form Body */}
+          <div id="day-editor-modal-body" className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-6">
           
           {/* Clipboard Banner (if available) */}
           {copiedDayInfo && (
@@ -1488,7 +1463,150 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
           </div>
         </div>
 
-        {/* 3. STICKY BOTTOM ACTION BAR (Inside Modal Card) */}
+        {/* Collapsible Right Sidebar: Tour Days Overview */}
+        <aside
+          className={`transition-all duration-200 border-l border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 flex flex-col shrink-0 ${
+            isRightPanelMinimized ? 'w-14 sm:w-16 items-center' : 'w-64 sm:w-72'
+          }`}
+        >
+          {/* Sidebar Header */}
+          <div
+            className={`p-3 border-b border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2 w-full ${
+              isRightPanelMinimized ? 'justify-center flex-col py-3 px-1' : ''
+            }`}
+          >
+            {!isRightPanelMinimized && (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                  Tour Days
+                </span>
+                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full">
+                  {itineraries.length}
+                </span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsRightPanelMinimized(!isRightPanelMinimized)}
+              title={isRightPanelMinimized ? 'Expand Tour Days' : 'Minimize Tour Days'}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              {isRightPanelMinimized ? (
+                <PanelRightOpen className="w-4 h-4 text-[#C91F28]" />
+              ) : (
+                <PanelRightClose className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+
+          {/* Sidebar Content */}
+          {isRightPanelMinimized ? (
+            /* Minimized compact rail */
+            <div className="flex-1 overflow-y-auto py-2.5 px-1 space-y-1.5 w-full flex flex-col items-center">
+              {itineraries.map((it, idx) => {
+                const isActive =
+                  activeEditingIndex === idx ||
+                  (activeEditingIndex === null && dayIndex === idx) ||
+                  (!it.id && currentDayNumber === it.dayNumber);
+                return (
+                  <button
+                    key={it.id || idx}
+                    type="button"
+                    onClick={() => loadDayIntoWorkspace(it, idx)}
+                    title={`Day ${it.dayNumber}: ${it.title || 'Sightseeing'}`}
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#C91F28] text-white shadow-xs scale-105'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-950/40 border border-slate-200/70 dark:border-slate-700'
+                    }`}
+                  >
+                    D{it.dayNumber}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => loadDayIntoWorkspace(null, null)}
+                title="Add New Day"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-slate-500 hover:text-[#C91F28] hover:bg-red-50 dark:hover:bg-red-950/30 border border-dashed border-slate-300 dark:border-slate-700 transition-all cursor-pointer mt-1"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            /* Expanded rich list */
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <button
+                type="button"
+                onClick={() => loadDayIntoWorkspace(null, null)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold text-[#C91F28] bg-red-50/70 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl border border-dashed border-red-300 dark:border-red-800 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Next Day</span>
+              </button>
+
+              {itineraries.length === 0 ? (
+                <div className="text-center py-6 text-xs text-slate-400">
+                  No days yet. Click above to add Day 1.
+                </div>
+              ) : (
+                itineraries.map((it, idx) => {
+                  const isActive =
+                    activeEditingIndex === idx ||
+                    (activeEditingIndex === null && dayIndex === idx) ||
+                    (!it.id && currentDayNumber === it.dayNumber);
+
+                  const cleanTitle = (it.title || '')
+                    .replace(/^Day\s*\d+:?\s*/i, '')
+                    .trim() || it.title || `Day ${it.dayNumber}`;
+
+                  return (
+                    <div
+                      key={it.id || idx}
+                      onClick={() => loadDayIntoWorkspace(it, idx)}
+                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                        isActive
+                          ? 'bg-red-50/90 dark:bg-red-950/40 border-red-300 dark:border-red-800/80 shadow-2xs ring-1 ring-red-400/30'
+                          : 'bg-white dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-750 hover:border-slate-300 dark:hover:border-slate-650'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1.5 mb-1">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
+                            isActive
+                              ? 'bg-[#C91F28] text-white'
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          Day {it.dayNumber}
+                        </span>
+                        {it.date && (
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                            {it.date}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate leading-snug">
+                        {cleanTitle}
+                      </p>
+
+                      {it.places && (
+                        <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5 flex items-center gap-1">
+                          <MapPin className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">{it.places}</span>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </aside>
+      </div>
         <footer className="px-5 sm:px-7 py-3.5 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 flex items-center justify-between gap-3 shrink-0">
           <button
             type="button"

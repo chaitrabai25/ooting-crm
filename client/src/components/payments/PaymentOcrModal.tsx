@@ -255,10 +255,39 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
 
   const unreadFieldWarning = 'Unable to confidently read this field. Please verify or upload a clearer screenshot.';
 
+  const parseWordsToNumber = (wordsStr: string): number => {
+    const map: Record<string, number> = {
+      one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+      eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+      eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60,
+      seventy: 70, eighty: 80, ninety: 90, hundred: 100, thousand: 1000, lakh: 100000, lakhs: 100000,
+    };
+    const tokens = wordsStr.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(Boolean);
+    let total = 0;
+    let current = 0;
+    for (const token of tokens) {
+      if (token === 'thousand') {
+        current = (current === 0 ? 1 : current) * 1000;
+        total += current;
+        current = 0;
+      } else if (token === 'lakh' || token === 'lakhs') {
+        current = (current === 0 ? 1 : current) * 100000;
+        total += current;
+        current = 0;
+      } else if (token === 'hundred') {
+        current = (current === 0 ? 1 : current) * 100;
+      } else if (map[token]) {
+        current += map[token];
+      }
+    }
+    total += current;
+    return total;
+  };
+
   const parsePaymentText = (
     text: string,
-    lines: Array<any>,
-    imageHeight: number,
+    _rawLines: Array<any>,
+    _imageHeight: number,
     confidence: number
   ) => {
     const newWarnings: {
@@ -268,20 +297,21 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       time?: string | null;
     } = {};
 
-    // Filter out phone status bar (top 8% of screen clock / battery / signal icons)
-    const isStatusBarLine = (line: any, index: number) => {
-      if (index === 0 && lines.length > 3) {
-        const t = (line?.text || '').trim();
-        if (/^(\d{1,2}:\d{2}|[0-9]{1,3}%|lte|4g|5g|volte|\s)+$/i.test(t)) return true;
-      }
-      if (line?.bbox?.y0 !== undefined && imageHeight > 0) {
-        return line.bbox.y0 < imageHeight * 0.08;
-      }
-      return false;
-    };
+    // Build real content lines by splitting text by newline (fixes Tesseract.js v5 undefined lines)
+    const textLines = (text || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
 
-    const contentLines = lines.filter((l, idx) => !isStatusBarLine(l, idx));
-    const cleanBodyText = contentLines.map((l) => l.text).join('\n');
+    // Filter out phone status bar icons/clock on the very first line if present
+    const contentLines = textLines.filter((lt, idx) => {
+      if (idx === 0 && textLines.length > 2) {
+        if (/^(\d{1,2}:\d{2}|[0-9]{1,3}%|lte|4g|5g|volte|\s)+$/i.test(lt)) return false;
+      }
+      return true;
+    });
+
+    const cleanBodyText = contentLines.join('\n');
 
     // 1. EXTRACT UTR / UPI REF ID (12 digits)
     let extractedUtr = '';
@@ -310,10 +340,11 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     if (extractedUtr) {
       setUtr(extractedUtr);
       checkUtrDuplication(extractedUtr);
-      if (confidence < 60) {
+      if (confidence < 50) {
         newWarnings.utr = 'Low OCR confidence on UTR. Please verify with screenshot before saving.';
         setUtrWarning('Low OCR confidence on UTR. Please verify with screenshot before saving.');
       } else {
+        newWarnings.utr = null;
         setUtrWarning(null);
       }
     } else {
@@ -322,11 +353,12 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       setUtrWarning(unreadFieldWarning);
     }
 
-    // 2. EXTRACT AMOUNT (Handles corrupt rupee symbols like ?, *, F, z and preserves accuracy)
+    // 2. EXTRACT AMOUNT
     interface AmountCandidate {
       val: number;
       raw: string;
       score: number;
+      line: string;
     }
     const amountCandidates: AmountCandidate[] = [];
 
@@ -335,31 +367,36 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       const num = parseFloat(cleanNum);
       if (isNaN(num) || num <= 0) return;
 
-      // Disqualifications
-      if (cleanNum === extractedUtr) return; // Disqualify if it's the UTR
+      // Disqualifications:
+      if (cleanNum === extractedUtr) return;
+      if (extractedUtr && contextLine.includes(extractedUtr)) return;
+      // Disqualify UPI ID lines (e.g. tripathiakansha507@okaxis, *****16243@paytm)
+      if (/@(paytm|ok|ybl|upi|axis|sbi|icici|hdfc|postbank|aubank)/i.test(contextLine) || /upi\s*id/i.test(contextLine)) return;
+      // Disqualify bank account / card last 4 digits (e.g. "Canara Bank - 3993")
+      if (/(?:bank|a\/c|account|card)[\s-]*\d{3,4}/i.test(contextLine) && num < 10000 && !contextLine.includes('₹') && !contextLine.includes('Paid')) return;
       if (cleanNum.length === 10 && /^[6-9]/.test(cleanNum)) return; // Disqualify phone numbers
-      if (num >= 2020 && num <= 2035 && !rawNum.includes('.')) return; // Disqualify years
-      if (num > 5000000 && !rawNum.includes(',')) return; // Disqualify non-grouped huge numbers
+      if (num >= 2020 && num <= 2035 && !rawNum.includes('.') && !contextLine.includes('₹') && !contextLine.includes('Rs')) return; // Disqualify years
+      if (/\b(?:am|pm)\b/i.test(contextLine) && !contextLine.includes('₹') && !contextLine.includes('Rs') && !contextLine.includes('Paid')) return; // Disqualify time lines
 
       let score = 50;
 
-      // Has explicit currency indicator or symbol directly before or after
-      if (/[₹\u20B9\u20A8RsINRrp$€]/i.test(contextLine)) score += 120;
-      // Tesseract often recognizes ₹ as ?, *, >, #, z
-      if (/[?*~>#|]\s*[0-9]/.test(contextLine)) score += 70;
+      // Has explicit currency indicator or symbol directly in the line
+      if (/(?:₹|\u20B9|Rs\.?|INR)/i.test(contextLine)) score += 150;
+      // Tesseract often recognizes ₹ as *, ?, >, #, z, =, F directly before a number
+      if (/^[?*~>#|=Fz]\s*[0-9]/i.test(contextLine.trim())) score += 90;
 
       // Contextual payment words
       if (/\b(paid|transferred|sent|payment\s*to|debited|amount|total)\b/i.test(contextLine)) {
         score += 80;
       }
-      // Has decimals (.00)
+      // Has decimals (.00) or Indian comma formatting (e.g. 2,000 or 15,000)
       if (/\.[0-9]{2}$/.test(rawNum)) score += 50;
-      // Has commas (e.g. 5,000)
       if (rawNum.includes(',')) score += 40;
 
-      // Standalone on line (hero amount layout in Google Pay / PhonePe)
-      if (contextLine.trim() === rawNum || contextLine.replace(/[₹\u20B9\u20A8RsINRrp$€?*~>#|:\s]/gi, '') === cleanNum) {
-        score += 60;
+      // Hero amount layout: line consists purely of the currency and the number
+      const stripped = contextLine.replace(/[₹\u20B9\u20A8$€RsINR?*~>#|=Fz\s,.]/gi, '');
+      if (stripped === cleanNum.replace('.', '')) {
+        score += 100;
       }
 
       // Close to expected balance bonus
@@ -367,27 +404,41 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
         score += 40;
       }
 
-      amountCandidates.push({ val: num, raw: rawNum, score });
+      amountCandidates.push({ val: num, raw: rawNum, score, line: contextLine });
     };
 
-    // Scan lines for potential numbers
-    for (const line of contentLines) {
-      const lineText = line.text || '';
-      const numMatches = lineText.match(/[?*~>#|₹\u20B9\u20A8$€RsINR]*\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)/gi);
+    // Scan content lines for numbers
+    for (const lineText of contentLines) {
+      const numMatches = lineText.match(/(?:[₹\u20B9\u20A8$€RsINRF?*~>#|=z]\s*)?([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)/gi);
       if (numMatches) {
         for (const m of numMatches) {
           const justNum = m.replace(/[^0-9.,]/g, '').trim();
-          if (justNum) {
+          if (justNum && !isNaN(parseFloat(justNum.replace(/,/g, '')))) {
             testAmountCandidate(justNum, lineText);
           }
         }
       }
     }
 
+    // Support Indian Receipt words-in-rupees (e.g. "Rupees Two Thousand Only" -> 2000)
+    const wordsMatch = text.match(/Rupees\s+([A-Za-z\s]+)\s+Only/i);
+    if (wordsMatch && wordsMatch[1]) {
+      const wordVal = parseWordsToNumber(wordsMatch[1]);
+      if (wordVal > 0) {
+        const existing = amountCandidates.find((c) => c.val === wordVal);
+        if (existing) {
+          existing.score += 200;
+        } else {
+          amountCandidates.push({ val: wordVal, raw: String(wordVal), score: 250, line: wordsMatch[0] });
+        }
+      }
+    }
+
     amountCandidates.sort((a, b) => b.score - a.score);
-    if (amountCandidates.length > 0 && amountCandidates[0].score >= 80) {
+    if (amountCandidates.length > 0 && amountCandidates[0].score >= 70) {
       const best = amountCandidates[0];
       setAmount(String(best.val));
+      newWarnings.amount = null;
       if (best.val > expectedAmount && expectedAmount > 0) {
         setShowExtraAmountNotice(true);
       } else {
@@ -405,8 +456,7 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
       feb: '02', february: '02',
       mar: '03', march: '03',
       apr: '04', april: '04',
-      may: '05',
-      jun: '06', june: '06',
+      may: '05', jun: '06', june: '06',
       jul: '07', july: '07',
       aug: '08', august: '08',
       sep: '09', sept: '09', september: '09',
@@ -416,18 +466,16 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     };
     const currentYear = new Date().getFullYear();
 
-    // Pattern A: Day First (PhonePe / Paytm: "23 Sep 2026" or "23 September 2026" or "23rd Sep")
+    // Pattern A: Day First (PhonePe / Paytm: "23 Sep 2026" or "20 Aug 2026" or "02:43 AM, 20 Aug 2026")
     const regexDayFirst = /\b([0-3]?[0-9])(?:st|nd|rd|th)?[\s,-]+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*(?:[,\s]+(\d{4}|\d{2}))?\b/i;
-    // Pattern B: Month First (Google Pay: "Sep 23, 2026" or "Sep 23")
+    // Pattern B: Month First (Google Pay: "Sep 23, 2026" or "Oct 12, 2026")
     const regexMonthFirst = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*[\s,-]+([0-3]?[0-9])(?:st|nd|rd|th)?(?:[,\s]+(\d{4}|\d{2}))?\b/i;
     // Pattern C: Numeric Slash/Dash (DD/MM/YYYY or DD-MM-YYYY)
     const regexNumericDate = /\b([0-3]?[0-9])[/-](0?[1-9]|1[0-2])[/-](\d{4})\b/;
     // Pattern D: ISO (YYYY-MM-DD)
     const regexIsoDate = /\b(\d{4})[/-](0?[1-9]|1[0-2])[/-]([0-3]?[0-9])\b/;
 
-    for (const line of contentLines) {
-      const lt = line.text || '';
-
+    for (const lt of contentLines) {
       // Check Day First
       const matchDay = lt.match(regexDayFirst);
       if (matchDay) {
@@ -483,28 +531,25 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
 
     if (parsedDateStr) {
       setPaymentDate(parsedDateStr);
+      newWarnings.date = null;
     } else {
       newWarnings.date = unreadFieldWarning;
     }
 
-    // 4. EXTRACT TRANSACTION TIME (Skips device status-bar clock)
+    // 4. EXTRACT TRANSACTION TIME
     interface TimeCandidate {
       timeStr: string;
       score: number;
     }
     const timeCandidates: TimeCandidate[] = [];
 
-    for (const line of contentLines) {
-      const lt = line.text || '';
-
-      // Match 1: Time with AM/PM (Google Pay: "4:15 PM", PhonePe: "04:15 PM")
+    for (const lt of contentLines) {
+      // Match 1: Time with AM/PM (Google Pay: "6:30 PM", PhonePe: "04:15 PM", Paytm: "02:43 AM")
       const matchAmPm = lt.match(/\b(0?[1-9]|1[0-2]):([0-5][0-9])(?::([0-5][0-9]))?\s*(am|pm|AM|PM)\b/);
       if (matchAmPm) {
         let score = 100;
         if (/\b(on|at|completed|time|dated)\b/i.test(lt)) score += 50;
-        if (parsedDateStr && (lt.includes('Jan') || lt.includes('Feb') || lt.includes('Mar') || lt.includes('Apr') || lt.includes('May') || lt.includes('Jun') || lt.includes('Jul') || lt.includes('Aug') || lt.includes('Sep') || lt.includes('Oct') || lt.includes('Nov') || lt.includes('Dec') || lt.includes('/'))) {
-          score += 80;
-        }
+        if (parsedDateStr) score += 60;
         const rawHour = parseInt(matchAmPm[1], 10);
         const min = matchAmPm[2];
         const meridiem = matchAmPm[4].toUpperCase();
@@ -531,6 +576,7 @@ export const PaymentOcrModal: React.FC<PaymentOcrModalProps> = ({
     timeCandidates.sort((a, b) => b.score - a.score);
     if (timeCandidates.length > 0) {
       setPaymentTime(timeCandidates[0].timeStr);
+      newWarnings.time = null;
     } else {
       setPaymentTime('');
       newWarnings.time = unreadFieldWarning;
