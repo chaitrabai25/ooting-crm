@@ -704,33 +704,9 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
               type="button"
               disabled={isSaving}
               onClick={onClose}
-              className="hidden sm:inline-flex px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             >
               Cancel
-            </button>
-
-            <button
-              type="button"
-              disabled={isSaving || isUploadingImage}
-              onClick={() => handleSaveOnly()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
-            >
-              {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              <span>{isSaving ? 'Saving...' : 'Save Day'}</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={isSaving || isUploadingImage}
-              onClick={handleSaveAndContinue}
-              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer disabled:opacity-50 active:scale-98"
-            >
-              {isSaving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              )}
-              <span>{isSaving ? 'Saving...' : 'Save & Continue →'}</span>
             </button>
 
             <button
@@ -1439,24 +1415,14 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
               type="button"
               disabled={isSaving || isUploadingImage}
               onClick={() => handleSaveOnly()}
-              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 text-xs font-bold text-slate-800 dark:text-white bg-white dark:bg-slate-800 hover:bg-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
-            >
-              {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              <span>{isSaving ? 'Saving...' : 'Save Day'}</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={isSaving || isUploadingImage}
-              onClick={handleSaveAndContinue}
-              className="inline-flex items-center gap-1.5 px-5 sm:px-6 py-2 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+              className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer disabled:opacity-50 active:scale-98"
             >
               {isSaving ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <CheckCircle2 className="w-3.5 h-3.5" />
               )}
-              <span>{isSaving ? 'Saving...' : 'Save & Continue →'}</span>
+              <span>{isSaving ? 'Saving...' : 'Save Itinerary Day'}</span>
             </button>
           </div>
         </footer>

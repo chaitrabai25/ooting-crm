@@ -347,11 +347,32 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
+    // Cascade updates to all itinerary days using this hotel
+    try {
+      const loc = `${updated.city ? `${updated.city}, ` : ''}${updated.district || ''}`;
+      await prisma.itineraryDay.updateMany({
+        where: { hotelId: id },
+        data: {
+          hotelName: updated.name,
+          hotelStarCategory: updated.starCategory || '3 Star',
+          hotelImageUrl: updated.imageUrl || null,
+          hotelLocation: loc || null,
+          hotelDetails: updated.description || updated.address || null,
+          hotelCheckIn: updated.checkInTime || '12:00 PM',
+          hotelCheckOut: updated.checkOutTime || '11:00 AM',
+        },
+      });
+    } catch (itineraryCascadeErr) {
+      console.warn('[HotelRoute] Itinerary cascade sync warning:', itineraryCascadeErr);
+    }
+
     cache.delPrefix('hotels:');
     cache.del(`hotel:${id}`);
+    cache.delPrefix('package:');
+    cache.delPrefix('packages:');
 
     res.json({
-      message: `Hotel "${updated.name}" updated successfully.`,
+      message: `Hotel "${updated.name}" updated successfully and synchronized with all itineraries.`,
       hotel: updated,
     });
   } catch (error) {

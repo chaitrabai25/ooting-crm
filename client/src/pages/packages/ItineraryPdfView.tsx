@@ -140,47 +140,36 @@ const renderColoredDayTitle = (rawTitle: string) => {
   return renderRouteSegments(cleanTitle);
 };
 
-// In-memory instant cache for package PDF view
-const memoryHotelsLookup = new Map<string, any>();
-let memoryHotelsLoaded = false;
-const memoryPackageCache = new Map<string, Package>();
-
 export const ItineraryPdfView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { company, effectiveLogoUrl } = useCompanySettings();
 
-  const [pkg, setPkg] = useState<Package | null>(() => (id ? memoryPackageCache.get(id) || null : null));
-  const [hotelsLookup, setHotelsLookup] = useState<Map<string, any>>(() => new Map(memoryHotelsLookup));
-  const [isLoading, setIsLoading] = useState(() => !(id && memoryPackageCache.has(id)));
+  const [pkg, setPkg] = useState<Package | null>(null);
+  const [hotelsLookup, setHotelsLookup] = useState<Map<string, any>>(new Map());
+  const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         if (!id) return;
-        if (!memoryPackageCache.has(id)) {
-          setIsLoading(true);
-        }
+        setIsLoading(true);
 
-        const promises: [Promise<any>, Promise<any>?] = [api.get('/packages/' + id)];
-        if (!memoryHotelsLoaded) {
-          promises.push(api.get('/hotels').catch(() => ({ data: { hotels: [] } })));
-        }
+        const [pkgRes, hotelsRes] = await Promise.all([
+          api.get(`/packages/${id}?fresh=true&_t=${Date.now()}`),
+          api.get(`/hotels?limit=250&_t=${Date.now()}`).catch(() => ({ data: { hotels: [] } })),
+        ]);
 
-        const [pkgRes, hotelsRes] = await Promise.all(promises);
         setPkg(pkgRes.data);
-        memoryPackageCache.set(id, pkgRes.data);
 
-        if (hotelsRes && hotelsRes.data?.hotels) {
-          const list = hotelsRes.data.hotels || [];
-          list.forEach((h: any) => {
-            if (h.id) memoryHotelsLookup.set(h.id, h);
-            if (h.name) memoryHotelsLookup.set(h.name.toLowerCase().trim(), h);
-          });
-          memoryHotelsLoaded = true;
-          setHotelsLookup(new Map(memoryHotelsLookup));
-        }
+        const list = hotelsRes.data?.hotels || hotelsRes.data?.data || (Array.isArray(hotelsRes.data) ? hotelsRes.data : []);
+        const lookup = new Map<string, any>();
+        list.forEach((h: any) => {
+          if (h.id) lookup.set(h.id, h);
+          if (h.name) lookup.set(h.name.toLowerCase().trim(), h);
+        });
+        setHotelsLookup(lookup);
       } catch (err) {
         console.error('Failed to load package itinerary for PDF:', err);
       } finally {

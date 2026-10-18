@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Compass,
   Users,
@@ -27,6 +27,7 @@ import { notifyError } from '../../utils/sweetalert.js';
 
 export const GuideAssignments: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [assignments, setAssignments] = useState<TourAssignment[]>([]);
   const [guides, setGuides] = useState<TourGuide[]>([]);
@@ -107,15 +108,16 @@ export const GuideAssignments: React.FC = () => {
   const fetchDependencies = async () => {
     try {
       const [guidesRes, bookingsRes, hotelsRes, cabsRes, suppliersRes] = await Promise.all([
-        api.get('/guides?limit=100&status=ACTIVE'),
-        api.get('/bookings?limit=50&bookingStatus=CONFIRMED'),
+        api.get('/guides?limit=100&status=ACTIVE').catch(() => ({ data: { data: [] } })),
+        api.get('/bookings?limit=50&bookingStatus=CONFIRMED').catch(() => ({ data: { data: [] } })),
         api.get('/hotels?limit=100').catch(() => ({ data: { data: [] } })),
         api.get('/cabs?limit=100').catch(() => ({ data: { data: [] } })),
         api.get('/suppliers?limit=100').catch(() => ({ data: { data: [] } })),
       ]);
-      setGuides(guidesRes.data.data || []);
-      setBookings(bookingsRes.data.data || []);
-      setB2bHotels(hotelsRes.data.data || hotelsRes.data || []);
+      setGuides(guidesRes.data?.data || guidesRes.data?.guides || (Array.isArray(guidesRes.data) ? guidesRes.data : []));
+      setBookings(bookingsRes.data?.data || bookingsRes.data?.bookings || (Array.isArray(bookingsRes.data) ? bookingsRes.data : []));
+      const hotelList = hotelsRes.data?.hotels || hotelsRes.data?.data || (Array.isArray(hotelsRes.data) ? hotelsRes.data : []);
+      setB2bHotels(hotelList);
 
       const registeredCabs = (cabsRes.data?.data || cabsRes.data || []).map((c: any) => ({
         id: c.id,
@@ -155,6 +157,17 @@ export const GuideAssignments: React.FC = () => {
     fetchDependencies();
   }, []);
 
+  useEffect(() => {
+    if (searchParams.get('action') === 'assign' || searchParams.get('open') === 'true') {
+      resetModalState();
+      setIsModalOpen(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('action');
+      newParams.delete('open');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams]);
+
   const handleBookingSelect = (bookingId: string) => {
     setSelectedBookingId(bookingId);
     const b = bookings.find((item) => item.id === bookingId);
@@ -192,12 +205,13 @@ export const GuideAssignments: React.FC = () => {
 
   const handleB2bHotelSelect = (hotelId: string) => {
     setSelectedB2bHotelId(hotelId);
+    if (!Array.isArray(b2bHotels)) return;
     const h = b2bHotels.find((x) => x.id === hotelId);
     if (h) {
-      setHotelName(h.name);
+      setHotelName(h.name || '');
       setHotelLocation(h.city || h.district || h.state || '');
       setHotelStarCategory(h.starCategory || '3 Star');
-      setHotelPhone(h.contactPhone || '');
+      setHotelPhone(h.contactPhone || h.phone || '');
     }
   };
 

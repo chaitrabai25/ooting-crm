@@ -17,8 +17,13 @@ export const invalidatePackageCache = (companyId?: string, packageId?: string) =
     cache.delPrefix('packages:list:');
   }
   if (packageId) {
+    cache.del(`package:${packageId}`);
     cache.delPrefix(`package:${packageId}`);
+    if (companyId) {
+      cache.del(`package:${companyId}:${packageId}`);
+    }
   }
+  cache.delPrefix('package:');
 };
 
 // List packages with in-memory caching
@@ -101,13 +106,16 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
+    const fresh = req.query.fresh === 'true' || Boolean(req.query._t);
 
     const cacheKey = `package:${companyId}:${id}`;
-    const cached = cache.get<any>(cacheKey);
-    if (cached) {
-      if (req.user!.isPlatformMasterAdmin || cached.companyId === companyId) {
-        res.json(cached);
-        return;
+    if (!fresh) {
+      const cached = cache.get<any>(cacheKey);
+      if (cached) {
+        if (req.user!.isPlatformMasterAdmin || cached.companyId === companyId) {
+          res.json(cached);
+          return;
+        }
       }
     }
 
@@ -125,7 +133,38 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
-    cache.set(cacheKey, pkg, 900); // 15 mins cache
+    // Auto-sync live hotel data if hotel was updated in Hotel Master
+    if (pkg.itineraries && pkg.itineraries.length > 0) {
+      const hotelIds = pkg.itineraries.map((d: any) => d.hotelId).filter(Boolean);
+      if (hotelIds.length > 0) {
+        try {
+          const liveHotels = await (prisma as any).hotel.findMany({
+            where: { id: { in: hotelIds }, isDeleted: false },
+          });
+          const hotelMap = new Map<string, any>(liveHotels.map((h: any) => [h.id, h]));
+          pkg.itineraries = pkg.itineraries.map((d: any) => {
+            if (d.hotelId && hotelMap.has(d.hotelId)) {
+              const h = hotelMap.get(d.hotelId);
+              return {
+                ...d,
+                hotelName: h.name || d.hotelName,
+                hotelStarCategory: h.starCategory || d.hotelStarCategory,
+                hotelImageUrl: h.imageUrl || d.hotelImageUrl,
+                hotelLocation: (h.city ? `${h.city}, ` : '') + (h.district || d.hotelLocation || ''),
+                hotelDetails: h.description || h.address || d.hotelDetails,
+                hotelCheckIn: h.checkInTime || d.hotelCheckIn,
+                hotelCheckOut: h.checkOutTime || d.hotelCheckOut,
+              };
+            }
+            return d;
+          });
+        } catch (syncErr) {
+          console.warn('[PackageRoute] Live hotel sync non-blocking warning:', syncErr);
+        }
+      }
+    }
+
+    cache.set(cacheKey, pkg, 30); // 30s cache
     res.json(pkg);
   } catch (error) {
     next(error);

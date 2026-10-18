@@ -45,7 +45,8 @@ import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { useAuth } from '../../context/AuthContext.js';
-import { notifyError, notifySuccess } from '../../utils/sweetalert.js';
+import { notifyError, notifySuccess, notifyWarning } from '../../utils/sweetalert.js';
+import { exportToExcel } from '../../utils/excel.js';
 import { TourExpenseModal } from './TourExpenseModal.js';
 import { TourExpense, TourExpenseSummary, PassengerExpenseBreakdown } from '../../types/index.js';
 
@@ -859,6 +860,81 @@ export const AssignedTourManifest: React.FC = () => {
     );
   });
 
+  const handleExportAttendanceExcel = () => {
+    if (!manifest || passengers.length === 0) {
+      notifyWarning('Export Notice', 'No passenger records found to export attendance.');
+      return;
+    }
+
+    const currentCp = attendanceCheckpoints.find((c) => c.id === selectedCheckpointId);
+    const cpName = currentCp?.name || 'Active Safety Checkpoint';
+
+    const data = passengers.map((p, idx) => {
+      const rec = selectedCheckpointId ? attendanceRecords[selectedCheckpointId]?.[p.id] : null;
+      const isPresent = rec?.status === 'PRESENT';
+
+      const row: Record<string, any> = {
+        'S.No': idx + 1,
+        'Traveller Name': p.name,
+        'Primary Contact': p.isPrimary ? 'Yes' : 'No',
+        'Mobile Phone': p.phone || 'N/A',
+        'Gender': p.gender || 'N/A',
+        'Age': p.age || 'N/A',
+        'Room Allocation': p.roomAllocation || 'N/A',
+        'Role in Trip': p.roleInTrip || 'Traveller',
+        'Emergency Contact': p.emergencyContact || 'N/A',
+        'Dietary / Medical Needs': p.notes || 'None',
+        'ID / Document': p.idNumber || 'N/A',
+        [`${cpName} Attendance`]: isPresent ? 'PRESENT' : 'MISSING',
+        'Roll-Call Time': rec?.markedAt ? new Date(rec.markedAt).toLocaleString() : 'Not Recorded',
+        'Verified By': rec?.markedByName || manifest.primaryGuide?.fullName || 'Guide',
+      };
+
+      if (attendanceCheckpoints.length > 1) {
+        attendanceCheckpoints.forEach((cp) => {
+          if (cp.id !== selectedCheckpointId) {
+            const cpRec = attendanceRecords[cp.id]?.[p.id];
+            row[`Spot: ${cp.name}`] = cpRec?.status === 'PRESENT' ? 'PRESENT' : 'MISSING';
+          }
+        });
+      }
+
+      return row;
+    });
+
+    const code = manifest.assignmentCode || 'Tour';
+    const timestamp = new Date().toISOString().slice(0, 10);
+    exportToExcel(data, `${code}-Attendance-Safety-Sheet-${timestamp}.xlsx`, 'Attendance Roster');
+    notifySuccess('Attendance Excel sheet downloaded successfully!');
+  };
+
+  const handleExportPassengersExcel = () => {
+    if (!manifest || passengers.length === 0) {
+      notifyWarning('Export Notice', 'No passenger records to export.');
+      return;
+    }
+
+    const data = passengers.map((p, idx) => ({
+      'S.No': idx + 1,
+      'Full Name': p.name,
+      'Lead / Primary Guest': p.isPrimary ? 'Yes' : 'No',
+      'Mobile Phone': p.phone || 'N/A',
+      'Email Address': p.email || 'N/A',
+      'Gender': p.gender || 'N/A',
+      'Age': p.age || 'N/A',
+      'Role in Trip': p.roleInTrip || 'Traveller',
+      'Room Allocation': p.roomAllocation || 'N/A',
+      'ID / Aadhaar / Passport': p.idNumber || 'N/A',
+      'Emergency Contact': p.emergencyContact || 'N/A',
+      'Special Requests / Medical Notes': p.notes || 'None',
+    }));
+
+    const code = manifest.assignmentCode || 'Tour';
+    const timestamp = new Date().toISOString().slice(0, 10);
+    exportToExcel(data, `${code}-Passenger-Manifest-${timestamp}.xlsx`, 'Passengers Manifest');
+    notifySuccess('Passenger manifest Excel sheet downloaded successfully!');
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'IN_PROGRESS':
@@ -921,6 +997,16 @@ export const AssignedTourManifest: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleExportPassengersExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-semibold shadow-xs"
+            title="Download Passenger Manifest spreadsheet (.xlsx)"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Export Manifest (.xlsx)</span>
+          </button>
+
           <button
             type="button"
             onClick={handlePrint}
@@ -1230,7 +1316,7 @@ export const AssignedTourManifest: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Add Day Details / Schedule</span>
+              <span>Add Day Schedule</span>
             </button>
           </div>
 
@@ -1243,7 +1329,7 @@ export const AssignedTourManifest: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Day 1 Details</span>
+                <span>Add Day 1 Details</span>
               </button>
             </div>
           ) : (
@@ -1364,11 +1450,31 @@ export const AssignedTourManifest: React.FC = () => {
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
+                  onClick={handleExportAttendanceExcel}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+                  title="Download Attendance Sheet as Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Export Sheet (.xlsx)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold shadow-xs transition-colors"
+                  title="Print Attendance Checklist"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>PDF / Print</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setIsNewCheckpointModalOpen(true)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Add Checkpoint / Spot</span>
+                  <span>Add Checkpoint / Spot</span>
                 </button>
 
                 <button
@@ -1560,7 +1666,7 @@ export const AssignedTourManifest: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Traveller</span>
+                <span>Add Traveller</span>
               </button>
             </div>
           ) : (
@@ -1739,11 +1845,31 @@ export const AssignedTourManifest: React.FC = () => {
 
               <button
                 type="button"
+                onClick={handleExportPassengersExcel}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors whitespace-nowrap"
+                title="Download passenger manifest as Excel (.xlsx)"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Export Excel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold shadow-xs whitespace-nowrap"
+                title="Print or save manifest as PDF"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>PDF / Print</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsAddPaxModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Passenger</span>
+                <span>Add Passenger</span>
               </button>
 
               <div className="relative w-full sm:w-64">
@@ -1768,7 +1894,7 @@ export const AssignedTourManifest: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add First Passenger</span>
+                <span>Add First Passenger</span>
               </button>
             </div>
           ) : (
@@ -2052,7 +2178,7 @@ export const AssignedTourManifest: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Add Staying Hotel</span>
+              <span>Add Staying Hotel</span>
             </button>
           </div>
 
@@ -2065,7 +2191,7 @@ export const AssignedTourManifest: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Choose from B2B Hotels or Enter Hotel</span>
+                <span>Choose from B2B Hotels or Enter Hotel</span>
               </button>
             </div>
           ) : (
@@ -2170,7 +2296,7 @@ export const AssignedTourManifest: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Customer Expense</span>
+                <span>Customer Expense</span>
               </button>
 
               <button
@@ -2179,7 +2305,7 @@ export const AssignedTourManifest: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
               >
                 <Droplet className="w-3.5 h-3.5" />
-                <span>+ Water / Shared Expense</span>
+                <span>Water / Shared Expense</span>
               </button>
 
               <button
@@ -2450,7 +2576,7 @@ export const AssignedTourManifest: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors self-start sm:self-auto"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add General Expense</span>
+                <span>Add General Expense</span>
               </button>
             </div>
 

@@ -17,6 +17,7 @@ import {
   UserCheck,
   Send,
   Loader2,
+  Printer,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 
@@ -215,6 +216,17 @@ export const TourCustomerRegistrationForm: React.FC = () => {
                 </span>
               </div>
             )}
+          </div>
+
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Download / Print Slip (PDF)</span>
+            </button>
           </div>
 
           <p className="text-xs text-slate-500">

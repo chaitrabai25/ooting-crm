@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/index.js';
 import { prisma } from '../db/prisma.js';
+import { cache } from '../services/cache.service.js';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -47,35 +48,44 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
       tokenVersion?: number;
     };
 
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        status: true,
-        permissions: true,
-        companyId: true,
-        company: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
-            isOoting: true,
-            tokenRevocationVersion: true,
-            maxStaffLimit: true,
-            orgCode: true,
-            suspensionReason: true,
-            suspendedAt: true,
-            subscriptionTier: true,
-            subscriptionExpiresAt: true,
-            enabledModules: true,
+    const authCacheKey = `auth:session:${decoded.id}`;
+    let user = cache.get<any>(authCacheKey);
+
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          status: true,
+          permissions: true,
+          companyId: true,
+          company: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true,
+              isOoting: true,
+              tokenRevocationVersion: true,
+              maxStaffLimit: true,
+              orgCode: true,
+              suspensionReason: true,
+              suspendedAt: true,
+              subscriptionTier: true,
+              subscriptionExpiresAt: true,
+              enabledModules: true,
+            },
           },
         },
-      },
-    });
+      });
+
+      if (user && user.status === 'ACTIVE') {
+        cache.set(authCacheKey, user, 30); // 30s high-speed cache
+      }
+    }
 
     if (!user) {
       res.status(401).json({ message: 'User account not found.' });

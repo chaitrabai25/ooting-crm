@@ -274,6 +274,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     });
 
     cache.delPrefix('places:');
+    cache.delPrefix('package:');
+    cache.delPrefix('packages:');
 
     res.json({
       message: `Place "${updated.name}" updated successfully.`,
