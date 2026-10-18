@@ -33,6 +33,13 @@ import {
   Droplet,
   Split,
   FileSpreadsheet,
+  Link as LinkIcon,
+  ExternalLink,
+  HeartPulse,
+  UserCheck,
+  ClipboardCheck,
+  Copy,
+  Share2,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -165,8 +172,29 @@ export const AssignedTourManifest: React.FC = () => {
 
   const [manifest, setManifest] = useState<TourManifestData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'itinerary' | 'attendance' | 'passengers' | 'cabs' | 'hotels' | 'expenses' | 'reports'>('itinerary');
+
+  // Tour Attendance & Safety Roll-Call State
+  const [attendanceCheckpoints, setAttendanceCheckpoints] = useState<any[]>([]);
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState<string>('');
+  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, Record<string, any>>>({});
+  const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [isTogglingPaxAttendance, setIsTogglingPaxAttendance] = useState<string | null>(null);
+  const [attendanceSearch, setAttendanceSearch] = useState('');
+  const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'MISSING'>('ALL');
   const [passengerSearch, setPassengerSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'itinerary' | 'passengers' | 'cabs' | 'hotels' | 'expenses' | 'reports'>('itinerary');
+
+  // New Checkpoint Modal
+  const [isNewCheckpointModalOpen, setIsNewCheckpointModalOpen] = useState(false);
+  const [newCheckpointName, setNewCheckpointName] = useState('');
+  const [newCheckpointLocation, setNewCheckpointLocation] = useState('');
+  const [isSavingCheckpoint, setIsSavingCheckpoint] = useState(false);
+
+  // Cab B2B vs Manual Mode
+  const [cabModalMode, setCabModalMode] = useState<'B2B' | 'MANUAL'>('B2B');
+  const [transportOptions, setTransportOptions] = useState<any[]>([]);
+  const [cabModalSelectedId, setCabModalSelectedId] = useState('');
 
   // Tour Expenses State
   const [expensesSummary, setExpensesSummary] = useState<TourExpenseSummary | null>(null);
@@ -269,12 +297,129 @@ export const AssignedTourManifest: React.FC = () => {
     }
   };
 
+  const fetchAttendance = async () => {
+    if (!id) return;
+    try {
+      setIsLoadingAttendance(true);
+      const res = await api.get(`/guides/assignments/${id}/attendance`);
+      const checkpoints = res.data.checkpoints || [];
+      setAttendanceCheckpoints(checkpoints);
+      if (checkpoints.length > 0 && !selectedCheckpointId) {
+        setSelectedCheckpointId(checkpoints[0].id);
+      }
+      setAttendanceRecords(res.data.records || {});
+    } catch (err: any) {
+      console.error('Failed to load tour attendance:', err);
+    } finally {
+      setIsLoadingAttendance(false);
+    }
+  };
+
   useEffect(() => {
     if (id) {
       fetchManifest();
       fetchExpenses();
+      fetchAttendance();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'attendance') {
+      fetchAttendance();
+    }
+  }, [activeTab]);
+
+  const handleToggleAttendance = async (paxId: string, currentStatus: string) => {
+    if (!id || !selectedCheckpointId) {
+      notifyError('Please select or create an attendance checkpoint first.');
+      return;
+    }
+    const newStatus = currentStatus === 'PRESENT' ? 'ABSENT' : 'PRESENT';
+    try {
+      setIsTogglingPaxAttendance(paxId);
+      // Optimistic update
+      setAttendanceRecords((prev) => ({
+        ...prev,
+        [selectedCheckpointId]: {
+          ...(prev[selectedCheckpointId] || {}),
+          [paxId]: {
+            status: newStatus,
+            markedAt: new Date().toISOString(),
+            markedBy: user?.name || 'Tour Guide',
+          },
+        },
+      }));
+
+      await api.post(`/guides/assignments/${id}/attendance/mark`, {
+        checkpointId: selectedCheckpointId,
+        passengerId: paxId,
+        status: newStatus,
+      });
+    } catch (err: any) {
+      notifyError(err.response?.data?.message || 'Failed to update attendance status.');
+      await fetchAttendance();
+    } finally {
+      setIsTogglingPaxAttendance(null);
+    }
+  };
+
+  const handleMarkAllPresent = async () => {
+    if (!id || !selectedCheckpointId) {
+      notifyError('Please select a checkpoint first.');
+      return;
+    }
+    try {
+      setIsMarkingAll(true);
+      await api.post(`/guides/assignments/${id}/attendance/mark-all`, {
+        checkpointId: selectedCheckpointId,
+      });
+      notifySuccess('All travellers marked as Present and Safe!');
+      await fetchAttendance();
+    } catch (err: any) {
+      notifyError(err.response?.data?.message || 'Failed to mark all travellers present.');
+    } finally {
+      setIsMarkingAll(false);
+    }
+  };
+
+  const handleSaveNewCheckpoint = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !newCheckpointName.trim()) return;
+    try {
+      setIsSavingCheckpoint(true);
+      const res = await api.post(`/guides/assignments/${id}/attendance/checkpoint`, {
+        name: newCheckpointName.trim(),
+        location: newCheckpointLocation.trim() || undefined,
+      });
+      notifySuccess(`Checkpoint "${newCheckpointName}" created.`);
+      setIsNewCheckpointModalOpen(false);
+      setNewCheckpointName('');
+      setNewCheckpointLocation('');
+      await fetchAttendance();
+      if (res.data?.checkpoint?.id) {
+        setSelectedCheckpointId(res.data.checkpoint.id);
+      }
+    } catch (err: any) {
+      notifyError(err.response?.data?.message || 'Failed to create checkpoint.');
+    } finally {
+      setIsSavingCheckpoint(false);
+    }
+  };
+
+  const handleCopyRegistrationLink = () => {
+    const url = `${window.location.origin}/register-tour/${id}`;
+    navigator.clipboard.writeText(url);
+    notifySuccess('Customer Self-Registration Form link copied to clipboard!');
+  };
+
+  const handleShareWhatsApp = () => {
+    const url = `${window.location.origin}/register-tour/${id}`;
+    const tourTitle = (manifest as any)?.package?.packageName || (manifest as any)?.destination || 'Upcoming Tour';
+    const msg = encodeURIComponent(
+      `Hello! 👋 Please complete your traveller self-registration for the upcoming trip "${tourTitle}" with Ooting:\n\n👉 ${url}\n\nPlease submit your details, food preferences & emergency contact for group safety. Thank you!`
+    );
+    window.open(`https://api.whatsapp.com/send?text=${msg}`, '_blank');
+  };
 
   const handleToggleExpenseSettle = async (exp: TourExpense) => {
     if (!id) return;
@@ -433,7 +578,7 @@ export const AssignedTourManifest: React.FC = () => {
   };
 
   // Cab & Driver Handlers
-  const handleOpenCabModal = () => {
+  const handleOpenCabModal = async () => {
     const directDriver = (manifest as any)?.driverName;
     const directPhone = (manifest as any)?.driverPhone;
     const directCar = (manifest as any)?.vehicleNumber;
@@ -445,7 +590,56 @@ export const AssignedTourManifest: React.FC = () => {
     setCabDriverPhoneInput(directPhone || firstCab?.driverPhone || '');
     setCabVehicleNumberInput(directCar || firstCab?.carNumber || '');
     setCabVehicleTypeInput(directType || firstCab?.vehicleType || 'Innova Crysta');
+
+    if (transportOptions.length === 0) {
+      try {
+        const [cabsRes, suppliersRes] = await Promise.all([
+          api.get('/cabs?limit=100').catch(() => ({ data: { data: [] } })),
+          api.get('/suppliers?limit=100').catch(() => ({ data: { data: [] } })),
+        ]);
+        const registeredCabs = (cabsRes.data?.data || cabsRes.data || []).map((c: any) => ({
+          id: c.id,
+          source: 'CAB',
+          title: `${c.driverName || 'Driver'} - ${c.carNumber || 'Vehicle'} (${c.vehicleType || 'Cab'})`,
+          driverName: c.driverName || '',
+          driverPhone: c.driverPhone || '',
+          vehicleNumber: c.carNumber || '',
+          vehicleType: c.vehicleType || 'Innova Crysta',
+        }));
+        const b2bSuppliers = (suppliersRes.data?.data || suppliersRes.data || [])
+          .filter((s: any) => {
+            const type = (s.supplierType || '').toUpperCase();
+            const cat = (s.serviceCategories || '').toUpperCase();
+            return type.includes('CAB') || type.includes('TRANSPORT') || cat.includes('TRANSPORT') || cat.includes('CAB') || cat.includes('VEHICLE');
+          })
+          .map((s: any) => ({
+            id: s.id,
+            source: 'SUPPLIER',
+            title: `${s.name} - ${s.contactPerson || 'Transport'} (${s.phone || ''})`,
+            driverName: s.contactPerson || s.name || '',
+            driverPhone: s.phone || '',
+            vehicleNumber: '',
+            vehicleType: 'Innova Crysta',
+          }));
+        setTransportOptions([...registeredCabs, ...b2bSuppliers]);
+      } catch (e) {
+        console.warn('Failed to load transport options', e);
+      }
+    }
+    setCabModalMode('B2B');
+    setCabModalSelectedId('');
     setIsCabModalOpen(true);
+  };
+
+  const handleSelectB2bTransport = (transportId: string) => {
+    setCabModalSelectedId(transportId);
+    const t = transportOptions.find((x) => x.id === transportId);
+    if (t) {
+      if (t.driverName) setCabDriverNameInput(t.driverName);
+      if (t.driverPhone) setCabDriverPhoneInput(t.driverPhone);
+      if (t.vehicleNumber) setCabVehicleNumberInput(t.vehicleNumber);
+      if (t.vehicleType) setCabVehicleTypeInput(t.vehicleType);
+    }
   };
 
   const handleSaveCab = async (e: React.FormEvent) => {
@@ -639,6 +833,29 @@ export const AssignedTourManifest: React.FC = () => {
       p.roleInTrip?.toLowerCase().includes(q) ||
       p.roomAllocation?.toLowerCase().includes(q) ||
       p.idNumber?.toLowerCase().includes(q)
+    );
+  });
+
+  const currentCheckpointRecords = selectedCheckpointId ? (attendanceRecords[selectedCheckpointId] || {}) : {};
+  const presentPaxIds = new Set(
+    Object.keys(currentCheckpointRecords).filter((pId) => currentCheckpointRecords[pId]?.status === 'PRESENT')
+  );
+  const presentCount = passengers.filter((p) => presentPaxIds.has(p.id)).length;
+  const missingCount = passengers.length - presentCount;
+  const presentPct = passengers.length > 0 ? (presentCount / passengers.length) * 100 : 0;
+
+  const filteredAttendancePassengers = passengers.filter((p) => {
+    const isPresent = presentPaxIds.has(p.id);
+    if (attendanceFilter === 'PRESENT' && !isPresent) return false;
+    if (attendanceFilter === 'MISSING' && isPresent) return false;
+    if (!attendanceSearch.trim()) return true;
+    const q = attendanceSearch.toLowerCase();
+    return (
+      p.name?.toLowerCase().includes(q) ||
+      p.phone?.toLowerCase().includes(q) ||
+      p.roomAllocation?.toLowerCase().includes(q) ||
+      p.emergencyContact?.toLowerCase().includes(q) ||
+      p.notes?.toLowerCase().includes(q)
     );
   });
 
@@ -910,6 +1127,19 @@ export const AssignedTourManifest: React.FC = () => {
 
         <button
           type="button"
+          onClick={() => setActiveTab('attendance')}
+          className={`pb-2 whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'attendance'
+              ? 'text-brand-600 border-b-2 border-brand-600 -mb-2.5 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <ClipboardCheck className="w-4 h-4 text-emerald-600" />
+          <span>Attendance & Safety ({passengers.length})</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('passengers')}
           className={`pb-2 whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'passengers'
@@ -1115,6 +1345,363 @@ export const AssignedTourManifest: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: ATTENDANCE & SAFETY ROLL-CALL */}
+      {activeTab === 'attendance' && (
+        <div className="space-y-4">
+          {/* Header & Checkpoint Controls */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <ClipboardCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Tour Attendance & Group Safety Roll-Call</span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Verify group headcount, mark travellers present at each sightseeing spot/checkpoint, and safeguard group security.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsNewCheckpointModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add Checkpoint / Spot</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleMarkAllPresent}
+                  disabled={isMarkingAll || !selectedCheckpointId || passengers.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+                  title="Mark all travellers present for this spot"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isMarkingAll ? 'Marking All...' : '⚡ Mark All Present (1-Click)'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Checkpoint Dropdown Selector */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-3">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-brand-600" />
+                <span>Active Safety Checkpoint:</span>
+              </label>
+
+              {attendanceCheckpoints.length === 0 ? (
+                <div className="text-xs text-slate-400 flex items-center gap-2">
+                  <span>No checkpoints yet.</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsNewCheckpointModalOpen(true)}
+                    className="text-brand-600 font-bold hover:underline"
+                  >
+                    + Create First Checkpoint
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={selectedCheckpointId}
+                  onChange={(e) => setSelectedCheckpointId(e.target.value)}
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-1 focus:ring-brand-500"
+                >
+                  {attendanceCheckpoints.map((cp) => (
+                    <option key={cp.id} value={cp.id}>
+                      {cp.name} {cp.location ? `— 📍 ${cp.location}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+
+          {/* 3 Safety Headcount Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Total Tour Group
+              </span>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">
+                  {passengers.length}
+                </span>
+                <span className="text-xs font-semibold text-slate-500">Travellers in Manifest</span>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-emerald-800/80 p-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
+                  Accounted For & Safe
+                </span>
+                <span className="p-1 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                  {presentCount}
+                </span>
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  ({Math.round(presentPct)}% Present)
+                </span>
+              </div>
+            </div>
+
+            <div
+              className={`rounded-xl border p-4 shadow-xs transition-colors ${
+                missingCount > 0
+                  ? 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
+                  : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 block">
+                  Missing / Unaccounted
+                </span>
+                {missingCount > 0 && (
+                  <span className="p-1 rounded-md bg-rose-200 text-rose-800 dark:bg-rose-900 dark:text-rose-200 animate-pulse">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span
+                  className={`text-2xl font-black ${
+                    missingCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'
+                  }`}
+                >
+                  {missingCount}
+                </span>
+                <span className="text-xs font-semibold text-slate-500">Traveller(s)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Missing Alert Notice if any passenger is absent */}
+          {missingCount > 0 && (
+            <div className="p-3 bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-800 rounded-xl flex items-center justify-between gap-3 text-xs text-rose-900 dark:text-rose-200">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>
+                  <strong>Safety Attention:</strong> {missingCount} traveller(s) are not yet marked present at this stop. Please verify their whereabouts or use the direct phone shortcuts below before departing.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttendanceFilter('MISSING')}
+                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shrink-0 transition-colors"
+              >
+                View Missing Only
+              </button>
+            </div>
+          )}
+
+          {/* Filter Bar & Search */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
+              <button
+                type="button"
+                onClick={() => setAttendanceFilter('ALL')}
+                className={`px-3 py-1 rounded-md font-bold transition-all ${
+                  attendanceFilter === 'ALL'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                All ({passengers.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAttendanceFilter('PRESENT')}
+                className={`px-3 py-1 rounded-md font-bold transition-all ${
+                  attendanceFilter === 'PRESENT'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                Present ({presentCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAttendanceFilter('MISSING')}
+                className={`px-3 py-1 rounded-md font-bold transition-all ${
+                  attendanceFilter === 'MISSING'
+                    ? 'bg-rose-600 text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                Missing ({missingCount})
+              </button>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search traveller, room, phone..."
+                value={attendanceSearch}
+                onChange={(e) => setAttendanceSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-brand-500"
+              />
+            </div>
+          </div>
+
+          {/* Travellers Roster Table */}
+          {passengers.length === 0 ? (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-xs space-y-3">
+              <p>No travellers currently assigned to this tour manifest.</p>
+              <button
+                type="button"
+                onClick={() => setIsAddPaxModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Traveller</span>
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="px-3 py-2.5">#</th>
+                      <th className="px-3 py-2.5">Traveller Name</th>
+                      <th className="px-3 py-2.5">Room</th>
+                      <th className="px-3 py-2.5">Phone & Emergency</th>
+                      <th className="px-3 py-2.5">Dietary / Medical Needs</th>
+                      <th className="px-3 py-2.5 text-center">Status</th>
+                      <th className="px-3 py-2.5 text-right">Roll-Call Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredAttendancePassengers.map((p, idx) => {
+                      const record = currentCheckpointRecords[p.id];
+                      const isPresent = record?.status === 'PRESENT';
+                      const isToggling = isTogglingPaxAttendance === p.id;
+
+                      return (
+                        <tr
+                          key={p.id || idx}
+                          className={`transition-colors ${
+                            isPresent
+                              ? 'bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/40'
+                              : 'bg-rose-50/20 dark:bg-rose-950/10 hover:bg-rose-50/40'
+                          }`}
+                        >
+                          <td className="px-3 py-2.5 font-mono text-[11px] text-slate-400">{idx + 1}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                              {p.name}
+                              {p.isPrimary && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
+                                  Primary Lead
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {p.age ? `${p.age} yrs` : ''} {p.gender ? `• ${p.gender}` : ''} • {p.roleInTrip || 'Traveller'}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {p.roomAllocation ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+                                <Bed className="w-3 h-3" />
+                                <span>{p.roomAllocation}</span>
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 space-y-1">
+                            {p.phone && (
+                              <div className="flex items-center gap-1.5">
+                                <a
+                                  href={`tel:${p.phone}`}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:underline font-mono"
+                                >
+                                  <Phone className="w-3 h-3" />
+                                  <span>{p.phone}</span>
+                                </a>
+                                <a
+                                  href={`https://wa.me/${p.phone.replace(/\D/g, '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-emerald-600 hover:text-emerald-700"
+                                  title="WhatsApp traveller"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
+                            )}
+                            {p.emergencyContact && (
+                              <div className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">
+                                <HeartPulse className="w-3 h-3" />
+                                <span>Em: {p.emergencyContact}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {p.notes ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200">
+                                {p.notes}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">Regular</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            {isPresent ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>PRESENT</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                                <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                <span>MISSING</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleAttendance(p.id, isPresent ? 'PRESENT' : 'ABSENT')}
+                              disabled={isToggling || !selectedCheckpointId}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs transition-all disabled:opacity-50 cursor-pointer ${
+                                isPresent
+                                  ? 'bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-200'
+                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              }`}
+                            >
+                              {isPresent ? (
+                                <>
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>{isToggling ? 'Updating...' : 'Mark Absent'}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>{isToggling ? 'Updating...' : 'Mark Present'}</span>
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* TAB 2: PASSENGERS MANIFEST & ROOM ALLOCATIONS */}
       {activeTab === 'passengers' && (
         <div className="space-y-4">
@@ -1130,6 +1717,26 @@ export const AssignedTourManifest: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleCopyRegistrationLink}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-bold transition-colors whitespace-nowrap"
+                title="Copy public customer self-registration link to clipboard"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Share Registration Form</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleShareWhatsApp}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-bold transition-colors whitespace-nowrap"
+                title="Share registration form link with customers via WhatsApp"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Invite via WhatsApp</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setIsAddPaxModalOpen(true)}
@@ -1865,6 +2472,7 @@ export const AssignedTourManifest: React.FC = () => {
                       <th className="px-3 py-2.5">Split Rule</th>
                       <th className="px-3 py-2.5 text-right">Amount</th>
                       <th className="px-3 py-2.5">Receipt #</th>
+                      <th className="px-3 py-2.5">Bill Slip / Proof</th>
                       <th className="px-3 py-2.5">Notes</th>
                       <th className="px-3 py-2.5 text-right">Actions</th>
                     </tr>
@@ -1889,17 +2497,40 @@ export const AssignedTourManifest: React.FC = () => {
                             {exp.title}
                           </td>
                           <td className="px-3 py-2.5">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                              {exp.splitType === 'SPLIT_EQUALLY'
-                                ? `Split Equally (${passengers.length} pax)`
-                                : exp.splitType ? exp.splitType.replace(/_/g, ' ') : 'Shared'}
-                            </span>
+                            {exp.splitType === 'COMPANY_EXPENSE' ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800 whitespace-nowrap">
+                                🏢 Company Internal (Do Not Divide)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 whitespace-nowrap">
+                                {exp.splitType === 'SPLIT_EQUALLY'
+                                  ? `Split Equally (${passengers.length} pax)`
+                                  : exp.splitType ? exp.splitType.replace(/_/g, ' ') : 'Shared'}
+                              </span>
+                            )}
                           </td>
                           <td className="px-3 py-2.5 text-right font-mono font-bold text-sm text-slate-900 dark:text-white">
                             ₹{Number(exp.amount).toLocaleString()}
                           </td>
                           <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">
                             {exp.receiptNumber || '-'}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {exp.receiptUrl ? (
+                              <a
+                                href={exp.receiptUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-brand-600 dark:text-brand-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap"
+                                title="View expense bill slip"
+                              >
+                                <Receipt className="w-3 h-3 text-brand-600" />
+                                <span>View Slip</span>
+                                <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 text-[10px] italic">No slip</span>
+                            )}
                           </td>
                           <td className="px-3 py-2.5 text-slate-500 text-[11px] max-w-xs truncate">
                             {exp.notes || '-'}
@@ -2393,6 +3024,55 @@ export const AssignedTourManifest: React.FC = () => {
               Assigned cab and driver details are visible to guides, operations staff, and travellers on their tour manifest.
             </div>
 
+            {/* Mode Toggle: B2B vs Manual */}
+            <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setCabModalMode('B2B')}
+                className={`flex-1 py-1.5 text-center font-bold rounded-md transition-all ${
+                  cabModalMode === 'B2B'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                🚗 Select from B2B Transport / Cabs
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCabModalMode('MANUAL');
+                  setCabModalSelectedId('');
+                }}
+                className={`flex-1 py-1.5 text-center font-bold rounded-md transition-all ${
+                  cabModalMode === 'MANUAL'
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                ✏️ Enter Manually
+              </button>
+            </div>
+
+            {cabModalMode === 'B2B' && (
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Choose B2B Transport Service / Driver Provider
+                </label>
+                <select
+                  value={cabModalSelectedId}
+                  onChange={(e) => handleSelectB2bTransport(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="">-- Choose Transport / Cab Provider ({transportOptions.length} available) --</option>
+                  {transportOptions.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -2620,6 +3300,65 @@ export const AssignedTourManifest: React.FC = () => {
                 className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold disabled:opacity-50"
               >
                 {isSavingHotel ? 'Saving...' : 'Add Staying Hotel'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: New Safety / Attendance Checkpoint */}
+      {isNewCheckpointModalOpen && (
+        <Modal
+          isOpen={isNewCheckpointModalOpen}
+          onClose={() => setIsNewCheckpointModalOpen(false)}
+          title="Create New Attendance & Safety Checkpoint"
+        >
+          <form onSubmit={handleSaveNewCheckpoint} className="space-y-3 text-xs">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-800 dark:text-emerald-200 text-[11px]">
+              Safety checkpoints let the guide perform roll-calls before boarding vehicles, entering sightseeing monuments, or leaving attractions.
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Checkpoint / Spot Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={newCheckpointName}
+                onChange={(e) => setNewCheckpointName(e.target.value)}
+                placeholder="e.g. Day 1 - Chamundi Hill Viewpoint"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Spot Location / Landmark (Optional)
+              </label>
+              <input
+                type="text"
+                value={newCheckpointLocation}
+                onChange={(e) => setNewCheckpointLocation(e.target.value)}
+                placeholder="e.g. Mysore, Karnataka"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsNewCheckpointModalOpen(false)}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingCheckpoint || !newCheckpointName.trim()}
+                className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold disabled:opacity-50"
+              >
+                {isSavingCheckpoint ? 'Creating...' : 'Create Checkpoint'}
               </button>
             </div>
           </form>

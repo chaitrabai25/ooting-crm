@@ -493,6 +493,16 @@ export async function ensureColumns() {
         INDEX \`TourExpense_settlementStatus_idx\` (\`settlementStatus\`),
         INDEX \`TourExpense_expenseDate_idx\` (\`expenseDate\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+      // TourAssignment logistics, custom manifests & attendance records
+      `ALTER TABLE \`TourAssignment\` ADD COLUMN \`driverName\` VARCHAR(191) NULL`,
+      `ALTER TABLE \`TourAssignment\` ADD COLUMN \`driverPhone\` VARCHAR(50) NULL`,
+      `ALTER TABLE \`TourAssignment\` ADD COLUMN \`vehicleNumber\` VARCHAR(50) NULL`,
+      `ALTER TABLE \`TourAssignment\` ADD COLUMN \`vehicleType\` VARCHAR(50) NULL`,
+      `ALTER TABLE \`TourAssignment\` ADD COLUMN \`hotelDetails\` TEXT NULL`,
+      `ALTER TABLE \`TourAssignment\` ADD COLUMN \`customItinerary\` TEXT NULL`,
+      `ALTER TABLE \`TourAssignment\` ADD COLUMN \`customPassengers\` TEXT NULL`,
+      `ALTER TABLE \`TourAssignment\` ADD COLUMN \`attendanceRecords\` LONGTEXT NULL`,
     ];
 
   for (const sql of mysqlMigrations) {

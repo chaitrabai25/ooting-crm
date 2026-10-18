@@ -61,6 +61,9 @@ export const GuideAssignments: React.FC = () => {
   const [operationalNotes, setOperationalNotes] = useState('');
 
   // Cab & Driver Logistics
+  const [cabSourceMode, setCabSourceMode] = useState<'B2B' | 'MANUAL'>('B2B');
+  const [selectedB2bCabId, setSelectedB2bCabId] = useState('');
+  const [b2bTransportOptions, setB2bTransportOptions] = useState<any[]>([]);
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
@@ -103,16 +106,44 @@ export const GuideAssignments: React.FC = () => {
 
   const fetchDependencies = async () => {
     try {
-      const [guidesRes, bookingsRes, hotelsRes] = await Promise.all([
+      const [guidesRes, bookingsRes, hotelsRes, cabsRes, suppliersRes] = await Promise.all([
         api.get('/guides?limit=100&status=ACTIVE'),
         api.get('/bookings?limit=50&bookingStatus=CONFIRMED'),
         api.get('/hotels?limit=100').catch(() => ({ data: { data: [] } })),
+        api.get('/cabs?limit=100').catch(() => ({ data: { data: [] } })),
+        api.get('/suppliers?limit=100').catch(() => ({ data: { data: [] } })),
       ]);
       setGuides(guidesRes.data.data || []);
       setBookings(bookingsRes.data.data || []);
       setB2bHotels(hotelsRes.data.data || hotelsRes.data || []);
+
+      const registeredCabs = (cabsRes.data?.data || cabsRes.data || []).map((c: any) => ({
+        id: c.id,
+        source: 'CAB',
+        title: `${c.driverName || 'Driver'} - ${c.carNumber || 'Vehicle'} (${c.vehicleType || 'Cab'})`,
+        driverName: c.driverName || '',
+        driverPhone: c.driverPhone || '',
+        vehicleNumber: c.carNumber || '',
+        vehicleType: c.vehicleType || 'Innova Crysta',
+      }));
+      const b2bSuppliers = (suppliersRes.data?.data || suppliersRes.data || [])
+        .filter((s: any) => {
+          const type = (s.supplierType || '').toUpperCase();
+          const cat = (s.serviceCategories || '').toUpperCase();
+          return type.includes('CAB') || type.includes('TRANSPORT') || cat.includes('TRANSPORT') || cat.includes('CAB') || cat.includes('VEHICLE');
+        })
+        .map((s: any) => ({
+          id: s.id,
+          source: 'SUPPLIER',
+          title: `${s.name} - ${s.contactPerson || 'Transport'} (${s.phone || ''})`,
+          driverName: s.contactPerson || s.name || '',
+          driverPhone: s.phone || '',
+          vehicleNumber: '',
+          vehicleType: 'Innova Crysta',
+        }));
+      setB2bTransportOptions([...registeredCabs, ...b2bSuppliers]);
     } catch (err) {
-      console.error('Failed to load guides, bookings, or hotels:', err);
+      console.error('Failed to load dependencies:', err);
     }
   };
 
@@ -145,6 +176,17 @@ export const GuideAssignments: React.FC = () => {
         if (cab.dropPlace) setDropLocation(cab.dropPlace);
         if (cab.pickupTime) setReportingTime(cab.pickupTime);
       }
+    }
+  };
+
+  const handleB2bCabSelect = (transportId: string) => {
+    setSelectedB2bCabId(transportId);
+    const t = b2bTransportOptions.find((x) => x.id === transportId);
+    if (t) {
+      if (t.driverName) setDriverName(t.driverName);
+      if (t.driverPhone) setDriverPhone(t.driverPhone);
+      if (t.vehicleNumber) setVehicleNumber(t.vehicleNumber);
+      if (t.vehicleType) setVehicleType(t.vehicleType);
     }
   };
 
@@ -250,6 +292,8 @@ export const GuideAssignments: React.FC = () => {
     setDriverPhone('');
     setVehicleNumber('');
     setVehicleType('Innova Crysta');
+    setCabSourceMode('B2B');
+    setSelectedB2bCabId('');
     setHotelSourceMode('B2B');
     setSelectedB2bHotelId('');
     setHotelName('');
@@ -637,15 +681,65 @@ export const GuideAssignments: React.FC = () => {
 
             {/* Cab & Driver Logistics Section */}
             <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/40 rounded-xl space-y-3">
-              <div className="flex items-center gap-2">
-                <Car className="w-4 h-4 text-blue-600" />
-                <span className="font-bold text-slate-900 dark:text-white text-xs">
-                  Assigned Tourist Vehicle & Driver Logistics
-                </span>
-                <span className="text-[10px] text-blue-600 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded font-semibold">
-                  For Guide & Ops
-                </span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Car className="w-4 h-4 text-blue-600" />
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">
+                    Assigned Tourist Vehicle & Driver Logistics
+                  </span>
+                  <span className="text-[10px] text-blue-600 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded font-semibold">
+                    For Guide & Ops
+                  </span>
+                </div>
+                {/* Mode Selector Toggle */}
+                <div className="flex items-center bg-white dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setCabSourceMode('B2B')}
+                    className={`px-2.5 py-0.5 rounded-md transition-all ${
+                      cabSourceMode === 'B2B'
+                        ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    B2B Transport Master
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCabSourceMode('MANUAL');
+                      setSelectedB2bCabId('');
+                    }}
+                    className={`px-2.5 py-0.5 rounded-md transition-all ${
+                      cabSourceMode === 'MANUAL'
+                        ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    Enter Manually
+                  </button>
+                </div>
               </div>
+
+              {cabSourceMode === 'B2B' && (
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    Direct Select from B2B Transport / Cabs ({b2bTransportOptions.length} available)
+                  </label>
+                  <select
+                    value={selectedB2bCabId}
+                    onChange={(e) => handleB2bCabSelect(e.target.value)}
+                    className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg font-medium"
+                  >
+                    <option value="">-- Choose Transport / Driver from B2B Library --</option>
+                    {b2bTransportOptions.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>

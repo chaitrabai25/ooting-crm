@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../db/prisma.js';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
+import { sendStaffWelcomeEmail } from '../services/email.service.js';
 
 const router = Router();
 router.use(authenticate);
@@ -381,6 +382,30 @@ router.post('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res
       details: `Created user ${newUser.name} (${newUser.role}) for company ${targetCompanyId}`,
       ipAddress: req.ip,
     });
+
+    // Asynchronously dispatch welcome credentials email to new staff member
+    (async () => {
+      try {
+        const comp = await prisma.company.findUnique({
+          where: { id: targetCompanyId },
+          select: { name: true },
+        });
+        const origin = req.get('origin') || `${req.protocol}://${req.get('host')}`;
+        const loginUrl = `${origin}/login`;
+
+        await sendStaffWelcomeEmail({
+          to: newUser.email,
+          name: newUser.name,
+          email: newUser.email,
+          temporaryPassword: data.password,
+          role: newUser.role,
+          companyName: comp?.name || 'Ooting CRM',
+          loginUrl,
+        });
+      } catch (emailErr: any) {
+        console.warn('[UserRoute] Non-blocking welcome email error:', emailErr?.message);
+      }
+    })();
 
     res.status(201).json(newUser);
   } catch (error: any) {

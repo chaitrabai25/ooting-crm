@@ -1244,6 +1244,7 @@ model TourAssignment {
   hotelDetails          String?     @db.Text
   customItinerary       String?     @db.Text
   customPassengers      String?     @db.Text
+  attendanceRecords     String?     @db.LongText
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 

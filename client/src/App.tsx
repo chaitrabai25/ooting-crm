@@ -82,6 +82,9 @@ const TenantDatabaseStatus = lazy(() => import('./pages/saas/TenantDatabaseStatu
 const PlatformAuditLogs = lazy(() => import('./pages/saas/PlatformAuditLogs.js').then(m => ({ default: m.PlatformAuditLogs })));
 const SaaSSettings = lazy(() => import('./pages/saas/SaaSSettings.js').then(m => ({ default: m.SaaSSettings })));
 
+// Public Customer Pages
+const TourCustomerRegistrationForm = lazy(() => import('./pages/public/TourCustomerRegistrationForm.js').then(m => ({ default: m.TourCustomerRegistrationForm })));
+
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
@@ -93,6 +96,8 @@ export const App: React.FC = () => {
                 {/* Public routes */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/suspended" element={<SuspendedPage />} />
+                <Route path="/register-tour/:id" element={<TourCustomerRegistrationForm />} />
+                <Route path="/trip-registration/:id" element={<TourCustomerRegistrationForm />} />
 
                 {/* Protected routes */}
                 <Route element={<ProtectedRoute />}>

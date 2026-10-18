@@ -9,12 +9,29 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard, Upload, Loader2, RotateCcw } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard, Upload, Loader2, RotateCcw, Compass } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { CompanySettings } from '../../types/index.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
+
+export const ALL_CRM_MODULES = [
+  { id: 'dashboard', name: 'Dashboard', desc: 'CRM executive overview & live operational stats', category: 'General' },
+  { id: 'calendar', name: 'CRM Calendar', desc: 'Operations departures and tour schedule calendar', category: 'General' },
+  { id: 'leads', name: 'Leads & Enquiries', desc: 'Inquiry capture, pipeline stages & follow-ups', category: 'Sales' },
+  { id: 'quotations', name: 'Quotations', desc: 'PDF quotation builder, margin calculator & estimates', category: 'Sales' },
+  { id: 'bookings', name: 'Bookings & Tours', desc: 'Confirmed group & FIT tour bookings', category: 'Sales' },
+  { id: 'customers', name: 'Customer Directory', desc: 'Client database, history, and passenger records', category: 'Operations' },
+  { id: 'packages', name: 'Tour Packages', desc: 'Curated itineraries, sightseeing plans & pricing', category: 'Operations' },
+  { id: 'guides', name: 'Tour Guides & Field Ops', desc: 'Guide assignments, safety roll-calls & expenses', category: 'Operations' },
+  { id: 'cabs', name: 'Tourist Cabs & Transport', desc: 'Vehicle fleet, chauffeur logistics & bookings', category: 'Operations' },
+  { id: 'hotels', name: 'Hotels & Accommodation', desc: 'B2B hotel rates, meal plans & room bookings', category: 'Operations' },
+  { id: 'suppliers', name: 'B2B Suppliers & Vendors', desc: 'Transport operators, guides & hotel contacts', category: 'Operations' },
+  { id: 'expenses', name: 'Tour Expenses & Settlement', desc: 'Passenger extras, shared pools & P&L accounting', category: 'Finance' },
+  { id: 'whatsapp', name: 'WhatsApp Business Messaging', desc: 'Automated WhatsApp messaging & templates (Disable if WhatsApp is temporarily offline)', category: 'Communication', isAttention: true },
+  { id: 'reports', name: 'Reports & Analytics', desc: 'Executive P&L summaries, lead sources & conversions', category: 'Finance' },
+];
 
 interface MasterData {
   leadStatuses: string[];
@@ -126,6 +143,44 @@ export const SettingsPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const isModuleActive = (moduleId: string): boolean => {
+    if (!company.enabledModules) return true;
+    try {
+      const parsed = JSON.parse(company.enabledModules);
+      if (Array.isArray(parsed)) return parsed.includes(moduleId);
+    } catch {
+      const list = company.enabledModules.split(',').map((s) => s.trim());
+      return list.includes(moduleId);
+    }
+    return true;
+  };
+
+  const toggleModule = (moduleId: string) => {
+    let currentList: string[] = [];
+    if (!company.enabledModules) {
+      currentList = ALL_CRM_MODULES.map((m) => m.id);
+    } else {
+      try {
+        const parsed = JSON.parse(company.enabledModules);
+        if (Array.isArray(parsed)) {
+          currentList = [...parsed];
+        } else {
+          currentList = company.enabledModules.split(',').map((s) => s.trim()).filter(Boolean);
+        }
+      } catch {
+        currentList = company.enabledModules.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+
+    if (currentList.includes(moduleId)) {
+      currentList = currentList.filter((id) => id !== moduleId);
+    } else {
+      currentList.push(moduleId);
+    }
+
+    setCompany({ ...company, enabledModules: JSON.stringify(currentList) });
   };
 
   const handleDownloadDump = async () => {
@@ -573,6 +628,108 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+            {/* Sidebar Navigation & Active Modules Control */}
+            <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-brand-50 dark:bg-brand-950/40 text-brand-600 rounded-lg">
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <span>Sidebar Navigation & Active Modules Control</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 border border-brand-200">
+                        Admin Only
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Enable or disable CRM sidebar sections for your staff (e.g. toggle off WhatsApp while service is temporarily offline).
+                    </p>
+                  </div>
+                </div>
+
+                {isAdmin && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCompany({
+                          ...company,
+                          enabledModules: JSON.stringify(ALL_CRM_MODULES.map((m) => m.id)),
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 dark:bg-brand-950/60 rounded-md border border-brand-200 transition-colors cursor-pointer"
+                    >
+                      Enable All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const withoutWhatsapp = ALL_CRM_MODULES.map((m) => m.id).filter((id) => id !== 'whatsapp');
+                        setCompany({
+                          ...company,
+                          enabledModules: JSON.stringify(withoutWhatsapp),
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/60 rounded-md border border-rose-200 transition-colors cursor-pointer"
+                    >
+                      Turn Off WhatsApp Only
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {ALL_CRM_MODULES.map((mod) => {
+                  const isEnabled = isModuleActive(mod.id);
+                  return (
+                    <div
+                      key={mod.id}
+                      onClick={() => isAdmin && toggleModule(mod.id)}
+                      className={`p-3 rounded-xl border transition-all select-none ${
+                        isAdmin ? 'cursor-pointer hover:shadow-2xs' : 'opacity-70 cursor-not-allowed'
+                      } ${
+                        isEnabled
+                          ? 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700'
+                          : 'bg-slate-50/80 dark:bg-slate-900/60 border-slate-200/60 dark:border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`font-bold text-xs ${isEnabled ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'}`}>
+                              {mod.name}
+                            </span>
+                            {mod.isAttention && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                WhatsApp
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                            {mod.desc}
+                          </p>
+                        </div>
+
+                        {/* Toggle Pill Switch */}
+                        <div
+                          className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
+                            isEnabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                          }`}
+                        >
+                          <div
+                            className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                              isEnabled ? 'translate-x-4' : 'translate-x-0'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
           {isAdmin && (
             <div className="pt-4 flex justify-end">

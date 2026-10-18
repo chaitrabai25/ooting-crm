@@ -4,8 +4,167 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest, requirePermission } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
+import { sendStaffWelcomeEmail } from '../services/email.service.js';
 
 const router = Router();
+
+// ==============================================================================
+// PUBLIC ENDPOINTS: Customer Trip Self-Registration (No Login Required)
+// ==============================================================================
+router.get('/public-registration/:id', async (req, res, next) => {
+  try {
+    const rawId = req.params.id;
+    const assignment = await prisma.tourAssignment.findFirst({
+      where: {
+        OR: [
+          { id: rawId },
+          { assignmentCode: rawId },
+        ],
+      },
+      include: {
+        primaryGuide: { select: { fullName: true, phone: true, photoUrl: true, languages: true } },
+        package: { select: { packageName: true, destination: true, duration: true } },
+        company: { select: { name: true, logoUrl: true, phone: true, email: true, website: true } },
+        booking: { select: { bookingNumber: true, travellers: true } },
+      },
+    });
+
+    if (!assignment) {
+      res.status(404).json({ message: 'Tour assignment not found or expired registration link.' });
+      return;
+    }
+
+    let passengersCount = assignment.passengerCount || 0;
+    if (assignment.customPassengers) {
+      try {
+        const cp = JSON.parse(assignment.customPassengers);
+        if (Array.isArray(cp)) passengersCount = Math.max(passengersCount, cp.length);
+      } catch {}
+    }
+
+    res.json({
+      id: assignment.id,
+      assignmentCode: assignment.assignmentCode,
+      groupName: assignment.groupName || assignment.package?.packageName || 'Tour Group',
+      destination: assignment.destination || assignment.package?.destination || 'Karnataka',
+      startDate: assignment.startDate,
+      endDate: assignment.endDate,
+      reportingTime: assignment.reportingTime,
+      reportingLocation: assignment.reportingLocation,
+      route: assignment.route,
+      primaryGuide: assignment.primaryGuide,
+      company: assignment.company,
+      passengerCount: passengersCount,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const publicRegistrationSchema = z.object({
+  name: z.string().min(2, 'Full name is required'),
+  phone: z.string().min(8, 'Valid phone number is required'),
+  email: z.string().email().optional().nullable().or(z.literal('')),
+  age: z.coerce.number().min(1, 'Please enter a valid age').max(120),
+  gender: z.string().optional().default('Male'),
+  roleInTrip: z.string().optional().default('Traveller'),
+  emergencyContactName: z.string().optional().nullable(),
+  emergencyContactPhone: z.string().optional().nullable(),
+  bloodGroup: z.string().optional().nullable(),
+  dietaryPreference: z.string().optional().default('Veg'),
+  medicalNotes: z.string().optional().nullable(),
+  idProofType: z.string().optional().nullable(),
+  idProofNumber: z.string().optional().nullable(),
+  roomAllocation: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+router.post('/public-registration/:id', async (req, res, next) => {
+  try {
+    const rawId = req.params.id;
+    const data = publicRegistrationSchema.parse(req.body);
+
+    const assignment = await prisma.tourAssignment.findFirst({
+      where: {
+        OR: [
+          { id: rawId },
+          { assignmentCode: rawId },
+        ],
+      },
+    });
+
+    if (!assignment) {
+      res.status(404).json({ message: 'Tour assignment not found or invalid link.' });
+      return;
+    }
+
+    let currentPassengers: any[] = [];
+    if (assignment.customPassengers) {
+      try {
+        const parsed = JSON.parse(assignment.customPassengers);
+        if (Array.isArray(parsed)) currentPassengers = parsed;
+      } catch {}
+    }
+
+    // Check if passenger with same phone or name already registered
+    const exists = currentPassengers.some(
+      (p) => p.phone === data.phone.trim() || p.name.toLowerCase() === data.name.trim().toLowerCase()
+    );
+
+    if (exists) {
+      res.status(400).json({ message: 'A traveller with this name or mobile number is already registered for this tour.' });
+      return;
+    }
+
+    const newPassenger = {
+      id: `pax-reg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      name: data.name.trim(),
+      phone: data.phone.trim(),
+      email: data.email?.trim() || null,
+      age: data.age,
+      gender: data.gender || 'Male',
+      roleInTrip: data.roleInTrip || 'Traveller',
+      emergencyContact: data.emergencyContactPhone ? `${data.emergencyContactName || 'Emergency'}: ${data.emergencyContactPhone}` : null,
+      bloodGroup: data.bloodGroup || null,
+      dietaryPreference: data.dietaryPreference || 'Veg',
+      medicalNotes: data.medicalNotes?.trim() || null,
+      idProofType: data.idProofType || null,
+      idProofNumber: data.idProofNumber?.trim() || null,
+      roomAllocation: data.roomAllocation?.trim() || null,
+      notes: [
+        data.dietaryPreference ? `Diet: ${data.dietaryPreference}` : '',
+        data.bloodGroup ? `Blood: ${data.bloodGroup}` : '',
+        data.medicalNotes ? `Medical: ${data.medicalNotes}` : '',
+        data.notes ? data.notes : '',
+      ].filter(Boolean).join(' | ') || null,
+      registeredVia: 'CUSTOMER_PUBLIC_FORM',
+      registeredAt: new Date().toISOString(),
+    };
+
+    currentPassengers.push(newPassenger);
+
+    await prisma.tourAssignment.update({
+      where: { id: assignment.id },
+      data: {
+        customPassengers: JSON.stringify(currentPassengers),
+        passengerCount: Math.max(assignment.passengerCount, currentPassengers.length),
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Thank you, ${data.name}! Your registration has been submitted successfully.`,
+      passenger: newPassenger,
+    });
+  } catch (err: any) {
+    if (err.name === 'ZodError') {
+      res.status(400).json({ message: err.errors[0]?.message || 'Invalid form data.' });
+      return;
+    }
+    next(err);
+  }
+});
+
 router.use(authenticate);
 
 // ==============================================================================
@@ -933,6 +1092,323 @@ router.post('/assignments/:id/itinerary', requirePermission('guides', 'edit'), a
   }
 });
 
+// ==============================================================================
+// Tour Attendance & Safety Roll-Call Endpoints
+// ==============================================================================
+router.get('/assignments/:id/attendance', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const assignment = await prisma.tourAssignment.findUnique({
+      where: { id },
+      include: {
+        package: { include: { itineraries: true } },
+        booking: { include: { travellersList: true, package: { include: { itineraries: true } } } },
+        customer: { select: { id: true, fullName: true, phone: true } },
+      },
+    });
+
+    if (!assignment) {
+      res.status(404).json({ message: 'Tour assignment not found.' });
+      return;
+    }
+
+    // 1. Gather all tour passengers
+    let passengers: any[] = [];
+    if (assignment.customPassengers) {
+      try {
+        const cp = JSON.parse(assignment.customPassengers);
+        if (Array.isArray(cp)) passengers = [...cp];
+      } catch (e) {}
+    }
+
+    if (assignment.booking?.travellersList && assignment.booking.travellersList.length > 0) {
+      assignment.booking.travellersList.forEach((t: any) => {
+        if (!passengers.some((p) => p.name?.toLowerCase() === t.name?.toLowerCase())) {
+          passengers.push({
+            id: t.id,
+            name: t.name,
+            age: t.age,
+            gender: t.gender,
+            phone: assignment.customer?.phone || '',
+            roleInTrip: 'Traveller',
+            roomAllocation: '',
+          });
+        }
+      });
+    }
+
+    if (passengers.length === 0 && assignment.customer) {
+      passengers.push({
+        id: `cust-${assignment.customer.id}`,
+        name: assignment.customer.fullName,
+        phone: assignment.customer.phone || '',
+        age: 35,
+        gender: 'Adult',
+        roleInTrip: 'Primary Booker',
+      });
+    }
+
+    // 2. Parse attendance structure
+    let attendanceData: {
+      checkpoints: Array<{ id: string; name: string; location?: string; time?: string; date?: string }>;
+      records: Record<string, Record<string, { status: 'PRESENT' | 'ABSENT'; markedAt: string; markedBy?: string; note?: string }>>;
+    } = { checkpoints: [], records: {} };
+
+    if (assignment.attendanceRecords) {
+      try {
+        const parsed = JSON.parse(assignment.attendanceRecords);
+        if (parsed && typeof parsed === 'object') {
+          attendanceData = {
+            checkpoints: Array.isArray(parsed.checkpoints) ? parsed.checkpoints : [],
+            records: parsed.records && typeof parsed.records === 'object' ? parsed.records : {},
+          };
+        }
+      } catch (e) {}
+    }
+
+    // 3. If no checkpoints defined, initialize defaults from itinerary
+    if (attendanceData.checkpoints.length === 0) {
+      attendanceData.checkpoints.push({
+        id: 'chk-boarding',
+        name: '🚌 Trip Departure & Bus Boarding',
+        location: assignment.reportingLocation || 'Departure Point',
+        time: assignment.reportingTime || '07:00 AM',
+      });
+
+      // Extract days from customItinerary or package
+      let days: any[] = [];
+      if (assignment.customItinerary) {
+        try {
+          days = JSON.parse(assignment.customItinerary);
+        } catch (e) {}
+      }
+      if (days.length === 0) {
+        days = assignment.package?.itineraries || assignment.booking?.package?.itineraries || [];
+      }
+
+      days.forEach((d: any) => {
+        const spotName = d.places || d.title || `Day ${d.dayNumber} Sightseeing`;
+        attendanceData.checkpoints.push({
+          id: `chk-day-${d.dayNumber}`,
+          name: `📍 Day ${d.dayNumber}: ${spotName}`,
+          location: d.hotelLocation || assignment.destination || '',
+        });
+      });
+
+      attendanceData.checkpoints.push({
+        id: 'chk-hotel-checkin',
+        name: '🏨 Hotel Check-In & Room Allocation',
+        location: assignment.destination || 'Hotel',
+      });
+    }
+
+    res.json({
+      assignmentId: assignment.id,
+      assignmentCode: assignment.assignmentCode,
+      destination: assignment.destination,
+      checkpoints: attendanceData.checkpoints,
+      records: attendanceData.records,
+      passengers,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add a new checkpoint / sightseeing stop
+router.post('/assignments/:id/attendance/checkpoint', requirePermission('guides', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { name, location, time, date } = req.body;
+
+    if (!name || !name.trim()) {
+      res.status(400).json({ message: 'Checkpoint or stop name is required.' });
+      return;
+    }
+
+    const assignment = await prisma.tourAssignment.findUnique({
+      where: { id },
+    });
+
+    if (!assignment) {
+      res.status(404).json({ message: 'Tour assignment not found.' });
+      return;
+    }
+
+    let attendanceData: {
+      checkpoints: Array<{ id: string; name: string; location?: string; time?: string; date?: string }>;
+      records: Record<string, any>;
+    } = { checkpoints: [], records: {} };
+
+    if (assignment.attendanceRecords) {
+      try {
+        const parsed = JSON.parse(assignment.attendanceRecords);
+        if (parsed && typeof parsed === 'object') {
+          attendanceData = {
+            checkpoints: Array.isArray(parsed.checkpoints) ? parsed.checkpoints : [],
+            records: parsed.records || {},
+          };
+        }
+      } catch (e) {}
+    }
+
+    const newCheckpoint = {
+      id: `chk-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      name: name.trim(),
+      location: location?.trim() || '',
+      time: time?.trim() || '',
+      date: date?.trim() || '',
+    };
+
+    attendanceData.checkpoints.push(newCheckpoint);
+
+    await prisma.tourAssignment.update({
+      where: { id },
+      data: {
+        attendanceRecords: JSON.stringify(attendanceData),
+      },
+    });
+
+    res.status(201).json({
+      message: 'New checkpoint added successfully.',
+      checkpoint: newCheckpoint,
+      checkpoints: attendanceData.checkpoints,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Mark single passenger attendance (PRESENT or ABSENT)
+router.post('/assignments/:id/attendance/mark', requirePermission('guides', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { checkpointId, passengerId, status, note } = req.body;
+
+    if (!checkpointId || !passengerId || !status) {
+      res.status(400).json({ message: 'checkpointId, passengerId, and status (PRESENT/ABSENT) are required.' });
+      return;
+    }
+
+    const assignment = await prisma.tourAssignment.findUnique({
+      where: { id },
+    });
+
+    if (!assignment) {
+      res.status(404).json({ message: 'Tour assignment not found.' });
+      return;
+    }
+
+    let attendanceData: {
+      checkpoints: any[];
+      records: Record<string, Record<string, any>>;
+    } = { checkpoints: [], records: {} };
+
+    if (assignment.attendanceRecords) {
+      try {
+        const parsed = JSON.parse(assignment.attendanceRecords);
+        if (parsed && typeof parsed === 'object') {
+          attendanceData = {
+            checkpoints: Array.isArray(parsed.checkpoints) ? parsed.checkpoints : [],
+            records: parsed.records && typeof parsed.records === 'object' ? parsed.records : {},
+          };
+        }
+      } catch (e) {}
+    }
+
+    if (!attendanceData.records[checkpointId]) {
+      attendanceData.records[checkpointId] = {};
+    }
+
+    attendanceData.records[checkpointId][passengerId] = {
+      status,
+      markedAt: new Date().toISOString(),
+      markedBy: req.user!.name,
+      note: note?.trim() || null,
+    };
+
+    await prisma.tourAssignment.update({
+      where: { id },
+      data: {
+        attendanceRecords: JSON.stringify(attendanceData),
+      },
+    });
+
+    res.json({
+      message: `Passenger marked as ${status}.`,
+      records: attendanceData.records,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Mark all passengers at a checkpoint as PRESENT in one click
+router.post('/assignments/:id/attendance/mark-all', requirePermission('guides', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { checkpointId, passengerIds } = req.body;
+
+    if (!checkpointId || !Array.isArray(passengerIds)) {
+      res.status(400).json({ message: 'checkpointId and passengerIds array are required.' });
+      return;
+    }
+
+    const assignment = await prisma.tourAssignment.findUnique({
+      where: { id },
+    });
+
+    if (!assignment) {
+      res.status(404).json({ message: 'Tour assignment not found.' });
+      return;
+    }
+
+    let attendanceData: {
+      checkpoints: any[];
+      records: Record<string, Record<string, any>>;
+    } = { checkpoints: [], records: {} };
+
+    if (assignment.attendanceRecords) {
+      try {
+        const parsed = JSON.parse(assignment.attendanceRecords);
+        if (parsed && typeof parsed === 'object') {
+          attendanceData = {
+            checkpoints: Array.isArray(parsed.checkpoints) ? parsed.checkpoints : [],
+            records: parsed.records && typeof parsed.records === 'object' ? parsed.records : {},
+          };
+        }
+      } catch (e) {}
+    }
+
+    if (!attendanceData.records[checkpointId]) {
+      attendanceData.records[checkpointId] = {};
+    }
+
+    const now = new Date().toISOString();
+    passengerIds.forEach((pid: string) => {
+      attendanceData.records[checkpointId][pid] = {
+        status: 'PRESENT',
+        markedAt: now,
+        markedBy: req.user!.name,
+      };
+    });
+
+    await prisma.tourAssignment.update({
+      where: { id },
+      data: {
+        attendanceRecords: JSON.stringify(attendanceData),
+      },
+    });
+
+    res.json({
+      message: `All ${passengerIds.length} passengers marked present.`,
+      records: attendanceData.records,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Progress Update & Emergency Reporting by Guide
 router.patch('/assignments/:id/progress', requirePermission('guides', 'progress'), async (req: AuthRequest, res: Response, next) => {
   try {
@@ -1188,8 +1664,9 @@ router.post('/', requirePermission('guides', 'create'), async (req: AuthRequest,
 
     // Handle optional login creation with staff seat quota enforcement
     let linkedUserId: string | null = null;
+    let emailToUse = '';
     if (data.enableLogin && data.loginPassword) {
-      const emailToUse = (data.loginEmail || data.email || '').trim().toLowerCase();
+      emailToUse = (data.loginEmail || data.email || '').trim().toLowerCase();
       if (!emailToUse) {
         res.status(400).json({ message: 'A valid email address is required to enable CRM login access for this guide.' });
         return;
@@ -1297,6 +1774,31 @@ router.post('/', requirePermission('guides', 'create'), async (req: AuthRequest,
       newValue: guide,
       ipAddress: req.ip,
     });
+
+    if (data.enableLogin && data.loginPassword && emailToUse) {
+      (async () => {
+        try {
+          const comp = await prisma.company.findUnique({
+            where: { id: companyId },
+            select: { name: true },
+          });
+          const origin = req.get('origin') || `${req.protocol}://${req.get('host')}`;
+          const loginUrl = `${origin}/login`;
+
+          await sendStaffWelcomeEmail({
+            to: emailToUse,
+            name: guide.fullName,
+            email: emailToUse,
+            temporaryPassword: data.loginPassword || undefined,
+            role: 'TOUR_GUIDE',
+            companyName: comp?.name || 'Ooting CRM',
+            loginUrl,
+          });
+        } catch (emailErr: any) {
+          console.warn('[GuideRoute] Non-blocking welcome email error:', emailErr?.message);
+        }
+      })();
+    }
 
     res.status(201).json(guide);
   } catch (error) {

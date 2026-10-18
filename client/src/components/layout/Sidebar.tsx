@@ -349,19 +349,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
     }] : []),
   ];
 
-  // Allowed modules for tenant organization (configured by Master Admin)
+  // Allowed modules configured in Settings (allows Super Admin / Admin to toggle active / inactive sections, e.g. turning off WhatsApp when down)
   const allowedModules: string[] | null = React.useMemo(() => {
-    if (company?.isOoting) return null;
     if (!company?.enabledModules) return null;
     try {
       const parsed = JSON.parse(company.enabledModules);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     } catch {
       const list = company.enabledModules.split(',').map((s) => s.trim()).filter(Boolean);
       if (list.length > 0) return list;
     }
     return null;
-  }, [company?.isOoting, company?.enabledModules]);
+  }, [company?.enabledModules]);
 
   const guideSections: NavigationSection[] = [
     {

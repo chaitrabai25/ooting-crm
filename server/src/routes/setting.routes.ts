@@ -59,6 +59,7 @@ export async function getCompanySettings(targetCompanyId?: string) {
         upiId: company.upiId || '',
         paymentNotes: company.paymentNotes || '',
         isOoting: company.isOoting,
+        enabledModules: company.enabledModules || null,
       };
     }
 
@@ -91,6 +92,7 @@ export async function getCompanySettings(targetCompanyId?: string) {
       upiId: '',
       paymentNotes: '',
       isOoting: true,
+      enabledModules: null,
     };
   } catch (error) {
     return {
@@ -181,6 +183,7 @@ const updateSettingsSchema = z.object({
   branch: z.string().optional(),
   upiId: z.string().optional(),
   paymentNotes: z.string().optional(),
+  enabledModules: z.string().nullable().optional(),
 });
 
 // Update Company Settings (Admin & Super Admin)
@@ -216,6 +219,7 @@ router.put('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res:
         ...(data.branch !== undefined && { branch: data.branch }),
         ...(data.upiId !== undefined && { upiId: data.upiId }),
         ...(data.paymentNotes !== undefined && { paymentNotes: data.paymentNotes }),
+        ...(data.enabledModules !== undefined && { enabledModules: data.enabledModules }),
       },
     });
 

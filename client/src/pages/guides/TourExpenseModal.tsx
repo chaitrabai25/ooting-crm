@@ -16,6 +16,10 @@ import {
   Coffee,
   Ticket,
   Car,
+  Upload,
+  Image as ImageIcon,
+  Building,
+  ExternalLink,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
@@ -64,6 +68,8 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
   );
   const [receiptNumber, setReceiptNumber] = useState('');
+  const [receiptUrl, setReceiptUrl] = useState('');
+  const [isUploadingSlip, setIsUploadingSlip] = useState(false);
   const [splitType, setSplitType] = useState('SPLIT_EQUALLY');
   const [notes, setNotes] = useState('');
 
@@ -89,6 +95,7 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
       );
       setExpenseTime(editingExpense.expenseTime || '');
       setReceiptNumber(editingExpense.receiptNumber || '');
+      setReceiptUrl(editingExpense.receiptUrl || '');
       setSplitType(editingExpense.splitType || 'SPLIT_EQUALLY');
       setNotes(editingExpense.notes || '');
     } else {
@@ -127,6 +134,7 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
       setExpenseDate(new Date().toISOString().split('T')[0]);
       setExpenseTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }));
       setReceiptNumber('');
+      setReceiptUrl(editingExpense?.receiptUrl || '');
       setNotes('');
     }
     setFormError(null);
@@ -150,6 +158,28 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
     setCategory(cat);
     if (!title) {
       setTitle(defaultTitle);
+    }
+  };
+
+  const handleSlipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingSlip(true);
+      setFormError(null);
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('folder', 'expenses');
+      const res = await api.post('/upload/image?folder=expenses', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data?.url) {
+        setReceiptUrl(res.data.url);
+      }
+    } catch (err: any) {
+      setFormError('Failed to upload bill receipt slip. Please try again.');
+    } finally {
+      setIsUploadingSlip(false);
     }
   };
 
@@ -188,6 +218,7 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
         expenseDate,
         expenseTime,
         receiptNumber: receiptNumber.trim() || null,
+        receiptUrl: receiptUrl.trim() || null,
         notes: notes.trim() || null,
       };
 
@@ -344,35 +375,46 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
         ) : (
           /* GENERAL EXPENSE: Group Split Settings */
           <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl space-y-2">
-            <span className="font-bold text-amber-900 dark:text-amber-200 block">
-              Shared Tour Expense & Cost Splitting
+            <span className="font-bold text-amber-900 dark:text-amber-200 block text-xs">
+              Shared Tour Expense & Cost Allocation
             </span>
             <p className="text-[11px] text-amber-800 dark:text-amber-300">
-              This expense applies to the entire tour (e.g. water cans for the bus, tolls, driver allowance).
+              Select whether this is an internal company operational expense or divided across passengers.
             </p>
-            <div className="flex items-center gap-4 pt-1">
-              <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-800 dark:text-slate-200">
-                <input
-                  type="radio"
-                  name="splitType"
-                  value="SPLIT_EQUALLY"
-                  checked={splitType === 'SPLIT_EQUALLY'}
-                  onChange={(e) => setSplitType(e.target.value)}
-                  className="text-brand-600 focus:ring-brand-500"
-                />
-                <span>Divide equally across all passengers</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-800 dark:text-slate-200">
-                <input
-                  type="radio"
-                  name="splitType"
-                  value="COMPANY_EXPENSE"
-                  checked={splitType === 'COMPANY_EXPENSE'}
-                  onChange={(e) => setSplitType(e.target.value)}
-                  className="text-brand-600 focus:ring-brand-500"
-                />
-                <span>Company / Internal Expense (Do not divide)</span>
-              </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              <div
+                onClick={() => setSplitType('COMPANY_EXPENSE')}
+                className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  splitType === 'COMPANY_EXPENSE'
+                    ? 'border-brand-600 bg-brand-50/80 dark:bg-brand-950/50 text-brand-900 dark:text-brand-100 shadow-xs ring-1 ring-brand-500'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
+                  <Building className="w-4 h-4 text-brand-600 shrink-0" />
+                  <span>🏢 Company / Internal Expense</span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  <strong>Do Not Divide.</strong> Absorbed as tour operating cost. NOT billed to travellers.
+                </p>
+              </div>
+
+              <div
+                onClick={() => setSplitType('SPLIT_EQUALLY')}
+                className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  splitType === 'SPLIT_EQUALLY'
+                    ? 'border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/50 text-indigo-900 dark:text-indigo-100 shadow-xs ring-1 ring-indigo-500'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
+                  <Users className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>👥 Split Equally Across Passengers</span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  Divided evenly per traveller (e.g. group water cartons, shared sightseeing entry).
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -538,6 +580,63 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
               className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
+        </div>
+
+        {/* Expense Slip / Bill Receipt Upload */}
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+          <label className="block font-semibold text-slate-700 dark:text-slate-300">
+            Bill Receipt / Expense Slip Photo (Optional)
+          </label>
+          {receiptUrl ? (
+            <div className="flex items-center justify-between gap-3 p-2 bg-white dark:bg-slate-700/80 rounded-lg border border-slate-200 dark:border-slate-600">
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <img
+                  src={receiptUrl}
+                  alt="Receipt Slip"
+                  className="w-12 h-12 object-cover rounded-md border border-slate-200 dark:border-slate-600 shrink-0 bg-slate-100"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <div className="text-[11px] truncate">
+                  <span className="font-bold text-slate-900 dark:text-white block">Slip Attached</span>
+                  <a
+                    href={receiptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1 font-semibold"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    View Bill Slip
+                  </a>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReceiptUrl('')}
+                className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md border border-rose-200 dark:border-rose-800"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 font-semibold cursor-pointer text-xs transition-all shadow-xs">
+                <Upload className="w-4 h-4 text-brand-600" />
+                <span>{isUploadingSlip ? 'Uploading Slip...' : 'Upload Bill Slip / Camera Photo'}</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  disabled={isUploadingSlip}
+                  onChange={handleSlipUpload}
+                  className="hidden"
+                />
+              </label>
+              <span className="text-[11px] text-slate-500">
+                JPG, PNG, WebP or PDF bills
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Notes / Reason */}
