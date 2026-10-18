@@ -289,32 +289,45 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
     }
   }, [isOpen, dayIndex, initialData, initialDayNumber]);
 
-  // Place Library Selection
+  // Place Library Selection: Accumulates descriptions, highlights, activities and photos across ALL chosen places
   const handleSelectPlace = (place: Place) => {
-    if (!selectedPlaceChips.includes(place.name)) {
-      const updated = [...selectedPlaceChips, place.name];
-      setSelectedPlaceChips(updated);
-      setDayPlaces(updated.join(', '));
+    const isNew = !selectedPlaceChips.some((p) => p.toLowerCase().trim() === place.name.toLowerCase().trim());
+    let updatedChips = selectedPlaceChips;
+    if (isNew) {
+      updatedChips = [...selectedPlaceChips, place.name];
+      setSelectedPlaceChips(updatedChips);
+      setDayPlaces(updatedChips.join(', '));
     }
 
-    if (!dayDescription.trim() && (place.description || place.famousReason)) {
-      setDayDescription(place.description || place.famousReason || '');
+    // Auto-update / suggest Day Title if it was empty or default
+    if (!dayTitle.trim() || dayTitle.match(/^Day\s*\d+:?\s*$/i) || dayTitle.includes('Sightseeing')) {
+      setDayTitle(`Day ${currentDayNumber}: ${updatedChips.join(' & ')} Sightseeing`);
     }
 
-    if (place.highlights) {
-      const curH = dayHighlights ? dayHighlights.split(',').map((h) => h.trim()) : [];
-      if (!curH.includes(place.highlights)) {
-        setDayHighlights(dayHighlights ? `${dayHighlights}, ${place.highlights}` : place.highlights);
+    // Accumulate descriptions for all chosen places
+    const placeDesc = (place.description || place.famousReason || '').trim();
+    if (placeDesc) {
+      if (!dayDescription.trim()) {
+        setDayDescription(`${place.name}: ${placeDesc}`);
+      } else if (!dayDescription.toLowerCase().includes(place.name.toLowerCase())) {
+        setDayDescription((prev) => `${prev.trim()}\n\n• ${place.name}: ${placeDesc}`);
       }
     }
 
+    // Accumulate highlights
+    if (place.highlights) {
+      const placeH = place.highlights.split(/[,;•]+/).map((h) => h.trim()).filter(Boolean);
+      const curH = dayHighlights ? dayHighlights.split(/[,;•]+/).map((h) => h.trim()).filter(Boolean) : [];
+      const mergedH = Array.from(new Set([...curH, ...placeH]));
+      setDayHighlights(mergedH.join(', '));
+    }
+
+    // Accumulate activities
     if (place.activities) {
-      const curA = dayActivities ? dayActivities.split(',').map((a) => a.trim()) : [];
-      place.activities.split(',').forEach((act) => {
-        const a = act.trim();
-        if (a && !curA.includes(a)) curA.push(a);
-      });
-      setDayActivities(curA.join(', '));
+      const placeA = place.activities.split(/[,;•]+/).map((a) => a.trim()).filter(Boolean);
+      const curA = dayActivities ? dayActivities.split(/[,;•]+/).map((a) => a.trim()).filter(Boolean) : [];
+      const mergedA = Array.from(new Set([...curA, ...placeA]));
+      setDayActivities(mergedA.join(', '));
     }
 
     // Place Photos
@@ -345,10 +358,82 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
     }
   };
 
+  // Place Removal: Automatically purges this place's narrative, highlights, activities, and photos from the day
   const handleRemovePlaceChip = (placeName: string) => {
-    const updated = selectedPlaceChips.filter((p) => p !== placeName);
+    const cleanTarget = placeName.toLowerCase().trim();
+    const updated = selectedPlaceChips.filter((p) => p.toLowerCase().trim() !== cleanTarget);
     setSelectedPlaceChips(updated);
     setDayPlaces(updated.join(', '));
+
+    // Find the place record to know its descriptions, highlights, activities and photos
+    const matchedPlace = masterPlaces.find((p) => p.name.toLowerCase().trim() === cleanTarget);
+
+    // 1. Remove this place's narrative from dayDescription
+    if (dayDescription) {
+      let desc = dayDescription;
+      const regexLine = new RegExp(`(^|\\n)\\s*[•\\-*]?\\s*${placeName}[^\\n]*`, 'gi');
+      desc = desc.replace(regexLine, '');
+      if (matchedPlace?.description) {
+        desc = desc.replace(matchedPlace.description, '');
+      }
+      if (matchedPlace?.famousReason) {
+        desc = desc.replace(matchedPlace.famousReason, '');
+      }
+      desc = desc.replace(/\n{3,}/g, '\n\n').trim();
+      setDayDescription(desc);
+    }
+
+    // 2. Remove this place's highlights
+    if (matchedPlace?.highlights && dayHighlights) {
+      const toRemove = matchedPlace.highlights.split(/[,;•]+/).map((h) => h.trim().toLowerCase()).filter(Boolean);
+      const remainingH = dayHighlights
+        .split(/[,;•]+/)
+        .map((h) => h.trim())
+        .filter((h) => h && !toRemove.includes(h.toLowerCase()));
+      setDayHighlights(remainingH.join(', '));
+    }
+
+    // 3. Remove this place's activities
+    if (matchedPlace?.activities && dayActivities) {
+      const toRemove = matchedPlace.activities.split(/[,;•]+/).map((a) => a.trim().toLowerCase()).filter(Boolean);
+      const remainingA = dayActivities
+        .split(/[,;•]+/)
+        .map((a) => a.trim())
+        .filter((a) => a && !toRemove.includes(a.toLowerCase()));
+      setDayActivities(remainingA.join(', '));
+    }
+
+    // 4. Remove this place's photos
+    const placeUrls: string[] = [];
+    if (matchedPlace?.imageUrl) placeUrls.push(matchedPlace.imageUrl);
+    if ((matchedPlace as any)?.gallery) {
+      try {
+        const gal = typeof (matchedPlace as any).gallery === 'string'
+          ? JSON.parse((matchedPlace as any).gallery)
+          : (matchedPlace as any).gallery;
+        if (Array.isArray(gal)) {
+          gal.forEach((g: any) => {
+            const u = typeof g === 'string' ? g : g?.url;
+            if (u) placeUrls.push(u);
+          });
+        }
+      } catch {}
+    }
+
+    setDayImages((prev) =>
+      prev.filter((img) => {
+        if (img.label && img.label.toLowerCase().trim() === cleanTarget) return false;
+        if (placeUrls.includes(img.url)) return false;
+        return true;
+      })
+    );
+
+    // 5. Update day title if needed
+    if (updated.length === 0) {
+      setDayTitle(`Day ${currentDayNumber}: Sightseeing & Tour`);
+    } else {
+      setDayTitle(`Day ${currentDayNumber}: ${updated.join(' & ')} Sightseeing`);
+    }
   };
 
   const handleMovePlaceChip = (chipIdx: number, direction: 'up' | 'down') => {
@@ -572,9 +657,14 @@ export const DayEditorWorkspace: React.FC<DayEditorWorkspaceProps> = ({
     const imagesJson = dayImages.length > 0 ? JSON.stringify(dayImages) : null;
 
     return {
-      ...(dayIndex !== null && itineraries[dayIndex]?.id ? { id: itineraries[dayIndex].id } : {}),
+      ...(initialData?.id ? { id: initialData.id } : (dayIndex !== null && itineraries[dayIndex]?.id ? { id: itineraries[dayIndex].id } : {})),
       dayNumber: Number(currentDayNumber) || 1,
-      title: dayTitle.trim() || `Day ${currentDayNumber}`,
+      title: (() => {
+        const trimmed = dayTitle.trim();
+        const withoutPrefix = trimmed.replace(/^Day\s*\d+:?\s*/i, '').trim();
+        if (withoutPrefix) return trimmed;
+        return `Day ${currentDayNumber}: ${selectedPlaceChips.length > 0 ? selectedPlaceChips.join(' & ') : (dayPlaces || 'Sightseeing & Tour')}`;
+      })(),
       description: dayDescription.trim(),
       places:
         selectedPlaceChips.length > 0 ? selectedPlaceChips.join(', ') : dayPlaces.trim() || null,

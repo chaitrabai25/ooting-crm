@@ -20,17 +20,22 @@ export const ALL_CRM_MODULES = [
   { id: 'dashboard', name: 'Dashboard', desc: 'CRM executive overview & live operational stats', category: 'General' },
   { id: 'calendar', name: 'CRM Calendar', desc: 'Operations departures and tour schedule calendar', category: 'General' },
   { id: 'leads', name: 'Leads & Enquiries', desc: 'Inquiry capture, pipeline stages & follow-ups', category: 'Sales' },
+  { id: 'followups', name: 'Follow-ups', desc: 'Client follow-up tracking & call schedules', category: 'Sales' },
   { id: 'quotations', name: 'Quotations', desc: 'PDF quotation builder, margin calculator & estimates', category: 'Sales' },
   { id: 'bookings', name: 'Bookings & Tours', desc: 'Confirmed group & FIT tour bookings', category: 'Sales' },
   { id: 'customers', name: 'Customer Directory', desc: 'Client database, history, and passenger records', category: 'Operations' },
   { id: 'packages', name: 'Tour Packages', desc: 'Curated itineraries, sightseeing plans & pricing', category: 'Operations' },
+  { id: 'places', name: 'Places Master', desc: 'Destinations, tourist attractions & sightseeing library', category: 'Operations' },
   { id: 'guides', name: 'Tour Guides & Field Ops', desc: 'Guide assignments, safety roll-calls & expenses', category: 'Operations' },
   { id: 'cabs', name: 'Tourist Cabs & Transport', desc: 'Vehicle fleet, chauffeur logistics & bookings', category: 'Operations' },
   { id: 'hotels', name: 'Hotels & Accommodation', desc: 'B2B hotel rates, meal plans & room bookings', category: 'Operations' },
+  { id: 'agents', name: 'Travel Agents (B2B)', desc: 'B2B agent partnerships, commission rates & accounts', category: 'Operations' },
   { id: 'suppliers', name: 'B2B Suppliers & Vendors', desc: 'Transport operators, guides & hotel contacts', category: 'Operations' },
+  { id: 'payments', name: 'Payments & Collections', desc: 'Client payments, transaction receipts & ledger', category: 'Finance' },
   { id: 'expenses', name: 'Tour Expenses & Settlement', desc: 'Passenger extras, shared pools & P&L accounting', category: 'Finance' },
   { id: 'whatsapp', name: 'WhatsApp Business Messaging', desc: 'Automated WhatsApp messaging & templates (Disable if WhatsApp is temporarily offline)', category: 'Communication', isAttention: true },
-  { id: 'reports', name: 'Reports & Analytics', desc: 'Executive P&L summaries, lead sources & conversions', category: 'Finance' },
+  { id: 'reports', name: 'Reports', desc: 'Executive P&L summaries, lead sources & conversions', category: 'Finance' },
+  { id: 'analytics', name: 'Analytics', desc: 'Interactive visual analytics, revenue trends & booking metrics', category: 'Finance' },
 ];
 
 interface MasterData {

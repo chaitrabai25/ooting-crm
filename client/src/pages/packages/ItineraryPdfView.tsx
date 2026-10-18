@@ -89,8 +89,8 @@ const renderRouteSegments = (text: string) => {
 };
 
 const renderColoredDayTitle = (rawTitle: string) => {
-  const cleanTitle = (rawTitle || '').replace(/^Day\s*\d+:\s*/i, '').trim();
-  if (!cleanTitle) return <span className="text-[#1E3A8A] font-bold">Day Tour Schedule</span>;
+  const cleanTitle = (rawTitle || '').replace(/^Day\s*\d+:?\s*/i, '').trim() || (rawTitle || '').trim();
+  if (!cleanTitle) return <span className="text-[#1E3A8A] font-bold">Sightseeing & Tour Schedule</span>;
 
   // If title has a pipe '|' separating route and subtitle: e.g. "Mangalore Airport → Coorg | Scenic Journey to the Coffee Hills"
   if (cleanTitle.includes('|')) {
@@ -156,19 +156,49 @@ export const ItineraryPdfView: React.FC = () => {
         if (!id) return;
         setIsLoading(true);
 
-        const [pkgRes, hotelsRes] = await Promise.all([
-          api.get(`/packages/${id}?fresh=true&_t=${Date.now()}`),
-          api.get(`/hotels?limit=250&_t=${Date.now()}`).catch(() => ({ data: { hotels: [] } })),
-        ]);
+        // Fetch fresh package with latest itinerary & hotel master sync
+        const pkgRes = await api.get(`/packages/${id}?fresh=true&_t=${Date.now()}`);
+        const packageData = pkgRes.data;
+        setPkg(packageData);
 
-        setPkg(pkgRes.data);
+        // Targeted hotel lookup: only fetch the hotels actually referenced in this itinerary
+        const neededHotelIds = Array.from(
+          new Set(
+            (packageData.itineraries || [])
+              .map((d: any) => d.hotelId)
+              .filter(Boolean)
+          )
+        ) as string[];
 
-        const list = hotelsRes.data?.hotels || hotelsRes.data?.data || (Array.isArray(hotelsRes.data) ? hotelsRes.data : []);
         const lookup = new Map<string, any>();
-        list.forEach((h: any) => {
-          if (h.id) lookup.set(h.id, h);
-          if (h.name) lookup.set(h.name.toLowerCase().trim(), h);
+        // Prepopulate lookup from embedded itinerary hotel details for instant zero-latency render
+        (packageData.itineraries || []).forEach((d: any) => {
+          if (d.hotelName) {
+            lookup.set(d.hotelName.toLowerCase().trim(), {
+              id: d.hotelId,
+              name: d.hotelName,
+              imageUrl: d.hotelImageUrl,
+              starCategory: d.hotelStarCategory,
+              city: d.hotelLocation,
+            });
+          }
         });
+
+        // Concurrently fetch full details/galleries only for the 1-2 assigned hotels instead of 250
+        if (neededHotelIds.length > 0) {
+          const hotelFetches = neededHotelIds.map((hId) =>
+            api.get(`/hotels/${hId}?_t=${Date.now()}`).catch(() => null)
+          );
+          const hotelResults = await Promise.all(hotelFetches);
+          hotelResults.forEach((res) => {
+            if (res?.data) {
+              const h = res.data;
+              if (h.id) lookup.set(h.id, h);
+              if (h.name) lookup.set(h.name.toLowerCase().trim(), h);
+            }
+          });
+        }
+
         setHotelsLookup(lookup);
       } catch (err) {
         console.error('Failed to load package itinerary for PDF:', err);

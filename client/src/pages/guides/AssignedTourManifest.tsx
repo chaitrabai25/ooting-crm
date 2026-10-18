@@ -40,6 +40,8 @@ import {
   ClipboardCheck,
   Copy,
   Share2,
+  Download,
+  XCircle,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -207,6 +209,38 @@ export const AssignedTourManifest: React.FC = () => {
   const [isSettlingPassenger, setIsSettlingPassenger] = useState<string | null>(null);
   const [isTogglingExpense, setIsTogglingExpense] = useState<string | null>(null);
 
+  // Viewing Receipt Slip Modal
+  const [viewingSlipData, setViewingSlipData] = useState<{
+    isOpen: boolean;
+    url: string;
+    title: string;
+    amount?: number;
+    category?: string;
+  }>({
+    isOpen: false,
+    url: '',
+    title: '',
+  });
+
+  const handleViewSlip = (url: string, title: string, amount?: number, category?: string) => {
+    if (!url) {
+      notifyWarning('No Bill Slip', 'No bill slip has been uploaded for this expense.');
+      return;
+    }
+    let fullUrl = url;
+    if (fullUrl.startsWith('/uploads/')) {
+      const apiOrigin = api.defaults.baseURL ? new URL(api.defaults.baseURL, window.location.origin).origin : window.location.origin;
+      fullUrl = `${apiOrigin}${fullUrl}`;
+    }
+    setViewingSlipData({
+      isOpen: true,
+      url: fullUrl,
+      title: title || 'Expense Receipt Slip',
+      amount,
+      category,
+    });
+  };
+
   // Progress Update Modal
   const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
   const [progressNotesInput, setProgressNotesInput] = useState('');
@@ -289,7 +323,7 @@ export const AssignedTourManifest: React.FC = () => {
     if (!id) return;
     try {
       setIsLoadingExpenses(true);
-      const res = await api.get(`/guides/assignments/${id}/expenses`);
+      const res = await api.get(`/guides/assignments/${id}/expenses?_t=${Date.now()}`);
       setExpensesSummary(res.data);
     } catch (err: any) {
       console.error('Failed to load tour expenses:', err);
@@ -302,11 +336,13 @@ export const AssignedTourManifest: React.FC = () => {
     if (!id) return;
     try {
       setIsLoadingAttendance(true);
-      const res = await api.get(`/guides/assignments/${id}/attendance`);
+      const res = await api.get(`/guides/assignments/${id}/attendance?_t=${Date.now()}`);
       const checkpoints = res.data.checkpoints || [];
       setAttendanceCheckpoints(checkpoints);
-      if (checkpoints.length > 0 && !selectedCheckpointId) {
-        setSelectedCheckpointId(checkpoints[0].id);
+      if (checkpoints.length > 0) {
+        if (!selectedCheckpointId || !checkpoints.some((c: any) => c.id === selectedCheckpointId)) {
+          setSelectedCheckpointId(checkpoints[0].id);
+        }
       }
       setAttendanceRecords(res.data.records || {});
     } catch (err: any) {
@@ -933,6 +969,132 @@ export const AssignedTourManifest: React.FC = () => {
     const timestamp = new Date().toISOString().slice(0, 10);
     exportToExcel(data, `${code}-Passenger-Manifest-${timestamp}.xlsx`, 'Passengers Manifest');
     notifySuccess('Passenger manifest Excel sheet downloaded successfully!');
+  };
+
+  const handleExportPassengersPdf = () => {
+    if (!manifest || passengers.length === 0) {
+      notifyWarning('Export Notice', 'No passenger records to export.');
+      return;
+    }
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert('Please allow popups to download/print the Passenger Manifest PDF.');
+      return;
+    }
+
+    const companyName = (manifest as any).company?.name || user?.company?.name || 'Ooting Travel';
+    const tourName = manifest.groupName || manifest.package?.packageName || manifest.destination || 'Tour Group';
+    const code = manifest.assignmentCode || 'Tour';
+    const dates = `${new Date(manifest.startDate).toLocaleDateString()} to ${new Date(manifest.endDate).toLocaleDateString()}`;
+    const guideName = manifest.primaryGuide?.fullName || 'Assigned Field Guide';
+
+    const rowsHtml = passengers.map((p, idx) => `
+      <tr style="border-bottom: 1px solid #e2e8f0; ${idx % 2 === 1 ? 'background-color: #f8fafc;' : ''}">
+        <td style="padding: 8px 10px; font-family: monospace; font-size: 11px;">${idx + 1}</td>
+        <td style="padding: 8px 10px; font-weight: bold;">
+          ${p.name}
+          ${p.isPrimary ? '<span style="background: #fef3c7; color: #92400e; font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Primary</span>' : ''}
+        </td>
+        <td style="padding: 8px 10px; font-size: 11px;">${p.phone || 'N/A'}</td>
+        <td style="padding: 8px 10px; font-size: 11px;">${p.age ? `${p.age} yrs` : '-'} / ${p.gender || '-'}</td>
+        <td style="padding: 8px 10px; font-size: 11px;">${p.roleInTrip || 'Traveller'}</td>
+        <td style="padding: 8px 10px; font-weight: bold; color: #4338ca;">${p.roomAllocation || '-'}</td>
+        <td style="padding: 8px 10px; font-size: 11px; color: #e11d48;">${p.emergencyContact || '-'}</td>
+        <td style="padding: 8px 10px; font-size: 11px; color: #475569;">${p.notes || '-'}</td>
+      </tr>
+    `).join('');
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${code} - Tour Passenger Manifest & Registration Form</title>
+          <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; margin: 0; padding: 12px; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #C91F28; padding-bottom: 12px; margin-bottom: 16px; }
+            .title { font-size: 18px; font-weight: bold; color: #C91F28; margin: 0; }
+            .subtitle { font-size: 12px; color: #64748b; margin-top: 2px; }
+            .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 11px; }
+            .meta-label { color: #64748b; font-weight: bold; text-transform: uppercase; font-size: 9px; display: block; margin-bottom: 2px; }
+            .meta-val { font-weight: 600; color: #0f172a; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            th { background: #f1f5f9; color: #475569; font-size: 10px; font-weight: bold; text-transform: uppercase; padding: 8px 10px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+            .footer { display: flex; justify-content: space-between; margin-top: 24px; padding-top: 12px; border-top: 1px solid #cbd5e1; font-size: 11px; }
+            .sig-box { width: 220px; border-top: 1px dashed #94a3b8; text-align: center; padding-top: 4px; font-size: 10px; color: #475569; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="title">${companyName}</h1>
+              <div class="subtitle">Official Tour Passenger Manifest & Customer Registration Register</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-weight: bold; font-size: 14px; color: #0f172a;">${code}</div>
+              <div style="font-size: 10px; color: #64748b;">Printed on: ${new Date().toLocaleString()}</div>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div>
+              <span class="meta-label">Tour Name / Circuit</span>
+              <span class="meta-val">${tourName}</span>
+            </div>
+            <div>
+              <span class="meta-label">Tour Dates</span>
+              <span class="meta-val">${dates}</span>
+            </div>
+            <div>
+              <span class="meta-label">Assigned Field Guide</span>
+              <span class="meta-val">${guideName}</span>
+            </div>
+            <div>
+              <span class="meta-label">Total Registered Travellers</span>
+              <span class="meta-val" style="color: #C91F28; font-weight: bold;">${passengers.length} Travellers</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px;">#</th>
+                <th>Traveller Full Name</th>
+                <th>Phone Number</th>
+                <th>Age / Gender</th>
+                <th>Role in Trip</th>
+                <th>Room Allocation</th>
+                <th>Emergency Contact</th>
+                <th>Special / Medical Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <div class="sig-box">
+              Tour Guide In-Charge Signature<br/>(${guideName})
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #64748b; align-self: flex-end;">
+              Generated securely by Ooting Tour Operations Management System
+            </div>
+            <div class="sig-box">
+              Tour Operations Lead / Coordinator
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWin.document.close();
   };
 
   const getStatusBadge = (status: string) => {
@@ -1774,28 +1936,36 @@ export const AssignedTourManifest: React.FC = () => {
                             )}
                           </td>
                           <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAttendance(p.id, isPresent ? 'PRESENT' : 'ABSENT')}
-                              disabled={isToggling || !selectedCheckpointId}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs transition-all disabled:opacity-50 cursor-pointer ${
-                                isPresent
-                                  ? 'bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-200'
-                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                              }`}
-                            >
-                              {isPresent ? (
-                                <>
-                                  <RotateCcw className="w-3 h-3" />
-                                  <span>{isToggling ? 'Updating...' : 'Mark Absent'}</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Check className="w-3.5 h-3.5" />
-                                  <span>{isToggling ? 'Updating...' : 'Mark Present'}</span>
-                                </>
-                              )}
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAttendance(p.id, 'ABSENT')}
+                                disabled={isToggling || !selectedCheckpointId || isPresent}
+                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  isPresent
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                } disabled:opacity-80 cursor-pointer`}
+                                title="Mark Present and Safe"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>{isToggling && !isPresent ? '...' : 'Present'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAttendance(p.id, 'PRESENT')}
+                                disabled={isToggling || !selectedCheckpointId || !isPresent}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  !isPresent
+                                    ? 'bg-rose-600 text-white shadow-xs'
+                                    : 'bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white border border-rose-300 dark:bg-rose-950/40 dark:text-rose-300'
+                                } disabled:opacity-80 cursor-pointer`}
+                                title="Mark Absent / Missing"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>{isToggling && isPresent ? '...' : 'Absent'}</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1847,10 +2017,20 @@ export const AssignedTourManifest: React.FC = () => {
                 type="button"
                 onClick={handleExportPassengersExcel}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors whitespace-nowrap"
-                title="Download passenger manifest as Excel (.xlsx)"
+                title="Download all customer registration form responses as Excel (.xlsx)"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Export Excel</span>
+                <span>Download Form Responses (Excel)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportPassengersPdf}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C91F28] hover:bg-[#a8171f] text-white rounded-lg text-xs font-bold shadow-xs transition-colors whitespace-nowrap"
+                title="Download passenger manifest and registration register as PDF"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Form Responses (PDF)</span>
               </button>
 
               <button
@@ -1860,7 +2040,7 @@ export const AssignedTourManifest: React.FC = () => {
                 title="Print or save manifest as PDF"
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>PDF / Print</span>
+                <span>Print</span>
               </button>
 
               <button
@@ -2475,6 +2655,17 @@ export const AssignedTourManifest: React.FC = () => {
                                     <span className="font-bold text-slate-900 dark:text-white">
                                       ₹{Number(e.amount).toLocaleString()}
                                     </span>
+                                    {e.receiptUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleViewSlip(e.receiptUrl!, e.title, Number(e.amount), e.category)}
+                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-50 hover:bg-brand-100 dark:bg-brand-950/40 dark:hover:bg-brand-900/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 transition-colors cursor-pointer"
+                                        title="View receipt bill slip"
+                                      >
+                                        <Receipt className="w-2.5 h-2.5 text-brand-600" />
+                                        <span>Slip</span>
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={() => handleOpenEditExpense(e)}
@@ -2643,17 +2834,15 @@ export const AssignedTourManifest: React.FC = () => {
                           </td>
                           <td className="px-3 py-2.5">
                             {exp.receiptUrl ? (
-                              <a
-                                href={exp.receiptUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-brand-600 dark:text-brand-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap"
+                              <button
+                                type="button"
+                                onClick={() => handleViewSlip(exp.receiptUrl!, exp.title, Number(exp.amount), exp.category)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-brand-600 dark:text-brand-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap cursor-pointer transition-colors"
                                 title="View expense bill slip"
                               >
                                 <Receipt className="w-3 h-3 text-brand-600" />
                                 <span>View Slip</span>
-                                <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
-                              </a>
+                              </button>
                             ) : (
                               <span className="text-slate-400 text-[10px] italic">No slip</span>
                             )}
@@ -3518,6 +3707,79 @@ export const AssignedTourManifest: React.FC = () => {
           initialExpenseType={defaultExpenseType}
           editingExpense={editingExpense}
         />
+      )}
+
+      {/* MODAL 5: Instant Receipt Slip Lightbox Viewer */}
+      {viewingSlipData.isOpen && (
+        <Modal
+          isOpen={viewingSlipData.isOpen}
+          onClose={() => setViewingSlipData({ isOpen: false, url: '', title: '' })}
+          title={viewingSlipData.title || 'Expense Receipt Slip'}
+          maxWidth="lg"
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs">
+              <div>
+                <span className="text-slate-500">Category: </span>
+                <span className="font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
+                  {viewingSlipData.category?.replace(/_/g, ' ') || 'General Expense'}
+                </span>
+              </div>
+              {viewingSlipData.amount !== undefined && (
+                <div className="text-right">
+                  <span className="text-slate-500">Amount: </span>
+                  <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
+                    ₹{Number(viewingSlipData.amount).toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="max-h-[70vh] overflow-auto flex items-center justify-center p-2 bg-slate-950/5 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800">
+              {viewingSlipData.url.endsWith('.pdf') ? (
+                <iframe
+                  src={viewingSlipData.url}
+                  className="w-full h-[60vh] rounded-lg border-0"
+                  title="Receipt PDF"
+                />
+              ) : (
+                <img
+                  src={viewingSlipData.url}
+                  alt={viewingSlipData.title}
+                  className="max-h-[65vh] max-w-full object-contain rounded-lg shadow-md"
+                />
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (viewingSlipData.url.startsWith('data:')) {
+                    const w = window.open('');
+                    if (w) {
+                      w.document.write(`<img src="${viewingSlipData.url}" style="max-width:100%; height:auto;" />`);
+                    }
+                  } else {
+                    window.open(viewingSlipData.url, '_blank');
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Open in Tab</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewingSlipData({ isOpen: false, url: '', title: '' })}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

@@ -600,15 +600,29 @@ export const TourExpenseModal: React.FC<TourExpenseModalProps> = ({
                 />
                 <div className="text-[11px] truncate">
                   <span className="font-bold text-slate-900 dark:text-white block">Slip Attached</span>
-                  <a
-                    href={receiptUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1 font-semibold"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (receiptUrl.startsWith('data:')) {
+                        const w = window.open('');
+                        if (w) {
+                          w.document.write(`<img src="${receiptUrl}" style="max-width:100%; height:auto;" />`);
+                          w.document.title = "Bill Slip Preview";
+                        }
+                      } else {
+                        let fullUrl = receiptUrl;
+                        if (fullUrl.startsWith('/uploads/')) {
+                          const apiOrigin = api.defaults.baseURL ? new URL(api.defaults.baseURL, window.location.origin).origin : window.location.origin;
+                          fullUrl = `${apiOrigin}${fullUrl}`;
+                        }
+                        window.open(fullUrl, '_blank');
+                      }
+                    }}
+                    className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1 font-semibold cursor-pointer"
                   >
                     <ExternalLink className="w-3 h-3" />
                     View Bill Slip
-                  </a>
+                  </button>
                 </div>
               </div>
               <button

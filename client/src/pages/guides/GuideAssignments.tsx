@@ -32,6 +32,7 @@ export const GuideAssignments: React.FC = () => {
   const [assignments, setAssignments] = useState<TourAssignment[]>([]);
   const [guides, setGuides] = useState<TourGuide[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
   const [b2bHotels, setB2bHotels] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -45,6 +46,7 @@ export const GuideAssignments: React.FC = () => {
 
   // New Assignment Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState('');
   const [selectedBookingId, setSelectedBookingId] = useState('');
   const [tourName, setTourName] = useState('');
   const [destination, setDestination] = useState('');
@@ -107,15 +109,17 @@ export const GuideAssignments: React.FC = () => {
 
   const fetchDependencies = async () => {
     try {
-      const [guidesRes, bookingsRes, hotelsRes, cabsRes, suppliersRes] = await Promise.all([
+      const [guidesRes, bookingsRes, packagesRes, hotelsRes, cabsRes, suppliersRes] = await Promise.all([
         api.get('/guides?limit=100&status=ACTIVE').catch(() => ({ data: { data: [] } })),
-        api.get('/bookings?limit=50&bookingStatus=CONFIRMED').catch(() => ({ data: { data: [] } })),
+        api.get('/bookings?limit=100').catch(() => ({ data: { data: [] } })),
+        api.get('/packages?limit=100').catch(() => ({ data: { data: [] } })),
         api.get('/hotels?limit=100').catch(() => ({ data: { data: [] } })),
         api.get('/cabs?limit=100').catch(() => ({ data: { data: [] } })),
         api.get('/suppliers?limit=100').catch(() => ({ data: { data: [] } })),
       ]);
       setGuides(guidesRes.data?.data || guidesRes.data?.guides || (Array.isArray(guidesRes.data) ? guidesRes.data : []));
       setBookings(bookingsRes.data?.data || bookingsRes.data?.bookings || (Array.isArray(bookingsRes.data) ? bookingsRes.data : []));
+      setPackages(packagesRes.data?.data || packagesRes.data?.packages || (Array.isArray(packagesRes.data) ? packagesRes.data : []));
       const hotelList = hotelsRes.data?.hotels || hotelsRes.data?.data || (Array.isArray(hotelsRes.data) ? hotelsRes.data : []);
       setB2bHotels(hotelList);
 
@@ -158,15 +162,55 @@ export const GuideAssignments: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (searchParams.get('action') === 'assign' || searchParams.get('open') === 'true') {
+    const action = searchParams.get('action');
+    const open = searchParams.get('open');
+    const pId = searchParams.get('packageId');
+    const gId = searchParams.get('guideId');
+    const bId = searchParams.get('bookingId');
+
+    if (action === 'assign' || open === 'true' || pId || gId || bId) {
       resetModalState();
+      if (pId) {
+        setSelectedPackageId(pId);
+        // Load package details if available
+        api.get(`/packages/${pId}`).then((res) => {
+          if (res.data) {
+            setTourName(res.data.packageName || '');
+            setDestination(res.data.destination || '');
+          }
+        }).catch(() => {});
+      }
+      if (gId) setPrimaryGuideId(gId);
+      if (bId) handleBookingSelect(bId);
       setIsModalOpen(true);
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('action');
       newParams.delete('open');
+      newParams.delete('packageId');
+      newParams.delete('guideId');
+      newParams.delete('bookingId');
       setSearchParams(newParams, { replace: true });
     }
   }, [searchParams]);
+
+  const handlePackageSelect = (pkgId: string) => {
+    setSelectedPackageId(pkgId);
+    if (!pkgId) return;
+    const pkg = packages.find((item) => item.id === pkgId);
+    if (pkg) {
+      setTourName(pkg.packageName || '');
+      setDestination(pkg.destination || '');
+      // Try to estimate passenger count from active bookings for this package
+      const matchingBookings = bookings.filter((b) => b.packageId === pkgId);
+      if (matchingBookings.length > 0) {
+        const totalTravellers = matchingBookings.reduce((sum, b) => sum + (Number(b.travellers) || 1), 0);
+        setPassengerCount(String(Math.max(1, totalTravellers)));
+        const first = matchingBookings[0];
+        if (first.travelStartDate) setStartDate(first.travelStartDate.split('T')[0]);
+        if (first.travelEndDate) setEndDate(first.travelEndDate.split('T')[0]);
+      }
+    }
+  };
 
   const handleBookingSelect = (bookingId: string) => {
     setSelectedBookingId(bookingId);
@@ -246,6 +290,7 @@ export const GuideAssignments: React.FC = () => {
         : [];
 
       const payload: any = {
+        packageId: selectedPackageId || null,
         bookingId: selectedBookingId || null,
         primaryGuideId,
         secondaryGuideId: secondaryGuideId || null,
@@ -287,6 +332,7 @@ export const GuideAssignments: React.FC = () => {
   };
 
   const resetModalState = () => {
+    setSelectedPackageId('');
     setSelectedBookingId('');
     setTourName('');
     setDestination('');
@@ -542,10 +588,34 @@ export const GuideAssignments: React.FC = () => {
               </div>
             )}
 
+            {/* Link to Package */}
+            <div>
+              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span>Select Tour Package (Auto-populates Tour & Passenger Manifest)</span>
+                {selectedPackageId && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                    ✓ Package Auto-Sync Active
+                  </span>
+                )}
+              </label>
+              <select
+                value={selectedPackageId}
+                onChange={(e) => handlePackageSelect(e.target.value)}
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg font-medium"
+              >
+                <option value="">Select a travel package or create custom tour...</option>
+                {packages.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.packageName} ({p.destination} • {p.duration})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Link to Existing Confirmed Booking */}
             <div>
               <label className="font-semibold text-slate-700 dark:text-slate-300">
-                Link to Booking (Optional - Auto-populates tour details)
+                Link to Booking (Optional - Auto-populates customer booking details)
               </label>
               <select
                 value={selectedBookingId}

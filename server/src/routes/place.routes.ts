@@ -273,6 +273,27 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     });
 
+    // Cascade name changes to package itinerary days referencing this place
+    if (existing.name !== updated.name) {
+      try {
+        const daysWithPlace = await prisma.itineraryDay.findMany({
+          where: { places: { contains: existing.name } },
+        });
+        for (const d of daysWithPlace) {
+          if (d.places) {
+            const regex = new RegExp(`(^|,\\s*)${existing.name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}(\\s*,|$)`, 'gi');
+            const newPlaces = d.places.replace(regex, `$1${updated.name}$2`);
+            await prisma.itineraryDay.update({
+              where: { id: d.id },
+              data: { places: newPlaces },
+            });
+          }
+        }
+      } catch (cascadeErr) {
+        console.warn('[PlaceRoute] Itinerary place cascade warning:', cascadeErr);
+      }
+    }
+
     cache.delPrefix('places:');
     cache.delPrefix('package:');
     cache.delPrefix('packages:');

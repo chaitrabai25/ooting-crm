@@ -351,8 +351,14 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     try {
       const loc = `${updated.city ? `${updated.city}, ` : ''}${updated.district || ''}`;
       await prisma.itineraryDay.updateMany({
-        where: { hotelId: id },
+        where: {
+          OR: [
+            { hotelId: id },
+            { hotelName: existing.name },
+          ],
+        },
         data: {
+          hotelId: id,
           hotelName: updated.name,
           hotelStarCategory: updated.starCategory || '3 Star',
           hotelImageUrl: updated.imageUrl || null,

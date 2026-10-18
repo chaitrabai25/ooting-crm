@@ -374,6 +374,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
   const activeNavigationSections = user?.role === 'TOUR_GUIDE' ? guideSections : navigationSections;
 
+  const isItemVisible = (moduleName?: string): boolean => {
+    // Super Admin has full, unrestricted access to all modules and system sections
+    if (user?.role === 'SUPER_ADMIN') return true;
+
+    // Core Administration and platform settings are never disabled by tenant feature toggles
+    if (moduleName && ['settings', 'users', 'audit-logs', 'companies'].includes(moduleName)) {
+      return user?.role === 'ADMIN';
+    }
+
+    // Check tenant allowedModules if set
+    if (allowedModules && moduleName && !allowedModules.includes(moduleName)) {
+      return false;
+    }
+
+    if (!moduleName) return true;
+    return can(moduleName, 'view');
+  };
+
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Brand Header */}
@@ -452,19 +470,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
           const visibleItems = section.items
             .map((item) => {
               if (item.type === 'link') {
-                if (allowedModules && item.module && !allowedModules.includes(item.module)) {
-                  return null;
-                }
-                if (!item.module) return item;
-                return can(item.module, 'view') ? item : null;
+                return isItemVisible(item.module) ? item : null;
               } else {
-                const visibleChildren = item.items.filter((child) => {
-                  if (allowedModules && child.module && !allowedModules.includes(child.module)) {
-                    return false;
-                  }
-                  if (!child.module) return true;
-                  return can(child.module, 'view');
-                });
+                const visibleChildren = item.items.filter((child) => isItemVisible(child.module));
                 if (visibleChildren.length === 0) return null;
                 return { ...item, items: visibleChildren };
               }

@@ -502,7 +502,7 @@ export const GuideDetail: React.FC = () => {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => navigate('/guides/assignments')}
+                  onClick={() => navigate(`/guides/assignments?action=assign&guideId=${guide.id}`)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" />

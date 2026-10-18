@@ -626,6 +626,93 @@ router.get('/assignments/:id/manifest', requirePermission('guides', 'view'), asy
       }
     }
 
+    // Auto-populate passengers from CRM Passenger / Booking list if none were entered
+    if (combinedPassengers.length === 0) {
+      const searchPackageId = assignment.packageId || effectivePackage?.id;
+      const searchBookingId = assignment.bookingId;
+
+      try {
+        const candidateBookings = await prisma.booking.findMany({
+          where: {
+            companyId: assignment.companyId || req.user!.companyId,
+            isDeleted: false,
+            OR: [
+              ...(searchBookingId ? [{ id: searchBookingId }] : []),
+              ...(searchPackageId ? [{ packageId: searchPackageId }] : []),
+            ],
+          },
+          include: {
+            customer: true,
+            travellersList: true,
+          },
+          orderBy: { bookingDate: 'desc' },
+        });
+
+        const autoPassengers: any[] = [];
+        const seenPax = new Set<string>();
+
+        for (const b of candidateBookings) {
+          if (b.travellersList && b.travellersList.length > 0) {
+            for (const t of b.travellersList) {
+              const key = (t.phone || t.name).toLowerCase().trim();
+              if (!seenPax.has(key)) {
+                seenPax.add(key);
+                autoPassengers.push({
+                  id: t.id,
+                  name: t.name,
+                  phone: t.phone || b.customer?.phone || null,
+                  email: t.email || b.customer?.email || null,
+                  age: t.age || null,
+                  gender: t.gender || null,
+                  roleInTrip: t.roleInTrip || (t.isPrimary ? 'Primary Guest' : 'Traveller'),
+                  roomAllocation: t.roomAllocation || null,
+                  emergencyContact: t.emergencyContact || null,
+                  notes: t.notes ? `${t.notes} (Booking: ${b.bookingNumber})` : `Booking: ${b.bookingNumber}`,
+                  isPrimary: t.isPrimary,
+                  bookingId: b.id,
+                  bookingNumber: b.bookingNumber,
+                });
+              }
+            }
+          } else if (b.customer) {
+            const key = (b.customer.phone || b.customer.fullName).toLowerCase().trim();
+            if (!seenPax.has(key)) {
+              seenPax.add(key);
+              autoPassengers.push({
+                id: `pax-cust-${b.customer.id}`,
+                name: b.customer.fullName,
+                phone: b.customer.phone || null,
+                email: b.customer.email || null,
+                age: null,
+                gender: null,
+                roleInTrip: 'Primary Guest',
+                roomAllocation: null,
+                emergencyContact: b.customer.phone || null,
+                notes: `Booking: ${b.bookingNumber}`,
+                isPrimary: true,
+                bookingId: b.id,
+                bookingNumber: b.bookingNumber,
+              });
+            }
+          }
+        }
+
+        if (autoPassengers.length > 0) {
+          combinedPassengers = autoPassengers;
+          // Persist automatically to assignment so it is stored safely and consistently
+          await prisma.tourAssignment.update({
+            where: { id: assignment.id },
+            data: {
+              customPassengers: JSON.stringify(autoPassengers),
+              passengerCount: Math.max(assignment.passengerCount, autoPassengers.length),
+            },
+          }).catch((err) => console.warn('[Manifest] Non-blocking pax auto-save:', err));
+        }
+      } catch (err) {
+        console.warn('[Manifest] Error auto-populating passengers:', err);
+      }
+    }
+
     // Combine cabs: booking cabBookings + assignment cab/driver if entered
     let combinedCabs: any[] = assignment.booking?.cabBookings ? [...assignment.booking.cabBookings] : [];
     if (assignment.driverName || assignment.vehicleNumber) {
@@ -798,6 +885,85 @@ router.post('/assignments', requirePermission('guides', 'create'), async (req: A
     const effectiveGroupName = data.groupName?.trim() || data.tourName?.trim() || null;
     const effectiveNotes = [data.notes, data.specialInstructions, data.operationalNotes].filter(Boolean).join('\n\n') || null;
 
+    let initialCustomPassengers: string | null = data.customPassengers?.trim() || null;
+    let effectivePassengerCount = data.passengerCount || 1;
+
+    if (!initialCustomPassengers && (resolvedPackageId || data.bookingId)) {
+      try {
+        const candidateBookings = await prisma.booking.findMany({
+          where: {
+            companyId,
+            isDeleted: false,
+            OR: [
+              ...(data.bookingId ? [{ id: data.bookingId }] : []),
+              ...(resolvedPackageId ? [{ packageId: resolvedPackageId }] : []),
+            ],
+          },
+          include: {
+            customer: true,
+            travellersList: true,
+          },
+          orderBy: { bookingDate: 'desc' },
+        });
+
+        const autoPassengers: any[] = [];
+        const seenPax = new Set<string>();
+
+        for (const b of candidateBookings) {
+          if (b.travellersList && b.travellersList.length > 0) {
+            for (const t of b.travellersList) {
+              const key = (t.phone || t.name).toLowerCase().trim();
+              if (!seenPax.has(key)) {
+                seenPax.add(key);
+                autoPassengers.push({
+                  id: t.id,
+                  name: t.name,
+                  phone: t.phone || b.customer?.phone || null,
+                  email: t.email || b.customer?.email || null,
+                  age: t.age || null,
+                  gender: t.gender || null,
+                  roleInTrip: t.roleInTrip || (t.isPrimary ? 'Primary Guest' : 'Traveller'),
+                  roomAllocation: t.roomAllocation || null,
+                  emergencyContact: t.emergencyContact || null,
+                  notes: t.notes ? `${t.notes} (Booking: ${b.bookingNumber})` : `Booking: ${b.bookingNumber}`,
+                  isPrimary: t.isPrimary,
+                  bookingId: b.id,
+                  bookingNumber: b.bookingNumber,
+                });
+              }
+            }
+          } else if (b.customer) {
+            const key = (b.customer.phone || b.customer.fullName).toLowerCase().trim();
+            if (!seenPax.has(key)) {
+              seenPax.add(key);
+              autoPassengers.push({
+                id: `pax-cust-${b.customer.id}`,
+                name: b.customer.fullName,
+                phone: b.customer.phone || null,
+                email: b.customer.email || null,
+                age: null,
+                gender: null,
+                roleInTrip: 'Primary Guest',
+                roomAllocation: null,
+                emergencyContact: b.customer.phone || null,
+                notes: `Booking: ${b.bookingNumber}`,
+                isPrimary: true,
+                bookingId: b.id,
+                bookingNumber: b.bookingNumber,
+              });
+            }
+          }
+        }
+
+        if (autoPassengers.length > 0) {
+          initialCustomPassengers = JSON.stringify(autoPassengers);
+          effectivePassengerCount = Math.max(effectivePassengerCount, autoPassengers.length);
+        }
+      } catch (err) {
+        console.warn('[AssignGuide] Error auto-populating passengers on assignment:', err);
+      }
+    }
+
     const assignment = await prisma.tourAssignment.create({
       data: {
         companyId,
@@ -813,7 +979,7 @@ router.post('/assignments', requirePermission('guides', 'create'), async (req: A
         reportingLocation: effectiveReportingLocation,
         route: data.route?.trim() || (data.dropLocation ? `Pickup: ${effectiveReportingLocation || ''} -> Drop: ${data.dropLocation}` : null),
         destination: data.destination?.trim() || null,
-        passengerCount: data.passengerCount,
+        passengerCount: effectivePassengerCount,
         groupName: effectiveGroupName,
         coordinatorName: data.coordinatorName?.trim() || null,
         coordinatorPhone: data.coordinatorPhone?.trim() || null,
@@ -828,7 +994,7 @@ router.post('/assignments', requirePermission('guides', 'create'), async (req: A
         vehicleType: data.vehicleType?.trim() || null,
         hotelDetails: data.hotelDetails?.trim() || null,
         customItinerary: data.customItinerary?.trim() || null,
-        customPassengers: data.customPassengers?.trim() || null,
+        customPassengers: initialCustomPassengers,
       },
       include: {
         primaryGuide: { select: { id: true, fullName: true, phone: true } },
