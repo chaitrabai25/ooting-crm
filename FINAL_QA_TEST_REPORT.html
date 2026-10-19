@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ooting CRM — Final QA Verification & Test Case Report</title>
+  <style>
+    :root {
+      --primary: #C91F28;
+      --primary-dark: #9e141c;
+      --emerald: #059669;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--slate-50);
+      color: var(--slate-800);
+      line-height: 1.5;
+      padding: 32px 20px;
+    }
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.01);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid var(--slate-100);
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+    }
+    .brand-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--slate-900);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-badge {
+      background: var(--primary);
+      color: #fff;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .subtext {
+      color: #64748b;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .meta-box {
+      text-align: right;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .meta-box strong { color: var(--slate-800); }
+    
+    .scorecards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .scorecard {
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 14px;
+      padding: 18px;
+      text-align: center;
+    }
+    .scorecard .val {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--slate-900);
+    }
+    .scorecard .lbl {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #64748b;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+    .scorecard.green .val { color: var(--emerald); }
+    .scorecard.red .val { color: var(--primary); }
+
+    .banner {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #065f46;
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 13px;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .banner strong { font-weight: 700; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 32px;
+      font-size: 13px;
+    }
+    th {
+      background: var(--slate-100);
+      text-align: left;
+      padding: 12px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--slate-700);
+      border-top: 1px solid var(--slate-200);
+      border-bottom: 1px solid var(--slate-200);
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: top;
+    }
+    tr:hover td { background: #fafafa; }
+    .badge-pass {
+      background: #d1fae5;
+      color: #047857;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .badge-fail {
+      background: #fee2e2;
+      color: #b91c1c;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .section-badge {
+      font-weight: 700;
+      color: var(--slate-900);
+      font-size: 12px;
+    }
+
+    .signoff {
+      border-top: 2px dashed var(--slate-200);
+      padding-top: 24px;
+      margin-top: 40px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .signoff-box {
+      width: 260px;
+      border: 1px solid var(--slate-200);
+      border-radius: 10px;
+      padding: 14px;
+      background: var(--slate-50);
+    }
+    .signoff-box h5 {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--slate-700);
+      margin-bottom: 8px;
+    }
+
+    .print-btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 10px 22px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(201,31,40,0.25);
+    }
+    .print-btn:hover { background: var(--primary-dark); }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .container { border: none; box-shadow: none; padding: 0; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <div class="brand-title">
+          <span>Ooting CRM & Travel Operating System</span>
+          <span class="brand-badge">Production QA Verified</span>
+        </div>
+        <p class="subtext">Comprehensive End-to-End Test Suite, Database Safety Audit & Verification Report</p>
+      </div>
+      <div class="meta-box">
+        <button class="print-btn no-print" onclick="window.print()">Print / Save as PDF</button>
+        <div style="margin-top: 10px;">
+          <div><strong>Date:</strong> 19/10/2026, 12:06:54 pm IST</div>
+          <div><strong>Environment:</strong> Production Cloud (TiDB MySQL)</div>
+          <div><strong>Commit Ref:</strong> f97ef46 (main)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="banner">
+      <div>
+        <strong>✓ ZERO DATA LOSS CONFIRMED:</strong> All 23 relational database tables, 4 companies, 18 tour packages, and 5 bookings were verified using strict read-only queries with zero mutations or data degradation.
+      </div>
+    </div>
+
+    <div class="scorecards">
+      <div class="scorecard green">
+        <div class="val">100.0%</div>
+        <div class="lbl">Pass Rate</div>
+      </div>
+      <div class="scorecard green">
+        <div class="val">35</div>
+        <div class="lbl">Tests Passed</div>
+      </div>
+      <div class="scorecard green">
+        <div class="val">0</div>
+        <div class="lbl">Tests Failed</div>
+      </div>
+      <div class="scorecard">
+        <div class="val">7.85s</div>
+        <div class="lbl">Execution Time</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 22%;">Module / Section</th>
+          <th style="width: 28%;">Test Case Description</th>
+          <th style="width: 10%;">Result</th>
+          <th style="width: 40%;">Verification Details & Output</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          <tr>
+            <td class="section-badge">Database Engine</td>
+            <td><strong>TiDB Cloud MySQL 8.0+ Connection</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Secure TLS connection established to gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000 <span style="color: #94a3b8; font-size: 11px;">(949ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Company Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 4 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(252ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>User Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 7 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(239ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Customer Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 13 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(239ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Lead Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 6 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(408ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>FollowUp Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 2 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(416ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Package Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 18 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(301ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>ItineraryDay Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 56 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(375ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Quotation Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 10 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(294ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Booking Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 5 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(202ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Payment Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 5 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(237ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>CabBooking Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 1 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(280ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>TourGuide Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 1 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(233ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>TourAssignment Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 2 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(249ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>TourExpense Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 3 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(203ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Place Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 40 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(202ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Hotel Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 8 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(224ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Agent Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 134 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(218ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Supplier Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 2 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(200ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>Expense Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 1 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(221ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>CalendarEvent Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 1 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(218ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>WhatsAppMessage Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 10 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(239ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>AuditLog Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 1093 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(233ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Table Integrity</td>
+            <td><strong>CompanySetting Table Verification</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Verified intact: 17 existing record(s) with zero mutation <span style="color: #94a3b8; font-size: 11px;">(304ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">SaaS & Multi-Tenancy</td>
+            <td><strong>Tenant Company Module Whitelist (25 Modules)</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">All 4 tenant company records have complete operational module sets <span style="color: #94a3b8; font-size: 11px;">(229ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Role-Based Access Control</td>
+            <td><strong>Admin Role Segregation</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">2 Super Admin(s), 3 Company Admin(s) verified with secure role separation <span style="color: #94a3b8; font-size: 11px;">(399ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Itinerary Engine</td>
+            <td><strong>Multi-Place Auto-Fill & Auto-Purge</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Adding places accumulates descriptions; removing chip purges description and details cleanly <span style="color: #94a3b8; font-size: 11px;">(0ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Itinerary Engine</td>
+            <td><strong>Authentic Title Formatting (No Fabricated Fallback)</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Cleaned prefix without generating fake fallback strings: "Ooty Sightseeing & Tea Estate" <span style="color: #94a3b8; font-size: 11px;">(1ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Payment OCR Scanner</td>
+            <td><strong>Paytm Receipt Auto-Extraction</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Amount: ₹2000 | UTR: 423315789012 | Date: 2026-08-20 | Time: 02:43 AM <span style="color: #94a3b8; font-size: 11px;">(7ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Payment OCR Scanner</td>
+            <td><strong>PhonePe Receipt Auto-Extraction</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Amount: ₹15500.00 | UTR: 329188472910 | Date: 2026-09-15 | Time: 11:30 PM <span style="color: #94a3b8; font-size: 11px;">(10ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Payment OCR Scanner</td>
+            <td><strong>Google Pay Receipt Auto-Extraction</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Amount: ₹4500 | UTR: 519284719284 | Date: 2026-07-12 | Time: 04:15 PM <span style="color: #94a3b8; font-size: 11px;">(11ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Tour Operations</td>
+            <td><strong>Guide Assignment & Manifest Registry</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">1 Tour Guides registered, 2 Tour Assignments active with auto-populated traveller manifests <span style="color: #94a3b8; font-size: 11px;">(252ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Tour Operations</td>
+            <td><strong>Dual-Button Touch Attendance (Present / Absent)</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Discrete Present (Green) and Absent (Red) status updates verified with real-time UI reflect <span style="color: #94a3b8; font-size: 11px;">(0ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Frontend Architecture</td>
+            <td><strong>Vite Route-Level Lazy Loading Chunks</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">Generated 89 optimized JS modules and 1 CSS stylesheets with content hashing <span style="color: #94a3b8; font-size: 11px;">(1ms)</span></td>
+          </tr>
+        
+          <tr>
+            <td class="section-badge">Frontend Architecture</td>
+            <td><strong>Production HTML Entrypoint</strong></td>
+            <td><span class="badge-pass">PASSED</span></td>
+            <td style="color: #475569; font-size: 12.5px;">client/dist/index.html is valid, minimized, and ready for CDN caching <span style="color: #94a3b8; font-size: 11px;">(2ms)</span></td>
+          </tr>
+        
+      </tbody>
+    </table>
+
+    <div class="signoff">
+      <div class="signoff-box">
+        <h5>Lead Engineer Verification</h5>
+        <p><strong>Status:</strong> Passed All Automated Tests</p>
+        <p><strong>Code Base:</strong> 241 Files (Clean & Tracked)</p>
+        <p><strong>Vite Build:</strong> 0 TypeScript Errors</p>
+      </div>
+
+      <div class="signoff-box">
+        <h5>Production Deployment Sign-off</h5>
+        <p><strong>Target:</strong> Custom Domain / Vercel</p>
+        <p><strong>Database:</strong> TiDB Cloud MySQL 8.0+</p>
+        <p><strong>Signed:</strong> Ready for Production Release</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
