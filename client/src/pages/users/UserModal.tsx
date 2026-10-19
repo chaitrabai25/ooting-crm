@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, ShieldAlert, Check, X, CheckSquare, Square, RotateCcw } from 'lucide-react';
+import {
+  Shield,
+  ShieldAlert,
+  Check,
+  X,
+  CheckSquare,
+  Square,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { User, Role } from '../../types/index.js';
@@ -21,59 +31,130 @@ interface ActionPermissions {
 
 type PermissionsMap = Record<string, ActionPermissions>;
 
-const CRM_MODULES: { id: string; label: string; actions: (keyof ActionPermissions)[] }[] = [
-  { id: 'leads', label: 'Leads & Enquiries', actions: ['view', 'create', 'edit', 'delete', 'export'] },
-  { id: 'quotations', label: 'Quotations & Itineraries', actions: ['view', 'create', 'edit', 'delete', 'export'] },
-  { id: 'bookings', label: 'Tour Bookings', actions: ['view', 'create', 'edit', 'delete', 'export'] },
-  { id: 'cabs', label: 'Cab Bookings & Duty Slips', actions: ['view', 'create', 'edit', 'delete', 'export'] },
-  { id: 'customers', label: 'Customers & Tourists', actions: ['view', 'create', 'edit', 'delete', 'export'] },
-  { id: 'packages', label: 'Travel Packages', actions: ['view', 'create', 'edit', 'delete'] },
-  { id: 'suppliers', label: 'B2B Suppliers & Partners', actions: ['view', 'create', 'edit', 'delete', 'export'] },
-  { id: 'agents', label: 'B2B Travel Agents', actions: ['view', 'create', 'edit', 'delete', 'export'] },
-  { id: 'payments', label: 'Payments & Financials', actions: ['view', 'create', 'edit', 'delete', 'export'] },
-  { id: 'reports', label: 'Business Reports', actions: ['view', 'export'] },
+export interface PermissionModule {
+  id: string;
+  label: string;
+  actions: (keyof ActionPermissions)[];
+}
+
+export interface PermissionSection {
+  title: string;
+  modules: PermissionModule[];
+}
+
+export const CRM_PERMISSION_SECTIONS: PermissionSection[] = [
+  {
+    title: 'Main',
+    modules: [
+      { id: 'dashboard', label: 'Dashboard Overview', actions: ['view'] },
+      { id: 'calendar', label: 'CRM Calendar', actions: ['view', 'create', 'edit', 'delete'] },
+    ],
+  },
+  {
+    title: 'Sales & Operations',
+    modules: [
+      { id: 'leads', label: 'Leads & Enquiries', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+      { id: 'quotations', label: 'Quotations & Itineraries', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+      { id: 'bookings', label: 'Tour Bookings', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+      { id: 'cabs', label: 'Cab Bookings & Duty Slips', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+      { id: 'customers', label: 'Customers & Tourists', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+      { id: 'guides', label: 'Tour Guides & Assignments', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+      { id: 'whatsapp', label: 'Bulk WhatsApp Messaging', actions: ['view', 'create'] },
+    ],
+  },
+  {
+    title: 'Travel Products',
+    modules: [
+      { id: 'packages', label: 'Travel Packages & Itineraries', actions: ['view', 'create', 'edit', 'delete'] },
+    ],
+  },
+  {
+    title: 'Master Data',
+    modules: [
+      { id: 'places', label: 'Places Master', actions: ['view', 'create', 'edit', 'delete'] },
+      { id: 'hotels', label: 'Hotels Master', actions: ['view', 'create', 'edit', 'delete'] },
+    ],
+  },
+  {
+    title: 'Partnerships',
+    modules: [
+      { id: 'agents', label: 'B2B Travel Agents', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+      { id: 'suppliers', label: 'B2B Suppliers & Service Providers', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+    ],
+  },
+  {
+    title: 'Finance & Accounts',
+    modules: [
+      { id: 'payments', label: 'Payments & Receipts', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+      { id: 'expenses', label: 'Operational Expenses', actions: ['view', 'create', 'edit', 'delete', 'export'] },
+    ],
+  },
+  {
+    title: 'Data & Tools',
+    modules: [
+      { id: 'import-export', label: 'Import / Export Data', actions: ['view', 'export'] },
+    ],
+  },
+  {
+    title: 'Intelligence',
+    modules: [
+      { id: 'reports', label: 'Business Reports', actions: ['view', 'export'] },
+      { id: 'analytics', label: 'Performance Analytics', actions: ['view', 'export'] },
+    ],
+  },
+  {
+    title: 'Administration',
+    modules: [
+      { id: 'users', label: 'Staff Users & Permissions', actions: ['view', 'create', 'edit', 'delete'] },
+      { id: 'settings', label: 'Company Settings & Branding', actions: ['view', 'edit'] },
+      { id: 'audit-logs', label: 'System Audit Logs', actions: ['view', 'export'] },
+      { id: 'companies', label: 'Companies (SaaS)', actions: ['view', 'create', 'edit', 'delete'] },
+    ],
+  },
 ];
+
+export const ALL_CRM_MODULES: PermissionModule[] = CRM_PERMISSION_SECTIONS.flatMap((s) => s.modules);
 
 const getDefaultPermissionsForRole = (r: Role): PermissionsMap => {
   const map: PermissionsMap = {};
 
-  CRM_MODULES.forEach((mod) => {
+  ALL_CRM_MODULES.forEach((mod) => {
     map[mod.id] = {};
     mod.actions.forEach((act) => {
       if (r === 'SUPER_ADMIN' || r === 'ADMIN') {
         map[mod.id][act] = true;
       } else if (r === 'SALES') {
-        if (['leads', 'quotations', 'bookings', 'cabs', 'customers'].includes(mod.id)) {
+        if (['dashboard', 'calendar', 'leads', 'quotations', 'bookings', 'cabs', 'customers', 'places', 'hotels', 'whatsapp'].includes(mod.id)) {
           map[mod.id][act] = act !== 'delete';
-        } else if (['packages', 'suppliers', 'agents', 'payments'].includes(mod.id)) {
+        } else if (['packages', 'suppliers', 'agents', 'payments', 'analytics', 'guides'].includes(mod.id)) {
           map[mod.id][act] = act === 'view';
         } else {
           map[mod.id][act] = false;
         }
       } else if (r === 'OPERATIONS') {
-        if (['bookings', 'cabs', 'suppliers', 'packages'].includes(mod.id)) {
+        if (['dashboard', 'calendar', 'bookings', 'cabs', 'suppliers', 'packages', 'places', 'hotels', 'guides', 'expenses'].includes(mod.id)) {
           map[mod.id][act] = act !== 'delete';
-        } else if (['leads', 'customers', 'agents'].includes(mod.id)) {
+        } else if (['leads', 'customers', 'agents', 'analytics', 'whatsapp'].includes(mod.id)) {
           map[mod.id][act] = act === 'view';
         } else {
           map[mod.id][act] = false;
         }
       } else if (r === 'ACCOUNTANT') {
-        if (['payments', 'reports'].includes(mod.id)) {
+        if (['dashboard', 'payments', 'expenses', 'reports'].includes(mod.id)) {
           map[mod.id][act] = act !== 'delete';
-        } else if (['bookings', 'cabs', 'suppliers', 'agents'].includes(mod.id)) {
+        } else if (['calendar', 'bookings', 'cabs', 'suppliers', 'agents', 'analytics'].includes(mod.id)) {
           map[mod.id][act] = act === 'view';
         } else {
           map[mod.id][act] = false;
         }
       } else if (r === 'AGENT') {
-        if (['bookings', 'packages'].includes(mod.id)) {
+        if (['dashboard', 'calendar', 'bookings', 'packages'].includes(mod.id)) {
           map[mod.id][act] = act === 'view';
         } else {
           map[mod.id][act] = false;
         }
       } else if (r === 'TOUR_GUIDE') {
-        if (['bookings', 'customers'].includes(mod.id)) {
+        if (['dashboard', 'calendar', 'bookings', 'customers', 'guides'].includes(mod.id)) {
           map[mod.id][act] = act === 'view';
         } else {
           map[mod.id][act] = false;
@@ -165,9 +246,31 @@ export const UserModal: React.FC<UserModalProps> = ({
     });
   };
 
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (sectionTitle: string) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [sectionTitle]: !prev[sectionTitle],
+    }));
+  };
+
+  const setSectionPermissions = (sectionModules: PermissionModule[], enable: boolean) => {
+    setPermissions((prev) => {
+      const updated = { ...prev };
+      sectionModules.forEach((mod) => {
+        updated[mod.id] = { ...(updated[mod.id] || {}) };
+        mod.actions.forEach((act) => {
+          updated[mod.id][act] = enable;
+        });
+      });
+      return updated;
+    });
+  };
+
   const setAllPermissions = (enable: boolean) => {
     const updated: PermissionsMap = {};
-    CRM_MODULES.forEach((mod) => {
+    ALL_CRM_MODULES.forEach((mod) => {
       updated[mod.id] = {};
       mod.actions.forEach((act) => {
         updated[mod.id][act] = enable;
@@ -375,64 +478,113 @@ export const UserModal: React.FC<UserModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                  <tr>
-                    <th className="py-2.5 px-3 font-bold">Module</th>
-                    <th className="py-2.5 px-2 text-center font-bold w-16">View</th>
-                    <th className="py-2.5 px-2 text-center font-bold w-16">Create</th>
-                    <th className="py-2.5 px-2 text-center font-bold w-16">Edit</th>
-                    <th className="py-2.5 px-2 text-center font-bold w-16">Delete</th>
-                    <th className="py-2.5 px-2 text-center font-bold w-16">Export</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                  {CRM_MODULES.map((mod) => {
-                    const modPerms = permissions[mod.id] || {};
-                    return (
-                      <tr key={mod.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">
-                          {mod.label}
-                        </td>
-                        {(['view', 'create', 'edit', 'delete', 'export'] as (keyof ActionPermissions)[]).map(
-                          (act) => {
-                            const isApplicable = mod.actions.includes(act);
-                            if (!isApplicable) {
-                              return (
-                                <td key={act} className="py-2 px-2 text-center text-slate-300 dark:text-slate-600">
-                                  —
-                                </td>
-                              );
-                            }
-                            const isChecked = Boolean(modPerms[act]);
-                            return (
-                              <td key={act} className="py-2 px-2 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => togglePermission(mod.id, act)}
-                                  className={`p-1 rounded transition-colors ${
-                                    isChecked
-                                      ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100'
-                                      : 'text-slate-300 dark:text-slate-600 hover:text-slate-400'
-                                  }`}
-                                  title={`${isChecked ? 'Disable' : 'Enable'} ${act} on ${mod.label}`}
-                                >
-                                  {isChecked ? (
-                                    <CheckSquare className="w-4 h-4" />
-                                  ) : (
-                                    <Square className="w-4 h-4" />
-                                  )}
-                                </button>
-                              </td>
-                            );
-                          }
+            <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+              {CRM_PERMISSION_SECTIONS.map((section) => {
+                const isCollapsed = Boolean(collapsedSections[section.title]);
+                return (
+                  <div
+                    key={section.title}
+                    className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs"
+                  >
+                    {/* Section Header */}
+                    <div className="p-2.5 bg-slate-50/90 dark:bg-slate-850 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(section.title)}
+                        className="flex items-center gap-2 font-bold text-xs text-slate-800 dark:text-slate-200 hover:text-[#C91F28] transition-colors cursor-pointer text-left"
+                      >
+                        {isCollapsed ? (
+                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                        ) : (
+                          <ChevronUp className="w-4 h-4 text-[#C91F28]" />
                         )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        <span>{section.title}</span>
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                          {section.modules.length}
+                        </span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSectionPermissions(section.modules, true)}
+                          className="px-2 py-0.5 text-[10.5px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-md transition-colors cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSectionPermissions(section.modules, false)}
+                          className="px-2 py-0.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Section Table */}
+                    {!isCollapsed && (
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-50/60 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 text-[10.5px] uppercase font-bold border-b border-slate-100 dark:border-slate-800">
+                          <tr>
+                            <th className="py-2 px-3 font-bold">Module</th>
+                            <th className="py-2 px-2 text-center font-bold w-16">View</th>
+                            <th className="py-2 px-2 text-center font-bold w-16">Create</th>
+                            <th className="py-2 px-2 text-center font-bold w-16">Edit</th>
+                            <th className="py-2 px-2 text-center font-bold w-16">Delete</th>
+                            <th className="py-2 px-2 text-center font-bold w-16">Export</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-850 bg-white dark:bg-slate-900">
+                          {section.modules.map((mod) => {
+                            const modPerms = permissions[mod.id] || {};
+                            return (
+                              <tr key={mod.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors">
+                                <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">
+                                  {mod.label}
+                                </td>
+                                {(['view', 'create', 'edit', 'delete', 'export'] as (keyof ActionPermissions)[]).map(
+                                  (act) => {
+                                    const isApplicable = mod.actions.includes(act);
+                                    if (!isApplicable) {
+                                      return (
+                                        <td key={act} className="py-2 px-2 text-center text-slate-300 dark:text-slate-600">
+                                          —
+                                        </td>
+                                      );
+                                    }
+                                    const isChecked = Boolean(modPerms[act]);
+                                    return (
+                                      <td key={act} className="py-2 px-2 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => togglePermission(mod.id, act)}
+                                          className={`p-1 rounded transition-colors cursor-pointer ${
+                                            isChecked
+                                              ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100'
+                                              : 'text-slate-300 dark:text-slate-600 hover:text-slate-400'
+                                          }`}
+                                          title={`${isChecked ? 'Disable' : 'Enable'} ${act} on ${mod.label}`}
+                                        >
+                                          {isChecked ? (
+                                            <CheckSquare className="w-4 h-4" />
+                                          ) : (
+                                            <Square className="w-4 h-4" />
+                                          )}
+                                        </button>
+                                      </td>
+                                    );
+                                  }
+                                )}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

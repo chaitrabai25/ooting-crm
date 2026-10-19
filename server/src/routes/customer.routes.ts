@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, requirePermission } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 
 const router = Router();
@@ -11,7 +11,7 @@ router.use(authenticate);
 const ALLOWED_CUSTOMER_SORT_FIELDS = ['fullName', 'phone', 'city', 'state', 'source', 'status', 'createdAt'];
 
 // List customers with search, filtering, and pagination
-router.get('/', async (req: AuthRequest, res: Response, next) => {
+router.get('/', requirePermission('customers', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
@@ -89,7 +89,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // 360-degree customer profile
-router.get('/:id', async (req: AuthRequest, res: Response, next) => {
+router.get('/:id', requirePermission('customers', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const customer = await prisma.customer.findFirst({
@@ -193,7 +193,7 @@ const customerSchema = z.object({
 });
 
 // Create Customer
-router.post('/', async (req: AuthRequest, res: Response, next) => {
+router.post('/', requirePermission('customers', 'create'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = customerSchema.parse(req.body);
 
@@ -275,7 +275,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Update Customer
-router.put('/:id', async (req: AuthRequest, res: Response, next) => {
+router.put('/:id', requirePermission('customers', 'edit'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const data = customerSchema.partial().parse(req.body);

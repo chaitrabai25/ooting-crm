@@ -97,60 +97,144 @@ export async function verifySmtpConfiguration(): Promise<{ verified: boolean; me
   }
 }
 
-function getLoginOtpHtml(brandName: string, brandTagline: string, brandColor: string, recipientName: string, rawOtp: string): string {
+import fs from 'fs';
+import path from 'path';
+
+function getLogoInfo(): { hasAttachment: boolean; attachment: any[]; logoSrc: string } {
+  const possiblePaths = [
+    path.resolve(process.cwd(), 'client/public/assets/ooting-logo.png'),
+    path.resolve(process.cwd(), '../client/public/assets/ooting-logo.png'),
+    path.resolve(__dirname, '../../../../client/public/assets/ooting-logo.png'),
+    path.resolve(__dirname, '../../../client/public/assets/ooting-logo.png'),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      return {
+        hasAttachment: true,
+        attachment: [{
+          filename: 'ooting-logo.png',
+          path: p,
+          cid: 'ootingLogo@crm.ooting.in',
+        }],
+        logoSrc: 'cid:ootingLogo@crm.ooting.in',
+      };
+    }
+  }
+  return {
+    hasAttachment: false,
+    attachment: [],
+    logoSrc: 'https://ooting-crm.vercel.app/assets/ooting-logo.png',
+  };
+}
+
+function getLoginOtpHtml(brandName: string, brandTagline: string, brandColor: string, recipientName: string, rawOtp: string, logoSrc: string): string {
   return `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 32px 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-      <div style="text-align: center; margin-bottom: 28px;">
-        <h1 style="color: ${brandColor}; margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 1px;">${brandName.toUpperCase()}</h1>
-        ${brandTagline ? `<p style="color: #64748b; font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: 2px;">${brandTagline}</p>` : ''}
-      </div>
-      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; text-align: center; margin-bottom: 24px;">
-        <p style="color: #1e293b; font-size: 15px; font-weight: 600; margin: 0 0 8px;">Hello ${recipientName || 'Team Member'},</p>
-        <p style="color: #475569; font-size: 13px; line-height: 1.5; margin: 0 0 20px;">Use the following One-Time Password (OTP) to securely complete your sign-in to Ooting CRM:</p>
-        <div style="display: inline-block; padding: 14px 32px; background-color: #ffffff; border: 2px solid ${brandColor}; border-radius: 12px; font-size: 36px; font-weight: 800; letter-spacing: 10px; color: ${brandColor}; font-family: 'Courier New', monospace; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-          ${rawOtp}
+    <div style="background-color: #f8fafc; padding: 40px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <div style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+        <!-- Header Banner -->
+        <div style="background-color: #ffffff; padding: 32px 24px 20px; text-align: center; border-bottom: 1px solid #f1f5f9;">
+          <img src="${logoSrc}" alt="${brandName}" style="height: 44px; width: auto; max-width: 190px; object-fit: contain; margin: 0 auto 12px; display: block;" />
+          <h1 style="color: #0f172a; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em;">${brandName}</h1>
+          ${brandTagline ? `<p style="color: #64748b; font-size: 11px; margin: 4px 0 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${brandTagline}</p>` : ''}
         </div>
-        <p style="color: #64748b; font-size: 12px; margin-top: 18px; margin-bottom: 0;">
-          ⏱️ This verification code expires in <strong>5 minutes</strong>.
-        </p>
+
+        <!-- Main Content -->
+        <div style="padding: 32px 28px;">
+          <h2 style="color: #0f172a; font-size: 16px; font-weight: 700; margin: 0 0 12px;">Hello ${recipientName || 'Team Member'},</h2>
+          <p style="color: #334155; font-size: 13.5px; line-height: 1.6; margin: 0 0 24px;">
+            Use the following one-time verification code to securely access the <strong>${brandName}</strong> portal. This helps ensure that only authorized personnel can sign in:
+          </p>
+
+          <!-- Prominent OTP Box -->
+          <div style="background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%); border: 2px dashed ${brandColor}; border-radius: 16px; padding: 24px 16px; text-align: center; margin-bottom: 24px;">
+            <span style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #991b1b; margin-bottom: 8px;">Your One-Time Password</span>
+            <div style="display: inline-block; padding: 10px 24px; background: #ffffff; border-radius: 12px; font-size: 38px; font-weight: 900; letter-spacing: 12px; color: ${brandColor}; font-family: 'SFMono-Regular', Consolas, 'Courier New', monospace; box-shadow: 0 2px 8px rgba(201, 31, 40, 0.12);">
+              ${rawOtp}
+            </div>
+            <p style="color: #475569; font-size: 12px; font-weight: 600; margin: 12px 0 0;">
+              ⏱️ Valid for <strong>5 minutes</strong> (300 seconds)
+            </p>
+          </div>
+
+          <!-- Security Warning Notice -->
+          <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px 16px; margin-bottom: 24px;">
+            <p style="color: #92400e; font-size: 12px; margin: 0; line-height: 1.5;">
+              🔒 <strong>Security Warning:</strong> Never share this verification code with anyone. Ooting support, staff, or system administrators will never ask for your code.
+            </p>
+          </div>
+
+          <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0;">
+            If you did not request this verification code, please ignore this email or notify your system administrator immediately to ensure your account security.
+          </p>
+        </div>
+
+        <!-- Automated No-Reply Footer -->
+        <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 24px; text-align: center;">
+          <p style="color: #64748b; font-size: 11px; font-weight: 600; margin: 0 0 4px;">
+            Automated Security Notification • Please do not reply to this email
+          </p>
+          <p style="color: #94a3b8; font-size: 10.5px; line-height: 1.5; margin: 0;">
+            Sent via encrypted TLS gateway from Ooting Travel Technologies CRM.<br />
+            © ${new Date().getFullYear()} Ooting Technologies Private Limited. All rights reserved.
+          </p>
+        </div>
       </div>
-      <div style="background-color: #fff7ed; border: 1px solid #ffedd5; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;">
-        <p style="color: #9a3412; font-size: 12px; margin: 0; line-height: 1.5;">
-          🔒 <strong>Security Warning:</strong> Never share this code with anyone. Ooting staff and administrators will never ask for your verification code.
-        </p>
-      </div>
-      <p style="color: #94a3b8; font-size: 11px; line-height: 1.5; text-align: center; margin: 0;">
-        If you did not initiate this login request, please ignore this email or notify your system administrator immediately.
-      </p>
     </div>
   `;
 }
 
-function getPasswordResetOtpHtml(brandName: string, brandTagline: string, brandColor: string, recipientName: string, rawOtp: string): string {
+function getPasswordResetOtpHtml(brandName: string, brandTagline: string, brandColor: string, recipientName: string, rawOtp: string, logoSrc: string): string {
   return `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 32px 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-      <div style="text-align: center; margin-bottom: 28px;">
-        <h1 style="color: ${brandColor}; margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 1px;">${brandName.toUpperCase()}</h1>
-        ${brandTagline ? `<p style="color: #64748b; font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: 2px;">${brandTagline}</p>` : ''}
-      </div>
-      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; text-align: center; margin-bottom: 24px;">
-        <p style="color: #1e293b; font-size: 15px; font-weight: 600; margin: 0 0 8px;">Hello ${recipientName || 'Team Member'},</p>
-        <p style="color: #475569; font-size: 13px; line-height: 1.5; margin: 0 0 20px;">We received a request to reset your password for Ooting CRM. Use this verification code to proceed:</p>
-        <div style="display: inline-block; padding: 14px 32px; background-color: #ffffff; border: 2px solid ${brandColor}; border-radius: 12px; font-size: 36px; font-weight: 800; letter-spacing: 10px; color: ${brandColor}; font-family: 'Courier New', monospace; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-          ${rawOtp}
+    <div style="background-color: #f8fafc; padding: 40px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <div style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+        <!-- Header Banner -->
+        <div style="background-color: #ffffff; padding: 32px 24px 20px; text-align: center; border-bottom: 1px solid #f1f5f9;">
+          <img src="${logoSrc}" alt="${brandName}" style="height: 44px; width: auto; max-width: 190px; object-fit: contain; margin: 0 auto 12px; display: block;" />
+          <h1 style="color: #0f172a; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em;">${brandName}</h1>
+          ${brandTagline ? `<p style="color: #64748b; font-size: 11px; margin: 4px 0 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${brandTagline}</p>` : ''}
         </div>
-        <p style="color: #64748b; font-size: 12px; margin-top: 18px; margin-bottom: 0;">
-          ⏱️ This reset code is valid for <strong>5 minutes</strong> only.
-        </p>
+
+        <!-- Main Content -->
+        <div style="padding: 32px 28px;">
+          <h2 style="color: #0f172a; font-size: 16px; font-weight: 700; margin: 0 0 12px;">Hello ${recipientName || 'Team Member'},</h2>
+          <p style="color: #334155; font-size: 13.5px; line-height: 1.6; margin: 0 0 24px;">
+            We received a request to reset your password for <strong>${brandName}</strong>. Use the secure recovery code below to proceed with setting a new password:
+          </p>
+
+          <!-- Prominent OTP Box -->
+          <div style="background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%); border: 2px dashed ${brandColor}; border-radius: 16px; padding: 24px 16px; text-align: center; margin-bottom: 24px;">
+            <span style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #991b1b; margin-bottom: 8px;">Password Reset Code</span>
+            <div style="display: inline-block; padding: 10px 24px; background: #ffffff; border-radius: 12px; font-size: 38px; font-weight: 900; letter-spacing: 12px; color: ${brandColor}; font-family: 'SFMono-Regular', Consolas, 'Courier New', monospace; box-shadow: 0 2px 8px rgba(201, 31, 40, 0.12);">
+              ${rawOtp}
+            </div>
+            <p style="color: #475569; font-size: 12px; font-weight: 600; margin: 12px 0 0;">
+              ⏱️ Valid for <strong>5 minutes</strong> (300 seconds)
+            </p>
+          </div>
+
+          <!-- Confidentiality Notice -->
+          <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 8px; padding: 14px 16px; margin-bottom: 24px;">
+            <p style="color: #991b1b; font-size: 12px; margin: 0; line-height: 1.5;">
+              🔒 <strong>Confidentiality Notice:</strong> Do not share this code with anyone. If you did not request a password reset, your existing password remains safe and unchanged.
+            </p>
+          </div>
+
+          <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0;">
+            For security, this password reset challenge will expire automatically after 5 minutes.
+          </p>
+        </div>
+
+        <!-- Automated No-Reply Footer -->
+        <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 24px; text-align: center;">
+          <p style="color: #64748b; font-size: 11px; font-weight: 600; margin: 0 0 4px;">
+            Automated Security Notification • Please do not reply to this email
+          </p>
+          <p style="color: #94a3b8; font-size: 10.5px; line-height: 1.5; margin: 0;">
+            Sent via encrypted TLS gateway from Ooting Travel Technologies CRM.<br />
+            © ${new Date().getFullYear()} Ooting Technologies Private Limited. All rights reserved.
+          </p>
+        </div>
       </div>
-      <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;">
-        <p style="color: #991b1b; font-size: 12px; margin: 0; line-height: 1.5;">
-          🔒 <strong>Confidentiality Notice:</strong> Do not share this code with anyone. If you did not request a password reset, please ignore this email. Your existing password remains unchanged.
-        </p>
-      </div>
-      <p style="color: #94a3b8; font-size: 11px; line-height: 1.5; text-align: center; margin: 0;">
-        For security, this password reset challenge will expire automatically.
-      </p>
     </div>
   `;
 }
@@ -185,13 +269,15 @@ export async function sendOtpNotification(
     };
   }
 
+  const logoInfo = getLogoInfo();
+
   const subject = purpose === 'PASSWORD_RESET'
     ? `${brandName} — Password Reset Code`
     : `${brandName} — Login Verification Code`;
 
   const html = purpose === 'PASSWORD_RESET'
-    ? getPasswordResetOtpHtml(brandName, brandTagline, brandColor, user.name, rawOtp)
-    : getLoginOtpHtml(brandName, brandTagline, brandColor, user.name, rawOtp);
+    ? getPasswordResetOtpHtml(brandName, brandTagline, brandColor, user.name, rawOtp, logoInfo.logoSrc)
+    : getLoginOtpHtml(brandName, brandTagline, brandColor, user.name, rawOtp, logoInfo.logoSrc);
 
   // Attempt 1: Port 465 SSL/TLS
   try {
@@ -201,6 +287,7 @@ export async function sendOtpNotification(
       to: user.email,
       subject,
       html,
+      attachments: logoInfo.attachment,
     });
 
     const maskedEmail = user.email.replace(/(?<=.{2}).(?=.*@)/g, '*');
@@ -226,6 +313,7 @@ export async function sendOtpNotification(
         to: user.email,
         subject,
         html,
+        attachments: logoInfo.attachment,
       });
 
       const maskedEmail = user.email.replace(/(?<=.{2}).(?=.*@)/g, '*');

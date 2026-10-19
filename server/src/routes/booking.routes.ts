@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, requirePermission } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 
 const router = Router();
@@ -56,7 +56,7 @@ export async function generateUniqueBookingNumber(txOrPrisma: any, prefixTag = '
 
 
 // List bookings with calculated balances, package filter, and sorting
-router.get('/', async (req: AuthRequest, res: Response, next) => {
+router.get('/', requirePermission('bookings', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
@@ -136,7 +136,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Dedicated Booking Passenger List — Package-Wise Customer Details
-router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
+router.get('/passengers', requirePermission('bookings', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
@@ -265,7 +265,7 @@ router.get('/passengers', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Single Booking
-router.get('/:id', async (req: AuthRequest, res: Response, next) => {
+router.get('/:id', requirePermission('bookings', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
@@ -358,7 +358,7 @@ const bookingCreateSchema = z.object({
 });
 
 // Create Booking
-router.post('/', async (req: AuthRequest, res: Response, next) => {
+router.post('/', requirePermission('bookings', 'create'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = bookingCreateSchema.parse(req.body);
     const companyId = req.user!.companyId;
@@ -501,7 +501,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Update Booking
-router.put('/:id', async (req: AuthRequest, res: Response, next) => {
+router.put('/:id', requirePermission('bookings', 'edit'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
@@ -677,7 +677,7 @@ router.post('/:id/passengers/import', async (req: AuthRequest, res: Response, ne
 });
 
 // Update Booking Status
-router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
+router.patch('/:id/status', requirePermission('bookings', 'edit'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
@@ -1157,7 +1157,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Soft-delete Booking safely with audit logging (preserves financial history permanently)
-router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
+router.delete('/:id', requirePermission('bookings', 'delete'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;

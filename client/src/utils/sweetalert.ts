@@ -156,3 +156,10 @@ export function toastNotification({
     title,
   });
 }
+
+/**
+ * Convenience helper for quick toast messages
+ */
+export function showToast(title: string, icon: 'success' | 'error' | 'warning' | 'info' = 'success') {
+  return toastNotification({ title, icon });
+}

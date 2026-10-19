@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, requirePermission } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 
 const router = Router();
@@ -11,7 +11,7 @@ router.use(authenticate);
 const ALLOWED_AGENT_SORT_FIELDS = ['companyName', 'contactPerson', 'city', 'status', 'createdAt'];
 
 // List B2B agents with aggregated revenue & commission metrics
-router.get('/', async (req: AuthRequest, res: Response, next) => {
+router.get('/', requirePermission('agents', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const companyId = req.user?.companyId;
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
@@ -104,7 +104,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Single Agent profile with complete booking history
-router.get('/:id', async (req: AuthRequest, res: Response, next) => {
+router.get('/:id', requirePermission('agents', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const companyId = req.user?.companyId;
     const id = req.params.id as string;
@@ -183,7 +183,7 @@ const agentSchema = z.object({
 });
 
 // Create Agent
-router.post('/', async (req: AuthRequest, res: Response, next) => {
+router.post('/', requirePermission('agents', 'create'), async (req: AuthRequest, res: Response, next) => {
   try {
     const companyId = req.user?.companyId;
     const data = agentSchema.parse(req.body);
@@ -226,7 +226,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Update Agent
-router.put('/:id', async (req: AuthRequest, res: Response, next) => {
+router.put('/:id', requirePermission('agents', 'edit'), async (req: AuthRequest, res: Response, next) => {
   try {
     const companyId = req.user?.companyId;
     const id = req.params.id as string;
@@ -504,8 +504,54 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
+// Update Agent status directly (Toggle Active/Inactive)
+router.patch('/:id/status', requirePermission('agents', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const companyId = req.user?.companyId;
+    const id = req.params.id as string;
+    const { status } = req.body;
+
+    if (!status || !['ACTIVE', 'INACTIVE'].includes(status)) {
+      res.status(400).json({ message: 'Invalid status. Must be ACTIVE or INACTIVE.' });
+      return;
+    }
+
+    const existing = await prisma.agent.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+
+    if (!existing) {
+      res.status(404).json({ message: 'Agent not found.' });
+      return;
+    }
+
+    const updated = await prisma.agent.update({
+      where: { id },
+      data: { status },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      companyId: existing.companyId,
+      action: 'UPDATE',
+      entity: 'AGENT',
+      entityId: id,
+      details: `Changed B2B agent "${existing.companyName}" status from ${existing.status} to ${status}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Agent "${existing.companyName}" status updated to ${status}.`, data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete Agent safely
-router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
+router.delete('/:id', requirePermission('agents', 'delete'), async (req: AuthRequest, res: Response, next) => {
   try {
     const companyId = req.user?.companyId;
     const id = String(req.params.id);

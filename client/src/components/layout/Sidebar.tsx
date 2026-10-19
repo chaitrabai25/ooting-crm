@@ -334,7 +334,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
         { type: 'link', name: 'Audit Logs', path: '/audit-logs', icon: History, module: 'audit-logs' },
       ],
     },
-    ...(user?.isPlatformMasterAdmin ? [{
+    ...((user?.isPlatformMasterAdmin || (user?.role === 'SUPER_ADMIN' && (!user?.companyId || user?.companyId === 'c0000000-0000-0000-0000-000000000001' || company?.isOoting))) ? [{
       title: 'Platform SaaS Console',
       adminOnly: true,
       items: [

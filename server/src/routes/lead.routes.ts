@@ -10,7 +10,7 @@ const router = Router();
 router.use(authenticate);
 
 // List leads with filters, search, and pagination
-router.get('/', async (req: AuthRequest, res: Response, next) => {
+router.get('/', requirePermission('leads', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
@@ -104,7 +104,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Single Lead with complete timeline
-router.get('/:id', async (req: AuthRequest, res: Response, next) => {
+router.get('/:id', requirePermission('leads', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
@@ -197,7 +197,7 @@ const leadCreateSchema = z.object({
 });
 
 // Create Lead (handles existing or new customer on the fly)
-router.post('/', async (req: AuthRequest, res: Response, next) => {
+router.post('/', requirePermission('leads', 'create'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = leadCreateSchema.parse(req.body);
     const companyId = req.user!.companyId;
@@ -335,7 +335,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Update Lead
-router.put('/:id', async (req: AuthRequest, res: Response, next) => {
+router.put('/:id', requirePermission('leads', 'edit'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const body = req.body;
@@ -426,7 +426,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Quick status change
-router.patch('/:id/status', async (req: AuthRequest, res: Response, next) => {
+router.patch('/:id/status', requirePermission('leads', 'edit'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const { status, notes } = req.body;

@@ -26,6 +26,7 @@ import {
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { StatusToggle } from '../../components/ui/StatusToggle.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
@@ -267,7 +268,20 @@ export const AgentList: React.FC = () => {
     {
       header: 'Status',
       sortKey: 'status',
-      render: (a) => <Badge status={a.status} />,
+      render: (a) => (
+        <StatusToggle
+          status={a.status}
+          activeValue="ACTIVE"
+          inactiveValue="INACTIVE"
+          disabled={!isSuperAdmin && !can('agents', 'edit')}
+          onToggle={async (next) => {
+            await api.patch(`/agents/${a.id}/status`, { status: next });
+            setAgents((prev) =>
+              prev.map((item) => (item.id === a.id ? { ...item, status: next as any } : item))
+            );
+          }}
+        />
+      ),
     },
     {
       header: 'Actions',

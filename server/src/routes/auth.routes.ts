@@ -287,6 +287,8 @@ router.post('/login', async (req, res, next) => {
       requireOtp: true,
       identifier: user.email,
       maskedEmail: maskEmail(user.email),
+      expiresInSeconds: 300,
+      cooldownSeconds: 30,
       message: `A 6-digit verification code has been dispatched to ${maskEmail(user.email)}. Valid for 5 minutes.`,
     });
   } catch (error) {
@@ -480,6 +482,8 @@ router.post('/resend-otp', async (req, res, next) => {
     }
 
     res.json({
+      expiresInSeconds: 300,
+      cooldownSeconds: 30,
       message: `A fresh verification code has been dispatched to ${maskEmail(user.email)}. Valid for 5 minutes.`,
     });
   } catch (error) {
@@ -731,9 +735,26 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response, next) =>
       },
     });
 
+    if (!user) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
     const companyId = req.user!.companyId || 'c0000000-0000-0000-0000-000000000001';
     const company = await getCompanySettings(companyId);
-    res.json({ user, company });
+
+    const isPlatformMasterAdmin = req.user?.isPlatformMasterAdmin ?? Boolean(
+      (company?.isOoting === true || companyId === 'c0000000-0000-0000-0000-000000000001') &&
+      (user.role === 'SUPER_ADMIN' || user.role === 'PLATFORM_MASTER_ADMIN')
+    );
+
+    res.json({
+      user: {
+        ...user,
+        isPlatformMasterAdmin,
+      },
+      company,
+    });
   } catch (error) {
     next(error);
   }

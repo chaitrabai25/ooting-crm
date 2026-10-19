@@ -14,6 +14,7 @@ import { Plus, Search, Shield, Phone, Mail, Edit, CheckCircle, XCircle, Trash2, 
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { StatusToggle } from '../../components/ui/StatusToggle.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { UserModal } from './UserModal.js';
@@ -181,7 +182,18 @@ export const UserList: React.FC = () => {
     {
       header: 'Status',
       render: (u) => (
-        <Badge status={u.status} />
+        <StatusToggle
+          status={u.status}
+          activeValue="ACTIVE"
+          inactiveValue="INACTIVE"
+          disabled={u.id === currentUser?.id || (!isSuperAdmin && currentUser?.role !== 'ADMIN')}
+          onToggle={async (next) => {
+            await api.patch(`/users/${u.id}/status`, { status: next });
+            setUsers((prev) =>
+              prev.map((item) => (item.id === u.id ? { ...item, status: next as any } : item))
+            );
+          }}
+        />
       ),
     },
     {
@@ -206,17 +218,6 @@ export const UserList: React.FC = () => {
             className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition cursor-pointer"
           >
             <Edit className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleToggleStatus(u)}
-            title={u.status === 'ACTIVE' ? 'Deactivate User' : 'Activate User'}
-            className={`p-1.5 rounded transition cursor-pointer ${
-              u.status === 'ACTIVE'
-                ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            {u.status === 'ACTIVE' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
           </button>
           {u.id !== currentUser?.id && (isSuperAdmin || currentUser?.role === 'ADMIN') && (
             <button

@@ -597,6 +597,70 @@ router.put('/:id', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, r
   }
 });
 
+// Update user status directly (Toggle Active/Inactive)
+router.patch('/:id/status', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const { status } = req.body;
+
+    if (!status || !['ACTIVE', 'INACTIVE'].includes(status)) {
+      res.status(400).json({ message: 'Invalid status. Must be ACTIVE or INACTIVE.' });
+      return;
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (req.user!.role !== 'SUPER_ADMIN' && targetUser.companyId !== req.user!.companyId) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    // Prevent modifying own status
+    if (targetUser.id === req.user!.id) {
+      res.status(400).json({ message: 'You cannot change your own account status.' });
+      return;
+    }
+
+    // Role safety: Company Admin cannot deactivate SUPER_ADMIN
+    if (req.user!.role !== 'SUPER_ADMIN' && targetUser.role === 'SUPER_ADMIN') {
+      res.status(403).json({ message: 'Only Super Admins can modify Super Admin accounts.' });
+      return;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { status },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        companyId: true,
+      },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      companyId: targetUser.companyId,
+      action: 'UPDATE',
+      entity: 'USER',
+      entityId: id,
+      details: `Changed user "${targetUser.name}" status from ${targetUser.status} to ${status}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Staff user "${targetUser.name}" status updated to ${status}.`, data: updatedUser });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete user safely with full protection safeguards (SUPER_ADMIN or Company ADMIN within their tenant)
 router.delete('/:id', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response, next) => {
   try {

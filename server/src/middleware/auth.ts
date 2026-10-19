@@ -280,8 +280,8 @@ export function requirePermission(moduleName: string, action: string = 'view') {
       return;
     }
 
-    // If custom permissions string exists, parse it
-    if (req.user.permissions) {
+    // If custom permissions string exists, parse it and strictly enforce it
+    if (req.user.permissions && req.user.permissions.trim() !== '') {
       try {
         const perms = JSON.parse(req.user.permissions);
         if (Array.isArray(perms)) {
@@ -292,6 +292,8 @@ export function requirePermission(moduleName: string, action: string = 'view') {
             next();
             return;
           }
+          res.status(403).json({ message: `Access denied: You do not have permission to ${action} ${moduleName}.` });
+          return;
         } else if (typeof perms === 'object' && perms !== null) {
           const modulePerms = perms[moduleName];
           if (modulePerms === true || modulePerms === '*') {
@@ -306,13 +308,16 @@ export function requirePermission(moduleName: string, action: string = 'view') {
             next();
             return;
           }
+          // Custom permissions are configured on this user and the requested action is denied
+          res.status(403).json({ message: `Access denied: You do not have permission to ${action} ${moduleName}.` });
+          return;
         }
       } catch (e) {
         console.error('Failed to parse user permissions:', e);
       }
     }
 
-    // Role-based defaults
+    // Role-based defaults (applied ONLY when custom user permissions are not configured)
     if (req.user.role === 'SALES') {
       if (['leads', 'customers', 'bookings', 'cabs', 'suppliers', 'calendar', 'dashboard', 'quotations', 'packages', 'guides'].includes(moduleName)) {
         if (action !== 'delete') {

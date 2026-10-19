@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { StatusToggle } from '../../components/ui/StatusToggle.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { ItineraryDay, Place, Hotel, Package } from '../../types/index.js';
@@ -70,6 +71,7 @@ export const PackageDetail: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
   // Unified B2B Travel Agent Branding Modal State
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
 
@@ -1291,7 +1293,16 @@ export const PackageDetail: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-slate-900 dark:text-white">{pkg.packageName}</h1>
-              <Badge status={pkg.status} />
+              <StatusToggle
+                status={pkg.status}
+                activeValue="ACTIVE"
+                inactiveValue="INACTIVE"
+                disabled={!isSuperAdmin && !can('packages', 'edit')}
+                onToggle={async (next) => {
+                  await api.patch(`/packages/${id}/status`, { status: next });
+                  setPkg((prev: any) => ({ ...prev, status: next }));
+                }}
+              />
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
               <MapPin className="w-3.5 h-3.5 text-slate-400" />
@@ -2136,6 +2147,17 @@ export const PackageDetail: React.FC = () => {
         effectiveLogoUrl={effectiveLogoUrl}
         onSaveBranding={handleSaveBranding}
         onResetToDefault={handleResetToDefaultBranding}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDeletePackage}
+        title="Delete Travel Package"
+        message={`Are you sure you want to delete the package "${pkg?.packageName}"? This will remove the package and its day itineraries. Packages with confirmed bookings cannot be deleted.`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Package'}
+        isDanger={true}
       />
     </div>
   );

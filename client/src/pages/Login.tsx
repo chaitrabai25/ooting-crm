@@ -147,10 +147,11 @@ export const Login: React.FC = () => {
   }, [authStep]);
 
   // Format seconds to MM:SS
+  // Format seconds to MM:SS (e.g. 05:00, 04:59)
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
   // ---------------------------------------------------------------------------
@@ -175,8 +176,8 @@ export const Login: React.FC = () => {
       if (res.data?.requireOtp) {
         setMaskedEmail(res.data.maskedEmail || res.data.identifier || identifier);
         setOtp('');
-        setOtpExpirySeconds(300);
-        setResendCooldown(30);
+        setOtpExpirySeconds(res.data?.expiresInSeconds || 300);
+        setResendCooldown(res.data?.cooldownSeconds || 30);
         setAuthStep('LOGIN_OTP');
         setSuccessMessage(res.data.message || 'Verification code sent to your registered email.');
       } else if (res.data?.token) {
@@ -262,8 +263,8 @@ export const Login: React.FC = () => {
         purpose,
       });
 
-      setOtpExpirySeconds(300);
-      setResendCooldown(30);
+      setOtpExpirySeconds(res.data?.expiresInSeconds || 300);
+      setResendCooldown(res.data?.cooldownSeconds || 30);
       setOtp('');
       setSuccessMessage(res.data?.message || 'A fresh verification code has been dispatched to your email.');
     } catch (err: any) {
@@ -292,8 +293,8 @@ export const Login: React.FC = () => {
 
       setMaskedEmail(res.data?.maskedEmail || identifier);
       setOtp('');
-      setOtpExpirySeconds(300);
-      setResendCooldown(30);
+      setOtpExpirySeconds(res.data?.expiresInSeconds || 300);
+      setResendCooldown(res.data?.cooldownSeconds || 30);
       setAuthStep('RESET_OTP');
       setSuccessMessage(res.data?.message || 'A password reset code has been sent to your registered email.');
     } catch (err: any) {
@@ -562,35 +563,59 @@ export const Login: React.FC = () => {
                 </p>
               </div>
 
-              <div>
+              <div className="space-y-3">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide text-center">
                   6-Digit Verification Code
                 </label>
-                <div className="mt-2">
+                <div className="relative">
                   <input
                     type="text"
                     required
                     autoFocus
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="one-time-code"
                     maxLength={6}
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="••••••"
-                    className="w-full text-center text-2xl font-bold tracking-[0.5em] py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors font-mono"
+                    className={`w-full text-center text-3xl font-black tracking-[0.35em] pl-[0.35em] py-3.5 bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl text-slate-900 dark:text-white transition-all font-mono shadow-inner ${
+                      otpExpirySeconds <= 0
+                        ? 'border-amber-300 dark:border-amber-700 bg-amber-50/30'
+                        : 'border-slate-300 dark:border-slate-700 focus:outline-none focus:border-[#C91F28] focus:ring-4 focus:ring-red-500/10'
+                    }`}
                   />
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span className="flex items-center gap-1">
+
+                {otpExpirySeconds <= 0 && (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 flex items-center gap-2 text-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span>This verification code has expired. Please click <strong>Resend Code</strong> to receive a fresh OTP.</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1">
+                  <span className="flex items-center gap-1.5 font-medium">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    Expires in: <strong className={otpExpirySeconds < 60 ? 'text-red-500' : 'text-slate-700 dark:text-slate-300'}>{formatTime(otpExpirySeconds)}</strong>
+                    <span>Expires in:</span>
+                    <span className={`font-mono font-bold px-1.5 py-0.5 rounded ${
+                      otpExpirySeconds <= 0
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+                        : otpExpirySeconds < 60
+                        ? 'bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 animate-pulse'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
+                    }`}>
+                      {otpExpirySeconds <= 0 ? 'Expired' : formatTime(otpExpirySeconds)}
+                    </span>
                   </span>
                   <button
                     type="button"
                     disabled={resendCooldown > 0 || isLoading}
                     onClick={() => handleResendOtp('LOGIN')}
-                    className="flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:text-[#C91F28] dark:hover:text-red-400 font-semibold disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1 text-slate-700 dark:text-slate-300 hover:text-[#C91F28] dark:hover:text-red-400 font-semibold disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
                   >
                     <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                    <span>{resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend Code'}</span>
+                    <span>{resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}</span>
                   </button>
                 </div>
               </div>
@@ -711,35 +736,59 @@ export const Login: React.FC = () => {
                 </p>
               </div>
 
-              <div>
+              <div className="space-y-3">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide text-center">
                   6-Digit Reset Code
                 </label>
-                <div className="mt-2">
+                <div className="relative">
                   <input
                     type="text"
                     required
                     autoFocus
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="one-time-code"
                     maxLength={6}
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="••••••"
-                    className="w-full text-center text-2xl font-bold tracking-[0.5em] py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#C91F28] transition-colors font-mono"
+                    className={`w-full text-center text-3xl font-black tracking-[0.35em] pl-[0.35em] py-3.5 bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl text-slate-900 dark:text-white transition-all font-mono shadow-inner ${
+                      otpExpirySeconds <= 0
+                        ? 'border-amber-300 dark:border-amber-700 bg-amber-50/30'
+                        : 'border-slate-300 dark:border-slate-700 focus:outline-none focus:border-[#C91F28] focus:ring-4 focus:ring-red-500/10'
+                    }`}
                   />
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span className="flex items-center gap-1">
+
+                {otpExpirySeconds <= 0 && (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 flex items-center gap-2 text-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span>This reset code has expired. Please click <strong>Resend Code</strong> to receive a fresh OTP.</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1">
+                  <span className="flex items-center gap-1.5 font-medium">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    Expires in: <strong className={otpExpirySeconds < 60 ? 'text-red-500' : 'text-slate-700 dark:text-slate-300'}>{formatTime(otpExpirySeconds)}</strong>
+                    <span>Expires in:</span>
+                    <span className={`font-mono font-bold px-1.5 py-0.5 rounded ${
+                      otpExpirySeconds <= 0
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+                        : otpExpirySeconds < 60
+                        ? 'bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 animate-pulse'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
+                    }`}>
+                      {otpExpirySeconds <= 0 ? 'Expired' : formatTime(otpExpirySeconds)}
+                    </span>
                   </span>
                   <button
                     type="button"
                     disabled={resendCooldown > 0 || isLoading}
                     onClick={() => handleResendOtp('PASSWORD_RESET')}
-                    className="flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:text-[#C91F28] dark:hover:text-red-400 font-semibold disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1 text-slate-700 dark:text-slate-300 hover:text-[#C91F28] dark:hover:text-red-400 font-semibold disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
                   >
                     <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                    <span>{resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend Code'}</span>
+                    <span>{resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}</span>
                   </button>
                 </div>
               </div>

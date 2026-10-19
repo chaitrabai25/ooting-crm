@@ -31,11 +31,15 @@ import {
   Ticket,
   Plane,
   Ship,
+  LayoutGrid,
+  List,
+  ArrowRight,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { DataTable, Column } from '../../components/ui/DataTable.js';
 import { useLiveSync } from '../../utils/useLiveSync.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { StatusToggle } from '../../components/ui/StatusToggle.js';
 import { CopyButton } from '../../components/ui/CopyButton.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { WhatsAppModal } from '../../components/whatsapp/WhatsAppModal.js';
@@ -193,6 +197,16 @@ export const SupplierList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // View Mode: Structured Cards (Grid) vs Data Table
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>(() => {
+    return (localStorage.getItem('ooting_supplier_view_mode') as 'grid' | 'table') || 'grid';
+  });
+
+  const handleSetViewMode = (mode: 'grid' | 'table') => {
+    setViewMode(mode);
+    localStorage.setItem('ooting_supplier_view_mode', mode);
+  };
 
   const fetchStats = async () => {
     try {
@@ -492,8 +506,21 @@ export const SupplierList: React.FC = () => {
     {
       header: 'Status',
       sortKey: 'status',
-      className: 'w-24 text-center',
-      render: (s) => <Badge status={s.status} />,
+      className: 'w-28 text-center',
+      render: (s) => (
+        <StatusToggle
+          status={s.status}
+          activeValue="ACTIVE"
+          inactiveValue="INACTIVE"
+          disabled={!isSuperAdmin && !can('suppliers', 'edit')}
+          onToggle={async (next) => {
+            await api.patch(`/suppliers/${s.id}/status`, { status: next });
+            setSuppliers((prev) =>
+              prev.map((item) => (item.id === s.id ? { ...item, status: next as any } : item))
+            );
+          }}
+        />
+      ),
     },
     {
       header: 'Assigned Staff',
@@ -762,28 +789,274 @@ export const SupplierList: React.FC = () => {
             >
               <RefreshCw className="w-4 h-4" />
             </button>
+
+            {/* View Mode Switcher (Structured Cards vs Data Table) */}
+            <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 p-0.5 ml-auto">
+              <button
+                type="button"
+                onClick={() => handleSetViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                  viewMode === 'grid'
+                    ? 'bg-white dark:bg-slate-700 text-[#C91F28] shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+                }`}
+                title="Structured Cards View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetViewMode('table')}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-white dark:bg-slate-700 text-[#C91F28] shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+                }`}
+                title="Table View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </form>
       </div>
 
-      {/* Table */}
-      <DataTable
-        data={suppliers}
-        columns={columns}
-        isLoading={isLoading}
-        emptyTitle="No B2B suppliers found"
-        emptyDescription="No B2B suppliers found matching your query."
-        sortField={sortBy}
-        sortOrder={sortOrder}
-        onSort={handleSort}
-        pagination={{
-          page,
-          limit,
-          total,
-          totalPages,
-          onPageChange: (p) => setPage(p),
-        }}
-      />
+      {/* Content: Structured Cards Grid OR Data Table */}
+      {viewMode === 'grid' ? (
+        isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="h-64 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-pulse p-5"
+              />
+            ))}
+          </div>
+        ) : suppliers.length === 0 ? (
+          <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <Building2 className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">No B2B service providers found</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Try adjusting your search terms or active filters.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {suppliers.map((s) => (
+                <div
+                  key={s.id}
+                  className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
+                >
+                  <div className="space-y-3">
+                    {/* Top Header: Category Icon, Name & Status Toggle */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/40 text-[#C91F28] flex items-center justify-center shrink-0 border border-red-100 dark:border-red-900/40">
+                          {getSupplierTypeIcon(s.supplierType || 'OTHER')}
+                        </div>
+                        <div className="min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/suppliers/${s.id}`)}
+                            className="font-bold text-sm text-slate-900 dark:text-white hover:text-[#C91F28] dark:hover:text-red-400 truncate block text-left transition-colors cursor-pointer"
+                            title={s.name}
+                          >
+                            {s.name}
+                          </button>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              {s.contactPerson || 'Direct Partner'}
+                            </span>
+                            {s.tier && (
+                              <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                {s.tier}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Interactive Status Toggle */}
+                      <div className="shrink-0">
+                        <StatusToggle
+                          status={s.status}
+                          activeValue="ACTIVE"
+                          inactiveValue="INACTIVE"
+                          size="xs"
+                          disabled={!isSuperAdmin && !can('suppliers', 'edit')}
+                          onToggle={async (next) => {
+                            await api.patch(`/suppliers/${s.id}/status`, { status: next });
+                            setSuppliers((prev) =>
+                              prev.map((item) => (item.id === s.id ? { ...item, status: next as any } : item))
+                            );
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Category & Services Badges */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+                          SUPPLIER_TYPE_BADGES[s.supplierType] || SUPPLIER_TYPE_BADGES.OTHER
+                        }`}
+                      >
+                        {getSupplierTypeIcon(s.supplierType || 'OTHER')}
+                        <span>{SUPPLIER_TYPE_LABELS[s.supplierType] || s.supplierType || 'Partner'}</span>
+                      </span>
+
+                      {s.servicesProvided &&
+                        s.servicesProvided
+                          .split(',')
+                          .slice(0, 2)
+                          .map((srv, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                            >
+                              {srv.trim()}
+                            </span>
+                          ))}
+                    </div>
+
+                    {/* Location */}
+                    <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">
+                        {[s.city, s.district, s.state].filter(Boolean).join(', ') || 'Location Not Specified'}
+                      </span>
+                    </div>
+
+                    {/* Direct Contact Bar */}
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                      {s.phone ? (
+                        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
+                          <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <a href={`tel:${s.phone}`} className="hover:text-[#C91F28] transition-colors">
+                            {s.phone}
+                          </a>
+                          <CopyButton text={s.phone} title="Copy phone" />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setWhatsAppData({
+                                isOpen: true,
+                                customerName: s.contactPerson || s.name,
+                                customerPhone: s.phone,
+                              })
+                            }
+                            className="p-1 rounded text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors ml-0.5 cursor-pointer"
+                            title="Chat on WhatsApp"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-[11px]">No direct phone</span>
+                      )}
+
+                      {s.creditLimit ? (
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Credit Limit</span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                            {formatCurrency(s.creditLimit)}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Card Actions Footer */}
+                  <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/suppliers/${s.id}`)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#C91F28] hover:text-[#a81920] transition-colors cursor-pointer"
+                    >
+                      <span>View Profile</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {(isSuperAdmin || can('suppliers', 'edit')) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingSupplier(s);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                          title="Edit Supplier"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {(isSuperAdmin || can('suppliers', 'delete')) && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(s)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                          title="Delete Supplier"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination Controls for Grid View */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs shadow-2xs">
+                <span className="text-slate-500">
+                  Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} providers
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    Previous
+                  </button>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      ) : (
+        <DataTable
+          data={suppliers}
+          columns={columns}
+          isLoading={isLoading}
+          emptyTitle="No B2B suppliers found"
+          emptyDescription="No B2B suppliers found matching your query."
+          sortField={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+          pagination={{
+            page,
+            limit,
+            total,
+            totalPages,
+            onPageChange: (p) => setPage(p),
+          }}
+        />
+      )}
 
       {/* Supplier Modal (Create / Edit) */}
       <SupplierModal

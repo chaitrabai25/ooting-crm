@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { StatusToggle } from '../../components/ui/StatusToggle.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { PackageModal } from './PackageModal.js';
@@ -132,6 +133,13 @@ export const PackageList: React.FC = () => {
     await downloadExcel(`/packages/export/excel?${params.toString()}`, `ooting-packages-${Date.now()}.xlsx`);
   };
 
+  const handleStatusToggle = async (pkgId: string, nextStatus: string) => {
+    await api.patch(`/packages/${pkgId}/status`, { status: nextStatus });
+    setPackages((prev) =>
+      prev.map((p) => (p.id === pkgId ? { ...p, status: nextStatus } : p))
+    );
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deletingPackage) return;
     try {
@@ -170,26 +178,30 @@ export const PackageList: React.FC = () => {
             <span>Export Excel</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditingPackage(null);
-              setIsModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-lg shadow-sm transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Package</span>
-          </button>
+          {(isSuperAdmin || can('packages', 'create')) && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingPackage(null);
+                setIsModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-lg shadow-sm transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Package</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setIsCustomItineraryOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-500 rounded-lg shadow-xs transition-colors"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-slate-950" />
-            <span>Custom Itinerary</span>
-          </button>
+          {(isSuperAdmin || can('packages', 'create')) && (
+            <button
+              type="button"
+              onClick={() => setIsCustomItineraryOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-500 rounded-lg shadow-xs transition-colors cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+              <span>Custom Itinerary</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -341,7 +353,14 @@ export const PackageList: React.FC = () => {
                       <MapPin className="w-3.5 h-3.5 text-[#C91F28]" />
                       <span className="truncate max-w-[170px]">{pkg.destination}</span>
                     </span>
-                    <Badge status={pkg.status} />
+                    <div className="pointer-events-auto bg-slate-950/80 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 shadow-md">
+                      <StatusToggle
+                        status={pkg.status}
+                        disabled={!isSuperAdmin && !can('packages', 'edit')}
+                        onToggle={(next) => handleStatusToggle(pkg.id, next)}
+                        size="xs"
+                      />
+                    </div>
                   </div>
 
                   {/* Floating Bottom Duration & Days Badges */}
@@ -411,17 +430,19 @@ export const PackageList: React.FC = () => {
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingPackage(pkg);
-                        setIsModalOpen(true);
-                      }}
-                      title="Edit Details"
-                      className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
+                    {(isSuperAdmin || can('packages', 'edit')) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPackage(pkg);
+                          setIsModalOpen(true);
+                        }}
+                        title="Edit Details"
+                        className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
 
                     {(isSuperAdmin || can('packages', 'delete')) && (
                       <button
@@ -510,7 +531,13 @@ export const PackageList: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge status={pkg.status} />
+                        <StatusToggle
+                          status={pkg.status}
+                          activeValue="ACTIVE"
+                          inactiveValue="INACTIVE"
+                          disabled={!isSuperAdmin && !can('packages', 'edit')}
+                          onToggle={(next) => handleStatusToggle(pkg.id, next)}
+                        />
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -531,17 +558,29 @@ export const PackageList: React.FC = () => {
                           >
                             <ArrowRight className="w-4 h-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingPackage(pkg);
-                              setIsModalOpen(true);
-                            }}
-                            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+                          {(isSuperAdmin || can('packages', 'edit')) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPackage(pkg);
+                                setIsModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {(isSuperAdmin || can('packages', 'delete')) && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingPackage(pkg)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Delete Package"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

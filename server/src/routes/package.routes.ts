@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate, AuthRequest, requirePermission } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { cache } from '../services/cache.service.js';
 import { optimizeBase64IfNeeded } from '../services/image.service.js';
@@ -27,7 +27,7 @@ export const invalidatePackageCache = (companyId?: string, packageId?: string) =
 };
 
 // List packages with in-memory caching
-router.get('/', async (req: AuthRequest, res: Response, next) => {
+router.get('/', requirePermission('packages', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '10', 10));
@@ -102,7 +102,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Single Package with itineraries with in-memory caching (< 1ms on cache hit)
-router.get('/:id', async (req: AuthRequest, res: Response, next) => {
+router.get('/:id', requirePermission('packages', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
@@ -268,7 +268,7 @@ const packageSchema = z.object({
 });
 
 // Create Package
-router.post('/', async (req: AuthRequest, res: Response, next) => {
+router.post('/', requirePermission('packages', 'create'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = packageSchema.parse(req.body);
     const companyId = req.user!.companyId;
@@ -372,7 +372,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 });
 
 // Update Package
-router.put('/:id', async (req: AuthRequest, res: Response, next) => {
+router.put('/:id', requirePermission('packages', 'edit'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
@@ -997,8 +997,51 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
   }
 });
 
+// Update Package Status directly (Toggle Active/Inactive)
+router.patch('/:id/status', requirePermission('packages', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const companyId = req.user!.companyId;
+    const { status } = req.body;
+
+    if (!status || !['ACTIVE', 'INACTIVE', 'DRAFT'].includes(status)) {
+      res.status(400).json({ message: 'Invalid status. Must be ACTIVE, INACTIVE, or DRAFT.' });
+      return;
+    }
+
+    const pkg = await prisma.package.findUnique({ where: { id } });
+    const isAuthorized = req.user!.isPlatformMasterAdmin || (pkg && pkg.companyId === companyId);
+    if (!pkg || !isAuthorized) {
+      res.status(404).json({ message: 'Package not found or you do not have permission to modify it.' });
+      return;
+    }
+
+    const updated = await prisma.package.update({
+      where: { id },
+      data: { status },
+    });
+
+    invalidatePackageCache(companyId, id);
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      companyId,
+      action: 'UPDATE',
+      entity: 'PACKAGE',
+      entityId: id,
+      details: `Changed package "${pkg.packageName}" status from ${pkg.status} to ${status}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Package "${pkg.packageName}" status updated to ${status}.`, data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete Package safely
-router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
+router.delete('/:id', requirePermission('packages', 'delete'), async (req: AuthRequest, res: Response, next) => {
   try {
     const id = String(req.params.id);
     const companyId = req.user!.companyId;
@@ -1006,6 +1049,8 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       where: { id },
       include: {
         bookings: { select: { id: true } },
+        cabBookings: { select: { id: true } },
+        assignments: { select: { id: true } },
       },
     });
 
@@ -1015,16 +1060,20 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next) => {
       return;
     }
 
-    if (pkg.bookings.length > 0) {
+    const activeBookingsCount = (pkg.bookings?.length || 0) + (pkg.cabBookings?.length || 0);
+    const activeAssignmentsCount = pkg.assignments?.length || 0;
+
+    if (activeBookingsCount > 0 || activeAssignmentsCount > 0) {
       res.status(400).json({
-        message: `Cannot delete this package because it is linked to ${pkg.bookings.length} booking(s). You can archive or set status to INACTIVE instead.`,
+        message: `Cannot delete package "${pkg.packageName}" because it is linked to ${activeBookingsCount} booking(s) and ${activeAssignmentsCount} tour assignment(s). You can set its status to INACTIVE instead to archive it safely without losing business history.`,
       });
       return;
     }
 
-    // Safely delete itineraries and unlink leads
+    // Safely unlink quotes/leads and delete itineraries + package
     await prisma.$transaction([
       prisma.lead.updateMany({ where: { packageId: id }, data: { packageId: null } }),
+      prisma.quotation.updateMany({ where: { packageId: id }, data: { packageId: null } }),
       prisma.itineraryDay.deleteMany({ where: { packageId: id } }),
       prisma.package.delete({ where: { id } }),
     ]);

@@ -430,6 +430,52 @@ router.put('/:id', requirePermission('suppliers', 'edit'), async (req: AuthReque
   }
 });
 
+// Update Supplier status directly (Toggle Active/Inactive)
+router.patch('/:id/status', requirePermission('suppliers', 'edit'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const companyId = req.user?.companyId;
+    const id = String(req.params.id);
+    const { status } = req.body;
+
+    if (!status || !['ACTIVE', 'INACTIVE', 'BLACKLISTED'].includes(status)) {
+      res.status(400).json({ message: 'Invalid status. Must be ACTIVE, INACTIVE, or BLACKLISTED.' });
+      return;
+    }
+
+    const existing = await prisma.supplier.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+
+    if (!existing) {
+      res.status(404).json({ message: 'Supplier not found.' });
+      return;
+    }
+
+    const updated = await prisma.supplier.update({
+      where: { id },
+      data: { status },
+    });
+
+    await logAudit({
+      userId: req.user!.id,
+      userName: req.user!.name,
+      companyId: existing.companyId,
+      action: 'UPDATE',
+      entity: 'SUPPLIER',
+      entityId: updated.id,
+      details: `Changed supplier "${existing.name}" status from ${existing.status} to ${status}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Supplier "${existing.name}" status updated to ${status}.`, data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Bulk Import Suppliers from Excel / JSON
 router.post('/import', requirePermission('suppliers', 'create'), async (req: AuthRequest, res: Response, next) => {
   try {

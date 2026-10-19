@@ -24,12 +24,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, re
     return <Navigate to="/login" replace />;
   }
 
+  const isMasterAdmin = Boolean(
+    user.isPlatformMasterAdmin ||
+    (user.role === 'SUPER_ADMIN' && (!user.companyId || user.companyId === 'c0000000-0000-0000-0000-000000000001' || user.company?.isOoting))
+  );
+
   // Check company suspension (fail-closed)
-  if (user.company?.status === 'SUSPENDED' && !user.isPlatformMasterAdmin) {
+  if (user.company?.status === 'SUSPENDED' && !isMasterAdmin) {
     return <Navigate to="/suspended" replace />;
   }
 
-  if (requirePlatformMasterAdmin && !user.isPlatformMasterAdmin) {
+  if (requirePlatformMasterAdmin && !isMasterAdmin) {
     return (
       <div className="p-8 text-center min-h-[50vh] flex flex-col items-center justify-center">
         <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/50 text-red-600 flex items-center justify-center mb-3">

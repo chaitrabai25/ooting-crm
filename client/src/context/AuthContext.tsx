@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user.role === 'SUPER_ADMIN') return true;
 
     // Check custom permissions if configured
-    if (user.permissions) {
+    if (user.permissions && typeof user.permissions === 'string' && user.permissions.trim() !== '') {
       try {
         const perms = JSON.parse(user.permissions);
         if (Array.isArray(perms)) {
@@ -40,11 +40,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (perms.includes('*') || perms.includes(directMatch) || perms.includes(dotMatch) || perms.includes(wildMatch)) {
             return true;
           }
+          return false;
         } else if (typeof perms === 'object' && perms !== null) {
           const modulePerms = perms[moduleName];
           if (modulePerms === true || modulePerms === '*') return true;
           if (Array.isArray(modulePerms) && (modulePerms.includes(action) || modulePerms.includes('*'))) return true;
           if (typeof modulePerms === 'object' && modulePerms !== null && modulePerms[action] === true) return true;
+          return false;
         }
       } catch (err) {
         console.error('Failed to parse permissions:', err);
