@@ -16,6 +16,7 @@ import {
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useCompanySettings, NEUTRAL_TENANT_LOGO } from '../context/CompanySettingsContext.js';
+import { notifyError, notifySuccess, notifyWarning, showToast } from '../utils/sweetalert.js';
 
 interface LoginBrand {
   name: string;
@@ -179,7 +180,9 @@ export const Login: React.FC = () => {
         setOtpExpirySeconds(res.data?.expiresInSeconds || 300);
         setResendCooldown(res.data?.cooldownSeconds || 30);
         setAuthStep('LOGIN_OTP');
-        setSuccessMessage(res.data.message || 'Verification code sent to your registered email.');
+        const msg = res.data.message || 'Verification code sent to your registered email.';
+        setSuccessMessage(msg);
+        showToast(msg, 'success');
       } else if (res.data?.token) {
         // Direct session fallback if configured
         login(res.data.token, res.data.user);
@@ -189,15 +192,26 @@ export const Login: React.FC = () => {
             localStorage.setItem('crm_last_tenant', res.data.company.slug);
           }
         }
+        showToast('Login successful. Redirecting...', 'success');
         navigate('/');
       } else {
-        setError('Unexpected authentication response. Please try again.');
+        const unexpectedMsg = 'Unexpected authentication response. Please try again.';
+        setError(unexpectedMsg);
+        notifyError('Authentication Error', unexpectedMsg);
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(
-        err.response?.data?.message || 'Invalid email/employee ID or password. Please verify your credentials.'
-      );
+      const errMsg =
+        err.response?.data?.message || 'Invalid email/employee ID or password. Please verify your credentials.';
+      setError(errMsg);
+
+      if (err.response?.data?.error === 'ORGANIZATION_SUSPENDED' || err.response?.data?.error === 'ORGANIZATION_EXPIRED') {
+        notifyWarning('Account Suspended', errMsg);
+      } else if (err.response?.data?.error === 'ORGANIZATION_TERMINATED') {
+        notifyError('Account Terminated', errMsg);
+      } else {
+        notifyError('Sign In Failed', errMsg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -207,12 +221,16 @@ export const Login: React.FC = () => {
   const handleVerifyLoginOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp.trim() || otp.trim().length !== 6) {
-      setError('Please enter the complete 6-digit verification code.');
+      const msg = 'Please enter the complete 6-digit verification code.';
+      setError(msg);
+      notifyWarning('Incomplete Code', msg);
       return;
     }
 
     if (otpExpirySeconds <= 0) {
-      setError('Verification code has expired. Please request a new code.');
+      const msg = 'Verification code has expired. Please request a new code.';
+      setError(msg);
+      notifyWarning('Code Expired', msg);
       return;
     }
 
@@ -233,17 +251,22 @@ export const Login: React.FC = () => {
             localStorage.setItem('crm_last_tenant', res.data.company.slug);
           }
         }
+        showToast('Signed in successfully!', 'success');
         if (res.data?.user?.role === 'TOUR_GUIDE') {
           navigate('/guides/assignments');
         } else {
           navigate('/');
         }
       } else {
-        setError('Failed to establish session. Please try again.');
+        const msg = 'Failed to establish session. Please try again.';
+        setError(msg);
+        notifyError('Session Error', msg);
       }
     } catch (err: any) {
       console.error('Verify OTP error:', err);
-      setError(err.response?.data?.message || 'Invalid verification code. Please check and try again.');
+      const errMsg = err.response?.data?.message || 'Invalid verification code. Please check and try again.';
+      setError(errMsg);
+      notifyError('Verification Failed', errMsg);
     } finally {
       setIsLoading(false);
     }
@@ -266,9 +289,13 @@ export const Login: React.FC = () => {
       setOtpExpirySeconds(res.data?.expiresInSeconds || 300);
       setResendCooldown(res.data?.cooldownSeconds || 30);
       setOtp('');
-      setSuccessMessage(res.data?.message || 'A fresh verification code has been dispatched to your email.');
+      const msg = res.data?.message || 'A fresh verification code has been dispatched to your email.';
+      setSuccessMessage(msg);
+      showToast(msg, 'success');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to resend verification code. Please wait and try again.');
+      const errMsg = err.response?.data?.message || 'Failed to resend verification code. Please wait and try again.';
+      setError(errMsg);
+      notifyError('Resend Failed', errMsg);
     } finally {
       setIsLoading(false);
     }
@@ -278,7 +305,9 @@ export const Login: React.FC = () => {
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim()) {
-      setError('Please enter your work email or employee ID.');
+      const msg = 'Please enter your work email or employee ID.';
+      setError(msg);
+      notifyWarning('Input Required', msg);
       return;
     }
 
@@ -296,9 +325,13 @@ export const Login: React.FC = () => {
       setOtpExpirySeconds(res.data?.expiresInSeconds || 300);
       setResendCooldown(res.data?.cooldownSeconds || 30);
       setAuthStep('RESET_OTP');
-      setSuccessMessage(res.data?.message || 'A password reset code has been sent to your registered email.');
+      const msg = res.data?.message || 'A password reset code has been sent to your registered email.';
+      setSuccessMessage(msg);
+      showToast(msg, 'success');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to submit reset request. Please try again.');
+      const errMsg = err.response?.data?.message || 'Failed to submit reset request. Please try again.';
+      setError(errMsg);
+      notifyError('Reset Request Failed', errMsg);
     } finally {
       setIsLoading(false);
     }
@@ -308,12 +341,16 @@ export const Login: React.FC = () => {
   const handleVerifyResetOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp.trim() || otp.trim().length !== 6) {
-      setError('Please enter the complete 6-digit reset code.');
+      const msg = 'Please enter the complete 6-digit reset code.';
+      setError(msg);
+      notifyWarning('Incomplete Code', msg);
       return;
     }
 
     if (otpExpirySeconds <= 0) {
-      setError('The reset code has expired. Please request a new code.');
+      const msg = 'The reset code has expired. Please request a new code.';
+      setError(msg);
+      notifyWarning('Code Expired', msg);
       return;
     }
 
@@ -332,11 +369,16 @@ export const Login: React.FC = () => {
         setConfirmPassword('');
         setAuthStep('NEW_PASSWORD');
         setSuccessMessage(null);
+        showToast('Code verified! Please enter your new password.', 'info');
       } else {
-        setError('Verification failed. Please request a new code.');
+        const msg = 'Verification failed. Please request a new code.';
+        setError(msg);
+        notifyError('Verification Failed', msg);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid or expired reset code.');
+      const errMsg = err.response?.data?.message || 'Invalid or expired reset code.';
+      setError(errMsg);
+      notifyError('Verification Failed', errMsg);
     } finally {
       setIsLoading(false);
     }
@@ -347,17 +389,23 @@ export const Login: React.FC = () => {
     e.preventDefault();
 
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long.');
+      const msg = 'Password must be at least 8 characters long.';
+      setError(msg);
+      notifyWarning('Password Too Short', msg);
       return;
     }
 
     if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-      setError('Password must contain at least one letter and one number.');
+      const msg = 'Password must contain at least one letter and one number.';
+      setError(msg);
+      notifyWarning('Password Requirements', msg);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match. Please verify both fields.');
+      const msg = 'Passwords do not match. Please verify both fields.';
+      setError(msg);
+      notifyWarning('Password Mismatch', msg);
       return;
     }
 
@@ -370,11 +418,15 @@ export const Login: React.FC = () => {
         newPassword,
       });
 
-      setSuccessMessage(res.data?.message || 'Password updated successfully!');
+      const msg = res.data?.message || 'Password updated successfully!';
+      setSuccessMessage(msg);
       setAuthStep('RESET_SUCCESS');
       setPassword('');
+      notifySuccess('Password Updated', 'Your password has been changed. You can now sign in.');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update password. Please try again.');
+      const errMsg = err.response?.data?.message || 'Failed to update password. Please try again.';
+      setError(errMsg);
+      notifyError('Password Reset Failed', errMsg);
     } finally {
       setIsLoading(false);
     }

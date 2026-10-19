@@ -1,4 +1,10 @@
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export interface EmailRecipient {
   name: string;
@@ -97,28 +103,30 @@ export async function verifySmtpConfiguration(): Promise<{ verified: boolean; me
   }
 }
 
-import fs from 'fs';
-import path from 'path';
-
 function getLogoInfo(): { hasAttachment: boolean; attachment: any[]; logoSrc: string } {
-  const possiblePaths = [
-    path.resolve(process.cwd(), 'client/public/assets/ooting-logo.png'),
-    path.resolve(process.cwd(), '../client/public/assets/ooting-logo.png'),
-    path.resolve(__dirname, '../../../../client/public/assets/ooting-logo.png'),
-    path.resolve(__dirname, '../../../client/public/assets/ooting-logo.png'),
-  ];
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) {
-      return {
-        hasAttachment: true,
-        attachment: [{
-          filename: 'ooting-logo.png',
-          path: p,
-          cid: 'ootingLogo@crm.ooting.in',
-        }],
-        logoSrc: 'cid:ootingLogo@crm.ooting.in',
-      };
+  try {
+    const possiblePaths = [
+      path.resolve(process.cwd(), 'client/public/assets/ooting-logo.png'),
+      path.resolve(process.cwd(), '../client/public/assets/ooting-logo.png'),
+      path.resolve(__dirname, '../../../../client/public/assets/ooting-logo.png'),
+      path.resolve(__dirname, '../../../client/public/assets/ooting-logo.png'),
+      path.resolve(__dirname, '../../client/public/assets/ooting-logo.png'),
+    ];
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        return {
+          hasAttachment: true,
+          attachment: [{
+            filename: 'ooting-logo.png',
+            path: p,
+            cid: 'ootingLogo@crm.ooting.in',
+          }],
+          logoSrc: 'cid:ootingLogo@crm.ooting.in',
+        };
+      }
     }
+  } catch (err) {
+    console.warn('Could not resolve local logo attachment:', err);
   }
   return {
     hasAttachment: false,
