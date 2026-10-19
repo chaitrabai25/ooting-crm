@@ -121,8 +121,8 @@ export const StatusToggle: React.FC<StatusToggleProps> = ({
           sizeConfig.track
         } ${
           isActive
-            ? 'bg-emerald-500 hover:bg-emerald-600'
-            : 'bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600'
+            ? 'bg-emerald-500 hover:bg-emerald-600 shadow-xs'
+            : 'bg-rose-500 hover:bg-rose-600 shadow-xs'
         }`}
       >
         {/* Switch Knob */}
@@ -136,7 +136,7 @@ export const StatusToggle: React.FC<StatusToggleProps> = ({
           ) : (
             <span
               className={`rounded-full ${
-                isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                isActive ? 'bg-emerald-600' : 'bg-rose-600'
               } ${size === 'xs' ? 'w-1 h-1' : 'w-1.5 h-1.5'}`}
             />
           )}
@@ -146,12 +146,12 @@ export const StatusToggle: React.FC<StatusToggleProps> = ({
       {/* Text Badge */}
       {showLabel && (
         <span
-          className={`font-bold uppercase tracking-wider rounded-md border ${
+          className={`font-black uppercase tracking-wider rounded-md border ${
             sizeConfig.text
           } ${sizeConfig.badgePad} ${
             isActive
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-              : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+              : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
           }`}
         >
           {currentLabel}

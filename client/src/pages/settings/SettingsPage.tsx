@@ -162,7 +162,7 @@ export const SettingsPage: React.FC = () => {
     return true;
   };
 
-  const toggleModule = (moduleId: string) => {
+  const toggleModule = async (moduleId: string) => {
     let currentList: string[] = [];
     if (!company.enabledModules) {
       currentList = ALL_CRM_MODULES.map((m) => m.id);
@@ -185,7 +185,34 @@ export const SettingsPage: React.FC = () => {
       currentList.push(moduleId);
     }
 
-    setCompany({ ...company, enabledModules: JSON.stringify(currentList) });
+    const updated = { ...company, enabledModules: JSON.stringify(currentList) };
+    setCompany(updated);
+    syncGlobalCompany(updated);
+
+    // Immediate autosave to backend
+    try {
+      await api.put('/settings', updated);
+      await refreshCompany();
+      setSuccessMessage('Sidebar navigation updated & autosaved.');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Failed to autosave module settings:', err);
+    }
+  };
+
+  const handleBatchModules = async (modulesList: string[], msg: string) => {
+    const updated = { ...company, enabledModules: JSON.stringify(modulesList) };
+    setCompany(updated);
+    syncGlobalCompany(updated);
+
+    try {
+      await api.put('/settings', updated);
+      await refreshCompany();
+      setSuccessMessage(msg);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Failed to autosave batch module settings:', err);
+    }
   };
 
   const handleDownloadDump = async () => {
@@ -658,25 +685,24 @@ export const SettingsPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setCompany({
-                          ...company,
-                          enabledModules: JSON.stringify(ALL_CRM_MODULES.map((m) => m.id)),
-                        });
-                      }}
+                      onClick={() =>
+                        handleBatchModules(
+                          ALL_CRM_MODULES.map((m) => m.id),
+                          'All CRM modules enabled & autosaved.'
+                        )
+                      }
                       className="px-2.5 py-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 dark:bg-brand-950/60 rounded-md border border-brand-200 transition-colors cursor-pointer"
                     >
                       Enable All
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        const withoutWhatsapp = ALL_CRM_MODULES.map((m) => m.id).filter((id) => id !== 'whatsapp');
-                        setCompany({
-                          ...company,
-                          enabledModules: JSON.stringify(withoutWhatsapp),
-                        });
-                      }}
+                      onClick={() =>
+                        handleBatchModules(
+                          ALL_CRM_MODULES.map((m) => m.id).filter((id) => id !== 'whatsapp'),
+                          'WhatsApp disabled & preferences autosaved.'
+                        )
+                      }
                       className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/60 rounded-md border border-rose-200 transition-colors cursor-pointer"
                     >
                       Turn Off WhatsApp Only
@@ -697,14 +723,27 @@ export const SettingsPage: React.FC = () => {
                       } ${
                         isEnabled
                           ? 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700'
-                          : 'bg-slate-50/80 dark:bg-slate-900/60 border-slate-200/60 dark:border-slate-800 text-slate-400'
+                          : 'bg-rose-50/30 dark:bg-rose-950/20 border-rose-200/70 dark:border-rose-900/40 text-slate-500'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`font-bold text-xs ${isEnabled ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'}`}>
+                            <span
+                              className={`font-bold text-xs ${
+                                isEnabled ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'
+                              }`}
+                            >
                               {mod.name}
+                            </span>
+                            <span
+                              className={`text-[9.5px] font-black uppercase px-1.5 py-0.2 rounded border ${
+                                isEnabled
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                                  : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
+                              }`}
+                            >
+                              {isEnabled ? 'Active' : 'Inactive'}
                             </span>
                             {mod.isAttention && (
                               <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
@@ -717,15 +756,15 @@ export const SettingsPage: React.FC = () => {
                           </p>
                         </div>
 
-                        {/* Toggle Pill Switch */}
+                        {/* Toggle Pill Switch (Green for active, Red for inactive) */}
                         <div
-                          className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
-                            isEnabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                          className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors shrink-0 shadow-2xs ${
+                            isEnabled ? 'bg-emerald-600' : 'bg-rose-500'
                           }`}
                         >
                           <div
                             className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                              isEnabled ? 'translate-x-4' : 'translate-x-0'
+                              isEnabled ? 'translate-x-5' : 'translate-x-0'
                             }`}
                           />
                         </div>

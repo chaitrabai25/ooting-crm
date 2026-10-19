@@ -338,13 +338,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       title: 'Platform SaaS Console',
       adminOnly: true,
       items: [
-        { type: 'link' as const, name: 'SaaS Telemetry Hub', path: '/saas', icon: LayoutDashboard },
         { type: 'link' as const, name: 'Organizations', path: '/saas/organizations', icon: Building2 },
         { type: 'link' as const, name: 'Subscription Plans', path: '/saas/plans', icon: CreditCard },
         { type: 'link' as const, name: 'Staff Seat Requests', path: '/saas/staff-requests', icon: Users },
-        { type: 'link' as const, name: 'Tenant Databases', path: '/saas/databases', icon: Database },
-        { type: 'link' as const, name: 'Platform Audit Logs', path: '/saas/audit-logs', icon: History },
-        { type: 'link' as const, name: 'Platform Settings', path: '/saas/settings', icon: Settings },
       ],
     }] : []),
   ];
@@ -375,18 +371,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   const activeNavigationSections = user?.role === 'TOUR_GUIDE' ? guideSections : navigationSections;
 
   const isItemVisible = (moduleName?: string): boolean => {
-    // Super Admin has full, unrestricted access to all modules and system sections
-    if (user?.role === 'SUPER_ADMIN') return true;
-
-    // Core Administration and platform settings are never disabled by tenant feature toggles
+    // Core Administration and platform settings are ALWAYS visible to Super Admin / Admin
+    // so they never lose access to settings, users, or audit logs
     if (moduleName && ['settings', 'users', 'audit-logs', 'companies'].includes(moduleName)) {
-      return user?.role === 'ADMIN';
+      return user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
     }
 
-    // Check tenant allowedModules if set
+    // Tenant / Organization module control: If disabled in Settings, immediately hide from sidebar!
     if (allowedModules && moduleName && !allowedModules.includes(moduleName)) {
       return false;
     }
+
+    // Super Admin has full access to all remaining enabled modules
+    if (user?.role === 'SUPER_ADMIN') return true;
 
     if (!moduleName) return true;
     return can(moduleName, 'view');
