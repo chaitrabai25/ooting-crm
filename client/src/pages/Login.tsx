@@ -32,7 +32,7 @@ const defaultOotingBrand: LoginBrand = {
   name: 'Ooting',
   slug: 'ooting',
   tagline: 'Journeys Beyond Ordinary',
-  logoUrl: '/assets/ooting-logo.jpg',
+  logoUrl: '/assets/ooting-logo.png',
   primaryColor: '#C91F28',
   secondaryColor: '#1E3A8A',
   isOoting: true,
@@ -54,15 +54,14 @@ export const Login: React.FC = () => {
   const [brand, setBrand] = useState<LoginBrand>(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const tenantParam = searchParams.get('tenant') || searchParams.get('company');
-    const rememberedSlug = tenantParam || localStorage.getItem('crm_last_tenant');
-    if (rememberedSlug && rememberedSlug !== 'ooting') {
+    if (tenantParam && tenantParam !== 'ooting') {
       return {
-        name: rememberedSlug.replace(/-/g, ' ').toUpperCase(),
-        slug: rememberedSlug,
+        name: tenantParam.replace(/-/g, ' ').toUpperCase(),
+        slug: tenantParam,
         tagline: '',
-        logoUrl: '',
-        primaryColor: '#2563eb',
-        secondaryColor: '#1e40af',
+        logoUrl: '/assets/ooting-logo.png',
+        primaryColor: '#C91F28',
+        secondaryColor: '#1E3A8A',
         isOoting: false,
       };
     }
@@ -112,20 +111,29 @@ export const Login: React.FC = () => {
     }
   }, []);
 
-  // Dynamically resolve tenant branding when user enters their work email/phone
+  // Dynamically resolve tenant branding only when user finishes typing a full work email
   useEffect(() => {
     const clean = identifier.trim();
-    if (!clean || clean.length < 4) return;
+    if (!clean || !clean.includes('@') || clean.length < 6) return;
+
+    // Fast-path for standard Ooting accounts
+    if (clean.toLowerCase().endsWith('@ooting.in') || clean.toLowerCase().endsWith('@ooting.com')) {
+      setBrand(defaultOotingBrand);
+      return;
+    }
 
     const timer = setTimeout(() => {
       api.get(`/auth/company-branding?identifier=${encodeURIComponent(clean)}`)
         .then((res) => {
           if (res.data?.name) {
-            setBrand(res.data);
+            setBrand({
+              ...res.data,
+              logoUrl: res.data.logoUrl || '/assets/ooting-logo.png',
+            });
           }
         })
         .catch(() => {});
-    }, 350);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [identifier]);
@@ -440,7 +448,9 @@ export const Login: React.FC = () => {
     setAuthStep('CREDENTIALS');
   };
 
-  const effectiveLogo = brand.logoUrl || (brand.isOoting ? '/assets/ooting-logo.jpg' : NEUTRAL_TENANT_LOGO);
+  const effectiveLogo = (brand.logoUrl && brand.logoUrl.trim() !== '' && !brand.logoUrl.includes('placeholder'))
+    ? brand.logoUrl
+    : '/assets/ooting-logo.png';
 
   return (
     <div className="min-h-screen bg-slate-900 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden transition-colors">
@@ -457,7 +467,7 @@ export const Login: React.FC = () => {
           <div
             className="w-20 h-20 rounded-2xl bg-white p-2 shadow-xl border border-slate-700 flex items-center justify-center mb-4 transition-all duration-300"
             style={{
-              borderTopColor: brand.primaryColor || '#2563eb',
+              borderTopColor: brand.primaryColor || '#C91F28',
               borderTopWidth: '3px',
             }}
           >
@@ -466,7 +476,7 @@ export const Login: React.FC = () => {
               alt={brand.name}
               className="w-full h-full object-contain"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = brand.isOoting ? '/assets/ooting-logo.jpg' : NEUTRAL_TENANT_LOGO;
+                (e.target as HTMLImageElement).src = '/assets/ooting-logo.png';
               }}
             />
           </div>
