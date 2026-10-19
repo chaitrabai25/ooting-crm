@@ -363,12 +363,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       title: 'Guide Field Portal',
       items: [
         { type: 'link', name: 'My Assigned Tours', path: '/guides/assignments', icon: BookmarkCheck, module: 'guides' },
-        { type: 'link', name: 'Tour & Passenger Expenses', path: '/guides/assignments?tab=expenses', icon: Receipt, module: 'guides' },
+        { type: 'link', name: 'Tour & Passenger Expenses', path: '/expenses', icon: Receipt, module: 'expenses' },
       ],
     },
   ];
 
-  const activeNavigationSections = user?.role === 'TOUR_GUIDE' ? guideSections : navigationSections;
+  // For Tour Guides, display Guide Field Portal at the top, combined with permitted CRM sections (Dashboard, Packages, Calendar, etc.)
+  const activeNavigationSections = user?.role === 'TOUR_GUIDE'
+    ? [
+        ...guideSections,
+        ...navigationSections.map((section) => {
+          if (section.title === 'Sales & Operations') {
+            return {
+              ...section,
+              items: section.items.filter((item) => item.type !== 'group' || item.id !== 'tour-guides'),
+            };
+          }
+          return section;
+        }),
+      ]
+    : navigationSections;
 
   const isItemVisible = (moduleName?: string): boolean => {
     // Core Administration and platform settings are ALWAYS visible to Super Admin / Admin

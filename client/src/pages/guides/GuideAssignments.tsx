@@ -29,6 +29,13 @@ export const GuideAssignments: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Redirect legacy /guides/assignments?tab=expenses directly to /expenses
+  useEffect(() => {
+    if (searchParams.get('tab') === 'expenses') {
+      navigate('/expenses', { replace: true });
+    }
+  }, [searchParams, navigate]);
+
   const [assignments, setAssignments] = useState<TourAssignment[]>([]);
   const [guides, setGuides] = useState<TourGuide[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);

@@ -80,6 +80,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    if (user.role === 'TOUR_GUIDE') {
+      if (['guides', 'expenses', 'dashboard', 'packages', 'calendar', 'bookings', 'customers'].includes(moduleName)) {
+        return action !== 'delete';
+      }
+    }
+
     return false;
   };
 

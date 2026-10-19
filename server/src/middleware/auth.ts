@@ -364,13 +364,11 @@ export function requirePermission(moduleName: string, action: string = 'view') {
     }
 
     if (req.user.role === 'TOUR_GUIDE') {
-      if (moduleName === 'guides' && ['view', 'report', 'progress', 'complete', 'expense'].includes(action)) {
-        next();
-        return;
-      }
-      if (moduleName === 'dashboard' && action === 'view') {
-        next();
-        return;
+      if (['guides', 'expenses', 'dashboard', 'packages', 'places', 'hotels', 'calendar', 'bookings', 'customers'].includes(moduleName)) {
+        if (action !== 'delete') {
+          next();
+          return;
+        }
       }
     }
 
