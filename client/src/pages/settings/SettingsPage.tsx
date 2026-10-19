@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard, Upload, Loader2, RotateCcw, Compass } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard, Upload, Loader2, RotateCcw, Compass, FileSpreadsheet } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
@@ -236,6 +236,17 @@ export const SettingsPage: React.FC = () => {
     } finally {
       setIsDumping(false);
     }
+  };
+
+  const handleDownloadQAReport = () => {
+    const link = document.createElement('a');
+    link.href = '/reports/Ooting_CRM_Comprehensive_QA_Testing_Report.xlsx';
+    link.setAttribute('download', 'Ooting_CRM_Comprehensive_QA_Testing_Report.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setSuccessMessage('Comprehensive QA Testing Report (.xlsx) downloaded successfully.');
+    setTimeout(() => setSuccessMessage(null), 4000);
   };
 
   if (isLoading) {
@@ -903,7 +914,7 @@ export const SettingsPage: React.FC = () => {
             Your CRM records are stored with full relational integrity. Use this one-click feature anytime to download a full raw data dump. This file can be kept as a safe offline backup or imported into any new database or CRM system in the future.
           </p>
 
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               type="button"
               onClick={handleDownloadDump}
@@ -912,6 +923,15 @@ export const SettingsPage: React.FC = () => {
             >
               <Download className="w-4 h-4" />
               <span>{isDumping ? 'Generating Database Dump...' : 'Download Complete Database Dump (.json)'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadQAReport}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Download Enterprise QA Testing Report (.xlsx)</span>
             </button>
           </div>
         </div>
