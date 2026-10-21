@@ -638,18 +638,13 @@ export const CabVoucher: React.FC = () => {
     if (!cab) return;
     try {
       setIsGeneratingPdf(true);
-      const { download } = await generateA4Pdf({
-        elementId: 'duty-slip-document',
-        filename: `DutySlip-${cab.bookingReference}.pdf`,
-        title: `Cab Duty Slip — ${cab.bookingReference}`,
-        onePageOnly: true,
-        margin: 8,
+      notifySuccess('Opening Print Process', 'Select "Save as PDF" in the print window to download with perfect alignment.');
+      await printElement('duty-slip-document', {
+        title: `DutySlip-${cab.bookingReference}`,
       });
-      await download();
-      notifySuccess('Duty Slip Downloaded', `DutySlip-${cab.bookingReference}.pdf saved.`);
     } catch (err) {
-      console.error('Failed to generate Duty Slip PDF:', err);
-      notifyError('PDF Export Failed', 'Could not generate PDF. Please try the Print button.');
+      console.error('Failed to print duty slip:', err);
+      notifyError('Print Error', 'Could not open print window. Please try again or use the Print button.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -831,11 +826,12 @@ export const CabVoucher: React.FC = () => {
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md transition-colors disabled:opacity-50 cursor-pointer"
+            title="Download official PDF (via Print process)"
           >
             {isGeneratingPdf ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Exporting...</span>
+                <span>Preparing Print...</span>
               </>
             ) : (
               <>

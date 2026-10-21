@@ -110,17 +110,13 @@ export const QuotationView: React.FC = () => {
     if (!quotation) return;
     try {
       setIsGeneratingPdf(true);
-      const { download } = await generateA4Pdf({
-        elementId: 'quotation-document',
-        filename: `Quotation-${quotation.quotationNumber}.pdf`,
-        title: `Travel Quotation — ${quotation.quotationNumber}`,
-        onePageOnly: true,
-        margin: 8,
+      showToast('Opening print dialog. Select "Save as PDF" to download your aligned quotation.');
+      await printElement('quotation-document', {
+        title: `Quotation-${quotation.quotationNumber}`,
       });
-      await download();
     } catch (err) {
-      console.error('Failed to generate Quotation PDF:', err);
-      notifyError('PDF Generation Notice', 'Could not generate PDF directly. Please use the Print button to export as PDF.');
+      console.error('Failed to generate Quotation PDF via print:', err);
+      notifyError('Print Error', 'Could not open print window. Please try again or use the Print button.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -410,12 +406,12 @@ export const QuotationView: React.FC = () => {
               onClick={handleDownloadPdf}
               disabled={isGeneratingPdf}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-2xs transition-all disabled:opacity-50 cursor-pointer shrink-0 whitespace-nowrap"
-              title="Download official PDF document"
+              title="Download official PDF (via Print process)"
             >
               {isGeneratingPdf ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                  <span>Exporting...</span>
+                  <span>Preparing Print...</span>
                 </>
               ) : (
                 <>

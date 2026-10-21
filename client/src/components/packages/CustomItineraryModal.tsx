@@ -523,24 +523,18 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
     });
   };
 
-  // Dedicated PDF Download targeting ONLY #itinerary-document
+  // Dedicated PDF Download via high-fidelity Print Pipeline
   const handleDownloadPdf = async () => {
     try {
       setIsGeneratingPdf(true);
       const cleanTitle = tripTitle.replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `Itinerary_${cleanTitle}_${selectedDistrict.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-
-      const { download } = await generateA4Pdf({
-        elementId: 'itinerary-document',
-        filename,
-        title: tripTitle || 'Custom Tour Itinerary',
-        onePageOnly: false,
-        margin: 8,
+      notifySuccess('Opening Print Process', 'Select "Save as PDF" in the print window to download with perfect alignment.');
+      await printElement('itinerary-document', {
+        title: `Itinerary_${cleanTitle}_${selectedDistrict.replace(/[^a-zA-Z0-9]/g, '_')}`,
       });
-      await download();
     } catch (err) {
-      console.error('Failed to download itinerary PDF:', err);
-      notifyError('PDF Generation Error', 'PDF generation error. Please try the Print button.');
+      console.error('Failed to download itinerary PDF via print:', err);
+      notifyError('Print Error', 'Could not open print window. Please try again or use the Print button.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -603,13 +597,14 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                     onClick={handleDownloadPdf}
                     disabled={isGeneratingPdf}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 text-white rounded-xl font-bold shadow-xs hover:bg-slate-800 transition-colors cursor-pointer"
+                    title="Download official PDF (via Print process)"
                   >
                     {isGeneratingPdf ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Download className="w-3.5 h-3.5 text-amber-400" />
                     )}
-                    <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download Itinerary PDF'}</span>
+                    <span>{isGeneratingPdf ? 'Preparing Print...' : 'Download Itinerary PDF'}</span>
                   </button>
                 </>
               )}

@@ -135,26 +135,19 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
     });
   };
 
-  // Dedicated PDF Download: Targets #invoice-document with native File System Save
+  // Dedicated PDF Download: Routes through Print process for perfect vector layout and icon alignment
   const handleDownloadPdf = async () => {
     try {
       setIsGeneratingPdf(true);
       const cleanGuest = (booking.customer?.fullName || 'Guest').replace(/[^a-zA-Z0-9]/g, '_');
       const cleanBooking = (booking.bookingNumber || 'OOT').replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `Invoice_${cleanBooking}_${cleanGuest}.pdf`;
-
-      const { download } = await generateA4Pdf({
-        elementId: 'invoice-document',
-        filename,
-        title: `Tax Invoice — ${invoiceNumber}`,
-        onePageOnly: true,
-        margin: 8,
+      notifySuccess('Opening Print Process', 'Select "Save as PDF" in the print window to download with perfect alignment.');
+      await printElement('invoice-document', {
+        title: `Invoice_${cleanBooking}_${cleanGuest}`,
       });
-      await download();
-      notifySuccess('Invoice Downloaded', `Saved ${filename} successfully.`);
     } catch (err) {
-      console.error('Failed to generate invoice PDF:', err);
-      notifyError('PDF Export Failed', 'Failed to generate PDF. Please try again or use the Print button.');
+      console.error('Failed to print invoice:', err);
+      notifyError('Print Error', 'Could not open print window. Please try again or use the Print button.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -248,14 +241,14 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
                 onClick={handleDownloadPdf}
                 disabled={isGeneratingPdf}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
-                title="Download A4 PDF of invoice only"
+                title="Download official PDF (via Print process)"
               >
                 {isGeneratingPdf ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <Download className="w-3.5 h-3.5 text-amber-400" />
                 )}
-                <span>{isGeneratingPdf ? 'Generating...' : 'Download Invoice (PDF)'}</span>
+                <span>{isGeneratingPdf ? 'Preparing Print...' : 'Download Invoice (PDF)'}</span>
               </button>
 
               <button

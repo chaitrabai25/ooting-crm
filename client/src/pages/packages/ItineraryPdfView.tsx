@@ -31,7 +31,7 @@ import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
-import { notifyError } from '../../utils/sweetalert.js';
+import { notifyError, notifySuccess } from '../../utils/sweetalert.js';
 
 export interface HotelPhotoDisplay {
   url: string;
@@ -285,19 +285,13 @@ export const ItineraryPdfView: React.FC = () => {
     try {
       setIsGeneratingPdf(true);
       const cleanTitle = (pkg.packageName || 'Itinerary').replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `Itinerary_${cleanTitle}.pdf`;
-
-      const { download } = await generateA4Pdf({
-        elementId: 'itinerary-document',
-        filename,
-        title: pkg.packageName || 'Official Tour Itinerary',
-        onePageOnly: false,
-        margin: 8,
+      notifySuccess('Opening Print Process', 'Select "Save as PDF" in the print window to download with perfect alignment.');
+      await printElement('itinerary-document', {
+        title: `Itinerary_${cleanTitle}`,
       });
-      await download();
     } catch (err) {
-      console.error('Failed to download itinerary PDF:', err);
-      notifyError('PDF Generation Error', 'Could not generate PDF directly. Please use the Print button to export as PDF.');
+      console.error('Failed to download itinerary PDF via print:', err);
+      notifyError('Print Error', 'Could not open print window. Please try again or use the Print button.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -425,13 +419,14 @@ export const ItineraryPdfView: React.FC = () => {
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf}
             className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer"
+            title="Download official PDF (via Print process)"
           >
             {isGeneratingPdf ? (
               <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
             ) : (
               <Download className="w-4 h-4 text-amber-400" />
             )}
-            <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
+            <span>{isGeneratingPdf ? 'Preparing Print...' : 'Download PDF'}</span>
           </button>
 
           <button

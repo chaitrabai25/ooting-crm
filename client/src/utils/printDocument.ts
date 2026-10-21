@@ -104,6 +104,18 @@ export async function printElement(elementId: string, options: PrintOptions = {}
     }
   });
 
+  // Reset desktop container constraints on the clone to ensure perfect A4 print fit
+  cloned.style.boxShadow = 'none';
+  cloned.style.border = 'none';
+  cloned.style.borderRadius = '0';
+  cloned.style.margin = '0 auto';
+  cloned.style.width = '100%';
+  cloned.style.maxWidth = '100%';
+  cloned.style.minWidth = '0';
+  cloned.style.height = 'auto';
+  cloned.style.maxHeight = 'none';
+  cloned.style.minHeight = '0';
+
   // Extract all existing CSS styles and link tags from main document
   const headStyles: string[] = [];
   document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>('link[rel="stylesheet"], style').forEach((node) => {
@@ -130,6 +142,7 @@ export async function printElement(elementId: string, options: PrintOptions = {}
   }
 
   const documentTitle = options.title || 'Official Document — Ooting CRM';
+  const baseOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 
   // Build isolated HTML with strict A4 single-page and media print resets
   const htmlContent = `
@@ -137,26 +150,37 @@ export async function printElement(elementId: string, options: PrintOptions = {}
     <html lang="en">
     <head>
       <meta charset="utf-8">
+      ${baseOrigin ? `<base href="${baseOrigin}/">` : ''}
       <title>${documentTitle}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
       ${headStyles.join('\n')}
       <style>
         @page {
           size: A4 portrait;
-          margin: 8mm;
+          margin: 6mm;
         }
         *, *::before, *::after {
           box-sizing: border-box !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
+          color-adjust: exact !important;
         }
         html, body {
           margin: 0 !important;
           padding: 0 !important;
           background: #ffffff !important;
           color: #0f172a !important;
-          font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+          font-family: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
           width: 100% !important;
           overflow: visible !important;
+          -webkit-font-smoothing: antialiased !important;
+        }
+        svg {
+          display: inline-block !important;
+          vertical-align: middle !important;
+          flex-shrink: 0 !important;
         }
         .no-print, button, .print-hidden, .pdf-hide {
           display: none !important;
@@ -173,6 +197,19 @@ export async function printElement(elementId: string, options: PrintOptions = {}
           background: #ffffff !important;
           width: 100% !important;
           max-width: 100% !important;
+          min-width: 0 !important;
+          height: auto !important;
+          min-height: 0 !important;
+        }
+        .pdf-page {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: always !important;
+          break-after: always !important;
+        }
+        .pdf-page:last-child {
+          page-break-after: avoid !important;
+          break-after: avoid !important;
         }
       </style>
     </head>
@@ -198,8 +235,15 @@ export async function printElement(elementId: string, options: PrintOptions = {}
     })
   );
 
-  // Short delay to allow fonts and CSS layout to calculate
-  await new Promise((resolve) => setTimeout(resolve, 150));
+  // Wait for fonts to be ready in the iframe context
+  if ((doc as any).fonts && (doc as any).fonts.ready) {
+    try {
+      await (doc as any).fonts.ready;
+    } catch {}
+  }
+
+  // Short delay to allow fonts and CSS layout to calculate with pixel accuracy
+  await new Promise((resolve) => setTimeout(resolve, 250));
 
   try {
     iframe.contentWindow?.focus();
@@ -213,6 +257,14 @@ export async function printElement(elementId: string, options: PrintOptions = {}
       if (document.body.contains(iframe)) {
         document.body.removeChild(iframe);
       }
-    }, 2000);
+    }, 2500);
   }
 }
+
+/**
+ * High-fidelity PDF Download via Native Print Pipeline
+ * Opens the native browser print engine configured for A4, ensuring
+ * crisp vector text, exact SVG alignment, and zero raster/html2canvas artifacting.
+ */
+export const downloadPdfViaPrint = printElement;
+
