@@ -9,12 +9,10 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  Share2,
   Printer,
   X,
   Camera,
   Layers,
-  ArrowRight,
   CheckCircle2,
   FileText,
   Search,
@@ -27,10 +25,13 @@ import {
   Copy,
   Building,
   Hotel as HotelIcon,
+  RotateCcw,
+  Star,
+  Utensils,
+  AlertCircle,
 } from 'lucide-react';
 import { Modal } from '../ui/Modal.js';
 import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
-import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { api } from '../../api/client.js';
@@ -82,6 +83,24 @@ interface ItineraryDayPlan {
   notes?: string;
 }
 
+const createFreshDay = (dayNum: number): ItineraryDayPlan => ({
+  dayNumber: dayNum,
+  title: `Day ${dayNum}: Sightseeing & Exploration`,
+  description: '',
+  places: '',
+  activities: '',
+  startTime: '09:00 AM',
+  endTime: '06:00 PM',
+  imageUrl: '',
+  imageUrls: [],
+  hotelName: '',
+  hotelStarCategory: '3 Star',
+  hotelImageUrl: '',
+  hotelLocation: '',
+  mealPlan: 'Breakfast & Dinner (MAP)',
+  notes: '',
+});
+
 export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
   isOpen,
   onClose,
@@ -92,14 +111,14 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
   // Step navigation: 'builder' | 'preview'
   const [activeView, setActiveView] = useState<'builder' | 'preview'>('builder');
 
-  // Package / Trip details
-  const [tripTitle, setTripTitle] = useState('Scenic Holiday Tour');
-  const [approxPrice, setApproxPrice] = useState('25000');
+  // Package / Trip details - Clean initial state (no hardcoded fake Ooty defaults)
+  const [tripTitle, setTripTitle] = useState('');
+  const [approxPrice, setApproxPrice] = useState('');
   const [packageType, setPackageType] = useState('HOLIDAY');
 
   // Multi-level Location Selection
-  const [selectedState, setSelectedState] = useState('Tamil Nadu');
-  const [selectedDistrict, setSelectedDistrict] = useState('The Nilgiris (Ooty)');
+  const [selectedState, setSelectedState] = useState('Karnataka');
+  const [selectedDistrict, setSelectedDistrict] = useState('Bengaluru Urban');
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
 
   // Destination Database & AI Suggestions
@@ -122,42 +141,20 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
   const [customPlaceImage, setCustomPlaceImage] = useState('');
   const [isSavingCustomPlace, setIsSavingCustomPlace] = useState(false);
 
+  // Custom Hotel Dialog
+  const [isCustomHotelOpen, setIsCustomHotelOpen] = useState(false);
+  const [customHotelName, setCustomHotelName] = useState('');
+  const [customHotelStar, setCustomHotelStar] = useState('3 Star');
+  const [customHotelCity, setCustomHotelCity] = useState('');
+  const [customHotelMealPlan, setCustomHotelMealPlan] = useState('Breakfast & Dinner (MAP)');
+  const [customHotelImage, setCustomHotelImage] = useState('');
+
   // Photo Gallery Picker Modal
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
   const [galleryPlace, setGalleryPlace] = useState<DestinationPlaceItem | null>(null);
 
-  // Day-wise Builder State
-  const [days, setDays] = useState<ItineraryDayPlan[]>([
-    {
-      dayNumber: 1,
-      title: 'Day 1: Arrival & Local Sightseeing',
-      description: 'Arrive at destination, hotel check-in, and explore iconic landmarks and local scenic attractions.',
-      places: 'Ooty Lake & Boathouse, Government Botanical Garden',
-      activities: 'Speed Boating, Botanical Walk, Photography',
-      startTime: '09:30 AM',
-      endTime: '06:00 PM',
-      imageUrl: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=800&auto=format&fit=crop&q=80',
-      imageUrls: ['https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=800&auto=format&fit=crop&q=80'],
-      hotelName: 'Heritage Hill Resort / Sterling Ooty',
-      mealPlan: 'Dinner Included',
-      notes: 'Evening free for local shopping and market stroll.',
-    },
-    {
-      dayNumber: 2,
-      title: 'Day 2: Viewpoints & Pristine Nature',
-      description: 'Morning panoramic mountain viewpoints followed by pristine waterfalls and lakeside landscapes.',
-      places: 'Doddabetta Peak, Pykara Waterfalls & Lake',
-      activities: 'Telescope House viewing, Pine forest stroll, Pykara boating',
-      startTime: '09:00 AM',
-      endTime: '05:30 PM',
-      imageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&auto=format&fit=crop&q=80',
-      imageUrls: ['https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&auto=format&fit=crop&q=80'],
-      hotelName: 'Heritage Hill Resort / Sterling Ooty',
-      mealPlan: 'Breakfast & Dinner Included',
-      notes: 'Carry light woolens for mountain winds.',
-    },
-  ]);
-
+  // Day-wise Builder State - Clean single Day 1 to start
+  const [days, setDays] = useState<ItineraryDayPlan[]>([createFreshDay(1)]);
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -196,8 +193,18 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
 
       const aiPlaces: DestinationPlaceItem[] = aiRes.data?.places || [];
       const customPlaces: DestinationPlaceItem[] = customRes.data?.places || [];
-      const mPlaces: any[] = placesRes.data?.places || [];
-      const mHotels: any[] = hotelsRes.data?.hotels || [];
+      let mPlaces: any[] = placesRes.data?.places || [];
+      let mHotels: any[] = hotelsRes.data?.hotels || [];
+
+      // If district has no registered master places/hotels, fallback to state-level
+      if (mPlaces.length === 0 && district) {
+        const fallbackRes = await api.get(`/places?state=${encodeURIComponent(state)}`).catch(() => ({ data: { places: [] } }));
+        mPlaces = fallbackRes.data?.places || [];
+      }
+      if (mHotels.length === 0 && district) {
+        const fallbackHotelRes = await api.get(`/hotels?state=${encodeURIComponent(state)}`).catch(() => ({ data: { hotels: [] } }));
+        mHotels = fallbackHotelRes.data?.hotels || [];
+      }
 
       setMasterPlaces(mPlaces);
       setMasterHotels(mHotels);
@@ -222,7 +229,11 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
             suggestedDuration: p.suggestedDuration || '2 Hours',
             distanceFromCenter: p.distanceFromCenter,
             imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
-            activities: p.activities ? (typeof p.activities === 'string' ? p.activities.split(',').map((a: string) => a.trim()) : p.activities) : ['Sightseeing', 'Photography'],
+            activities: p.activities
+              ? (typeof p.activities === 'string'
+                  ? p.activities.split(',').map((a: string) => a.trim()).filter(Boolean)
+                  : p.activities)
+              : ['Sightseeing', 'Photography'],
           });
         }
       });
@@ -236,6 +247,13 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (isOpen && selectedState && selectedDistrict) {
+      loadPlacesForLocation(selectedState, selectedDistrict);
+    }
+  }, [isOpen, selectedState, selectedDistrict]);
+
+  // 1-Click Assign Hotel from Master Library
   const handleAssignMasterHotel = (hotel: any) => {
     const updated = [...days];
     const curDay = updated[activeDayIndex];
@@ -246,83 +264,178 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
     curDay.hotelLocation = hotel.city || hotel.district || hotel.address || undefined;
     curDay.mealPlan = curDay.mealPlan || 'Breakfast & Dinner (MAP)';
     setDays(updated);
-    notifySuccess('Hotel Assigned!', `Assigned ${hotel.name} to Day ${activeDayIndex + 1}.`);
+    notifySuccess('Hotel Assigned!', `Assigned ${hotel.name} (${curDay.hotelStarCategory}) to Day ${curDay.dayNumber}.`);
   };
 
+  // Add Custom Hotel
+  const handleAssignCustomHotel = () => {
+    if (!customHotelName.trim()) {
+      notifyWarning('Validation', 'Please enter a hotel name.');
+      return;
+    }
+    const updated = [...days];
+    const curDay = updated[activeDayIndex];
+    if (!curDay) return;
+    curDay.hotelName = customHotelName.trim();
+    curDay.hotelStarCategory = customHotelStar;
+    curDay.hotelLocation = customHotelCity.trim() || selectedDistrict;
+    curDay.mealPlan = customHotelMealPlan;
+    curDay.hotelImageUrl = customHotelImage.trim() || undefined;
+    setDays(updated);
+
+    // Reset and close
+    setCustomHotelName('');
+    setCustomHotelCity('');
+    setCustomHotelImage('');
+    setIsCustomHotelOpen(false);
+    notifySuccess('Custom Hotel Assigned!', `Assigned ${curDay.hotelName} to Day ${curDay.dayNumber}.`);
+  };
+
+  // Remove Hotel from active day
+  const handleRemoveHotel = () => {
+    const updated = [...days];
+    const curDay = updated[activeDayIndex];
+    if (!curDay) return;
+    curDay.hotelName = '';
+    curDay.hotelStarCategory = '';
+    curDay.hotelImageUrl = '';
+    curDay.hotelLocation = '';
+    setDays(updated);
+  };
+
+  // 1-Click Add Place from Master Library: Automatically appends Place Name, Description, Activities & Photos
   const handleAddMasterPlace = (place: any) => {
     const updated = [...days];
     const curDay = updated[activeDayIndex];
     if (!curDay) return;
 
-    const currentPlaces = curDay.places ? curDay.places.split(',').map((p) => p.trim()) : [];
-    if (!currentPlaces.includes(place.name)) {
+    // 1. Append Place Name
+    const currentPlaces = curDay.places ? curDay.places.split(',').map((p) => p.trim()).filter(Boolean) : [];
+    if (!currentPlaces.some((p) => p.toLowerCase() === place.name.toLowerCase())) {
       currentPlaces.push(place.name);
       curDay.places = currentPlaces.join(', ');
     }
 
+    // 2. Intelligently Append Place Description (User Requirement: descriptions must be auto-added)
+    const placeDesc = (place.description || place.famousReason || '').trim();
+    if (placeDesc) {
+      if (!curDay.description || curDay.description.trim() === '') {
+        curDay.description = `${place.name}: ${placeDesc}`;
+      } else if (!curDay.description.toLowerCase().includes(place.name.toLowerCase())) {
+        curDay.description = `${curDay.description.trim()}\n\n• ${place.name}: ${placeDesc}`;
+      }
+    }
+
+    // 3. Auto-suggest title if default or empty
+    if (
+      !curDay.title ||
+      curDay.title.includes('Sightseeing & Exploration') ||
+      (curDay.title.startsWith('Day ') && curDay.title.length < 12)
+    ) {
+      curDay.title = `Day ${curDay.dayNumber}: ${currentPlaces.slice(0, 2).join(' & ')} Sightseeing`;
+    }
+
+    // 4. Auto-append Activities
     if (place.activities) {
-      const actList = typeof place.activities === 'string' ? place.activities.split(',').map((a: string) => a.trim()) : place.activities;
-      const currentActs = curDay.activities ? curDay.activities.split(',').map((a) => a.trim()) : [];
+      const actList = typeof place.activities === 'string'
+        ? place.activities.split(/[,;•]+/).map((a: string) => a.trim()).filter(Boolean)
+        : (Array.isArray(place.activities) ? place.activities : []);
+      const currentActs = curDay.activities
+        ? curDay.activities.split(/[,;•]+/).map((a) => a.trim()).filter(Boolean)
+        : [];
       actList.forEach((act: string) => {
-        if (!currentActs.includes(act)) currentActs.push(act);
+        if (!currentActs.some((a) => a.toLowerCase() === act.toLowerCase())) {
+          currentActs.push(act);
+        }
       });
       curDay.activities = currentActs.join(', ');
     }
 
+    // 5. Append Photo
     if (place.imageUrl) {
-      const existing = curDay.imageUrls || (curDay.imageUrl ? [curDay.imageUrl] : []);
+      const existing = curDay.imageUrls && curDay.imageUrls.length > 0
+        ? [...curDay.imageUrls]
+        : (curDay.imageUrl ? [curDay.imageUrl] : []);
       if (!existing.includes(place.imageUrl)) {
-        curDay.imageUrls = [...existing, place.imageUrl];
+        existing.push(place.imageUrl);
       }
+      curDay.imageUrls = existing;
       if (!curDay.imageUrl) curDay.imageUrl = place.imageUrl;
     }
 
     setDays(updated);
-    notifySuccess('Place Added!', `Added ${place.name} to Day ${activeDayIndex + 1}.`);
+    notifySuccess('Place Added!', `Added "${place.name}" with full description and photos to Day ${curDay.dayNumber}.`);
   };
 
-  useEffect(() => {
-    if (selectedState && selectedDistrict) {
-      loadPlacesForLocation(selectedState, selectedDistrict);
-    }
-  }, [selectedState, selectedDistrict]);
-
-  if (!isOpen) return null;
-
-  // Add place to active day
+  // Add place from AI / Catalog Card
   const handleAddPlaceToDay = (place: DestinationPlaceItem) => {
     const updated = [...days];
-    const currentDay = updated[activeDayIndex];
-    if (!currentDay) return;
+    const curDay = updated[activeDayIndex];
+    if (!curDay) return;
 
-    // Append place name
-    const currentPlaces = currentDay.places ? currentDay.places.split(',').map((p) => p.trim()) : [];
-    if (!currentPlaces.includes(place.name)) {
+    // 1. Append Place Name
+    const currentPlaces = curDay.places ? curDay.places.split(',').map((p) => p.trim()).filter(Boolean) : [];
+    if (!currentPlaces.some((p) => p.toLowerCase() === place.name.toLowerCase())) {
       currentPlaces.push(place.name);
-      currentDay.places = currentPlaces.join(', ');
+      curDay.places = currentPlaces.join(', ');
     }
 
-    // Append activities
+    // 2. Append Description
+    const placeDesc = (place.famousReason || '').trim();
+    if (placeDesc) {
+      if (!curDay.description || curDay.description.trim() === '') {
+        curDay.description = `${place.name}: ${placeDesc}`;
+      } else if (!curDay.description.toLowerCase().includes(place.name.toLowerCase())) {
+        curDay.description = `${curDay.description.trim()}\n\n• ${place.name}: ${placeDesc}`;
+      }
+    }
+
+    // 3. Auto-suggest title
+    if (
+      !curDay.title ||
+      curDay.title.includes('Sightseeing & Exploration') ||
+      (curDay.title.startsWith('Day ') && curDay.title.length < 12)
+    ) {
+      curDay.title = `Day ${curDay.dayNumber}: ${currentPlaces.slice(0, 2).join(' & ')} Sightseeing`;
+    }
+
+    // 4. Append Activities
     if (place.activities && place.activities.length > 0) {
-      const currentActs = currentDay.activities ? currentDay.activities.split(',').map((a) => a.trim()) : [];
+      const currentActs = curDay.activities
+        ? curDay.activities.split(/[,;•]+/).map((a) => a.trim()).filter(Boolean)
+        : [];
       place.activities.forEach((act) => {
-        if (!currentActs.includes(act)) {
+        if (!currentActs.some((a) => a.toLowerCase() === act.toLowerCase())) {
           currentActs.push(act);
         }
       });
-      currentDay.activities = currentActs.join(', ');
+      curDay.activities = currentActs.join(', ');
     }
 
+    // 5. Append Photo
     if (place.imageUrl) {
-      const existing = currentDay.imageUrls || (currentDay.imageUrl ? [currentDay.imageUrl] : []);
+      const existing = curDay.imageUrls && curDay.imageUrls.length > 0
+        ? [...curDay.imageUrls]
+        : (curDay.imageUrl ? [curDay.imageUrl] : []);
       if (!existing.includes(place.imageUrl)) {
-        currentDay.imageUrls = [...existing, place.imageUrl];
+        existing.push(place.imageUrl);
       }
-      if (!currentDay.imageUrl) {
-        currentDay.imageUrl = place.imageUrl;
-      }
+      curDay.imageUrls = existing;
+      if (!curDay.imageUrl) curDay.imageUrl = place.imageUrl;
     }
 
+    setDays(updated);
+    notifySuccess('Place Added!', `Added "${place.name}" with description to Day ${curDay.dayNumber}.`);
+  };
+
+  // Remove individual place chip
+  const handleRemovePlaceChip = (placeName: string) => {
+    const updated = [...days];
+    const curDay = updated[activeDayIndex];
+    if (!curDay) return;
+    const currentPlaces = curDay.places ? curDay.places.split(',').map((p) => p.trim()).filter(Boolean) : [];
+    const filtered = currentPlaces.filter((p) => p.toLowerCase() !== placeName.toLowerCase());
+    curDay.places = filtered.join(', ');
     setDays(updated);
   };
 
@@ -347,7 +460,10 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
 
   // Add custom place and save to DB
   const handleAddCustomPlace = async () => {
-    if (!customPlaceName.trim()) return;
+    if (!customPlaceName.trim()) {
+      notifyWarning('Validation', 'Please enter a place name.');
+      return;
+    }
 
     setIsSavingCustomPlace(true);
     try {
@@ -359,17 +475,15 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
         suggestedDuration: customPlaceDuration || '2 Hours',
         imageUrl: customPlaceImage.trim() || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
         activities: customPlaceActivities
-          ? customPlaceActivities.split(',').map((a) => a.trim())
+          ? customPlaceActivities.split(',').map((a) => a.trim()).filter(Boolean)
           : ['Sightseeing', 'Photography'],
       };
 
       const res = await api.post('/packages/destinations/places', payload);
       const savedPlace: DestinationPlaceItem = res.data?.place || { ...payload, id: String(Date.now()) };
 
-      // Add to local state
+      // Add to local state & select for active day
       setDestinationCards((prev) => [savedPlace, ...prev]);
-
-      // Add directly to current day plan
       handleAddPlaceToDay(savedPlace);
 
       // Reset form
@@ -389,16 +503,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
   // Day operations
   const handleAddDay = () => {
     const nextNum = days.length + 1;
-    const newDay: ItineraryDayPlan = {
-      dayNumber: nextNum,
-      title: `Day ${nextNum}: Sightseeing & Exploration`,
-      description: `Comprehensive full-day curated exploration around ${selectedDistrict}.`,
-      places: '',
-      activities: '',
-      startTime: '09:00 AM',
-      endTime: '06:00 PM',
-      notes: '',
-    };
+    const newDay = createFreshDay(nextNum);
     setDays([...days, newDay]);
     setActiveDayIndex(days.length);
   };
@@ -464,9 +569,26 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
     setActiveDayIndex(index + 1);
   };
 
-  // Save to CRM Database as Package
+  // Reset entire form to clean state
+  const handleResetItinerary = async () => {
+    const confirmed = await confirmAction({
+      title: 'Reset Itinerary?',
+      text: 'This will clear all entered days and restart with a clean Day 1. Are you sure?',
+      confirmText: 'Yes, Reset',
+    });
+    if (confirmed) {
+      setTripTitle('');
+      setApproxPrice('');
+      setDays([createFreshDay(1)]);
+      setActiveDayIndex(0);
+      notifySuccess('Reset Complete', 'Itinerary builder reset to clean Day 1.');
+    }
+  };
+
+  // Save to CRM Database as Package with ALL Day Itinerary & Hotel Fields
   const handleSaveToDatabase = async () => {
     try {
+      const finalTitle = tripTitle.trim() || `${selectedDistrict} Custom Tour`;
       setIsSaving(true);
       const durationStr = `${days.length} Days / ${Math.max(1, days.length - 1)} Nights`;
 
@@ -481,7 +603,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
       });
 
       const payload = {
-        packageName: tripTitle.trim() || `${selectedDistrict} Custom Itinerary`,
+        packageName: finalTitle,
         destination: selectedDistrict,
         duration: durationStr,
         description: `Custom curated itinerary for ${selectedDistrict}, ${selectedState} covering ${days.length} days of sightseeing and activities.`,
@@ -493,14 +615,20 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
           const allPhotos = d.imageUrls && d.imageUrls.length > 0 ? d.imageUrls : (d.imageUrl ? [d.imageUrl] : []);
           return {
             dayNumber: Number(d.dayNumber) || (idx + 1),
-            title: d.title,
-            description: d.description,
-            places: d.places,
-            activities: d.activities,
-            startTime: d.startTime,
-            endTime: d.endTime,
+            title: d.title || `Day ${idx + 1}: Sightseeing`,
+            description: d.description || '',
+            places: d.places || '',
+            activities: d.activities || '',
+            startTime: d.startTime || '09:00 AM',
+            endTime: d.endTime || '06:00 PM',
             imageUrl: allPhotos[0] || null,
             images: allPhotos.length > 0 ? JSON.stringify(allPhotos) : null,
+            hotelName: d.hotelName || null,
+            hotelStarCategory: d.hotelStarCategory || null,
+            hotelImageUrl: d.hotelImageUrl || null,
+            hotelLocation: d.hotelLocation || null,
+            mealPlan: d.mealPlan || null,
+            hotelDetails: d.notes || null,
           };
         }),
       };
@@ -519,7 +647,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
   // Dedicated Print handler via isolated iframe
   const handlePrint = async () => {
     await printElement('itinerary-document', {
-      title: tripTitle || 'Custom Tour Itinerary',
+      title: tripTitle || `${selectedDistrict} Custom Tour Itinerary`,
     });
   };
 
@@ -527,7 +655,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
   const handleDownloadPdf = async () => {
     try {
       setIsGeneratingPdf(true);
-      const cleanTitle = tripTitle.replace(/[^a-zA-Z0-9]/g, '_');
+      const cleanTitle = (tripTitle || `${selectedDistrict}_Custom_Itinerary`).replace(/[^a-zA-Z0-9]/g, '_');
       notifySuccess('Opening Print Process', 'Select "Save as PDF" in the print window to download with perfect alignment.');
       await printElement('itinerary-document', {
         title: `Itinerary_${cleanTitle}_${selectedDistrict.replace(/[^a-zA-Z0-9]/g, '_')}`,
@@ -540,17 +668,24 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
     }
   };
 
+  if (!isOpen) return null;
+
+  const curActiveDay = days[activeDayIndex] || days[0];
+  const curDayPlacesList = curActiveDay?.places
+    ? curActiveDay.places.split(',').map((p) => p.trim()).filter(Boolean)
+    : [];
+
   return (
     <>
       <Modal
         isOpen={isOpen}
         onClose={onClose}
         title="Custom Destination & Day-Wise Itinerary Builder"
-        subtitle="Select State -> District -> Pick Famous Places & Activities -> Export Clean A4 PDF"
+        subtitle="Curate clean day-by-day itineraries with Place Master, Hotel Master & Custom spots"
         maxWidth="4xl"
       >
         <div className="space-y-4 text-xs">
-          {/* Top Mode Tabs & Controls */}
+          {/* Top Navigation & Action Controls */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <button
@@ -576,11 +711,23 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>Preview & A4 PDF Export</span>
+                <span>Preview & PDF Export</span>
               </button>
             </div>
 
             <div className="flex items-center gap-2">
+              {activeView === 'builder' && (
+                <button
+                  type="button"
+                  onClick={handleResetItinerary}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-semibold hover:bg-slate-300 transition-colors cursor-pointer"
+                  title="Clear all fields and restart with fresh Day 1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Start Fresh</span>
+                </button>
+              )}
+
               {activeView === 'preview' && (
                 <>
                   <button
@@ -589,7 +736,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-bold shadow-xs transition-colors cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5 text-[#C91F28]" />
-                    <span>Print Itinerary</span>
+                    <span>Print</span>
                   </button>
 
                   <button
@@ -604,7 +751,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                     ) : (
                       <Download className="w-3.5 h-3.5 text-amber-400" />
                     )}
-                    <span>{isGeneratingPdf ? 'Preparing Print...' : 'Download Itinerary PDF'}</span>
+                    <span>{isGeneratingPdf ? 'Preparing...' : 'Download PDF'}</span>
                   </button>
                 </>
               )}
@@ -623,42 +770,46 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
 
           {activeView === 'builder' ? (
             <div className="space-y-4">
-              {/* Location Selector: State -> District */}
-                <div className="space-y-3">
-                  <LocationSelector
-                    selectedState={selectedState}
-                    selectedDistrict={selectedDistrict}
-                    onStateChange={(s) => setSelectedState(s)}
-                    onDistrictChange={(d) => setSelectedDistrict(d)}
-                    showPlace={false}
-                  />
+              {/* Tour Basic Details: Location, Title & Pricing */}
+              <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <LocationSelector
+                  selectedState={selectedState}
+                  selectedDistrict={selectedDistrict}
+                  onStateChange={(s) => setSelectedState(s)}
+                  onDistrictChange={(d) => setSelectedDistrict(d)}
+                  showPlace={false}
+                />
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    <div>
-                      <label className="font-semibold text-slate-700 dark:text-slate-300">Tour Title</label>
-                      <input
-                        type="text"
-                        value={tripTitle}
-                        onChange={(e) => setTripTitle(e.target.value)}
-                        placeholder="e.g. Scenic Hill Station Holiday"
-                        className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                      />
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                      Tour Package Title <span className="text-slate-400 font-normal">(optional - defaults to district tour)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={tripTitle}
+                      onChange={(e) => setTripTitle(e.target.value)}
+                      placeholder={`e.g. Royal ${selectedDistrict || 'South India'} Explorer`}
+                      className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="font-semibold text-slate-700 dark:text-slate-300">Estimated Price (₹)</label>
-                      <input
-                        type="number"
-                        value={approxPrice}
-                        onChange={(e) => setApproxPrice(e.target.value)}
-                        placeholder="e.g. 25000"
-                        className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none font-bold"
-                      />
-                    </div>
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                      Estimated Package Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={approxPrice}
+                      onChange={(e) => setApproxPrice(e.target.value)}
+                      placeholder="e.g. 24999"
+                      className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none font-bold"
+                    />
                   </div>
                 </div>
+              </div>
 
-              {/* Destination Catalog, Master Data & AI Suggestions */}
+              {/* Destination Catalog, Places Master & Hotels Master */}
               <div className="p-3.5 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
                 {/* Catalog Navigation Tabs & Actions */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
@@ -725,7 +876,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       ) : (
                         <Sparkles className="w-3 h-3" />
                       )}
-                      <span>{isAiLoading ? 'Analyzing...' : 'Refresh Data'}</span>
+                      <span>{isAiLoading ? 'Analyzing...' : 'Refresh'}</span>
                     </button>
 
                     <button
@@ -735,6 +886,15 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                     >
                       <Plus className="w-3 h-3 text-[#C91F28]" />
                       <span>+ Custom Place</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomHotelOpen(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-emerald-700 dark:text-emerald-300 font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 text-emerald-600" />
+                      <span>+ Custom Hotel</span>
                     </button>
                   </div>
                 </div>
@@ -802,7 +962,8 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleAddMasterPlace(place)}
-                                  className="px-2 py-0.5 bg-[#C91F28] hover:bg-[#a81920] text-white text-[10px] font-bold rounded-md transition-colors cursor-pointer"
+                                  className="px-2.5 py-1 bg-[#C91F28] hover:bg-[#a81920] text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer shadow-2xs"
+                                  title="Add place name, description, activities & photo to Day"
                                 >
                                   + Add to Day {activeDayIndex + 1}
                                 </button>
@@ -824,7 +985,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           No hotels registered in master database for {selectedDistrict || selectedState}.
                         </p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Hotels can be registered under Master Data &gt; Hotels.
+                          Click "+ Custom Hotel" above to enter a custom stay for Day {activeDayIndex + 1}.
                         </p>
                       </div>
                     ) : (
@@ -878,7 +1039,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleAssignMasterHotel(hotel)}
-                                  className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-md transition-colors cursor-pointer"
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer shadow-2xs"
                                 >
                                   🏨 Assign to Day {activeDayIndex + 1}
                                 </button>
@@ -890,7 +1051,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                   </div>
                 )}
 
-                {/* Tab 3: AI & Famous Places Content */}
+                {/* Tab 3: AI & Curated Places */}
                 {activeCatalogTab === 'ai' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto pr-1">
                     {destinationCards
@@ -954,7 +1115,8 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleAddPlaceToDay(place)}
-                              className="px-2 py-0.5 bg-[#C91F28] hover:bg-[#a81920] text-white text-[10px] font-bold rounded-md transition-colors cursor-pointer"
+                              className="px-2.5 py-1 bg-[#C91F28] hover:bg-[#a81920] text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer shadow-2xs"
+                              title="Add place name, description, activities & photo to Day"
                             >
                               + Add to Day {activeDayIndex + 1}
                             </button>
@@ -967,10 +1129,11 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
 
               {/* Custom Place Modal Form */}
               {isCustomPlaceOpen && (
-                <div className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 space-y-3">
+                <div className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 space-y-3 shadow-md">
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
-                    <span className="font-bold text-slate-900 dark:text-white text-xs">
-                      + Add New Custom Tourist Place (Saved to CRM Database)
+                    <span className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                      <Plus className="w-4 h-4 text-[#C91F28]" />
+                      <span>Add New Custom Tourist Place (Will auto-add description to Day {activeDayIndex + 1})</span>
                     </span>
                     <button
                       type="button"
@@ -1005,7 +1168,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                     <div className="sm:col-span-2">
                       <input
                         type="text"
-                        placeholder="Description / Why it is famous"
+                        placeholder="Description / Sightseeing details (automatically added to Day description)"
                         value={customPlaceDesc}
                         onChange={(e) => setCustomPlaceDesc(e.target.value)}
                         className="w-full p-2 border rounded-lg text-xs dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
@@ -1032,22 +1195,110 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                 </div>
               )}
 
-              {/* Day-Wise Organizer */}
+              {/* Custom Hotel Modal Form */}
+              {isCustomHotelOpen && (
+                <div className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 space-y-3 shadow-md">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
+                    <span className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                      <HotelIcon className="w-4 h-4 text-emerald-600" />
+                      <span>Add Custom Hotel Stay for Day {activeDayIndex + 1}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomHotelOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <input
+                      type="text"
+                      placeholder="Hotel Name (e.g. Royal Orchid Resort)"
+                      value={customHotelName}
+                      onChange={(e) => setCustomHotelName(e.target.value)}
+                      className="p-2 border rounded-lg text-xs dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                    />
+                    <select
+                      value={customHotelStar}
+                      onChange={(e) => setCustomHotelStar(e.target.value)}
+                      className="p-2 border rounded-lg text-xs dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                    >
+                      <option value="3 Star">3 Star Comfort</option>
+                      <option value="4 Star">4 Star Premium</option>
+                      <option value="5 Star">5 Star Luxury</option>
+                      <option value="Resort">Resort & Spa</option>
+                      <option value="Homestay">Heritage Homestay</option>
+                      <option value="Budget">Budget Stay</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Location / City (e.g. Near Lake)"
+                      value={customHotelCity}
+                      onChange={(e) => setCustomHotelCity(e.target.value)}
+                      className="p-2 border rounded-lg text-xs dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                    />
+                    <div>
+                      <select
+                        value={customHotelMealPlan}
+                        onChange={(e) => setCustomHotelMealPlan(e.target.value)}
+                        className="w-full p-2 border rounded-lg text-xs dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                      >
+                        <option value="Breakfast & Dinner (MAP)">Breakfast & Dinner (MAP)</option>
+                        <option value="Breakfast Included (CP)">Breakfast Included (CP)</option>
+                        <option value="All Meals Included (AP)">All Meals (Breakfast, Lunch, Dinner - AP)</option>
+                        <option value="Room Only (EP)">Room Only (EP)</option>
+                        <option value="Dinner Only">Dinner Only</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <input
+                        type="text"
+                        placeholder="Hotel Photo URL (optional)"
+                        value={customHotelImage}
+                        onChange={(e) => setCustomHotelImage(e.target.value)}
+                        className="w-full p-2 border rounded-lg text-xs dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                      />
+                    </div>
+                    <div className="sm:col-span-3 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomHotelOpen(false)}
+                        className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAssignCustomHotel}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                      >
+                        Assign Hotel to Day {activeDayIndex + 1}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Day-Wise Organizer Tabs */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-[80%]">
                     {days.map((d, index) => (
                       <button
                         key={d.dayNumber}
                         type="button"
                         onClick={() => setActiveDayIndex(index)}
-                        className={`px-3 py-1.5 rounded-xl font-bold transition-all text-xs flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl font-bold transition-all text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                           activeDayIndex === index
                             ? 'bg-[#C91F28] text-white shadow-xs'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                         }`}
                       >
                         <span>Day {d.dayNumber}</span>
+                        {d.places && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -1057,37 +1308,39 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                     onClick={handleAddDay}
                     className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-1 flex-shrink-0 cursor-pointer shadow-xs"
                   >
-                    <Plus className="w-3 h-3" />
-                    <span>Add Day</span>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Add Day</span>
                   </button>
                 </div>
 
-                {/* Active Day Detail Form */}
-                {days[activeDayIndex] && (
-                  <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                {/* Active Day Detail Form (Matches Main Itinerary Standards) */}
+                {curActiveDay && (
+                  <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
+                    {/* Day Header & Move/Copy/Delete Controls */}
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 bg-[#C91F28] text-white text-[11px] font-black rounded-lg">
-                          Day {days[activeDayIndex].dayNumber}
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="px-2.5 py-1 bg-[#C91F28] text-white text-[11px] font-black rounded-lg shrink-0">
+                          Day {curActiveDay.dayNumber}
                         </span>
                         <input
                           type="text"
-                          value={days[activeDayIndex].title}
+                          value={curActiveDay.title}
                           onChange={(e) => {
                             const u = [...days];
                             u[activeDayIndex].title = e.target.value;
                             setDays(u);
                           }}
-                          className="font-bold text-sm text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 focus:border-[#C91F28] focus:outline-none w-72"
+                          placeholder={`Day ${curActiveDay.dayNumber}: Sightseeing & Exploration`}
+                          className="font-bold text-sm text-slate-900 dark:text-white bg-transparent border-b border-slate-200 dark:border-slate-700 hover:border-slate-400 focus:border-[#C91F28] focus:outline-none w-full max-w-md py-0.5"
                         />
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => handleMoveDay(activeDayIndex, 'up')}
                           disabled={activeDayIndex === 0}
-                          className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
+                          className="p-1.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
                           title="Move Day Up"
                         >
                           <ChevronUp className="w-4 h-4" />
@@ -1096,7 +1349,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           type="button"
                           onClick={() => handleMoveDay(activeDayIndex, 'down')}
                           disabled={activeDayIndex === days.length - 1}
-                          className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
+                          className="p-1.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
                           title="Move Day Down"
                         >
                           <ChevronDown className="w-4 h-4" />
@@ -1104,7 +1357,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleCopyDay(activeDayIndex)}
-                          className="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 cursor-pointer"
+                          className="p-1.5 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 cursor-pointer"
                           title="Copy / Duplicate Day"
                         >
                           <Copy className="w-4 h-4" />
@@ -1112,7 +1365,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleRemoveDay(activeDayIndex)}
-                          className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                          className="p-1.5 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
                           title="Remove Day"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1120,101 +1373,233 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="font-semibold text-slate-700 dark:text-slate-300">
-                          Places & Sightseeing Spots
+                    {/* Places Covered & Place Chips */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#C91F28]" />
+                          <span>Places & Attractions Covered</span>
                         </label>
-                        <input
-                          type="text"
-                          value={days[activeDayIndex].places}
-                          onChange={(e) => {
-                            const u = [...days];
-                            u[activeDayIndex].places = e.target.value;
-                            setDays(u);
-                          }}
-                          placeholder="e.g. Ooty Lake, Botanical Garden"
-                          className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                        />
+                        <span className="text-[11px] text-slate-400">
+                          Click "+ Add to Day" in catalog above to add places with auto-description
+                        </span>
                       </div>
 
-                      <div>
-                        <label className="font-semibold text-slate-700 dark:text-slate-300">
-                          Activities & Excursions
-                        </label>
-                        <input
-                          type="text"
-                          value={days[activeDayIndex].activities}
-                          onChange={(e) => {
-                            const u = [...days];
-                            u[activeDayIndex].activities = e.target.value;
-                            setDays(u);
-                          }}
-                          placeholder="e.g. Boating, Guided Walk"
-                          className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                        />
-                      </div>
+                      {/* Removable Place Chips */}
+                      {curDayPlacesList.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2 p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                          {curDayPlacesList.map((placeName, pIdx) => (
+                            <span
+                              key={pIdx}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 rounded-lg text-xs font-semibold border border-red-200 dark:border-red-800 shadow-2xs"
+                            >
+                              <MapPin className="w-3 h-3 text-[#C91F28]" />
+                              <span>{placeName}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePlaceChip(placeName)}
+                                className="ml-1 text-red-500 hover:text-red-700 dark:hover:text-red-200 cursor-pointer"
+                                title={`Remove ${placeName}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <input
+                        type="text"
+                        value={curActiveDay.places}
+                        onChange={(e) => {
+                          const u = [...days];
+                          u[activeDayIndex].places = e.target.value;
+                          setDays(u);
+                        }}
+                        placeholder="e.g. Lalbagh Botanical Garden, Bangalore Palace, Vidhana Soudha"
+                        className="w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                      />
                     </div>
 
+                    {/* Day Description & Sightseeing Schedule */}
                     <div>
-                      <label className="font-semibold text-slate-700 dark:text-slate-300">
-                        Day Description & Schedule
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Day Description & Sightseeing Schedule</span>
+                        </label>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          <span>Descriptions auto-accumulate as you select places</span>
+                        </span>
+                      </div>
                       <textarea
-                        rows={2}
-                        value={days[activeDayIndex].description}
+                        rows={4}
+                        value={curActiveDay.description}
                         onChange={(e) => {
                           const u = [...days];
                           u[activeDayIndex].description = e.target.value;
                           setDays(u);
                         }}
-                        className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                        placeholder="Detailed itinerary schedule for the day (e.g. • Lalbagh: Explore 240-acre garden with glass house... • Bangalore Palace: Grand Tudor-style royal residence...)"
+                        className="w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none font-sans leading-relaxed"
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="font-semibold text-slate-700 dark:text-slate-300">
-                          Hotel / Stay Accommodation
+                    {/* Hotel / Stay Accommodation Card */}
+                    <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                          <HotelIcon className="w-4 h-4 text-amber-600" />
+                          <span>Hotel / Stay Accommodation</span>
+                        </label>
+
+                        {curActiveDay.hotelName && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveHotel}
+                            className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold cursor-pointer"
+                          >
+                            Remove Hotel
+                          </button>
+                        )}
+                      </div>
+
+                      {curActiveDay.hotelName ? (
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-amber-200 dark:border-slate-700">
+                          <div className="flex items-center gap-2.5">
+                            {curActiveDay.hotelImageUrl ? (
+                              <img
+                                src={curActiveDay.hotelImageUrl}
+                                alt={curActiveDay.hotelName}
+                                className="w-12 h-12 object-cover rounded-lg border border-slate-200"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 bg-amber-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-amber-700">
+                                <HotelIcon className="w-6 h-6" />
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-bold text-slate-900 dark:text-white text-xs block">
+                                {curActiveDay.hotelName}
+                              </span>
+                              <span className="text-[11px] text-amber-600 font-semibold block">
+                                ⭐ {curActiveDay.hotelStarCategory || '3 Star'} • {curActiveDay.hotelLocation || selectedDistrict}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="w-full sm:w-auto">
+                            <label className="text-[10px] text-slate-500 font-medium block mb-0.5">Meal Plan</label>
+                            <select
+                              value={curActiveDay.mealPlan || 'Breakfast & Dinner (MAP)'}
+                              onChange={(e) => {
+                                const u = [...days];
+                                u[activeDayIndex].mealPlan = e.target.value;
+                                setDays(u);
+                              }}
+                              className="p-1 text-xs border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                            >
+                              <option value="Breakfast & Dinner (MAP)">Breakfast & Dinner (MAP)</option>
+                              <option value="Breakfast Included (CP)">Breakfast Included (CP)</option>
+                              <option value="All Meals Included (AP)">All Meals (AP)</option>
+                              <option value="Room Only (EP)">Room Only (EP)</option>
+                              <option value="Dinner Only">Dinner Only</option>
+                            </select>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={curActiveDay.hotelName || ''}
+                            onChange={(e) => {
+                              const u = [...days];
+                              u[activeDayIndex].hotelName = e.target.value;
+                              setDays(u);
+                            }}
+                            placeholder="Type hotel name or choose from master above..."
+                            className="p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-xs"
+                          />
+                          <select
+                            value={curActiveDay.mealPlan || 'Breakfast & Dinner (MAP)'}
+                            onChange={(e) => {
+                              const u = [...days];
+                              u[activeDayIndex].mealPlan = e.target.value;
+                              setDays(u);
+                            }}
+                            className="p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-xs"
+                          >
+                            <option value="Breakfast & Dinner (MAP)">Breakfast & Dinner (MAP)</option>
+                            <option value="Breakfast Included (CP)">Breakfast Included (CP)</option>
+                            <option value="All Meals Included (AP)">All Meals Included (AP)</option>
+                            <option value="Room Only (EP)">Room Only (EP)</option>
+                            <option value="Dinner Only">Dinner Only</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Activities & Schedule Timing */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1 mb-1">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Activities & Excursions</span>
                         </label>
                         <input
                           type="text"
-                          value={days[activeDayIndex].hotelName || ''}
+                          value={curActiveDay.activities}
                           onChange={(e) => {
                             const u = [...days];
-                            u[activeDayIndex].hotelName = e.target.value;
+                            u[activeDayIndex].activities = e.target.value;
                             setDays(u);
                           }}
-                          placeholder="e.g. 4-Star Mountain Resort / Sterling Ooty"
-                          className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
+                          placeholder="e.g. Guided palace tour, Botanical walk, Photography, Shopping"
+                          className="w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl text-xs focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="font-semibold text-slate-700 dark:text-slate-300">
-                          Meal Plan Included
+                        <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1 mb-1">
+                          <Clock className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Tour Timings</span>
                         </label>
-                        <input
-                          type="text"
-                          value={days[activeDayIndex].mealPlan || ''}
-                          onChange={(e) => {
-                            const u = [...days];
-                            u[activeDayIndex].mealPlan = e.target.value;
-                            setDays(u);
-                          }}
-                          placeholder="e.g. Breakfast & Dinner Included"
-                          className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
-                        />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={curActiveDay.startTime}
+                            onChange={(e) => {
+                              const u = [...days];
+                              u[activeDayIndex].startTime = e.target.value;
+                              setDays(u);
+                            }}
+                            placeholder="09:00 AM"
+                            className="p-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-center"
+                          />
+                          <input
+                            type="text"
+                            value={curActiveDay.endTime}
+                            onChange={(e) => {
+                              const u = [...days];
+                              u[activeDayIndex].endTime = e.target.value;
+                              setDays(u);
+                            }}
+                            placeholder="06:00 PM"
+                            className="p-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-center"
+                          />
+                        </div>
                       </div>
                     </div>
 
+                    {/* Day Photos & Gallery Uploader */}
                     <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                       <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
-                        Day Photos & Gallery (Aspect ratio: 5:8 Portrait recommended, zero-crop proportional display)
+                        Day Landmark Photos & Gallery (Photos from places appear here automatically)
                       </label>
                       <ProfessionalImageUploader
                         category="ITINERARY_DAY"
-                        images={days[activeDayIndex].imageUrls || (days[activeDayIndex].imageUrl ? [days[activeDayIndex].imageUrl] : [])}
+                        images={curActiveDay.imageUrls && curActiveDay.imageUrls.length > 0 ? curActiveDay.imageUrls : (curActiveDay.imageUrl ? [curActiveDay.imageUrl] : [])}
                         onUrlListChange={(newUrls) => {
                           const u = [...days];
                           u[activeDayIndex].imageUrls = newUrls;
@@ -1222,7 +1607,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                           setDays(u);
                         }}
                         maxImages={6}
-                        helperText="Upload or attach landmark photos. Portrait (5:8) or standard photos fit without any clipping."
+                        helperText="Upload or attach landmark photos. Portrait or standard photos display with perfect aspect ratio in A4 export."
                       />
                     </div>
                   </div>
@@ -1230,7 +1615,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
               </div>
             </div>
           ) : (
-            /* Live Document Preview Container strictly targeted for A4 PDF export */
+            /* Live Document Preview Container targeted for A4 PDF export */
             <div className="overflow-y-auto max-h-[70vh] p-4 bg-slate-100 dark:bg-slate-950 flex justify-center">
               <div
                 id="itinerary-document"
@@ -1283,7 +1668,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       </div>
                     </div>
 
-                    {/* RIGHT SIDE: Company Contact Details with clean document margin */}
+                    {/* RIGHT SIDE: Company Contact Details */}
                     <div className="flex justify-end ml-auto shrink-0">
                       <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[320px]">
                         {company.website && (
@@ -1340,7 +1725,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       CUSTOM TOUR ITINERARY
                     </span>
                     <h2 className="text-sm font-black tracking-wide">
-                      {tripTitle.toUpperCase()}
+                      {(tripTitle.trim() || `${selectedDistrict} Custom Tour`).toUpperCase()}
                     </h2>
                   </div>
                   <div className="text-right text-xs">
@@ -1366,9 +1751,13 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                       </div>
 
                       <h3 className="text-sm font-bold text-slate-900">{day.title}</h3>
-                      <p className="text-xs text-slate-600 leading-relaxed">{day.description}</p>
+                      {day.description && (
+                        <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                          {day.description}
+                        </p>
+                      )}
 
-                      {/* Day Photos - Intelligent aspect-ratio scaling with Place Name label */}
+                      {/* Day Photos */}
                       {(() => {
                         const photos = day.imageUrls && day.imageUrls.length > 0
                           ? day.imageUrls
@@ -1462,7 +1851,7 @@ export const CustomItineraryModal: React.FC<CustomItineraryModalProps> = ({
                         <div className="pt-1 flex flex-wrap items-center gap-2 text-xs">
                           {day.hotelName && (
                             <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200/80 px-2 py-0.5 rounded-md font-medium text-[11px]">
-                              🏨 {day.hotelName}
+                              🏨 {day.hotelName} {day.hotelStarCategory ? `(${day.hotelStarCategory})` : ''}
                             </span>
                           )}
                           {day.mealPlan && (
