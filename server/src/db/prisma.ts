@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../services/logger.service.js';
 
 // ==============================================================================
 // Ooting CRM - Prisma Database Client Singleton
@@ -31,12 +32,15 @@ export async function connectDB() {
   while (retries > 0) {
     try {
       await prisma.$connect();
-      console.log('Successfully connected to the database.');
+      logger.info('Database', 'Successfully connected to the database.');
       return;
-    } catch (error) {
+    } catch (error: any) {
       retries--;
-      console.error(`Database connection attempt failed (${retries} retries remaining):`, error);
+      logger.warn('Database', `Database connection attempt failed (${retries} retries remaining)`, {
+        error: error?.message,
+      });
       if (retries === 0) {
+        logger.critical('Database', 'Fatal: All database connection retries exhausted.', error);
         if (process.env.NODE_ENV !== 'production') {
           process.exit(1);
         }

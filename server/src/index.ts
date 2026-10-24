@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { createRequire } from 'module';
 import bcrypt from 'bcryptjs';
+import { logger } from './services/logger.service.js';
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -113,6 +114,10 @@ async function bootstrap() {
 
   const host = '0.0.0.0';
   const server = app.listen(config.port, host, () => {
+    logger.info('Server', `Ooting CRM Backend running on http://${host}:${config.port}`, {
+      port: config.port,
+      environment: process.env.NODE_ENV || 'development',
+    });
     console.log(`====================================================`);
     console.log(`  Ooting CRM Backend running on http://${host}:${config.port}`);
     console.log(`  Health Check: http://${host}:${config.port}/api/health`);
@@ -120,9 +125,11 @@ async function bootstrap() {
   });
 
   const handleShutdown = async (signal: string) => {
+    logger.info('Server', `Received ${signal}. Gracefully terminating Ooting CRM server...`);
     console.log(`\nReceived ${signal}. Gracefully terminating Ooting CRM server...`);
     server.close(async () => {
       await prisma.$disconnect();
+      logger.info('Server', 'Database connection closed. Server shutdown complete.');
       console.log('Database connection closed. Goodbye.');
       process.exit(0);
     });
@@ -133,6 +140,7 @@ async function bootstrap() {
 }
 
 bootstrap().catch((err) => {
+  logger.critical('Server', 'Fatal bootstrap error occurred', err);
   console.error('Fatal bootstrap error:', err);
   process.exit(1);
 });

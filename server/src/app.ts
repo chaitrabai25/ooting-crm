@@ -53,6 +53,7 @@ import guideRoutes from './routes/guide.routes.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import { compressionMiddleware } from './middleware/compression.js';
+import { requestLogger } from './middleware/requestLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,6 +68,12 @@ app.use(cors({
 app.use(compressionMiddleware);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(requestLogger);
+
+// Privacy & Security: Strictly deny public access to application log files
+app.use(['/logs', '/*.log'], (req, res) => {
+  res.status(403).json({ message: 'Access denied: Log files are private system resources.' });
+});
 
 // Static uploads serving (ensures directory exists)
 const uploadsDir = path.resolve(__dirname, '../uploads');

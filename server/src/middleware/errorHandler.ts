@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import { logger } from '../services/logger.service.js';
 
 export function errorHandler(
   err: any,
@@ -7,15 +8,17 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ): void {
-  console.error('API Error:', {
-    message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-    path: req.path,
-    method: req.method,
-  });
+  const statusCode = err.statusCode || 500;
+  const path = req.originalUrl || req.path;
+  const method = req.method;
 
   if (err instanceof ZodError) {
-    const errorDetails = err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+    const errorDetails = err.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+    logger.warn('Validation', `Validation error on ${method} ${path}: ${errorDetails}`, {
+      path,
+      method,
+      errors: err.flatten().fieldErrors,
+    });
     res.status(400).json({
       message: `Validation error: ${errorDetails}`,
       errors: err.flatten().fieldErrors,
@@ -23,10 +26,24 @@ export function errorHandler(
     return;
   }
 
-  const statusCode = err.statusCode || 500;
+  const logMeta = {
+    path,
+    method,
+    statusCode,
+    ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress,
+  };
+
+  if (statusCode >= 500) {
+    logger.error('API Error', `${method} ${path} failed with ${statusCode}: ${err.message || 'Internal Error'}`, err, logMeta);
+  } else {
+    logger.warn('API Error', `${method} ${path} returned ${statusCode}: ${err.message}`, logMeta);
+  }
+
   const message = err.message || 'An internal server error occurred.';
 
   res.status(statusCode).json({
     message,
   });
 }
+
+export default errorHandler;

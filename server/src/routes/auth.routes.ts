@@ -9,6 +9,7 @@ import { getCompanySettings } from './setting.routes.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { sendOtpNotification, verifySmtpConfiguration } from '../services/otp.service.js';
+import { logger } from '../services/logger.service.js';
 
 const router = Router();
 
@@ -231,6 +232,9 @@ router.post('/login', async (req, res, next) => {
 
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);
     if (!isValidPassword) {
+      logger.warn('Auth', `Login failed: Incorrect password attempt for account "${user.email}"`, {
+        userId: user.id,
+      });
       res.status(401).json({ message: 'Invalid email/employee ID or password.' });
       return;
     }
@@ -339,6 +343,7 @@ router.post('/verify-otp', async (req, res, next) => {
 
     if (!isMatch) {
       const updatedAttempts = user.otpAttempts + 1;
+      logger.warn('Auth', `OTP verification failed for user "${user.email}" (attempt ${updatedAttempts}/5)`);
       await prisma.user.update({
         where: { id: user.id },
         data: { otpAttempts: updatedAttempts },
@@ -398,6 +403,12 @@ router.post('/verify-otp', async (req, res, next) => {
       entityId: user.id,
       details: `User completed secure email OTP authentication from IP ${req.ip}`,
       ipAddress: req.ip,
+    });
+
+    logger.info('Auth', `User "${updatedUser.email}" successfully authenticated and issued session token`, {
+      userId: updatedUser.id,
+      role: updatedUser.role,
+      companyId,
     });
 
     res.json({

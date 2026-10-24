@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config/index.js';
 import { prisma } from '../db/prisma.js';
 import { cache } from '../services/cache.service.js';
+import { logger } from '../services/logger.service.js';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -36,6 +37,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
   }
 
   if (!token) {
+    logger.warn('Auth', `Authentication rejected on ${req.method} ${req.path}: Missing authorization token`);
     res.status(401).json({ message: 'Authentication required. Please log in.' });
     return;
   }
@@ -206,6 +208,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
 
     next();
   } catch (error) {
+    logger.warn('Auth', `Authentication rejected on ${req.method} ${req.path}: Invalid or expired session token`);
     res.status(401).json({ message: 'Invalid or expired session. Please log in again.' });
   }
 }
@@ -216,11 +219,13 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
  */
 export function requirePlatformMasterAdmin(req: AuthRequest, res: Response, next: NextFunction): void {
   if (!req.user) {
+    logger.warn('Auth', `Access denied on ${req.method} ${req.path}: Unauthenticated request for Platform Master Admin`);
     res.status(401).json({ message: 'Authentication required.' });
     return;
   }
 
   if (!req.user.isPlatformMasterAdmin) {
+    logger.warn('Auth', `Access denied on ${req.method} ${req.path}: User ${req.user.id} (${req.user.role}) is not a Platform Master Admin`);
     res.status(403).json({
       message: 'Access denied: Strictly restricted to Ooting Platform Master Administrators.',
     });
@@ -238,6 +243,7 @@ export function requirePlatformMasterAdmin(req: AuthRequest, res: Response, next
 export function authorize(...roles: string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
+      logger.warn('Auth', `Authorization rejected on ${req.method} ${req.path}: Unauthenticated request`);
       res.status(401).json({ message: 'Authentication required.' });
       return;
     }
@@ -254,6 +260,10 @@ export function authorize(...roles: string[]) {
       return;
     }
 
+    logger.warn('Auth', `Access denied on ${req.method} ${req.path}: Role "${req.user.role}" does not satisfy [${roles.join(', ')}]`, {
+      userId: req.user.id,
+      companyId: req.user.companyId,
+    });
     res.status(403).json({ message: 'Access denied: You do not have permission to perform this action.' });
   };
 }
