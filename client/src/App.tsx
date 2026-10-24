@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.js';
 import { ThemeProvider } from './context/ThemeContext.js';
 import { CompanySettingsProvider } from './context/CompanySettingsContext.js';
+import { LanguageProvider } from './context/LanguageContext.js';
 import { ProtectedRoute } from './components/layout/ProtectedRoute.js';
 import { AppLayout } from './components/layout/AppLayout.js';
 import { PageLoader } from './components/ui/PageLoader.js';
@@ -88,125 +89,127 @@ const TourCustomerRegistrationForm = lazy(() => import('./pages/public/TourCusto
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <CompanySettingsProvider>
-          <BrowserRouter>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/suspended" element={<SuspendedPage />} />
-                <Route path="/register-tour/:id" element={<TourCustomerRegistrationForm />} />
-                <Route path="/trip-registration/:id" element={<TourCustomerRegistrationForm />} />
+      <LanguageProvider>
+        <AuthProvider>
+          <CompanySettingsProvider>
+            <BrowserRouter>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/suspended" element={<SuspendedPage />} />
+                  <Route path="/register-tour/:id" element={<TourCustomerRegistrationForm />} />
+                  <Route path="/trip-registration/:id" element={<TourCustomerRegistrationForm />} />
 
-                {/* Protected routes */}
-                <Route element={<ProtectedRoute />}>
-                  <Route element={<AppLayout />}>
-                    <Route path="/" element={<Dashboard />} />
+                  {/* Protected routes */}
+                  <Route element={<ProtectedRoute />}>
+                    <Route element={<AppLayout />}>
+                      <Route path="/" element={<Dashboard />} />
 
-                    {/* CRM Calendar & Schedule */}
-                    <Route path="/calendar" element={<CalendarPage />} />
+                      {/* CRM Calendar & Schedule */}
+                      <Route path="/calendar" element={<CalendarPage />} />
 
-                    {/* Leads & Enquiries */}
-                    <Route path="/leads" element={<LeadList />} />
-                    <Route path="/leads/:id" element={<LeadDetail />} />
+                      {/* Leads & Enquiries */}
+                      <Route path="/leads" element={<LeadList />} />
+                      <Route path="/leads/:id" element={<LeadDetail />} />
 
-                    {/* Follow-ups */}
-                    <Route path="/followups" element={<FollowUpList />} />
+                      {/* Follow-ups */}
+                      <Route path="/followups" element={<FollowUpList />} />
 
-                    {/* Customers */}
-                    <Route path="/customers" element={<CustomerList />} />
-                    <Route path="/customers/:id" element={<CustomerDetail />} />
+                      {/* Customers */}
+                      <Route path="/customers" element={<CustomerList />} />
+                      <Route path="/customers/:id" element={<CustomerDetail />} />
 
-                    {/* Travel Packages & Itineraries */}
-                    <Route path="/packages" element={<PackageList />} />
-                    <Route path="/packages/:id" element={<PackageDetail />} />
-                    <Route path="/packages/:id/itinerary-pdf" element={<ItineraryPdfView />} />
-                    <Route path="/packages/:id/pdf" element={<ItineraryPdfView />} />
+                      {/* Travel Packages & Itineraries */}
+                      <Route path="/packages" element={<PackageList />} />
+                      <Route path="/packages/:id" element={<PackageDetail />} />
+                      <Route path="/packages/:id/itinerary-pdf" element={<ItineraryPdfView />} />
+                      <Route path="/packages/:id/pdf" element={<ItineraryPdfView />} />
 
-                    {/* Master Data */}
-                    <Route path="/places" element={<PlaceList />} />
-                    <Route path="/hotels" element={<HotelList />} />
+                      {/* Master Data */}
+                      <Route path="/places" element={<PlaceList />} />
+                      <Route path="/hotels" element={<HotelList />} />
 
-                    {/* Quotations */}
-                    <Route path="/quotations" element={<QuotationList />} />
-                    <Route path="/quotations/new" element={<QuotationBuilder />} />
-                    <Route path="/quotations/:id" element={<QuotationView />} />
-                    <Route path="/quotations/:id/edit" element={<QuotationBuilder />} />
+                      {/* Quotations */}
+                      <Route path="/quotations" element={<QuotationList />} />
+                      <Route path="/quotations/new" element={<QuotationBuilder />} />
+                      <Route path="/quotations/:id" element={<QuotationView />} />
+                      <Route path="/quotations/:id/edit" element={<QuotationBuilder />} />
 
-                    {/* Tour Bookings */}
-                    <Route path="/bookings" element={<BookingList />} />
-                    <Route path="/bookings/:id" element={<BookingDetail />} />
-                    <Route path="/passengers" element={<PassengerList />} />
+                      {/* Tour Bookings */}
+                      <Route path="/bookings" element={<BookingList />} />
+                      <Route path="/bookings/:id" element={<BookingDetail />} />
+                      <Route path="/passengers" element={<PassengerList />} />
 
-                    {/* Tourist Cab Transfers & Duty Slips */}
-                    <Route path="/cabs" element={<CabList />} />
-                    <Route path="/cabs/:id" element={<CabDetail />} />
-                    <Route path="/cabs/:id/voucher" element={<CabVoucher />} />
+                      {/* Tourist Cab Transfers & Duty Slips */}
+                      <Route path="/cabs" element={<CabList />} />
+                      <Route path="/cabs/:id" element={<CabDetail />} />
+                      <Route path="/cabs/:id/voucher" element={<CabVoucher />} />
 
-                    {/* Tour Guides & Field Operations */}
-                    <Route path="/guides/dashboard" element={<GuideDashboard />} />
-                    <Route path="/guides" element={<GuideList />} />
-                    <Route path="/guides/:id" element={<GuideDetail />} />
-                    <Route path="/guides/assignments" element={<GuideAssignments />} />
-                    <Route path="/guides/assignments/:id/manifest" element={<AssignedTourManifest />} />
-                    <Route path="/guides/availability" element={<GuideAvailabilityPage />} />
+                      {/* Tour Guides & Field Operations */}
+                      <Route path="/guides/dashboard" element={<GuideDashboard />} />
+                      <Route path="/guides" element={<GuideList />} />
+                      <Route path="/guides/:id" element={<GuideDetail />} />
+                      <Route path="/guides/assignments" element={<GuideAssignments />} />
+                      <Route path="/guides/assignments/:id/manifest" element={<AssignedTourManifest />} />
+                      <Route path="/guides/availability" element={<GuideAvailabilityPage />} />
 
-                    {/* Automated & Bulk WhatsApp */}
-                    <Route path="/whatsapp" element={<BulkWhatsAppPage />} />
+                      {/* Automated & Bulk WhatsApp */}
+                      <Route path="/whatsapp" element={<BulkWhatsAppPage />} />
 
-                    {/* Payments & Financials */}
-                    <Route path="/payments" element={<PaymentList />} />
-                    <Route path="/expenses" element={<ExpenseList />} />
+                      {/* Payments & Financials */}
+                      <Route path="/payments" element={<PaymentList />} />
+                      <Route path="/expenses" element={<ExpenseList />} />
 
-                    {/* B2B Travel Agents */}
-                    <Route path="/agents" element={<AgentList />} />
-                    <Route path="/agents/:id" element={<AgentDetail />} />
+                      {/* B2B Travel Agents */}
+                      <Route path="/agents" element={<AgentList />} />
+                      <Route path="/agents/:id" element={<AgentDetail />} />
 
-                    {/* B2B Suppliers */}
-                    <Route path="/suppliers" element={<SupplierList />} />
-                    <Route path="/suppliers/:id" element={<SupplierDetail />} />
+                      {/* B2B Suppliers */}
+                      <Route path="/suppliers" element={<SupplierList />} />
+                      <Route path="/suppliers/:id" element={<SupplierDetail />} />
 
-                    {/* Reports & Analytics */}
-                    <Route path="/analytics" element={<AnalyticsPage />} />
-                    <Route path="/reports" element={<ReportsPage />} />
+                      {/* Reports & Analytics */}
+                      <Route path="/analytics" element={<AnalyticsPage />} />
+                      <Route path="/reports" element={<ReportsPage />} />
 
-                    {/* Import & Export Center */}
-                    <Route path="/import-export" element={<ImportExportPage />} />
+                      {/* Import & Export Center */}
+                      <Route path="/import-export" element={<ImportExportPage />} />
 
-                    {/* SaaS Multi-Tenant Management (Super Admin only) */}
-                    <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
-                      <Route path="/companies" element={<CompanyList />} />
-                    </Route>
+                      {/* SaaS Multi-Tenant Management (Super Admin only) */}
+                      <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+                        <Route path="/companies" element={<CompanyList />} />
+                      </Route>
 
-                    {/* Administration (Admin & Super Admin only) */}
-                    <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']} />}>
-                      <Route path="/users" element={<UserList />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="/audit-logs" element={<AuditLogsPage />} />
-                    </Route>
+                      {/* Administration (Admin & Super Admin only) */}
+                      <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']} />}>
+                        <Route path="/users" element={<UserList />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/audit-logs" element={<AuditLogsPage />} />
+                      </Route>
 
-                    {/* SaaS Platform Infrastructure & Multi-Tenancy (Platform Master Admin only) */}
-                    <Route element={<ProtectedRoute requirePlatformMasterAdmin={true} />}>
-                      <Route path="/saas" element={<SaaSDashboard />} />
-                      <Route path="/saas/organizations" element={<OrganizationsDirectory />} />
-                      <Route path="/saas/organizations/:id" element={<OrganizationDetail />} />
-                      <Route path="/saas/plans" element={<SubscriptionsPage />} />
-                      <Route path="/saas/staff-requests" element={<StaffAccessRequests />} />
-                      <Route path="/saas/databases" element={<TenantDatabaseStatus />} />
-                      <Route path="/saas/audit-logs" element={<PlatformAuditLogs />} />
-                      <Route path="/saas/settings" element={<SaaSSettings />} />
+                      {/* SaaS Platform Infrastructure & Multi-Tenancy (Platform Master Admin only) */}
+                      <Route element={<ProtectedRoute requirePlatformMasterAdmin={true} />}>
+                        <Route path="/saas" element={<SaaSDashboard />} />
+                        <Route path="/saas/organizations" element={<OrganizationsDirectory />} />
+                        <Route path="/saas/organizations/:id" element={<OrganizationDetail />} />
+                        <Route path="/saas/plans" element={<SubscriptionsPage />} />
+                        <Route path="/saas/staff-requests" element={<StaffAccessRequests />} />
+                        <Route path="/saas/databases" element={<TenantDatabaseStatus />} />
+                        <Route path="/saas/audit-logs" element={<PlatformAuditLogs />} />
+                        <Route path="/saas/settings" element={<SaaSSettings />} />
+                      </Route>
                     </Route>
                   </Route>
-                </Route>
 
-                {/* Catch-all */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Suspense>
-          </BrowserRouter>
-        </CompanySettingsProvider>
-      </AuthProvider>
+                  {/* Catch-all */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+          </CompanySettingsProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 };

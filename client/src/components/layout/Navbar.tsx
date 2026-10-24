@@ -21,6 +21,7 @@ import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
+import { LanguageSelector } from '../common/LanguageSelector.js';
 
 interface NavbarProps {
   onOpenMobileMenu?: () => void;
@@ -324,6 +325,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMobileMenu }) => {
             <span>{subscriptionNotice.text}</span>
           </div>
         )}
+
+        {/* Multilingual Selector */}
+        <LanguageSelector />
 
         {/* Dark / Light Mode Toggle Button */}
         <button

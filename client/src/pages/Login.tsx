@@ -16,6 +16,7 @@ import {
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useCompanySettings, NEUTRAL_TENANT_LOGO } from '../context/CompanySettingsContext.js';
+import { LanguageSelector } from '../components/common/LanguageSelector.js';
 import { notifyError, notifySuccess, notifyWarning, showToast } from '../utils/sweetalert.js';
 
 interface LoginBrand {
@@ -454,6 +455,10 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden transition-colors">
+      {/* Top Bar with Language Selector */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-30">
+        <LanguageSelector />
+      </div>
       {/* Background Accent Wave (Only shown for primary Ooting tenant) */}
       {brand.isOoting && (
         <div className="absolute top-0 left-0 right-0 opacity-10 pointer-events-none">

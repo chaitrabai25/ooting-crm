@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Mail, Phone, RefreshCw, LogOut, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { api } from '../api/client.js';
+import { LanguageSelector } from '../components/common/LanguageSelector.js';
 
 interface SuspensionDetails {
   code?: string;
@@ -65,6 +66,11 @@ export const SuspendedPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden select-none">
+      {/* Top Bar with Language Selector */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-30">
+        <LanguageSelector />
+      </div>
+
       {/* Background glow effects */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />

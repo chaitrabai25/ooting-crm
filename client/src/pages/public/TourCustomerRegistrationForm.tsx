@@ -20,6 +20,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
+import { LanguageSelector } from '../../components/common/LanguageSelector.js';
 
 interface PublicTourInfo {
   id: string;
@@ -239,6 +240,11 @@ export const TourCustomerRegistrationForm: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-8 px-4 sm:px-6">
+      {/* Top Bar with Language Selector */}
+      <div className="flex justify-end max-w-2xl mx-auto mb-3">
+        <LanguageSelector />
+      </div>
+
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Brand & Tour Header Card */}
         <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700/80 overflow-hidden">
@@ -260,9 +266,11 @@ export const TourCustomerRegistrationForm: React.FC = () => {
                   {tour.company?.name || 'Ooting CRM'}
                 </span>
               </div>
-              <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold">
-                Traveller Registration
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold">
+                  Traveller Registration
+                </span>
+              </div>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-2">
