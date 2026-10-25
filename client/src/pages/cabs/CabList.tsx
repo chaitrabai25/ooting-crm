@@ -468,7 +468,7 @@ export const CabList: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsImportOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5 text-brand-600" />
             <span>Import Excel</span>
@@ -477,7 +477,7 @@ export const CabList: React.FC = () => {
           <button
             type="button"
             onClick={handleExportExcel}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             <span>Export Excel</span>
@@ -489,7 +489,7 @@ export const CabList: React.FC = () => {
               setEditingCab(null);
               setIsModalOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Cab Booking</span>
@@ -524,36 +524,120 @@ export const CabList: React.FC = () => {
         </div>
       )}
 
-      {/* KPI Stats Bar */}
+      {/* KPI Stats Bar - Interactive Clickable Cards */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-            <span className="text-[11px] text-slate-500 font-medium block">Total Bookings</span>
-            <span className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 block">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              setSelectedStatus('');
+              setPage(1);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedStatus('');
+                setPage(1);
+              }
+            }}
+            title="Click to view all cabs"
+            className={`crm-card-clickable bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+              selectedStatus === ''
+                ? 'border-brand-500 ring-2 ring-brand-500/20'
+                : 'border-slate-200/80 dark:border-slate-800'
+            }`}
+          >
+            <span className="text-[11px] text-slate-500 uppercase tracking-wide font-bold block">Total Bookings</span>
+            <span className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1 block">
               {stats.total || 0}
             </span>
           </div>
-          <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-            <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium block">Confirmed</span>
-            <span className="text-xl font-bold text-blue-700 dark:text-blue-300 mt-1 block">
+
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              setSelectedStatus(selectedStatus === 'CONFIRMED' ? '' : 'CONFIRMED');
+              setPage(1);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedStatus(selectedStatus === 'CONFIRMED' ? '' : 'CONFIRMED');
+                setPage(1);
+              }
+            }}
+            title="Click to filter Confirmed cabs"
+            className={`crm-card-clickable bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+              selectedStatus === 'CONFIRMED'
+                ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/10'
+                : 'border-slate-200/80 dark:border-slate-800'
+            }`}
+          >
+            <span className="text-[11px] text-blue-600 dark:text-blue-400 uppercase tracking-wide font-bold block">Confirmed</span>
+            <span className="text-xl font-black text-blue-700 dark:text-blue-300 mt-1 block">
               {stats.confirmed || 0}
             </span>
           </div>
-          <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium block">On Trip</span>
-            <span className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-1 block">
+
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              setSelectedStatus(selectedStatus === 'ON_TRIP' ? '' : 'ON_TRIP');
+              setPage(1);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedStatus(selectedStatus === 'ON_TRIP' ? '' : 'ON_TRIP');
+                setPage(1);
+              }
+            }}
+            title="Click to filter On-Trip cabs"
+            className={`crm-card-clickable bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+              selectedStatus === 'ON_TRIP'
+                ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/10'
+                : 'border-slate-200/80 dark:border-slate-800'
+            }`}
+          >
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 uppercase tracking-wide font-bold block">On Trip</span>
+            <span className="text-xl font-black text-amber-700 dark:text-amber-300 mt-1 block">
               {stats.onTrip || 0}
             </span>
           </div>
-          <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium block">Completed</span>
-            <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-1 block">
+
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              setSelectedStatus(selectedStatus === 'COMPLETED' ? '' : 'COMPLETED');
+              setPage(1);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedStatus(selectedStatus === 'COMPLETED' ? '' : 'COMPLETED');
+                setPage(1);
+              }
+            }}
+            title="Click to filter Completed cabs"
+            className={`crm-card-clickable bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+              selectedStatus === 'COMPLETED'
+                ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10'
+                : 'border-slate-200/80 dark:border-slate-800'
+            }`}
+          >
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wide font-bold block">Completed</span>
+            <span className="text-xl font-black text-emerald-700 dark:text-emerald-300 mt-1 block">
               {stats.completed || 0}
             </span>
           </div>
-          <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-            <span className="text-[11px] text-[#C91F28] font-medium block">Balance Due</span>
-            <span className="text-xl font-bold text-[#C91F28] mt-1 block">
+
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+            <span className="text-[11px] text-[#C91F28] uppercase tracking-wide font-bold block">Balance Due</span>
+            <span className="text-xl font-black text-[#C91F28] mt-1 block">
               ₹{Number(stats.balanceDue || 0).toLocaleString('en-IN')}
             </span>
           </div>
@@ -563,7 +647,7 @@ export const CabList: React.FC = () => {
       {/* Filter Tabs & Toolbar */}
       <div className="space-y-3">
         {/* Status Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200/80 dark:border-slate-800">
           {statusTabs.map((tab) => (
             <button
               key={tab.value}
@@ -572,10 +656,10 @@ export const CabList: React.FC = () => {
                 setSelectedStatus(tab.value);
                 setPage(1);
               }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors cursor-pointer ${
                 selectedStatus === tab.value
                   ? 'bg-brand-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               {tab.label}
@@ -584,7 +668,7 @@ export const CabList: React.FC = () => {
         </div>
 
         {/* Search, Vehicle Type, Trip Type & Date Range */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
           <form onSubmit={handleSearchSubmit} className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
             <input
@@ -592,7 +676,7 @@ export const CabList: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search reference, guest, phone, car no..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
             />
           </form>
 
@@ -603,7 +687,7 @@ export const CabList: React.FC = () => {
                 setSelectedVehicleType(e.target.value);
                 setPage(1);
               }}
-              className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
             >
               <option value="">All Vehicles</option>
               <option value="SEDAN">Sedan</option>
@@ -620,7 +704,7 @@ export const CabList: React.FC = () => {
                 setSelectedTripType(e.target.value);
                 setPage(1);
               }}
-              className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
             >
               <option value="">All Trip Types</option>
               <option value="OUTSTATION">Outstation</option>
@@ -629,7 +713,7 @@ export const CabList: React.FC = () => {
               <option value="ROUND_TRIP">Round Trip</option>
             </select>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <input
                 type="date"
                 value={startDate}
@@ -637,7 +721,7 @@ export const CabList: React.FC = () => {
                   setStartDate(e.target.value);
                   setPage(1);
                 }}
-                className="px-2 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
               <span className="text-xs text-slate-400">to</span>
               <input
@@ -647,7 +731,7 @@ export const CabList: React.FC = () => {
                   setEndDate(e.target.value);
                   setPage(1);
                 }}
-                className="px-2 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </div>
           </div>

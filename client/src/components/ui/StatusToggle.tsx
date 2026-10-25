@@ -117,7 +117,7 @@ export const StatusToggle: React.FC<StatusToggleProps> = ({
         role="switch"
         aria-checked={isActive}
         disabled={disabled || isUpdating}
-        className={`relative inline-flex items-center rounded-full transition-colors duration-200 focus:outline-hidden focus:ring-2 focus:ring-offset-1 focus:ring-[#C91F28] ${
+        className={`relative inline-flex items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-500 cursor-pointer ${
           sizeConfig.track
         } ${
           isActive
@@ -146,12 +146,12 @@ export const StatusToggle: React.FC<StatusToggleProps> = ({
       {/* Text Badge */}
       {showLabel && (
         <span
-          className={`font-black uppercase tracking-wider rounded-md border ${
+          className={`font-bold uppercase tracking-wider rounded-full border ${
             sizeConfig.text
           } ${sizeConfig.badgePad} ${
             isActive
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
-              : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
+              : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
           }`}
         >
           {currentLabel}

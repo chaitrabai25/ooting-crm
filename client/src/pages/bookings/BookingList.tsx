@@ -381,6 +381,127 @@ export const BookingList: React.FC = () => {
         </div>
       </div>
 
+      {/* Interactive Quick Status Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setSelectedStatus('');
+            setPage(1);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedStatus('');
+              setPage(1);
+            }
+          }}
+          title="Click to view all bookings"
+          className={`crm-card-clickable p-4 bg-white dark:bg-slate-900 rounded-2xl border shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+            selectedStatus === ''
+              ? 'border-brand-500 ring-2 ring-brand-500/20'
+              : 'border-slate-200/80 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">All Bookings</span>
+            <span className="text-[10px] font-semibold text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity">View All</span>
+          </div>
+          <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">{total}</span>
+        </div>
+
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setSelectedStatus(selectedStatus === 'CONFIRMED' ? '' : 'CONFIRMED');
+            setPage(1);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedStatus(selectedStatus === 'CONFIRMED' ? '' : 'CONFIRMED');
+              setPage(1);
+            }
+          }}
+          title="Click to filter Confirmed bookings"
+          className={`crm-card-clickable p-4 bg-white dark:bg-slate-900 rounded-2xl border shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+            selectedStatus === 'CONFIRMED'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10'
+              : 'border-slate-200/80 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Confirmed</span>
+            <span className="text-[10px] font-semibold text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">Filter</span>
+          </div>
+          <span className="text-2xl font-black text-emerald-600 mt-1 block">
+            {bookings.filter((b) => b.status === 'CONFIRMED').length}
+          </span>
+        </div>
+
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setSelectedStatus(selectedStatus === 'HOLD' ? '' : 'HOLD');
+            setPage(1);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedStatus(selectedStatus === 'HOLD' ? '' : 'HOLD');
+              setPage(1);
+            }
+          }}
+          title="Click to filter Hold bookings"
+          className={`crm-card-clickable p-4 bg-white dark:bg-slate-900 rounded-2xl border shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+            selectedStatus === 'HOLD'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/10'
+              : 'border-slate-200/80 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">On Hold</span>
+            <span className="text-[10px] font-semibold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">Filter</span>
+          </div>
+          <span className="text-2xl font-black text-amber-600 mt-1 block">
+            {bookings.filter((b) => b.status === 'HOLD').length}
+          </span>
+        </div>
+
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setSelectedStatus(selectedStatus === 'COMPLETED' ? '' : 'COMPLETED');
+            setPage(1);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedStatus(selectedStatus === 'COMPLETED' ? '' : 'COMPLETED');
+              setPage(1);
+            }
+          }}
+          title="Click to filter Completed tours"
+          className={`crm-card-clickable p-4 bg-white dark:bg-slate-900 rounded-2xl border shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+            selectedStatus === 'COMPLETED'
+              ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/10'
+              : 'border-slate-200/80 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Completed</span>
+            <span className="text-[10px] font-semibold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">Filter</span>
+          </div>
+          <span className="text-2xl font-black text-blue-600 mt-1 block">
+            {bookings.filter((b) => b.status === 'COMPLETED').length}
+          </span>
+        </div>
+      </div>
+
       {/* Search & Filters */}
       <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <form onSubmit={handleSearch} className="relative w-full sm:w-80">

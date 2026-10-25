@@ -470,6 +470,75 @@ html.dark select:-webkit-autofill,
   box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #64748b;
 }
 
+/* Explicit Clickable Card State */
+.crm-card-clickable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.crm-card-clickable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #C91F28 !important;
+}
+
+.dark .crm-card-clickable:focus-visible {
+  box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #C91F28 !important;
+}
+
+.crm-card-clickable:active {
+  transform: translateY(-1px) scale(0.992) !important;
+}
+
+/* Destructive / Delete Button */
+.crm-btn-danger {
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+
+.crm-btn-danger:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
+}
+
+.crm-btn-danger:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.crm-btn-danger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #e11d48;
+}
+
+.dark .crm-btn-danger:focus-visible {
+  box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #e11d48;
+}
+
+/* Ghost / Minimal Icon Button */
+.crm-btn-ghost {
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+  cursor: pointer;
+}
+
+.crm-btn-ghost:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.crm-btn-ghost:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+}
+
+/* Standardized Enterprise Input Styles */
+.crm-input-field {
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.crm-input-field:focus {
+  outline: none;
+  border-color: #C91F28 !important;
+  box-shadow: 0 0 0 3px rgba(201, 31, 40, 0.15) !important;
+}
+
 /* SweetAlert2 Modern Styling & Theme Alignment */
 .swal2-container {
   z-index: 99999 !important;

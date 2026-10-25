@@ -42,14 +42,17 @@ export function DataTable<T extends { id?: string | number }>({
 }: DataTableProps<T>) {
   if (isLoading) {
     return (
-      <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm animate-pulse">
-        <div className="h-12 bg-slate-100 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800" />
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-14 border-b border-slate-100 dark:border-slate-800/40 px-6 flex items-center gap-4">
-            <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4" />
-            <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4" />
-            <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4" />
-            <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4" />
+      <div className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
+        <div className="h-12 bg-slate-100/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800" />
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div
+            key={i}
+            className="h-14 border-b border-slate-100 dark:border-slate-800/50 px-6 flex items-center gap-4"
+          >
+            <div className="h-3.5 bg-slate-200/80 dark:bg-slate-800 rounded-lg w-16 animate-pulse" />
+            <div className="h-3.5 bg-slate-200/80 dark:bg-slate-800 rounded-lg w-1/4 animate-pulse" />
+            <div className="h-3.5 bg-slate-200/80 dark:bg-slate-800 rounded-lg w-1/3 animate-pulse" />
+            <div className="h-3.5 bg-slate-200/80 dark:bg-slate-800 rounded-lg w-24 animate-pulse ml-auto" />
           </div>
         ))}
       </div>
@@ -61,25 +64,25 @@ export function DataTable<T extends { id?: string | number }>({
   }
 
   return (
-    <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm transition-colors">
+    <div className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs transition-colors">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[700px]">
           <thead>
-            <tr className="border-b-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100 select-none shadow-xs">
+            <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/80 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 select-none">
               {columns.map((col, idx) => {
                 const key = col.sortKey || (col.sortable && col.accessor && col.accessor !== 'sNo' ? String(col.accessor) : undefined);
                 const isCurrentSort = !!key && sortField === key;
 
                 return (
-                  <th key={idx} className={`px-4 py-3 sm:px-5 sm:py-3.5 text-slate-800 dark:text-slate-100 font-bold ${col.className || ''}`}>
+                  <th key={idx} className={`px-4 py-3.5 sm:px-5 sm:py-3.5 text-slate-700 dark:text-slate-200 font-bold ${col.className || ''}`}>
                     {key && onSort ? (
                       <button
                         type="button"
                         onClick={() => onSort(key)}
-                        className="inline-flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 transition-colors group cursor-pointer"
+                        className="inline-flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-200 hover:text-brand-600 dark:hover:text-brand-400 transition-colors group cursor-pointer"
                       >
                         <span>{col.header}</span>
-                        <span className="p-0.5 rounded group-hover:bg-slate-200 dark:group-hover:bg-slate-700">
+                        <span className="p-0.5 rounded-lg group-hover:bg-slate-200/80 dark:group-hover:bg-slate-700">
                           {isCurrentSort ? (
                             sortOrder === 'asc' ? (
                               <ArrowUp className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
@@ -87,7 +90,7 @@ export function DataTable<T extends { id?: string | number }>({
                               <ArrowDown className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                             )
                           ) : (
-                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400 opacity-70 group-hover:opacity-100" />
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-60 group-hover:opacity-100" />
                           )}
                         </span>
                       </button>
@@ -99,11 +102,11 @@ export function DataTable<T extends { id?: string | number }>({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-sm">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 text-sm">
             {data.map((item, rowIdx) => (
               <tr
                 key={item.id ? String(item.id) : rowIdx}
-                className={`${rowIdx % 2 === 1 ? 'bg-slate-50/40 dark:bg-slate-850/30' : 'bg-white dark:bg-slate-900'} hover:bg-brand-50/30 dark:hover:bg-slate-800/50 transition-colors`}
+                className={`${rowIdx % 2 === 1 ? 'bg-slate-50/30 dark:bg-slate-850/20' : 'bg-white dark:bg-slate-900'} hover:bg-brand-50/40 dark:hover:bg-slate-800/60 transition-colors group`}
               >
                 {columns.map((col, colIdx) => {
                   let cellContent: React.ReactNode = null;
@@ -123,7 +126,7 @@ export function DataTable<T extends { id?: string | number }>({
                   }
 
                   return (
-                    <td key={colIdx} className={`px-4 py-3 sm:px-5 sm:py-3.5 text-slate-700 dark:text-slate-300 ${col.className || ''}`}>
+                    <td key={colIdx} className={`px-4 py-3.5 sm:px-5 sm:py-3.5 text-slate-700 dark:text-slate-300 ${col.className || ''}`}>
                       {cellContent}
                     </td>
                   );
@@ -135,7 +138,7 @@ export function DataTable<T extends { id?: string | number }>({
       </div>
 
       {pagination && pagination.total > 0 && (
-        <div className="flex flex-wrap items-center justify-between border-t border-slate-200 dark:border-slate-800 px-6 py-3 bg-white dark:bg-slate-900 text-xs text-slate-500 dark:text-slate-400 gap-3">
+        <div className="flex flex-wrap items-center justify-between border-t border-slate-200/80 dark:border-slate-800 px-6 py-3.5 bg-slate-50/50 dark:bg-slate-900/60 text-xs text-slate-500 dark:text-slate-400 gap-3">
           <div>
             Showing{' '}
             <span className="font-semibold text-slate-800 dark:text-slate-200">
@@ -157,7 +160,7 @@ export function DataTable<T extends { id?: string | number }>({
               type="button"
               disabled={pagination.page <= 1}
               onClick={() => pagination.onPageChange(pagination.page - 1)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               title="Previous Page"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -171,7 +174,7 @@ export function DataTable<T extends { id?: string | number }>({
               type="button"
               disabled={pagination.page >= pagination.totalPages}
               onClick={() => pagination.onPageChange(pagination.page + 1)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               title="Next Page"
             >
               <ChevronRight className="w-4 h-4" />

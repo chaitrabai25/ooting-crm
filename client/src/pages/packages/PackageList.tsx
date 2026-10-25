@@ -207,25 +207,89 @@ export const PackageList: React.FC = () => {
 
       {/* Quick Metrics Bar for Immediate Package Overview */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Total Packages</span>
-          <span className="text-2xl font-black text-slate-900 dark:text-white mt-0.5 block">{packages.length}</span>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setSelectedStatus('');
+            setSelectedType('');
+            setSearch('');
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedStatus('');
+              setSelectedType('');
+              setSearch('');
+            }
+          }}
+          title="Click to reset filters and view all packages"
+          className="crm-card-clickable p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Total Packages</span>
+            <span className="text-[10px] font-semibold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">View All</span>
+          </div>
+          <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">{packages.length}</span>
         </div>
-        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Active Tours</span>
-          <span className="text-2xl font-black text-emerald-600 mt-0.5 block">
+
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setSelectedStatus(selectedStatus === 'ACTIVE' ? '' : 'ACTIVE')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedStatus(selectedStatus === 'ACTIVE' ? '' : 'ACTIVE');
+            }
+          }}
+          title="Click to toggle filter for Active tours only"
+          className={`crm-card-clickable p-4 bg-white dark:bg-slate-900 rounded-2xl border shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+            selectedStatus === 'ACTIVE'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10'
+              : 'border-slate-200/80 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Active Tours</span>
+            <span className="text-[10px] font-semibold text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
+              {selectedStatus === 'ACTIVE' ? 'Filtered' : 'Filter Active'}
+            </span>
+          </div>
+          <span className="text-2xl font-black text-emerald-600 mt-1 block">
             {packages.filter((p) => p.status === 'ACTIVE').length}
           </span>
         </div>
-        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Destinations</span>
-          <span className="text-2xl font-black text-[#C91F28] mt-0.5 block">
+
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            const input = document.querySelector<HTMLInputElement>('input[placeholder*="Search package"]');
+            input?.focus();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              const input = document.querySelector<HTMLInputElement>('input[placeholder*="Search package"]');
+              input?.focus();
+            }
+          }}
+          title="Click to search across destinations"
+          className="crm-card-clickable p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Destinations</span>
+            <span className="text-[10px] font-semibold text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity">Search</span>
+          </div>
+          <span className="text-2xl font-black text-[#C91F28] mt-1 block">
             {new Set(packages.map((p) => (p.destination || '').trim().toLowerCase()).filter(Boolean)).size}
           </span>
         </div>
-        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Avg Starting Rate</span>
-          <span className="text-2xl font-black text-amber-600 mt-0.5 block">
+          <span className="text-2xl font-black text-amber-600 mt-1 block">
             ₹
             {packages.length > 0
               ? Math.round(

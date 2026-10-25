@@ -20,6 +20,7 @@ import {
   Percent,
   Plus,
   ArrowRight,
+  ArrowUpRight,
   MapPin,
   Clock,
   Phone,
@@ -370,11 +371,26 @@ export const Dashboard: React.FC = () => {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3.5">
           {/* 1. Total Leads */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/leads')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/leads');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Total Leads - Click to view leads"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Leads</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
-                <Sparkles className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-blue-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
+                  <Sparkles className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
@@ -386,11 +402,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 2. Active / In-Progress Leads */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/leads')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/leads');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Active Leads - Click to view in-progress pipeline"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Active Leads</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
-                <TrendingUp className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-indigo-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
@@ -402,11 +433,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 3. Won Leads */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/leads')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/leads');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Won Leads - Click to view converted leads"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Won Leads</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
-                <CheckCircle2 className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-emerald-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
@@ -418,11 +464,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 4. Total Quotations */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/quotations')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/quotations');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Total Quotations - Click to view all quotes"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Quotations</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600">
-                <FileText className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-purple-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600">
+                  <FileText className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
@@ -434,11 +495,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 5. Confirmed Tour Bookings */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/bookings')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/bookings');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Confirmed Bookings - Click to view bookings"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Confirmed Bookings</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-brand-50 dark:bg-brand-950/50 text-brand-600">
-                <BookmarkCheck className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-brand-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-brand-50 dark:bg-brand-950/50 text-brand-600">
+                  <BookmarkCheck className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
@@ -450,11 +526,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 6. Total Customers */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/customers')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/customers');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Total Customers - Click to view customer profiles"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Customers</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
-                <Users className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-teal-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
+                  <Users className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
@@ -466,11 +557,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 7. Total Cab Bookings */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/cabs')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/cabs');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Total Cabs - Click to view cab bookings"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Cabs</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600">
-                <Car className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-cyan-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600">
+                  <Car className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
@@ -482,11 +588,30 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 8. Today's Tour Departures */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => {
+              setActiveTaskTab('departures');
+              document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setActiveTaskTab('departures');
+                document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Departures Today - Click to view departures in task list"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Departures Today</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
-                <Plane className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-amber-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
+                  <Plane className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-amber-600 mt-2">
@@ -498,11 +623,30 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 9. Today's Cab Pickups */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => {
+              setActiveTaskTab('cabs');
+              document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setActiveTaskTab('cabs');
+                document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Cabs Today - Click to view today's cab pickups"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Cabs Today</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
-                <Car className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-[#C91F28] transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
+                  <Car className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-[#C91F28] mt-2">
@@ -514,11 +658,30 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 10. Today's Follow-ups */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => {
+              setActiveTaskTab('followUps');
+              document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setActiveTaskTab('followUps');
+                document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Calls Today - Click to view today's follow-up list"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Calls Today</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
-                <CalendarCheck className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-blue-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
+                  <CalendarCheck className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-blue-600 mt-2">
@@ -530,11 +693,30 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 11. Overdue Calls */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => {
+              setActiveTaskTab('overdue');
+              document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setActiveTaskTab('overdue');
+                document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Overdue Follow-ups - Click to view urgent calls"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Overdue Follow-ups</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600">
-                <Clock className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-rose-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600">
+                  <Clock className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-rose-600 mt-2">
@@ -546,11 +728,30 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 12. Expiring Quotations */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => {
+              setActiveTaskTab('quotations');
+              document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setActiveTaskTab('quotations');
+                document.getElementById('todays-tasks-panel')?.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Open Quotes - Click to view expiring quotations"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Open Quotes</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
-                <FileText className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-amber-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
+                  <FileText className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-amber-600 mt-2">
@@ -562,11 +763,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 13. Total Revenue (₹) */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/payments')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/payments');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Total Revenue - Click to view financial reports and payments"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Revenue</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
-                <DollarSign className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-emerald-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
+                  <DollarSign className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-2">
@@ -578,11 +794,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 14. Advance Collected (₹) */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/payments')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/payments');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Advance Collected - Click to view verified payment transactions"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Advance Collected</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
-                <CreditCard className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-teal-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600">
+                  <CreditCard className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-xl font-black text-teal-700 dark:text-teal-400 mt-2">
@@ -594,11 +825,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 15. Balance Due (₹) */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/bookings')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/bookings');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Balance Pending - Click to view receivable balances"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Balance Pending</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
-                <Clock className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-[#C91F28] transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#C91F28]">
+                  <Clock className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-xl font-black text-[#C91F28] mt-2">
@@ -610,11 +856,26 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 16. Active B2B Agents */}
-          <div className="crm-card-interactive bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40">
+          <div
+            onClick={() => navigate('/agents')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/agents');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="B2B Agent Network - Click to view partner agents"
+            className="crm-card-interactive crm-card-clickable group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">B2B Agent Network</span>
-              <div className="crm-card-icon p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
-                <Briefcase className="w-4 h-4" />
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-indigo-600 transition-all duration-200 -translate-x-1 group-hover:translate-x-0" />
+                <div className="crm-card-icon p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600">
+                  <Briefcase className="w-4 h-4" />
+                </div>
               </div>
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
@@ -628,7 +889,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* TODAY'S TASKS INTERACTIVE PANEL */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+      <div id="todays-tasks-panel" className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden scroll-mt-20">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/40">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">

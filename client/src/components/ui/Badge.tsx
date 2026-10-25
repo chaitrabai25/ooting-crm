@@ -4,6 +4,7 @@ interface BadgeProps {
   status?: string;
   variant?: 'success' | 'danger' | 'warning' | 'info' | 'default' | string;
   size?: 'sm' | 'md' | 'lg' | string;
+  showDot?: boolean;
   className?: string;
   children?: React.ReactNode;
 }
@@ -12,6 +13,7 @@ export const Badge: React.FC<BadgeProps> = ({
   status,
   variant,
   size = 'md',
+  showDot = true,
   className = '',
   children,
 }) => {
@@ -83,6 +85,56 @@ export const Badge: React.FC<BadgeProps> = ({
     }
   };
 
+  const getDotColor = (s: string) => {
+    switch (s?.toUpperCase()) {
+      case 'DANGER':
+      case 'LOST':
+      case 'CANCELLED':
+      case 'FAILED':
+      case 'REJECTED':
+      case 'SUSPENDED':
+      case 'DELETE':
+      case 'URGENT':
+      case 'HIGH':
+        return 'bg-rose-500';
+      case 'SUCCESS':
+      case 'WON':
+      case 'CONFIRMED':
+      case 'COMPLETED':
+      case 'ACTIVE':
+      case 'PAID':
+      case 'ACCEPTED':
+      case 'LOGIN':
+        return 'bg-emerald-500';
+      case 'WARNING':
+      case 'QUALIFIED':
+      case 'FOLLOW_UP':
+      case 'UPDATE':
+      case 'PENDING':
+      case 'HOLD':
+      case 'ENQUIRY':
+      case 'DRAFT':
+      case 'MEDIUM':
+        return 'bg-amber-500';
+      case 'INFO':
+      case 'NEW':
+      case 'CREATE':
+        return 'bg-blue-500';
+      case 'CONTACTED':
+      case 'STATUS_CHANGE':
+        return 'bg-indigo-500';
+      case 'QUOTATION_SENT':
+      case 'CONVERT':
+        return 'bg-purple-500';
+      case 'IMPORT':
+        return 'bg-cyan-500';
+      case 'EXPORT':
+        return 'bg-teal-500';
+      default:
+        return 'bg-slate-400';
+    }
+  };
+
   const formatText = (s: string) => {
     if (!s) return '';
     return s.replace(/_/g, ' ');
@@ -97,6 +149,13 @@ export const Badge: React.FC<BadgeProps> = ({
         effectiveStatus
       )} ${sizeClasses} ${className}`}
     >
+      {showDot && (
+        <span
+          className={`w-1.5 h-1.5 rounded-full mr-1.5 flex-shrink-0 ${getDotColor(
+            effectiveStatus
+          )}`}
+        />
+      )}
       {children || formatText(effectiveStatus)}
     </span>
   );
