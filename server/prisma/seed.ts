@@ -6,6 +6,35 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('--- Starting Ooting CRM Database Seeding (Development Mode) ---');
 
+  // 0. Ensure Master Company exists first (Prevents FK #1452 error)
+  const masterCompanyId = 'c0000000-0000-0000-0000-000000000001';
+  let masterCompany = await prisma.company.findUnique({ where: { id: masterCompanyId } });
+  if (!masterCompany) {
+    masterCompany = await prisma.company.create({
+      data: {
+        id: masterCompanyId,
+        name: 'Ooting',
+        slug: 'ooting',
+        isOoting: true,
+        status: 'ACTIVE',
+        tagline: 'Journeys Beyond Ordinary',
+        email: 'contact@ooting.com',
+        phone: '+91 8884845595',
+        city: 'Bangalore',
+        state: 'Karnataka',
+        country: 'India',
+        primaryColor: '#1E3A8A',
+        secondaryColor: '#E11D48',
+        orgCode: 'OOTING-HQ',
+        provisioningStatus: 'READY',
+        maxStaffLimit: 999999,
+        subscriptionTier: 'ENTERPRISE',
+        enabledModules: JSON.stringify(['all']),
+      },
+    });
+    console.log(`Created Master Company: ${masterCompany.name} (${masterCompany.id})`);
+  }
+
   // 1. Create Super Admin User
   const adminEmail = 'admin@ooting.com';
   const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
@@ -15,6 +44,7 @@ async function main() {
     const passwordHash = await bcrypt.hash('Admin@12345', 10);
     adminUser = await prisma.user.create({
       data: {
+        companyId: masterCompanyId,
         name: 'Ooting Super Admin',
         email: adminEmail,
         passwordHash,
@@ -37,6 +67,7 @@ async function main() {
     const passwordHash = await bcrypt.hash('Sales@12345', 10);
     salesUser = await prisma.user.create({
       data: {
+        companyId: masterCompanyId,
         name: 'Rohan Sharma',
         email: salesEmail,
         passwordHash,
@@ -57,6 +88,7 @@ async function main() {
     const passwordHash = await bcrypt.hash('Accounts@12345', 10);
     await prisma.user.create({
       data: {
+        companyId: masterCompanyId,
         name: 'Priya Nair',
         email: accountsEmail,
         passwordHash,
@@ -82,8 +114,8 @@ async function main() {
   for (const s of defaultSettings) {
     await prisma.companySetting.upsert({
       where: { key: s.key },
-      update: { value: s.value },
-      create: { key: s.key, value: s.value },
+      update: { value: s.value, companyId: masterCompanyId },
+      create: { key: s.key, value: s.value, companyId: masterCompanyId },
     });
   }
   console.log('Initialized Company Settings');

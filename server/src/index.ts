@@ -15,6 +15,7 @@ const __dirname = path.dirname(__filename);
 
 // Database integrity guarantee: Never automatically overwrite or seed dummy data over production records
 import { ensureColumns } from './db/migrations.js';
+import { runDatabaseBootstrap } from './db/bootstrap.js';
 
 async function ensureDBSchema() {
   if (process.env.RUN_AUTO_MIGRATIONS === 'true') {
@@ -80,37 +81,10 @@ async function ensureDBSchema() {
   }
 }
 
-async function ensureInitialAdmin() {
-  try {
-    const userCount = await prisma.user.count();
-    if (userCount > 0) {
-      console.log(`🔒 Production user safety: ${userCount} verified accounts exist. Preserving existing accounts and skipping creation.`);
-      return;
-    }
-
-    console.log('🔄 First-time setup: Initializing default Super Admin account...');
-    const adminPasswordHash = await bcrypt.hash('Admin@12345', 10);
-
-    await prisma.user.create({
-      data: {
-        name: 'Ooting Super Admin',
-        email: 'admin@ooting.com',
-        passwordHash: adminPasswordHash,
-        role: 'SUPER_ADMIN' as any,
-        phone: '+91 8884845595',
-        status: 'ACTIVE',
-      },
-    });
-    console.log(`✅ Initialized verified primary admin account: admin@ooting.com`);
-  } catch (err: any) {
-    console.warn('⚠️ DB check note:', err.message);
-  }
-}
-
 async function bootstrap() {
   await connectDB();
   await ensureDBSchema();
-  await ensureInitialAdmin();
+  await runDatabaseBootstrap();
 
   const host = '0.0.0.0';
   const server = app.listen(config.port, host, () => {
