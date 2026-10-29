@@ -28,14 +28,16 @@ body, input, textarea, select, button, table, td, th {
 html[lang="kn"],
 html.lang-kn,
 .lang-kn,
-[lang="kn"] {
+[lang="kn"],
+.kannada-newspaper-text {
   font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, sans-serif !important;
 }
 
 html[lang="kn"] *,
 html.lang-kn *,
 .lang-kn *,
-[lang="kn"] * {
+[lang="kn"] *,
+.kannada-newspaper-text * {
   letter-spacing: normal !important;
   word-spacing: normal !important;
   font-feature-settings: "kern" 1, "liga" 1;
@@ -48,11 +50,13 @@ html[lang="kn"] [class*="font-heading"],
 html.lang-kn h1, html.lang-kn h2, html.lang-kn h3,
 html.lang-kn h4, html.lang-kn h5, html.lang-kn h6,
 .lang-kn h1, .lang-kn h2, .lang-kn h3,
-.lang-kn h4, .lang-kn h5, .lang-kn h6 {
+.lang-kn h4, .lang-kn h5, .lang-kn h6,
+.kannada-newspaper-text h1, .kannada-newspaper-text h2, .kannada-newspaper-text h3,
+.kannada-newspaper-text h4, .kannada-newspaper-text h5, .kannada-newspaper-text h6 {
   font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, sans-serif !important;
   font-weight: 700 !important;
   letter-spacing: normal !important;
-  line-height: 1.4 !important;
+  line-height: 1.45 !important;
 }
 
 html[lang="kn"] body, html[lang="kn"] p, html[lang="kn"] span,
@@ -63,10 +67,12 @@ html.lang-kn input, html.lang-kn textarea, html.lang-kn select,
 html.lang-kn button, html.lang-kn table, html.lang-kn td, html.lang-kn th,
 .lang-kn body, .lang-kn p, .lang-kn span,
 .lang-kn input, .lang-kn textarea, .lang-kn select,
-.lang-kn button, .lang-kn table, .lang-kn td, .lang-kn th {
+.lang-kn button, .lang-kn table, .lang-kn td, .lang-kn th,
+.kannada-newspaper-text p, .kannada-newspaper-text span, .kannada-newspaper-text li,
+.kannada-newspaper-text td, .kannada-newspaper-text th {
   font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, sans-serif !important;
   letter-spacing: normal !important;
-  line-height: 1.6 !important;
+  line-height: 1.65 !important;
 }
 
 @layer base {

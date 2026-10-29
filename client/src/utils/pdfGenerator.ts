@@ -66,21 +66,47 @@ export async function generateA4Pdf({
   const pageHeight = 297;
 
   const fixSvgAndStyles = (clonedDoc: Document, targetEl: HTMLElement) => {
-    // Inject Plus Jakarta Sans into cloned document head to guarantee modern sans rendering
+    // Inject Plus Jakarta Sans, Noto Sans Kannada and Noto Serif Kannada into cloned document head
     if (!clonedDoc.getElementById('injected-pdf-fonts')) {
       const fontLink = clonedDoc.createElement('link');
       fontLink.id = 'injected-pdf-fonts';
       fontLink.rel = 'stylesheet';
-      fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap';
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Noto+Sans+Kannada:wght@400;500;600;700;800;900&family=Noto+Serif+Kannada:wght@400;500;600;700;800;900&display=swap';
       clonedDoc.head.appendChild(fontLink);
 
       const fontStyle = clonedDoc.createElement('style');
       fontStyle.textContent = `
         body, p, span, td, th, li, input, textarea, select {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          font-family: 'Inter', 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         }
         h1, h2, h3, h4, h5, h6, .font-heading, .font-display, [class*="font-heading"], [class*="text-xl"], [class*="text-2xl"], [class*="text-3xl"] {
-          font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          font-family: 'Plus Jakarta Sans', 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        }
+
+        /* Authentic Kannada Newspaper Typography (Vijaya Karnataka / Kannada Prabha style) */
+        :lang(kn), [lang="kn"], html[lang="kn"], .kannada-newspaper-text, .lang-kn {
+          font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
+          letter-spacing: normal !important;
+          word-spacing: normal !important;
+        }
+
+        :lang(kn) h1, :lang(kn) h2, :lang(kn) h3, :lang(kn) h4,
+        [lang="kn"] h1, [lang="kn"] h2, [lang="kn"] h3, [lang="kn"] h4,
+        .kannada-newspaper-text h1, .kannada-newspaper-text h2, .kannada-newspaper-text h3, .kannada-newspaper-text h4 {
+          font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
+          font-weight: 700 !important;
+          line-height: 1.45 !important;
+          letter-spacing: normal !important;
+          word-spacing: normal !important;
+        }
+
+        :lang(kn) p, :lang(kn) span, :lang(kn) li, :lang(kn) td,
+        [lang="kn"] p, [lang="kn"] span, [lang="kn"] li, [lang="kn"] td,
+        .kannada-newspaper-text p, .kannada-newspaper-text span, .kannada-newspaper-text li, .kannada-newspaper-text td {
+          font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
+          line-height: 1.65 !important;
+          letter-spacing: normal !important;
+          word-spacing: normal !important;
         }
       `;
       clonedDoc.head.appendChild(fontStyle);
@@ -91,7 +117,32 @@ export async function generateA4Pdf({
     targetEl.style.boxShadow = 'none';
     targetEl.style.borderRadius = '0';
     targetEl.style.border = 'none';
-    targetEl.style.setProperty('font-family', "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", 'important');
+
+    const hasKannada = /[\u0C80-\u0CFF]/.test(targetEl.textContent || '');
+    if (hasKannada) {
+      targetEl.classList.add('kannada-newspaper-text');
+      targetEl.setAttribute('lang', 'kn');
+      targetEl.style.setProperty('font-family', "'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif", 'important');
+      targetEl.style.setProperty('letter-spacing', 'normal', 'important');
+      targetEl.style.setProperty('word-spacing', 'normal', 'important');
+
+      const allTextEls = Array.from(targetEl.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, p, span, li, td, th, div'));
+      allTextEls.forEach((el) => {
+        if (/[\u0C80-\u0CFF]/.test(el.textContent || '')) {
+          el.style.setProperty('font-family', "'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif", 'important');
+          el.style.setProperty('letter-spacing', 'normal', 'important');
+          el.style.setProperty('word-spacing', 'normal', 'important');
+          const isHeading = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(el.tagName);
+          if (isHeading) {
+            el.style.setProperty('line-height', '1.45', 'important');
+          } else if (el.tagName === 'P' || el.tagName === 'LI' || el.classList.contains('leading-relaxed')) {
+            el.style.setProperty('line-height', '1.65', 'important');
+          }
+        }
+      });
+    } else {
+      targetEl.style.setProperty('font-family', "'Inter', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", 'important');
+    }
 
     // 1. Flexbox Gap Polyfill for html2canvas (html2canvas does not natively support CSS gap)
     const flexContainers = Array.from(targetEl.querySelectorAll<HTMLElement>('.flex, [class*="gap-"]'));

@@ -156,7 +156,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
           type: 'info',
           text: 'Meta Cloud API is unconfigured. Launching WhatsApp Web/App directly...',
         });
-        window.open(res.data.directFallbackUrl, '_blank', 'noopener,noreferrer');
+        openWhatsAppShare({ phone: formattedPhone, text: message });
       } else {
         setStatusFeedback({
           type: 'success',

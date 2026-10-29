@@ -28,11 +28,12 @@ import {
 import { api } from '../../api/client.js';
 import { Package, ItineraryDay } from '../../types/index.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
+import { useLanguage } from '../../context/LanguageContext.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
-import { openWhatsAppShare } from '../../utils/whatsappHelper.js';
+import { openWhatsAppShare, copyToClipboard } from '../../utils/whatsappHelper.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
-import { notifyError, notifySuccess } from '../../utils/sweetalert.js';
+import { notifyError, notifySuccess, ootingSwal, showToast } from '../../utils/sweetalert.js';
 
 export interface HotelPhotoDisplay {
   url: string;
@@ -145,6 +146,7 @@ export const ItineraryPdfView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { company, effectiveLogoUrl } = useCompanySettings();
+  const { language, setLanguage, t } = useLanguage();
 
   const [pkg, setPkg] = useState<Package | null>(null);
   const [hotelsLookup, setHotelsLookup] = useState<Map<string, any>>(new Map());
@@ -366,8 +368,57 @@ export const ItineraryPdfView: React.FC = () => {
       messageText +
       `\n\n📄 Note: The official Tour Itinerary PDF (${filename}) has been downloaded to your device. Please attach it here to send.`;
 
-    // Open WhatsApp with session reuse (prevents multiple tabs & repeated login prompts)
-    openWhatsAppShare({ text: fullText });
+    // 1. Immediately copy the full message to clipboard so user can paste it anywhere
+    await copyToClipboard(fullText);
+
+    // 2. Prompt user for optional phone number or direct choice
+    const isDark = document.documentElement.classList.contains('dark');
+    const result = await ootingSwal.fire({
+      title: 'Share Itinerary on WhatsApp',
+      html: `
+        <div class="text-left space-y-3 pt-2">
+          <p class="text-xs text-slate-600 dark:text-slate-300">
+            The itinerary message has been <strong>automatically copied to your clipboard</strong>!
+          </p>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Customer Mobile / WhatsApp Number (Optional):
+            </label>
+            <input
+              id="swal-customer-phone"
+              type="tel"
+              placeholder="e.g. 9876543210 (or leave blank to search)"
+              class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-[#C91F28]"
+            />
+          </div>
+          <p class="text-[11px] text-slate-500">
+            • <strong>Open WhatsApp:</strong> Reuses your WhatsApp tab directly without opening duplicate tabs.<br/>
+            • <strong>Copy Text Only:</strong> Keep your current tabs intact; just switch to your open WhatsApp tab and press <kbd class="px-1 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-[10px]">Ctrl+V</kbd>.
+          </p>
+        </div>
+      `,
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: 'Open WhatsApp',
+      denyButtonText: 'Copy Text Only',
+      cancelButtonText: 'Cancel',
+      background: isDark ? '#0f172a' : '#ffffff',
+      color: isDark ? '#f8fafc' : '#0f172a',
+      preConfirm: () => {
+        const input = document.getElementById('swal-customer-phone') as HTMLInputElement;
+        return input ? input.value : '';
+      },
+    });
+
+    if (result.isDismissed) return;
+
+    if (result.isConfirmed) {
+      const enteredPhone = result.value || '';
+      openWhatsAppShare({ phone: enteredPhone, text: fullText });
+      showToast('Switched to WhatsApp & downloading PDF...', 'success');
+    } else if (result.isDenied) {
+      showToast('✅ Itinerary copied! Switch to your open WhatsApp tab & paste with Ctrl+V', 'success');
+    }
 
     try {
       setIsGeneratingPdf(true);
@@ -391,7 +442,7 @@ export const ItineraryPdfView: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-200/70 dark:bg-slate-950 py-8 px-4 print:p-0 print:bg-white">
       {/* Top Floating Action Bar (Hidden in Print) */}
-      <div className="max-w-4xl mx-auto mb-6 flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-md print:hidden">
+      <div className="max-w-4xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-md print:hidden">
         <button
           type="button"
           onClick={() => navigate('/packages/' + id)}
@@ -401,7 +452,33 @@ export const ItineraryPdfView: React.FC = () => {
           <span>Back to Package</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        {/* Language Switcher: English vs Kannada */}
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+          <button
+            type="button"
+            onClick={() => setLanguage('en')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              language === 'en'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            🇬🇧 English
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage('kn')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              language === 'kn'
+                ? 'bg-[#C91F28] text-white shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            🇮🇳 ಕನ್ನಡ
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={handleShareWhatsApp}
@@ -442,13 +519,20 @@ export const ItineraryPdfView: React.FC = () => {
       {/* Main A4 Printable Document Paper */}
       <div
         id="itinerary-document"
-        className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-sans antialiased print:m-0"
-        style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
+        lang={language}
+        className={`max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-sans antialiased print:m-0 ${
+          language === 'kn' ? 'kannada-newspaper-text' : ''
+        }`}
+        style={{
+          fontFamily: language === 'kn'
+            ? "'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif"
+            : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        }}
       >
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Noto+Sans+Kannada:wght@400;500;600;700;800;900&family=Noto+Serif+Kannada:wght@400;500;600;700;800;900&display=swap');
           #itinerary-document {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            font-family: 'Inter', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
           }
           #itinerary-document h1,
           #itinerary-document h2,
@@ -459,14 +543,50 @@ export const ItineraryPdfView: React.FC = () => {
           #itinerary-document .font-heading,
           #itinerary-document .font-display,
           #itinerary-document [class*="font-heading"] {
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            font-family: 'Plus Jakarta Sans', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
           }
           #itinerary-document p,
           #itinerary-document span,
           #itinerary-document td,
           #itinerary-document th,
           #itinerary-document li {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          }
+
+          /* Authentic Kannada Newspaper Typography (Vijaya Karnataka / Kannada Prabha style) */
+          #itinerary-document[lang="kn"],
+          #itinerary-document.kannada-newspaper-text,
+          .kannada-newspaper-text {
+            font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
+            letter-spacing: normal !important;
+            word-spacing: normal !important;
+          }
+          #itinerary-document[lang="kn"] h1,
+          #itinerary-document[lang="kn"] h2,
+          #itinerary-document[lang="kn"] h3,
+          #itinerary-document[lang="kn"] h4,
+          .kannada-newspaper-text h1,
+          .kannada-newspaper-text h2,
+          .kannada-newspaper-text h3,
+          .kannada-newspaper-text h4 {
+            font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
+            font-weight: 700 !important;
+            line-height: 1.45 !important;
+            letter-spacing: normal !important;
+            word-spacing: normal !important;
+          }
+          #itinerary-document[lang="kn"] p,
+          #itinerary-document[lang="kn"] span,
+          #itinerary-document[lang="kn"] li,
+          #itinerary-document[lang="kn"] td,
+          .kannada-newspaper-text p,
+          .kannada-newspaper-text span,
+          .kannada-newspaper-text li,
+          .kannada-newspaper-text td {
+            font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
+            line-height: 1.65 !important;
+            letter-spacing: normal !important;
+            word-spacing: normal !important;
           }
         `}</style>
         
@@ -589,10 +709,10 @@ export const ItineraryPdfView: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="inline-block px-2.5 py-0.5 bg-[#C91F28] text-white text-[10.5px] font-bold uppercase tracking-wider rounded">
-                  Official Tour Itinerary
+                  {t('official_tour_itinerary', 'Official Tour Itinerary')}
                 </span>
                 <span className="text-xs font-bold text-[#C91F28]">
-                  • {itineraries.length} Days Planned
+                  • {itineraries.length} {t('days_planned', 'Days Planned')}
                 </span>
               </div>
               <h1 className="text-xl sm:text-2xl font-bold text-[#1E3A8A] tracking-tight leading-snug">
@@ -616,11 +736,11 @@ export const ItineraryPdfView: React.FC = () => {
             </div>
 
             <div className="text-right">
-              <span className="text-[10.5px] text-slate-500 uppercase tracking-wider font-bold block">Starting Price</span>
+              <span className="text-[10.5px] text-slate-500 uppercase tracking-wider font-bold block">{t('starting_price', 'Starting Price')}</span>
               <span className="text-2xl font-bold text-[#C91F28] block">
                 ₹{Number(pkg.price).toLocaleString('en-IN')}
               </span>
-              <span className="text-[10px] text-slate-500 font-medium block">Per Person (All Inclusive)</span>
+              <span className="text-[10px] text-slate-500 font-medium block">{t('per_person', 'Per Person (All Inclusive)')}</span>
             </div>
           </div>
         </div>
@@ -630,7 +750,7 @@ export const ItineraryPdfView: React.FC = () => {
           <div className="flex items-center gap-2 mb-1.5">
             <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#1E3A8A]">
-              Tour Overview & Highlights
+              {t('tour_overview_highlights', 'Tour Overview & Highlights')}
             </h3>
           </div>
           <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-line font-normal">
@@ -644,11 +764,11 @@ export const ItineraryPdfView: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
               <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#1E3A8A]">
-                Detailed Day-by-Day Travel Schedule
+                {t('detailed_travel_schedule', 'Detailed Day-by-Day Travel Schedule')}
               </h2>
             </div>
             <span className="px-2.5 py-0.5 bg-red-50 text-[#C91F28] border border-red-200 rounded-full text-xs font-bold">
-              {itineraries.length} Days Planned
+              {itineraries.length} {t('days_planned', 'Days Planned')}
             </span>
           </div>
 
@@ -668,7 +788,7 @@ export const ItineraryPdfView: React.FC = () => {
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-2">
                             <span className="px-2.5 py-1 rounded-md bg-[#C91F28] text-white font-bold text-xs uppercase tracking-wider shadow-2xs shrink-0">
-                              Day {day.dayNumber}
+                              {t('day', 'Day')} {day.dayNumber}
                             </span>
                             {(day as any).date && (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-xs font-bold text-slate-800 shadow-2xs whitespace-nowrap">
@@ -695,7 +815,7 @@ export const ItineraryPdfView: React.FC = () => {
                     ) : (
                       <div className="flex items-start gap-2.5">
                         <span className="px-2.5 py-1 rounded-md bg-[#C91F28] text-white font-bold text-xs uppercase tracking-wider shadow-2xs shrink-0 mt-0.5">
-                          Day {day.dayNumber}
+                          {t('day', 'Day')} {day.dayNumber}
                         </span>
                         <h3 className="font-bold text-sm sm:text-base text-[#1E3A8A] leading-snug">
                           {renderColoredDayTitle(day.title)}
@@ -714,13 +834,13 @@ export const ItineraryPdfView: React.FC = () => {
                       <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
                         {(day as any).highlights && (
                           <div className="text-slate-800 leading-relaxed">
-                            <strong className="text-[#1E3A8A] font-bold">Highlights:</strong>{' '}
+                            <strong className="text-[#1E3A8A] font-bold">{t('highlights', 'Highlights')}:</strong>{' '}
                             {(day as any).highlights}
                           </div>
                         )}
                         {(day as any).travelDetails && (
                           <div className="text-slate-800 leading-relaxed">
-                            <strong className="text-[#C91F28] font-bold">Travel & Logistics:</strong>{' '}
+                            <strong className="text-[#C91F28] font-bold">{t('travel_logistics', 'Travel & Logistics')}:</strong>{' '}
                             {(day as any).travelDetails}
                           </div>
                         )}
@@ -997,11 +1117,11 @@ export const ItineraryPdfView: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
                   <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#1E3A8A]">
-                    Tour Terms, Inclusions & Exclusions
+                    {t('terms_conditions', 'Tour Terms, Inclusions & Exclusions')}
                   </h3>
                 </div>
                 <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide">
-                  Official Travel Scope
+                  {language === 'kn' ? 'ಅಧಿಕೃತ ಪ್ರವಾಸದ ವ್ಯಾಪ್ತಿ' : 'Official Travel Scope'}
                 </span>
               </div>
 
@@ -1012,9 +1132,11 @@ export const ItineraryPdfView: React.FC = () => {
                     <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
                       <div className="flex items-center gap-2 font-bold text-sm text-[#1E3A8A]">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>Tour Inclusions</span>
+                        <span>{t('inclusions', 'Tour Inclusions')}</span>
                       </div>
-                      <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">Included in Package</span>
+                      <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">
+                        {language === 'kn' ? 'ಪ್ಯಾಕೇಜ್‌ನಲ್ಲಿ ಒಳಗೊಂಡಿದೆ' : 'Included in Package'}
+                      </span>
                     </div>
                     <ul className="space-y-2 pt-2.5">
                       {parseBulletPoints(
@@ -1038,9 +1160,11 @@ export const ItineraryPdfView: React.FC = () => {
                     <div className="flex items-center justify-between pb-2 border-b border-rose-200">
                       <div className="flex items-center gap-2 font-bold text-sm text-[#1E3A8A]">
                         <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                        <span>Tour Exclusions</span>
+                        <span>{t('exclusions', 'Tour Exclusions')}</span>
                       </div>
-                      <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wide">Not Included</span>
+                      <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wide">
+                        {language === 'kn' ? 'ಒಳಗೊಂಡಿಲ್ಲ' : 'Not Included'}
+                      </span>
                     </div>
                     <ul className="space-y-2 pt-2.5">
                       {parseBulletPoints(
@@ -1089,12 +1213,14 @@ export const ItineraryPdfView: React.FC = () => {
 
               {/* Large Font THANK YOU */}
               <h1 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-[#1E3A8A] leading-tight text-center">
-                THANK YOU
+                {language === 'kn' ? 'ಧನ್ಯವಾದಗಳು' : 'THANK YOU'}
               </h1>
 
               {/* Below One Line */}
               <p className="text-xs sm:text-sm font-medium text-slate-600 italic mt-1.5 max-w-lg mx-auto text-center leading-relaxed">
-                Thank you for choosing {activeBranding.agencyName} — we look forward to curating your next unforgettable journey.
+                {language === 'kn'
+                  ? `${activeBranding.agencyName} ಅನ್ನು ಆಯ್ಕೆ ಮಾಡಿದ್ದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು — ನಿಮ್ಮ ಮುಂದಿನ ಸ್ಮರಣೀಯ ಪ್ರವಾಸವನ್ನು ಯೋಜಿಸಲು ನಾವು ಎದುರುನೋಡುತ್ತಿದ್ದೇವೆ.`
+                  : `Thank you for choosing ${activeBranding.agencyName} — we look forward to curating your next unforgettable journey.`}
               </p>
 
               {/* Red Accent Divider */}
