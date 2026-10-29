@@ -113,9 +113,16 @@ export class TranslatorService {
       return key;
     });
 
-    // 6. Brand names
-    protectedText = protectedText.replace(/\bOoting(?:\s+CRM)?\b/gi, (match) => {
+    // 6. Brand names & platform identity (Ooting, OOTING, Ooting CRM, Ooting Holidays, Ooting Tours)
+    protectedText = protectedText.replace(/\bOoting(?:\s+(?:CRM|Holidays|Tours|Travels))?\b/gi, (match) => {
       const key = `__BRAND_${counter++}__`;
+      tokens[key] = match;
+      return key;
+    });
+
+    // 7. WhatsApp branding
+    protectedText = protectedText.replace(/\bWhatsApp(?:\s+(?:Web|Business|API))?\b/gi, (match) => {
+      const key = `__WAPP_${counter++}__`;
       tokens[key] = match;
       return key;
     });
@@ -124,7 +131,7 @@ export class TranslatorService {
   }
 
   /**
-   * Re-insert protected tokens into translated text
+   * Re-insert protected tokens into translated text and guarantee brand name preservation
    */
   public static restoreTokens(translatedText: string, tokens: Record<string, string>): string {
     let result = translatedText;
@@ -135,6 +142,11 @@ export class TranslatorService {
       const spacedToken = token.replace(/_/g, ' ');
       result = result.split(spacedToken).join(original);
     });
+
+    // Safeguard: Map any accidental Kannada/Hindi transliterations of Ooting back to English "Ooting"
+    result = result.replace(/(?:ಊಟಿಂಗ್|ಔಟಿಂಗ್|ಊಟಿಂಗ|ಒಟಿಂಗ್|ಊಟೀಂಗ್|ऊटिंग|उटिंग|ऊटींग|ओटिंग|औटिंग)/gi, 'Ooting');
+    result = result.replace(/(?:Ooting\s+ಸಿಆರ್‌ಎಂ|Ooting\s+सीआरएम)/gi, 'Ooting CRM');
+
     return result;
   }
 
@@ -146,6 +158,11 @@ export class TranslatorService {
     if (!text || targetLang === 'en') return text;
     const trimmed = text.trim();
     if (!trimmed || trimmed.length <= 1) return text;
+
+    // Strictly preserve Ooting and WhatsApp brand names in English across all languages
+    if (/^(?:ooting(?:\s+(?:crm|holidays|tours|travels))?|whatsapp)$/i.test(trimmed)) {
+      return text;
+    }
 
     // Check if whole text is numeric or symbols
     if (/^[\d\s.,:;!?₹$%#@&*()\-+=/\\|<>\[\]{}'"]+$/.test(trimmed)) {
@@ -179,6 +196,11 @@ export class TranslatorService {
     if (!text || targetLang === 'en') return text;
     const trimmed = text.trim();
     if (!trimmed || trimmed.length <= 1) return text;
+
+    // Strictly preserve Ooting and WhatsApp brand names in English across all languages
+    if (/^(?:ooting(?:\s+(?:crm|holidays|tours|travels))?|whatsapp)$/i.test(trimmed)) {
+      return text;
+    }
 
     this.init();
 

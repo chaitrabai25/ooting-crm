@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Noto+Sans+Kannada:wght@400;500;600;700;800;900&family=Noto+Serif+Kannada:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -18,6 +18,55 @@ h1, h2, h3, h4, h5, h6,
 
 body, input, textarea, select, button, table, td, th {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ==========================================================================
+   HIGH-READABILITY KANNADA NEWSPAPER TYPOGRAPHY (Vijaya Karnataka / Kannada Prabha style)
+   Enforces professional Kannada Unicode rendering with correct character & word spacing.
+   Disables Latin letter-spacing (tracking) which breaks Kannada conjuncts (ottaksharas).
+   ========================================================================== */
+html[lang="kn"],
+html.lang-kn,
+.lang-kn,
+[lang="kn"] {
+  font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, sans-serif !important;
+}
+
+html[lang="kn"] *,
+html.lang-kn *,
+.lang-kn *,
+[lang="kn"] * {
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+html[lang="kn"] h1, html[lang="kn"] h2, html[lang="kn"] h3,
+html[lang="kn"] h4, html[lang="kn"] h5, html[lang="kn"] h6,
+html[lang="kn"] .font-heading, html[lang="kn"] .font-display,
+html[lang="kn"] [class*="font-heading"],
+html.lang-kn h1, html.lang-kn h2, html.lang-kn h3,
+html.lang-kn h4, html.lang-kn h5, html.lang-kn h6,
+.lang-kn h1, .lang-kn h2, .lang-kn h3,
+.lang-kn h4, .lang-kn h5, .lang-kn h6 {
+  font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  line-height: 1.4 !important;
+}
+
+html[lang="kn"] body, html[lang="kn"] p, html[lang="kn"] span,
+html[lang="kn"] input, html[lang="kn"] textarea, html[lang="kn"] select,
+html[lang="kn"] button, html[lang="kn"] table, html[lang="kn"] td, html[lang="kn"] th,
+html.lang-kn body, html.lang-kn p, html.lang-kn span,
+html.lang-kn input, html.lang-kn textarea, html.lang-kn select,
+html.lang-kn button, html.lang-kn table, html.lang-kn td, html.lang-kn th,
+.lang-kn body, .lang-kn p, .lang-kn span,
+.lang-kn input, .lang-kn textarea, .lang-kn select,
+.lang-kn button, .lang-kn table, .lang-kn td, .lang-kn th {
+  font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, sans-serif !important;
+  letter-spacing: normal !important;
+  line-height: 1.6 !important;
 }
 
 @layer base {

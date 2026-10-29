@@ -115,6 +115,21 @@ assert(TranslatorService.translate('Dashboard', 'hi') === 'डैशबोर्
 assert(TranslatorService.translate('12345', 'kn') === '12345', 'Pure numbers returned as-is');
 assert(TranslatorService.translate('₹50,000', 'kn') === '₹50,000', 'Pure prices returned as-is');
 
+// 6. Brand Name Preservation (Strict Requirement: "Ooting" must NEVER change in any language)
+console.log('\n6. Brand Name & Identity English Preservation:');
+assert(TranslatorService.translate('Ooting', 'kn') === 'Ooting', 'Brand "Ooting" remains English in Kannada');
+assert(TranslatorService.translate('Ooting', 'hi') === 'Ooting', 'Brand "Ooting" remains English in Hindi');
+assert(TranslatorService.translate('Ooting CRM', 'kn') === 'Ooting CRM', 'Brand "Ooting CRM" remains English in Kannada');
+assert(TranslatorService.translate('Ooting CRM', 'hi') === 'Ooting CRM', 'Brand "Ooting CRM" remains English in Hindi');
+assert(TranslatorService.translate('OOTING', 'kn') === 'OOTING', 'Brand "OOTING" uppercase preserved in Kannada');
+assert(TranslatorService.translate('WhatsApp', 'kn') === 'WhatsApp', '"WhatsApp" remains English in Kannada');
+
+// Test transliteration reversion
+const knTransliterated = 'ಪ್ರವಾಸ ಪ್ಯಾಕೇಜ್ ಊಟಿಂಗ್ ನಲ್ಲಿ ಲಭ್ಯವಿದೆ';
+const restoredKn = TranslatorService.restoreTokens(knTransliterated, {});
+assert(!restoredKn.includes('ಊಟಿಂಗ್'), 'Accidental Kannada transliteration of Ooting is reverted to English');
+assert(restoredKn.includes('Ooting'), 'Restored text contains English "Ooting"');
+
 console.log('\n========================================');
 console.log(`Results: ${passedTests}/${totalTests} Passed (${failedTests} Failed)`);
 console.log('========================================\n');

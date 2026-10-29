@@ -30,6 +30,7 @@ import { Package, ItineraryDay } from '../../types/index.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
+import { openWhatsAppShare } from '../../utils/whatsappHelper.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
 import { notifyError, notifySuccess } from '../../utils/sweetalert.js';
 
@@ -361,14 +362,12 @@ export const ItineraryPdfView: React.FC = () => {
       `Have a look at the attached official PDF document for the complete day-by-day schedule.\n\n` +
       `Warm regards,\n*${activeBranding.signatureName}*`;
 
-    const text = encodeURIComponent(
+    const fullText =
       messageText +
-      `\n\n📄 Note: The official Tour Itinerary PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
-    );
-    const waUrl = `https://wa.me/?text=${text}`;
+      `\n\n📄 Note: The official Tour Itinerary PDF (${filename}) has been downloaded to your device. Please attach it here to send.`;
 
-    // Open WhatsApp synchronously in user click gesture to avoid browser popup blockers
-    window.open(waUrl, '_blank');
+    // Open WhatsApp with session reuse (prevents multiple tabs & repeated login prompts)
+    openWhatsAppShare({ text: fullText });
 
     try {
       setIsGeneratingPdf(true);
@@ -660,10 +659,10 @@ export const ItineraryPdfView: React.FC = () => {
               return (
                 <div
                   key={day.id || idx}
-                  className={`itinerary-day-card ${idx === 0 ? 'itinerary-day-1' : 'page-break-avoid'} border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white`}
+                  className="itinerary-day-card border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white"
                 >
                   {/* Day Header Bar */}
-                  <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200">
+                  <div className="itinerary-day-header px-4 py-2 bg-slate-50/80 border-b border-slate-200">
                     {((day as any).date || day.startTime || day.endTime) ? (
                       <>
                         <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -706,13 +705,13 @@ export const ItineraryPdfView: React.FC = () => {
                   </div>
 
                   {/* Day Content Body */}
-                  <div className="p-4 space-y-3">
+                  <div className="p-3.5 space-y-2">
                     <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-line font-normal">
                       {day.description}
                     </p>
 
                     {((day as any).highlights || (day as any).travelDetails) && (
-                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
                         {(day as any).highlights && (
                           <div className="text-slate-800 leading-relaxed">
                             <strong className="text-[#1E3A8A] font-bold">Highlights:</strong>{' '}
@@ -772,13 +771,13 @@ export const ItineraryPdfView: React.FC = () => {
                             <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                               <div
                                 className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                                style={{ width: '100%', height: '145px', maxHeight: '145px', minHeight: '145px' }}
+                                style={{ width: '100%', height: '125px', maxHeight: '125px', minHeight: '125px' }}
                               >
                                 <img
                                   src={item.url}
                                   alt={placeLabel || day.title}
                                   className="w-full h-full object-cover"
-                                  style={{ width: '100%', height: '145px', maxHeight: '145px', objectFit: 'cover' }}
+                                  style={{ width: '100%', height: '125px', maxHeight: '125px', objectFit: 'cover' }}
                                   referrerPolicy="no-referrer"
                                 />
                               </div>
@@ -805,13 +804,13 @@ export const ItineraryPdfView: React.FC = () => {
                                 >
                                   <div
                                     className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                                    style={{ width: '100%', height: '130px', maxHeight: '130px', minHeight: '130px' }}
+                                    style={{ width: '100%', height: '115px', maxHeight: '115px', minHeight: '115px' }}
                                   >
                                     <img
                                       src={item.url}
                                       alt={placeLabel || ''}
                                       className="w-full h-full object-cover"
-                                      style={{ width: '100%', height: '130px', maxHeight: '130px', objectFit: 'cover' }}
+                                      style={{ width: '100%', height: '115px', maxHeight: '115px', objectFit: 'cover' }}
                                       referrerPolicy="no-referrer"
                                     />
                                   </div>
@@ -856,7 +855,7 @@ export const ItineraryPdfView: React.FC = () => {
 
                     {/* Hotel Accommodation Card: Prominent Showcase with Captions */}
                     {day.hotelName && day.hotelName.trim() && (
-                      <div className="mt-3 p-3.5 rounded-xl bg-slate-50/80 border border-slate-200 shadow-2xs space-y-2.5">
+                      <div className="mt-2.5 p-3 rounded-xl bg-slate-50/80 border border-slate-200 shadow-2xs space-y-2 hotel-card">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200/80 pb-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 text-[#1E3A8A] border border-blue-200 text-[11px] font-bold uppercase tracking-wider">
@@ -979,7 +978,7 @@ export const ItineraryPdfView: React.FC = () => {
           </div>
 
           {/* Important Terms & Booking Notice */}
-          <div className="p-3.5 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed bg-white page-break-avoid">
+          <div className="p-3 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed bg-white">
             <p>
               <strong className="text-slate-900 font-bold">Booking Notice:</strong> All hotel accommodations and vehicle availability are subject to confirmation at the time of deposit payment. Rates are valid for 15 days from quote generation.
             </p>
@@ -987,9 +986,9 @@ export const ItineraryPdfView: React.FC = () => {
 
         </div>
 
-        {/* Dedicated Final Page: Tour Inclusions, Exclusions & Executive Thank You Page */}
+        {/* Continuous Flow: Tour Inclusions, Exclusions & Executive Thank You Section */}
         <div
-          className="pdf-page-break-before pdf-thank-you-page w-full flex flex-col justify-between bg-white text-slate-900 print:min-h-screen"
+          className="pdf-thank-you-page w-full flex flex-col justify-between bg-white text-slate-900 mt-4 pt-2 border-t border-slate-200"
         >
           <div className="px-8 sm:px-12 py-8 max-w-4xl mx-auto w-full space-y-6">
             {/* Tour Terms, Inclusions & Exclusions */}
@@ -1217,19 +1216,23 @@ export const ItineraryPdfView: React.FC = () => {
           }
           @page {
             size: A4 portrait;
-            margin: 8mm 10mm;
+            margin: 6mm 8mm;
+          }
+          .itinerary-day-card {
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+          }
+          .itinerary-day-header {
+            break-after: avoid !important;
+            page-break-after: avoid !important;
+          }
+          .day-photo-card, .hotel-card {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
           }
           .page-break-avoid {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
-          }
-          .itinerary-day-1 {
-            break-before: avoid !important;
-            page-break-before: avoid !important;
-          }
-          .pdf-page-break-before {
-            page-break-before: always !important;
-            break-before: page !important;
           }
         }
       `}</style>

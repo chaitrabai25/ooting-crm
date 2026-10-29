@@ -351,16 +351,16 @@ export async function generateA4Pdf({
       const breakNodes = clonedTargetEl
         ? Array.from(
             (clonedTargetEl as HTMLElement).querySelectorAll<HTMLElement>(
-              '.page-break-avoid, [break-inside-avoid], section, .itinerary-day-card:not(.itinerary-day-1), tr'
+              '.day-photo-card, .hotel-card, tr, .avoid-split, [break-inside-avoid]'
             )
           )
         : [];
 
-      // Forced Page Break elements (e.g. Dedicated Thank-You page)
+      // Forced Page Break elements (only when explicitly requested)
       const forceBreakNodes = clonedTargetEl
         ? Array.from(
             (clonedTargetEl as HTMLElement).querySelectorAll<HTMLElement>(
-              '.pdf-page-break-before, .pdf-thank-you-page'
+              '.pdf-force-page-break'
             )
           )
         : [];

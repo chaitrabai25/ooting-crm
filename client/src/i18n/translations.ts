@@ -299,7 +299,7 @@ export const DICTIONARY: Record<Language, Record<string, string>> = {
     'customers': 'ಗ್ರಾಹಕರು',
     'passengers': 'ಪ್ರಯಾಣಿಕರ ಪಟ್ಟಿ',
     'passenger_list': 'ಪ್ರಯಾಣಿಕರ ಪಟ್ಟಿ',
-    'whatsapp': 'ಬಲ್ಕ್ ವಾಟ್ಸಾಪ್',
+    'whatsapp': 'ಬಲ್ಕ್ WhatsApp',
     'packages': 'ಪ್ಯಾಕೇಜ್‌ಗಳು ಮತ್ತು ವಿವರಣೆ',
     'packages_itinerary': 'ಪ್ಯಾಕೇಜ್‌ಗಳು ಮತ್ತು ವಿವರಣೆ',
     'places_master': 'ಸ್ಥಳಗಳ ಮಾಹಿತಿ',
@@ -408,7 +408,7 @@ export const DICTIONARY: Record<Language, Record<string, string>> = {
     'cab_details': 'ಕ್ಯಾಬ್ / ವಾಹನದ ವಿವರಗಳು',
     'cost_breakup': 'ವೆಚ್ಚದ ವಿವರ',
     'convert_to_booking': 'ಬುಕಿಂಗ್ ಆಗಿ ಪರಿವರ್ತಿಸಿ',
-    'send_via_whatsapp': 'ವಾಟ್ಸಾಪ್ ಮೂಲಕ ಕಳುಹಿಸಿ',
+    'send_via_whatsapp': 'WhatsApp ಮೂಲಕ ಕಳುಹಿಸಿ',
     'share_quotation': 'ಕೊಟೇಶನ್ ಹಂಚಿಕೊಳ್ಳಿ',
 
     // Cabs & Guides
@@ -510,7 +510,7 @@ export const DICTIONARY: Record<Language, Record<string, string>> = {
     'customers': 'ग्राहक',
     'passengers': 'यात्री सूची',
     'passenger_list': 'यात्री सूची',
-    'whatsapp': 'बल्क व्हाट्सएप',
+    'whatsapp': 'बल्क WhatsApp',
     'packages': 'पैकेज और यात्रा कार्यक्रम',
     'packages_itinerary': 'पैकेज और यात्रा कार्यक्रम',
     'places_master': 'स्थान विवरण (Places)',
@@ -619,7 +619,7 @@ export const DICTIONARY: Record<Language, Record<string, string>> = {
     'cab_details': 'कैब / वाहन विवरण',
     'cost_breakup': 'लागत विवरण',
     'convert_to_booking': 'बुकिंग में बदलें',
-    'send_via_whatsapp': 'व्हाट्सएप से भेजें',
+    'send_via_whatsapp': 'WhatsApp से भेजें',
     'share_quotation': 'कोटेशन साझा करें',
 
     // Cabs & Guides

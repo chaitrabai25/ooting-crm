@@ -154,12 +154,12 @@ export async function printElement(elementId: string, options: PrintOptions = {}
       <title>${documentTitle}</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Noto+Sans+Kannada:wght@400;500;600;700;800;900&family=Noto+Serif+Kannada:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
       ${headStyles.join('\n')}
       <style>
         @page {
           size: A4 portrait;
-          margin: 6mm;
+          margin: 6mm 8mm;
         }
         *, *::before, *::after {
           box-sizing: border-box !important;
@@ -176,6 +176,11 @@ export async function printElement(elementId: string, options: PrintOptions = {}
           width: 100% !important;
           overflow: visible !important;
           -webkit-font-smoothing: antialiased !important;
+        }
+        html[lang="kn"], html[lang="kn"] *, .lang-kn, .lang-kn * {
+          font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, sans-serif !important;
+          letter-spacing: normal !important;
+          word-spacing: normal !important;
         }
         svg {
           display: inline-block !important;
@@ -200,6 +205,18 @@ export async function printElement(elementId: string, options: PrintOptions = {}
           min-width: 0 !important;
           height: auto !important;
           min-height: 0 !important;
+        }
+        .itinerary-day-card {
+          break-inside: auto !important;
+          page-break-inside: auto !important;
+        }
+        .itinerary-day-header {
+          break-after: avoid !important;
+          page-break-after: avoid !important;
+        }
+        .day-photo-card, .hotel-card {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
         }
         .pdf-page {
           page-break-inside: avoid !important;

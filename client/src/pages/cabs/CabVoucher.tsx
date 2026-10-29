@@ -29,6 +29,7 @@ import { api } from '../../api/client.js';
 import { CabBooking } from '../../types/index.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
+import { openWhatsAppShare } from '../../utils/whatsappHelper.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
@@ -678,14 +679,12 @@ export const CabVoucher: React.FC = () => {
       `Have a safe & memorable journey with ${company.name || 'Ooting'}!`;
 
     const filename = `DutySlip-${cab.bookingReference}.pdf`;
-    const text = encodeURIComponent(
+    const fullText =
       messageText +
-      `\n\n📄 Note: The official Cab Duty Slip PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
-    );
-    const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${text}` : `https://wa.me/?text=${text}`;
+      `\n\n📄 Note: The official Cab Duty Slip PDF (${filename}) has been downloaded to your device. Please attach it here to send.`;
 
-    // Open WhatsApp synchronously in user click gesture to avoid browser popup blockers
-    window.open(waUrl, '_blank');
+    // Open WhatsApp with session reuse (prevents multiple tabs & repeated login prompts)
+    openWhatsAppShare({ phone: cleanPhone, text: fullText });
 
     try {
       setIsGeneratingPdf(true);

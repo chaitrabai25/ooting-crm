@@ -26,6 +26,7 @@ import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
+import { openWhatsAppShare } from '../../utils/whatsappHelper.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
 import { confirmAction, notifyError, notifySuccess } from '../../utils/sweetalert.js';
 
@@ -158,12 +159,8 @@ export const QuotationView: React.FC = () => {
       `📄 *Your official Quotation PDF has been downloaded to your device.* Please find it attached.\n\n` +
       `Warm regards,\n*${company?.name || 'Ooting'} Tours & Travels*\n${company?.phone ? `📞 ${company.phone}` : ''}`;
 
-    const waUrl = formattedPhone
-      ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(messageText)}`
-      : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
-
-    // Open WhatsApp synchronously in user click gesture to prevent browser popup blocking
-    window.open(waUrl, '_blank');
+    // Open WhatsApp with session reuse (prevents multiple tabs & repeated login prompts)
+    openWhatsAppShare({ phone: formattedPhone, text: messageText });
     showToast('Opening WhatsApp with customer... PDF downloading simultaneously.');
 
     try {

@@ -123,6 +123,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               return NodeFilter.FILTER_REJECT;
             }
 
+            // Strictly protect Ooting brand name from being translated in any language
+            if (/^ooting(?:\s+(?:crm|holidays|tours))?$/i.test(val)) {
+              return NodeFilter.FILTER_REJECT;
+            }
+
             return NodeFilter.FILTER_ACCEPT;
           },
         }
@@ -165,8 +170,13 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   }, [runDomTranslationPass]);
 
-  // Run DOM translation whenever language changes
+  // Run DOM translation and sync html lang/font classes whenever language changes
   useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language;
+      document.documentElement.classList.toggle('lang-kn', language === 'kn');
+    }
+
     scheduleTranslationPass();
 
     // Listen for incoming async translations

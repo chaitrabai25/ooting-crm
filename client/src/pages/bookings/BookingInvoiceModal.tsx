@@ -21,6 +21,7 @@ import {
 import { Booking } from '../../types/index.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
 import { printElement } from '../../utils/printDocument.js';
+import { openWhatsAppShare } from '../../utils/whatsappHelper.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { notifyError, notifySuccess } from '../../utils/sweetalert.js';
 
@@ -176,14 +177,12 @@ export const BookingInvoiceModal: React.FC<BookingInvoiceModalProps> = ({
       paymentSummaryText + '\n' +
       `Thank you for choosing ${company.name || 'Ooting'}!`;
 
-    const text = encodeURIComponent(
+    const fullText =
       messageText +
-      `\n\n📄 Note: The official A4 Tax Invoice PDF (${filename}) has been downloaded to your device. Please attach it here to send.`
-    );
-    const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${text}` : `https://wa.me/?text=${text}`;
+      `\n\n📄 Note: The official A4 Tax Invoice PDF (${filename}) has been downloaded to your device. Please attach it here to send.`;
 
-    // Open WhatsApp synchronously in user click gesture to avoid browser popup blockers
-    window.open(waUrl, '_blank');
+    // Open WhatsApp with session reuse (prevents multiple tabs & repeated login prompts)
+    openWhatsAppShare({ phone: cleanPhone, text: fullText });
 
     try {
       setIsGeneratingPdf(true);

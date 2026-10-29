@@ -3,6 +3,7 @@ import { Send, ExternalLink, MessageSquare, History, CheckCheck, Clock, AlertCir
 import { Modal } from '../ui/Modal.js';
 import { api } from '../../api/client.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
+import { openWhatsAppShare } from '../../utils/whatsappHelper.js';
 
 interface WhatsAppModalProps {
   isOpen: boolean;
@@ -130,8 +131,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
       setStatusFeedback({ type: 'error', text: 'Valid phone number is required.' });
       return;
     }
-    const webUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
-    window.open(webUrl, '_blank', 'noopener,noreferrer');
+    openWhatsAppShare({ phone: formattedPhone, text: message });
   };
 
   const handleSendApi = async () => {
