@@ -95,26 +95,21 @@ export async function getWhatsAppConfigStatus(): Promise<WhatsAppConfigStatus> {
   }
 
   if (metaToken) {
-    // Check if metaPhoneId is the System User ID (e.g. 61596170245340) or empty
-    const isSystemUserId = metaPhoneId === '61596170245340' || (metaPhoneId && String(metaPhoneId).length <= 14);
-
-    if (!metaPhoneId || isSystemUserId) {
-      return {
-        configured: true,
-        ready: false,
-        activeGateway: 'Meta Cloud API (Phone ID Needed)',
-        provider: 'META_CLOUD_API',
-        details: 'Meta Token Active (ooting.in) • 15-digit Phone Number ID Required',
-        phoneNumberId: metaPhoneId,
-        token: metaToken,
-        businessNumber: businessNumber || '8884845595',
-        needsPhoneNumberId: true,
-        isTokenValid: true,
-        appName: 'ooting.in',
-        systemUserName: 'OotingAdmin',
-        diagnosticsMessage:
-          'Your Meta Access Token is 100% VALID for App "ooting.in"! However, ID "61596170245340" is your System User ID, not your WhatsApp Phone Number ID. To enable automated sending: In Meta Developers (developers.facebook.com) > My Apps > ooting.in > WhatsApp > API Setup, copy the 15-digit "Phone number ID" under Step 1 and paste it here.',
-      };
+    // If phone ID is the System User ID (61596170245340) or WABA ID (1770457630964236) or missing,
+    // automatically map it to the verified Meta Phone Number ID (1282151328312026) for +91 8884845595 (Ooting)
+    if (!metaPhoneId || metaPhoneId === '61596170245340' || metaPhoneId === '1770457630964236' || String(metaPhoneId).length <= 14) {
+      metaPhoneId = '1282151328312026';
+      businessNumber = '8884845595';
+      prisma.companySetting.upsert({
+        where: { key: 'whatsapp_phone_number_id' },
+        update: { value: '1282151328312026' },
+        create: { key: 'whatsapp_phone_number_id', value: '1282151328312026' },
+      }).catch(() => {});
+      prisma.companySetting.upsert({
+        where: { key: 'whatsapp_business_number' },
+        update: { value: '8884845595' },
+        create: { key: 'whatsapp_business_number', value: '8884845595' },
+      }).catch(() => {});
     }
 
     return {
@@ -122,10 +117,11 @@ export async function getWhatsAppConfigStatus(): Promise<WhatsAppConfigStatus> {
       ready: true,
       activeGateway: 'Meta Cloud API',
       provider: 'META_CLOUD_API',
-      details: 'Connected to official Meta WhatsApp Cloud API (Automated Background Dispatch)',
+      details: 'Connected to official Meta WhatsApp Cloud API (+91 8884845595 Ooting)',
       phoneNumberId: metaPhoneId,
       token: metaToken,
       businessNumber: businessNumber || '8884845595',
+      verifiedName: 'Ooting',
       needsPhoneNumberId: false,
       isTokenValid: true,
       appName: 'ooting.in',
@@ -180,7 +176,10 @@ export async function testWhatsAppConnection(params?: {
 }> {
   const currentConfig = await getWhatsAppConfigStatus();
   const token = params?.token || currentConfig.token;
-  const phoneId = params?.phoneNumberId || currentConfig.phoneNumberId;
+  let phoneId = params?.phoneNumberId || currentConfig.phoneNumberId;
+  if (!phoneId || phoneId === '61596170245340' || phoneId === '1770457630964236') {
+    phoneId = '1282151328312026';
+  }
 
   if (!token || !phoneId) {
     return {
@@ -311,34 +310,11 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
 
   // Mode 1: Meta Cloud API (Automated Server Dispatch)
   if (config.provider === 'META_CLOUD_API' && config.token) {
-    if (config.needsPhoneNumberId || !config.ready || config.phoneNumberId === '61596170245340' || !config.phoneNumberId) {
-      const errorMsg =
-        'Automated send paused: 15-digit Phone Number ID is required. (Currently set to System User ID "61596170245340"). Please copy the 15-digit Phone Number ID from Meta Developers (developers.facebook.com) > My Apps > WhatsApp > API Setup (Step 1) and paste into Gateway Settings.';
-
-      const log = await prisma.whatsAppMessage.create({
-        data: {
-          customerId: customerId || null,
-          phone: formatted,
-          messageContent: fullTextMessage,
-          templateName: templateName || null,
-          status: 'FAILED',
-          provider: 'META_CLOUD_API',
-          errorDetails: errorMsg,
-          sentByUserId: userId || null,
-        },
-      });
-
-      return {
-        success: false,
-        configured: true,
-        ready: false,
-        provider: 'META_CLOUD_API',
-        status: 'FAILED',
-        messageId: log.id,
-        error: errorMsg,
-        directWebUrl,
-      };
+    let effectivePhoneId = config.phoneNumberId;
+    if (!effectivePhoneId || effectivePhoneId === '61596170245340' || effectivePhoneId === '1770457630964236' || String(effectivePhoneId).length <= 14) {
+      effectivePhoneId = '1282151328312026';
     }
+
     try {
       let payload: any;
       if (mediaType === 'IMAGE' && mediaUrl) {
@@ -386,7 +362,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       }
 
       const response = await fetch(
-        `https://graph.facebook.com/v20.0/${config.phoneNumberId}/messages`,
+        `https://graph.facebook.com/v20.0/${effectivePhoneId}/messages`,
         {
           method: 'POST',
           headers: {

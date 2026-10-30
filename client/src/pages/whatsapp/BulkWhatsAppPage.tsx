@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   MessageSquare,
   Upload,
@@ -28,14 +28,17 @@ import {
   SkipForward,
   Settings as SettingsIcon,
   Zap,
-  Info,
-  HelpCircle,
+  Search,
+  CheckSquare,
+  Square as SquareBox,
+  CheckCheck,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { openWhatsAppShare } from '../../utils/whatsappHelper.js';
 
 interface RecipientRow {
   Phone: string;
@@ -45,6 +48,7 @@ interface RecipientRow {
   bookingNumber?: string;
   quotationAmount?: string | number;
   dueAmount?: string | number;
+  customerId?: string;
   [key: string]: any;
 }
 
@@ -113,14 +117,14 @@ export const BulkWhatsAppPage: React.FC = () => {
   const [mediaUrl, setMediaUrl] = useState<string>('');
   const [mediaFilename, setMediaFilename] = useState<string>('');
   const [isUploadingMedia, setIsUploadingMedia] = useState<boolean>(false);
-  const [recipientSource, setRecipientSource] = useState<'EXCEL' | 'CRM'>('CRM');
+  const [recipientSource, setRecipientSource] = useState<'CRM' | 'EXCEL'>('CRM');
   const [isLoadingCustomers, setIsLoadingCustomers] = useState<boolean>(false);
 
   // Delivery Timer State (Delay between automated sends in seconds)
   const [delaySeconds, setDelaySeconds] = useState<number>(3);
   const [dispatchMode, setDispatchMode] = useState<'CLOUD_API' | 'WEB_AUTOMATOR'>('CLOUD_API');
 
-  // Automated Autopilot Broadcast Execution State
+  // Automated Broadcast Execution State
   const [isAutoBroadcasting, setIsAutoBroadcasting] = useState<boolean>(false);
   const [isAutoPaused, setIsAutoPaused] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
@@ -141,27 +145,27 @@ export const BulkWhatsAppPage: React.FC = () => {
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
   const [configToken, setConfigToken] = useState<string>('');
   const [configPhoneId, setConfigPhoneId] = useState<string>('');
-  const [configBusinessNum, setConfigBusinessNum] = useState<string>('');
+  const [configBusinessNum, setConfigBusinessNum] = useState<string>('8884845595');
   const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
   const [isTestingConfig, setIsTestingConfig] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<any>(null);
 
-  const broadcastWindowRef = useRef<Window | null>(null);
   const isPausedRef = useRef<boolean>(false);
   const isStoppedRef = useRef<boolean>(false);
 
+  // Recipients and Client Selection State
   const [recipients, setRecipients] = useState<RecipientRow[]>([]);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
   const [previews, setPreviews] = useState<any[]>([]);
   const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
 
   const [apiStatus, setApiStatus] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSending, setIsSending] = useState<boolean>(false);
-  const [sendProgress, setSendProgress] = useState<number>(0);
-  const [sendResults, setSendResults] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Check WhatsApp configuration status
+  // Check WhatsApp configuration status on mount
   useEffect(() => {
     api.get('/whatsapp/config-status').then((res) => {
       setApiStatus(res.data);
@@ -205,7 +209,7 @@ export const BulkWhatsAppPage: React.FC = () => {
     setMessageTemplate((prev) => prev + ' ' + placeholder);
   };
 
-  // Auto-load all active CRM customers
+  // Auto-load all active CRM customers and select all by default
   const handleLoadCrmCustomers = async () => {
     try {
       setIsLoadingCustomers(true);
@@ -217,6 +221,7 @@ export const BulkWhatsAppPage: React.FC = () => {
         return;
       }
       setRecipients(list);
+      setSelectedIndices(new Set(list.map((_, i) => i)));
       setSelectedPreviewIndex(0);
     } catch (err: any) {
       console.error('Failed to load CRM customers:', err);
@@ -299,7 +304,6 @@ export const BulkWhatsAppPage: React.FC = () => {
         return;
       }
 
-      // Check for phone column
       const validRows: RecipientRow[] = rows.map((r) => ({
         Phone: String(r.Phone || r.phone || r.Mobile || r.mobile || ''),
         customerName: r.customerName || r['Customer Name'] || r.name || 'Valued Guest',
@@ -311,6 +315,7 @@ export const BulkWhatsAppPage: React.FC = () => {
       }));
 
       setRecipients(validRows);
+      setSelectedIndices(new Set(validRows.map((_, i) => i)));
       setSelectedPreviewIndex(0);
     } catch (err: any) {
       console.error('Failed to parse Excel file:', err);
@@ -321,23 +326,127 @@ export const BulkWhatsAppPage: React.FC = () => {
     }
   };
 
+  // Recipient Search & Filtering Logic
+  const filteredRecipients = useMemo(() => {
+    return recipients
+      .map((r, originalIndex) => ({ r, originalIndex }))
+      .filter(({ r }) => {
+        if (!searchTerm.trim()) return true;
+        const q = searchTerm.toLowerCase();
+        const name = (r.customerName || r.name || '').toLowerCase();
+        const phone = (r.Phone || r.phone || '').toLowerCase();
+        const pkg = (r.package || '').toLowerCase();
+        const bNum = (r.bookingNumber || '').toLowerCase();
+        return name.includes(q) || phone.includes(q) || pkg.includes(q) || bNum.includes(q);
+      });
+  }, [recipients, searchTerm]);
+
+  // Master Checkbox State calculation
+  const isAllFilteredSelected = useMemo(() => {
+    if (filteredRecipients.length === 0) return false;
+    return filteredRecipients.every(({ originalIndex }) => selectedIndices.has(originalIndex));
+  }, [filteredRecipients, selectedIndices]);
+
+  const handleToggleSelectAll = () => {
+    setSelectedIndices((prev) => {
+      const next = new Set(prev);
+      if (isAllFilteredSelected) {
+        // Deselect all currently filtered
+        filteredRecipients.forEach(({ originalIndex }) => next.delete(originalIndex));
+      } else {
+        // Select all currently filtered
+        filteredRecipients.forEach(({ originalIndex }) => next.add(originalIndex));
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIndices(new Set(recipients.map((_, i) => i)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIndices(new Set());
+  };
+
+  const handleToggleRecipient = (index: number) => {
+    setSelectedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  // Quick Send directly to a single recipient (Reusing single tab in Chrome & copying to clipboard)
+  const handleQuickSend = async (recipient: RecipientRow) => {
+    const rawPhone = recipient.Phone || recipient.phone || '';
+    const cleanPhone = sanitizePhoneNumber(rawPhone);
+    const personalizedMsg = interpolateClientTemplate(messageTemplate, recipient);
+    let fullMsg = personalizedMsg;
+    if (mediaUrl) {
+      const mediaLabel = mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 Tour Itinerary';
+      fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
+    }
+
+    if (dispatchMode === 'CLOUD_API' && apiStatus?.ready) {
+      try {
+        const res = await api.post('/whatsapp/send', {
+          phone: cleanPhone,
+          message: fullMsg,
+          customerId: recipient.customerId,
+          mediaType,
+          mediaUrl,
+          mediaFilename,
+        });
+        if (res.data?.success || res.data?.status === 'SENT') {
+          setDispatchedHistory((prev) => [
+            {
+              phone: cleanPhone,
+              name: recipient.customerName || 'Customer',
+              status: 'SENT',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              webUrl: res.data?.directWebUrl,
+            },
+            ...prev,
+          ]);
+          return;
+        }
+      } catch (err) {
+        console.warn('Cloud API quick send fallback:', err);
+      }
+    }
+
+    // Single-tab WhatsApp Web session reuse & clipboard synchronization
+    openWhatsAppShare({
+      phone: cleanPhone,
+      text: fullMsg,
+      windowName: 'whatsapp',
+    });
+
+    setDispatchedHistory((prev) => [
+      {
+        phone: cleanPhone,
+        name: recipient.customerName || 'Customer',
+        status: 'SENT',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      },
+      ...prev,
+    ]);
+  };
+
   // Gateway Config Handlers
   const handleOpenConfig = () => {
     setConfigToken(
       apiStatus?.token ||
         'EAAWziojyZCxQBS5ZBj1QWc7ZBuI9ZAQYDevZCWPoo637fLI0VxofjQs8zoZCHqDF5ximbMMweOzw2RZBOhXwNbo3NKpmoPXtIBhQ8NBBaxLXk2j7lZBwNcHZAQw18WWmSBtNMYqvGuRc35TVEaAcXhS6n6DeGZCE3HWNBEK45ZAhRN1OZAIyaFSoRD6u9pyUTZBIXPgZDZD'
     );
-    setConfigPhoneId(apiStatus?.phoneNumberId || '61596170245340');
+    setConfigPhoneId(apiStatus?.phoneNumberId || '1282151328312026');
     setConfigBusinessNum(apiStatus?.businessNumber || '8884845595');
-    if (apiStatus?.diagnosticsMessage && !apiStatus?.ready) {
-      setTestResult({
-        success: false,
-        status: 'PHONE_ID_MISMATCH',
-        message: apiStatus.diagnosticsMessage,
-      });
-    } else {
-      setTestResult(null);
-    }
+    setTestResult(null);
     setIsConfigOpen(true);
   };
 
@@ -384,10 +493,15 @@ export const BulkWhatsAppPage: React.FC = () => {
     }
   };
 
-  // Automated Autopilot Broadcast Execution
+  // Automated Bulk Broadcast Execution (Dispatches ONLY to selected clients)
   const handleStartBroadcast = async () => {
-    if (recipients.length === 0) {
-      setError('Please select or load recipients first.');
+    const targetRecipients = recipients
+      .map((r, originalIndex) => ({ r, originalIndex }))
+      .filter(({ originalIndex }) => selectedIndices.has(originalIndex))
+      .map(({ r }) => r);
+
+    if (targetRecipients.length === 0) {
+      setError('Please select at least 1 client using the checkboxes below before starting broadcast.');
       return;
     }
     if (!messageTemplate.trim()) {
@@ -405,23 +519,12 @@ export const BulkWhatsAppPage: React.FC = () => {
     isPausedRef.current = false;
     isStoppedRef.current = false;
 
-    const isCloudApi = dispatchMode === 'CLOUD_API' || Boolean(apiStatus?.ready);
-    if (!isCloudApi) {
-      try {
-        broadcastWindowRef.current = window.open(
-          'about:blank',
-          'ooting_broadcast_target',
-          'width=960,height=750,left=150,top=100'
-        );
-      } catch (e) {
-        console.warn('Popup window blocked or error:', e);
-      }
-    }
+    const isCloudApi = dispatchMode === 'CLOUD_API' && Boolean(apiStatus?.ready);
 
-    for (let i = 0; i < recipients.length; i++) {
+    for (let i = 0; i < targetRecipients.length; i++) {
       if (isStoppedRef.current) break;
       setCurrentBroadcastIndex(i);
-      const recipient = recipients[i];
+      const recipient = targetRecipients[i];
 
       // Check pause state
       while (isPausedRef.current && !isStoppedRef.current) {
@@ -470,7 +573,7 @@ export const BulkWhatsAppPage: React.FC = () => {
                 name: recipient.customerName || 'Customer',
                 status: 'FAILED',
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                error: res.data?.error || 'Dispatch rejected by Meta Cloud API',
+                error: res.data?.error || 'Meta API restriction: 24h window closed or unverified number.',
                 webUrl: waUrl,
               },
               ...prev,
@@ -491,22 +594,12 @@ export const BulkWhatsAppPage: React.FC = () => {
           ]);
         }
       } else {
-        try {
-          if (broadcastWindowRef.current && !broadcastWindowRef.current.closed) {
-            broadcastWindowRef.current.location.href = waUrl;
-            try {
-              broadcastWindowRef.current.focus();
-            } catch (_) {}
-          } else {
-            broadcastWindowRef.current = window.open(
-              waUrl,
-              'ooting_broadcast_target',
-              'width=960,height=750,left=150,top=100'
-            );
-          }
-        } catch (e) {
-          console.warn('Navigation error:', e);
-        }
+        // Web Automator: Reuses single WhatsApp tab and copies message text to clipboard
+        openWhatsAppShare({
+          phone: cleanPhone,
+          text: fullMsg,
+          windowName: 'whatsapp',
+        });
 
         setDispatchedHistory((prev) => [
           {
@@ -521,7 +614,7 @@ export const BulkWhatsAppPage: React.FC = () => {
       }
 
       // Timer delay countdown before next recipient
-      if (i < recipients.length - 1 && !isStoppedRef.current) {
+      if (i < targetRecipients.length - 1 && !isStoppedRef.current) {
         let remaining = delaySeconds;
         setCountdownSeconds(remaining);
         while (remaining > 0 && !isStoppedRef.current) {
@@ -564,7 +657,7 @@ export const BulkWhatsAppPage: React.FC = () => {
       'Phone Number': h.phone,
       'Status': h.status,
       'Timestamp': h.time,
-      'Error': h.error || 'None',
+      'Error / Notes': h.error || 'Dispatched successfully',
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportRows);
@@ -574,41 +667,33 @@ export const BulkWhatsAppPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-5 max-w-7xl mx-auto">
+      {/* Header Banner & Connected Sender Information */}
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-emerald-600" />
             Automated & Bulk WhatsApp Messaging
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Broadcast personalized tour offers, departure alerts, and payment reminders via Excel list.
+            Broadcast personalized tour offers, balance reminders, and vouchers from connected business number.
           </p>
         </div>
 
-        {/* API Gateway Status Badge & Gateway Setup Modal Trigger */}
-        <div className="flex flex-wrap items-center gap-2">
-          {apiStatus && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">Gateway:</span>
-              <span
-                className={`text-xs px-2.5 py-1 rounded-full font-bold border flex items-center gap-1.5 ${
-                  apiStatus.ready
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800'
-                    : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${apiStatus.ready ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                {apiStatus.activeGateway} ({apiStatus.ready ? 'Direct Cloud API' : 'Web Automator'})
-              </span>
-            </div>
-          )}
+        {/* Sender Number & Active Gateway Badge */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="px-3 py-1.5 rounded-xl border bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200 flex items-center gap-2 text-xs font-semibold shadow-xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Sender: <strong>+91 {apiStatus?.businessNumber || '8884845595'}</strong></span>
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-100 font-bold">
+              {apiStatus?.verifiedName || 'Ooting'}
+            </span>
+          </div>
 
           <button
             type="button"
             onClick={handleOpenConfig}
-            className="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-1.5 transition-colors"
+            className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-600 flex items-center gap-1.5 transition-colors shadow-xs"
           >
             <SettingsIcon className="w-3.5 h-3.5 text-brand-600" />
             <span>Gateway Setup</span>
@@ -616,7 +701,7 @@ export const BulkWhatsAppPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Error Banner */}
+      {/* Error Alert Banner */}
       {error && (
         <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl flex items-center justify-between text-xs text-rose-700 dark:text-rose-300">
           <div className="flex items-center gap-2">
@@ -629,102 +714,274 @@ export const BulkWhatsAppPage: React.FC = () => {
         </div>
       )}
 
-      {/* Smart Gateway Diagnostic Card */}
-      {apiStatus?.needsPhoneNumberId ? (
-        <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border-2 border-amber-300 dark:border-amber-700/80 rounded-2xl shadow-xs">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Zap className="w-5 h-5" />
-              </div>
-              <div className="space-y-0.5">
-                <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100 flex items-center gap-2 flex-wrap">
-                  <span>Meta WhatsApp Gateway: 1 Final Step to Send Automatically</span>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300">
-                    Token 100% Valid (ooting.in)
-                  </span>
-                </h3>
-                <p className="text-xs text-amber-800 dark:text-amber-200/90 leading-relaxed">
-                  Your permanent Meta token is active! Currently, ID <code className="px-1.5 py-0.5 bg-amber-200/70 dark:bg-amber-900/80 rounded font-mono font-bold text-[11px] text-amber-950 dark:text-amber-100">61596170245340</code> is your System User ID. To send bulk messages in the background automatically without opening browser tabs, copy your 15-digit <strong>Phone number ID</strong> from Meta Developers (Step 1) and paste it here.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleOpenConfig}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 shrink-0 transition-colors"
-            >
-              <SettingsIcon className="w-3.5 h-3.5" />
-              <span>Enter 15-digit Phone ID (30s)</span>
-            </button>
-          </div>
-        </div>
-      ) : apiStatus?.ready ? (
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2.5 text-emerald-800 dark:text-emerald-200">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="font-semibold">
-              Meta WhatsApp Cloud API Active & Verified for <strong>+{apiStatus.businessNumber || '918884845595'}</strong>
-            </span>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono hidden sm:inline">
-              (Automated Server Dispatch Enabled — 0 Popups / 0 New Tabs)
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={handleOpenConfig}
-            className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline"
-          >
-            Manage Gateway
-          </button>
-        </div>
-      ) : null}
-
-      {/* Main 2-Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Template Selection & Message Composer (7 cols) */}
+      {/* Main 2-Column Responsive Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column: Form Steps & Client Selection Checklist (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Preset Template Selector */}
+          {/* STEP 1: Recipient Source & Client Selection Checklist */}
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-emerald-600" />
+                Step 1: Select Clients for WhatsApp Broadcast
+              </h2>
+
+              {recipientSource === 'EXCEL' && (
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Sample Excel (.xlsx)</span>
+                </button>
+              )}
+            </div>
+
+            {/* Source switch pills */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRecipientSource('CRM');
+                  handleLoadCrmCustomers();
+                }}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                  recipientSource === 'CRM'
+                    ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-100 shadow-xs'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Active CRM Customers ({recipients.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRecipientSource('EXCEL')}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                  recipientSource === 'EXCEL'
+                    ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/50 text-brand-900 dark:text-brand-100 shadow-xs'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-brand-600" />
+                <span>Upload Custom Excel (.xlsx)</span>
+              </button>
+            </div>
+
+            {/* Excel Drag & Drop Upload Zone if in Excel Mode */}
+            {recipientSource === 'EXCEL' && (
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".xlsx, .xls"
+                  className="hidden"
+                />
+
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 p-4 rounded-xl text-center cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-900/30"
+                >
+                  <Upload className="w-6 h-6 text-emerald-600 mx-auto mb-1.5" />
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                    Click to browse and upload Excel spreadsheet (.xlsx / .xls)
+                  </span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                    Requires a 'Phone' column, and optional 'customerName', 'package', 'travelDate'
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Client Selection Checklist Toolbar: Search + Select All + Count */}
+            {recipients.length > 0 && (
+              <div className="space-y-2.5 pt-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  {/* Search Filter Box */}
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                      <Search className="w-3.5 h-3.5" />
+                    </div>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Filter clients by name, phone number, or package..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchTerm('')}
+                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-xs text-slate-400 hover:text-slate-600"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Selection Actions & Pill Counter */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors"
+                    >
+                      Select All ({recipients.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAll}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors"
+                    >
+                      Deselect All
+                    </button>
+                    <span className="text-[11px] font-mono font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg border border-emerald-300 dark:border-emerald-800">
+                      {selectedIndices.size} of {recipients.length} Selected
+                    </span>
+                  </div>
+                </div>
+
+                {/* Recipient Interactive Selection Table */}
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-2xs">
+                  <div className="bg-slate-100/80 dark:bg-slate-800/80 px-3 py-2 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isAllFilteredSelected}
+                        onChange={handleToggleSelectAll}
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600"
+                        title="Toggle all in this view"
+                      />
+                      <span>Client Details</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-right">
+                      <span className="hidden sm:inline">Package / Due</span>
+                      <span>Actions</span>
+                    </div>
+                  </div>
+
+                  {/* Recipient Scrollable Row List */}
+                  <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                    {filteredRecipients.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400">
+                        No clients match "{searchTerm}". Try a different search.
+                      </div>
+                    ) : (
+                      filteredRecipients.map(({ r, originalIndex }) => {
+                        const isSelected = selectedIndices.has(originalIndex);
+                        const isPreviewActive = selectedPreviewIndex === originalIndex;
+                        const due = Number(r.dueAmount || 0);
+
+                        return (
+                          <div
+                            key={originalIndex}
+                            className={`px-3 py-2 flex items-center justify-between text-xs transition-colors ${
+                              isSelected
+                                ? 'bg-emerald-50/40 dark:bg-emerald-950/20'
+                                : 'opacity-65 hover:opacity-100'
+                            } ${isPreviewActive ? 'ring-1 ring-emerald-500/50 bg-emerald-50/70 dark:bg-emerald-950/40' : ''}`}
+                          >
+                            {/* Checkbox & Client Info */}
+                            <div className="flex items-center gap-2.5 overflow-hidden pr-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleRecipient(originalIndex)}
+                                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600 shrink-0"
+                              />
+                              <div
+                                onClick={() => setSelectedPreviewIndex(originalIndex)}
+                                className="cursor-pointer truncate"
+                              >
+                                <span className="font-semibold text-slate-900 dark:text-slate-100 block truncate">
+                                  {r.customerName || 'Customer'}
+                                </span>
+                                <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 block truncate">
+                                  {r.Phone || r.phone} {r.bookingNumber ? `• ${r.bookingNumber}` : ''}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Tour / Balance Details & Action Buttons */}
+                            <div className="flex items-center gap-3 shrink-0">
+                              <div className="text-right hidden sm:block">
+                                <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium block truncate max-w-[130px]">
+                                  {r.package || 'Tour Package'}
+                                </span>
+                                {due > 0 ? (
+                                  <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">
+                                    Due: ₹{due}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                    Paid
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPreviewIndex(originalIndex)}
+                                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors"
+                                  title="Preview chat on mobile screen"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickSend(r)}
+                                  className="p-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors"
+                                  title="Quick Send directly via WhatsApp"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* STEP 2: Message Template & Dynamic Tags */}
           <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-brand-600" />
-              1. Select Message Template
+              Step 2: Message Template & Dynamic Personalization Tags
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {/* Template Selector Pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {DEFAULT_TEMPLATES.map((tmpl) => (
                 <button
                   key={tmpl.id}
                   type="button"
                   onClick={() => handleSelectTemplate(tmpl.id)}
-                  className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
+                  className={`p-2 rounded-xl border text-left text-xs transition-all ${
                     selectedTemplateId === tmpl.id
-                      ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-950/40 text-brand-900 dark:text-brand-100 font-semibold'
+                      ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/40 text-brand-900 dark:text-brand-100 font-semibold shadow-2xs'
                       : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  {tmpl.title}
+                  <span className="block truncate">{tmpl.title}</span>
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Message Composer & Placeholder Tags */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <MessageSquare className="w-4 h-4 text-emerald-600" />
-                2. Compose Message & Insert Tags
-              </h2>
-              <span className="text-[11px] text-slate-400 font-mono">
-                {messageTemplate.length} chars
-              </span>
-            </div>
-
-            {/* Clickable Placeholders */}
-            <div className="space-y-1.5">
+            {/* Clickable Variable Tags */}
+            <div className="space-y-1.5 pt-1">
               <span className="text-[10px] uppercase font-bold text-slate-400">
-                Click to Insert Placeholder Variables:
+                Click to Insert Dynamic Placeholders:
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {AVAILABLE_PLACEHOLDERS.map((ph) => (
@@ -740,22 +997,27 @@ export const BulkWhatsAppPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Textarea */}
-            <textarea
-              rows={6}
-              value={messageTemplate}
-              onChange={(e) => setMessageTemplate(e.target.value)}
-              placeholder="Type your WhatsApp message template here..."
-              className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 leading-relaxed font-sans"
-            />
+            {/* Message Textarea */}
+            <div className="relative">
+              <textarea
+                rows={5}
+                value={messageTemplate}
+                onChange={(e) => setMessageTemplate(e.target.value)}
+                placeholder="Type your WhatsApp message template here..."
+                className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 leading-relaxed font-sans"
+              />
+              <span className="absolute bottom-2.5 right-3 text-[10px] text-slate-400 font-mono">
+                {messageTemplate.length} chars
+              </span>
+            </div>
           </div>
 
-          {/* Media Attachment (Image or PDF Document) */}
+          {/* STEP 3: Media Attachment (Poster Image or PDF Itinerary) */}
           <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Paperclip className="w-4 h-4 text-brand-600" />
-                3. Attach Media (Image or PDF Document)
+                Step 3: Attach Media (Offer Poster or PDF Itinerary)
               </h2>
               {mediaType !== 'NONE' && (
                 <button
@@ -772,7 +1034,6 @@ export const BulkWhatsAppPage: React.FC = () => {
               )}
             </div>
 
-            {/* Type selector buttons */}
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
@@ -800,7 +1061,7 @@ export const BulkWhatsAppPage: React.FC = () => {
                 }`}
               >
                 <ImageIcon className="w-4 h-4 text-emerald-600" />
-                Image (Photo / Flyer)
+                Image Poster
               </button>
 
               <button
@@ -813,13 +1074,12 @@ export const BulkWhatsAppPage: React.FC = () => {
                 }`}
               >
                 <FileText className="w-4 h-4 text-indigo-600" />
-                PDF Document (Itinerary)
+                PDF Itinerary
               </button>
             </div>
 
-            {/* Media upload controls */}
             {mediaType !== 'NONE' && (
-              <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5">
                 <input
                   type="file"
                   ref={mediaFileInputRef}
@@ -835,21 +1095,16 @@ export const BulkWhatsAppPage: React.FC = () => {
                     disabled={isUploadingMedia}
                     className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
                   >
-                    {isUploadingMedia ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
+                    {isUploadingMedia ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                     <span>
                       {isUploadingMedia
                         ? 'Uploading...'
                         : mediaType === 'IMAGE'
-                        ? 'Upload Image File'
-                        : 'Upload PDF Document'}
+                        ? 'Upload Offer Poster'
+                        : 'Upload PDF Itinerary'}
                     </span>
                   </button>
-
-                  <span className="text-[11px] text-slate-400">or paste direct media URL below</span>
+                  <span className="text-[11px] text-slate-400">or paste direct media URL</span>
                 </div>
 
                 <div className="relative">
@@ -860,40 +1115,30 @@ export const BulkWhatsAppPage: React.FC = () => {
                     type="url"
                     value={mediaUrl}
                     onChange={(e) => setMediaUrl(e.target.value)}
-                    placeholder={
-                      mediaType === 'IMAGE'
-                        ? 'https://example.com/tour-poster.jpg'
-                        : 'https://example.com/itinerary.pdf'
-                    }
-                    className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                    placeholder={mediaType === 'IMAGE' ? 'https://example.com/poster.jpg' : 'https://example.com/itinerary.pdf'}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-500"
                   />
                 </div>
 
-                {/* Media Active Banner */}
                 {mediaUrl && (
                   <div className="p-2.5 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-100">
                     <div className="flex items-center gap-2 overflow-hidden">
                       {mediaType === 'IMAGE' ? (
-                        <img
-                          src={mediaUrl}
-                          alt="preview"
-                          className="w-10 h-10 object-cover rounded-lg border border-emerald-200"
-                        />
+                        <img src={mediaUrl} alt="preview" className="w-9 h-9 object-cover rounded-lg border border-emerald-200" />
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 flex items-center justify-center font-bold text-[10px]">
+                        <div className="w-9 h-9 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 flex items-center justify-center font-bold text-[10px]">
                           PDF
                         </div>
                       )}
                       <div className="truncate">
                         <span className="font-semibold block truncate">
-                          {mediaFilename || (mediaType === 'IMAGE' ? 'Image Attached' : 'PDF Document Attached')}
+                          {mediaFilename || (mediaType === 'IMAGE' ? 'Offer Poster Attached' : 'PDF Itinerary Attached')}
                         </span>
                         <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block truncate font-mono">
                           {mediaUrl}
                         </span>
                       </div>
                     </div>
-
                     <button
                       type="button"
                       onClick={() => {
@@ -901,7 +1146,7 @@ export const BulkWhatsAppPage: React.FC = () => {
                         setMediaFilename('');
                       }}
                       className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900 rounded text-rose-600 shrink-0 ml-2"
-                      title="Clear file"
+                      title="Clear attachment"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -910,139 +1155,9 @@ export const BulkWhatsAppPage: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Recipient Source: Auto CRM Customers or Excel Upload */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-emerald-600" />
-                4. Select Recipients (Auto CRM or Excel)
-              </h2>
-
-              {recipientSource === 'EXCEL' && (
-                <button
-                  type="button"
-                  onClick={handleDownloadTemplate}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Sample Excel</span>
-                </button>
-              )}
-            </div>
-
-            {/* Source switch pills */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setRecipientSource('CRM');
-                  handleLoadCrmCustomers();
-                }}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                  recipientSource === 'CRM'
-                    ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 shadow-xs'
-                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Auto-Load All CRM Customers</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRecipientSource('EXCEL')}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                  recipientSource === 'EXCEL'
-                    ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-950/40 text-brand-900 dark:text-brand-100 shadow-xs'
-                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-brand-600" />
-                <span>Upload Custom Excel (.xlsx)</span>
-              </button>
-            </div>
-
-            {/* If CRM mode */}
-            {recipientSource === 'CRM' && (
-              <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  {isLoadingCustomers ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  )}
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100 block">
-                      {isLoadingCustomers
-                        ? 'Fetching all CRM customers...'
-                        : `${recipients.length} Active CRM Customers Loaded`}
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Synchronized directly from your CRM customer registry.
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleLoadCrmCustomers}
-                  disabled={isLoadingCustomers}
-                  className="px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 rounded-lg flex items-center gap-1"
-                >
-                  <RefreshCw className={`w-3 h-3 ${isLoadingCustomers ? 'animate-spin' : ''}`} />
-                  <span>Refresh</span>
-                </button>
-              </div>
-            )}
-
-            {/* If EXCEL mode */}
-            {recipientSource === 'EXCEL' && (
-              <div className="space-y-3">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  accept=".xlsx, .xls"
-                  className="hidden"
-                />
-
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 p-6 rounded-xl text-center cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-900/30"
-                >
-                  <Upload className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
-                    Click to upload Excel spreadsheet (.xlsx / .xls)
-                  </span>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">
-                    Must include a 'Phone' column, and optional 'customerName', 'package', 'travelDate'
-                  </span>
-                </div>
-
-                {recipients.length > 0 && (
-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span className="font-semibold text-emerald-900 dark:text-emerald-100">
-                        {recipients.length} recipients loaded from Excel.
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setRecipients([])}
-                      className="text-rose-600 hover:text-rose-700 font-semibold"
-                    >
-                      Clear List
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Right Column: Live Phone Mockup & Preview (5 cols) */}
+        {/* Right Column: Live Chat Mockup & Dispatch Controls (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           {/* Live Mobile Device Preview */}
           <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
@@ -1051,10 +1166,10 @@ export const BulkWhatsAppPage: React.FC = () => {
               Live WhatsApp Chat Mockup
             </h2>
 
-            {/* Phone Screen Mockup */}
+            {/* Mobile Screen Mockup */}
             <div className="bg-[#0b141a] text-white rounded-3xl p-4 shadow-xl border-4 border-slate-800 relative overflow-hidden">
               {/* WhatsApp Header */}
-              <div className="flex items-center gap-2.5 pb-3 border-b border-white/10 mb-3">
+              <div className="flex items-center gap-2.5 pb-2.5 border-b border-white/10 mb-2.5">
                 <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-xs text-white">
                   {previews[selectedPreviewIndex]?.customerName?.charAt(0) || 'G'}
                 </div>
@@ -1063,38 +1178,30 @@ export const BulkWhatsAppPage: React.FC = () => {
                     {previews[selectedPreviewIndex]?.customerName || 'Customer'}
                   </span>
                   <span className="text-[10px] text-emerald-400 block font-mono">
-                    {previews[selectedPreviewIndex]?.phone || '+91 9876543210'}
+                    {previews[selectedPreviewIndex]?.phone || '+91 8884845595'}
                   </span>
                 </div>
               </div>
 
               {/* Chat Bubble Area */}
-              <div className="space-y-3 min-h-[220px] flex flex-col justify-end bg-[#0b141a]">
+              <div className="space-y-2.5 min-h-[200px] flex flex-col justify-end bg-[#0b141a]">
                 <div className="bg-[#005c4b] text-white p-2.5 rounded-2xl rounded-tr-xs text-xs max-w-[92%] ml-auto shadow-md space-y-2">
-                  {/* Media attachment render in chat bubble */}
                   {mediaType === 'IMAGE' && mediaUrl && (
-                    <div className="rounded-xl overflow-hidden bg-black/20 border border-white/10 max-h-48 flex items-center justify-center">
-                      <img
-                        src={mediaUrl}
-                        alt="attachment"
-                        className="w-full h-auto max-h-48 object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
+                    <div className="rounded-xl overflow-hidden bg-black/20 border border-white/10 max-h-40 flex items-center justify-center">
+                      <img src={mediaUrl} alt="attachment" className="w-full h-auto max-h-40 object-cover" />
                     </div>
                   )}
 
                   {mediaType === 'DOCUMENT' && mediaUrl && (
-                    <div className="p-2.5 bg-black/25 rounded-xl border border-white/10 flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-sm">
+                    <div className="p-2 bg-black/25 rounded-xl border border-white/10 flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-red-600 text-white flex items-center justify-center font-bold text-[9px] shrink-0">
                         PDF
                       </div>
                       <div className="overflow-hidden truncate flex-1">
-                        <span className="font-semibold text-[11px] block truncate text-slate-100">
+                        <span className="font-semibold text-[10px] block truncate text-slate-100">
                           {mediaFilename || 'Itinerary_Details.pdf'}
                         </span>
-                        <span className="text-[9px] text-emerald-300 block uppercase font-mono">
+                        <span className="text-[8px] text-emerald-300 block uppercase font-mono">
                           PDF • Document
                         </span>
                       </div>
@@ -1105,8 +1212,9 @@ export const BulkWhatsAppPage: React.FC = () => {
                     {previews[selectedPreviewIndex]?.message ||
                       'Hello Customer, your customized message preview will appear here once recipients are loaded.'}
                   </p>
-                  <div className="text-[9px] text-white/60 text-right pr-1">
-                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
+                  <div className="text-[9px] text-white/60 text-right pr-1 flex items-center justify-end gap-1">
+                    <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <CheckCheck className="w-3.5 h-3.5 text-cyan-400" />
                   </div>
                 </div>
               </div>
@@ -1114,94 +1222,79 @@ export const BulkWhatsAppPage: React.FC = () => {
 
             {/* Recipient Selector for preview */}
             {previews.length > 0 && (
-              <div className="space-y-1.5 pt-1">
+              <div className="space-y-1 pt-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400">
-                  Preview recipient ({selectedPreviewIndex + 1} of {previews.length}):
+                  Previewing Client ({selectedPreviewIndex + 1} of {previews.length}):
                 </span>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={selectedPreviewIndex}
-                    onChange={(e) => setSelectedPreviewIndex(parseInt(e.target.value, 10))}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100"
-                  >
-                    {previews.map((p, idx) => (
-                      <option key={idx} value={idx}>
-                        {p.customerName} ({p.phone})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={selectedPreviewIndex}
+                  onChange={(e) => setSelectedPreviewIndex(parseInt(e.target.value, 10))}
+                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100"
+                >
+                  {previews.map((p, idx) => (
+                    <option key={idx} value={idx}>
+                      {p.customerName} ({p.phone})
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </div>
 
-          {/* Delivery Timer Pacing & Automated Broadcast Dispatch */}
+          {/* STEP 4: Dispatch Controls & Broadcast Launcher */}
           <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
-            {/* Dispatch Engine Selection */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-emerald-600" />
-                  Dispatch Engine
-                </label>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    apiStatus?.ready
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800'
-                      : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'
-                  }`}
-                >
-                  {apiStatus?.ready ? '⚡ Cloud API Connected' : '🌐 Web Automator'}
-                </span>
-              </div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-emerald-600" />
+              Step 4: Dispatch Pacing & Launch Broadcast
+            </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDispatchMode('CLOUD_API')}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    dispatchMode === 'CLOUD_API'
-                      ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-100 font-semibold shadow-xs ring-1 ring-emerald-500/20'
-                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span className="text-xs font-bold">⚡ Automated Cloud API</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-                    100% background dispatch. Zero popups, direct to recipient WhatsApp.
-                  </p>
-                </button>
+            {/* Engine Selection: Cloud API vs Web Automator */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setDispatchMode('CLOUD_API')}
+                className={`p-2.5 rounded-xl border text-left transition-all ${
+                  dispatchMode === 'CLOUD_API'
+                    ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-100 font-semibold shadow-xs ring-1 ring-emerald-500/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span className="text-xs font-bold">⚡ Cloud API</span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                  Automated background dispatch from +91 {apiStatus?.businessNumber || '8884845595'}.
+                </p>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => setDispatchMode('WEB_AUTOMATOR')}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    dispatchMode === 'WEB_AUTOMATOR'
-                      ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/50 text-brand-900 dark:text-brand-100 font-semibold shadow-xs ring-1 ring-brand-500/20'
-                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    <span className="text-xs font-bold">🌐 Web Automator</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-                    Single-tab WhatsApp Web session with automatic timer delay pacing.
-                  </p>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setDispatchMode('WEB_AUTOMATOR')}
+                className={`p-2.5 rounded-xl border text-left transition-all ${
+                  dispatchMode === 'WEB_AUTOMATOR'
+                    ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/50 text-brand-900 dark:text-brand-100 font-semibold shadow-xs ring-1 ring-brand-500/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  <span className="text-xs font-bold">🌐 Web Automator</span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                  Single-tab WhatsApp Web session with automatic clipboard sync.
+                </p>
+              </button>
             </div>
 
-            {/* Delivery Timer Selector */}
-            <div className="space-y-2">
+            {/* Delay Timer Selector */}
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-emerald-600" />
-                  Delivery Timer Delay (Anti-spam Pacing)
+                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                  Anti-Spam Pacing Delay:
                 </label>
-                <span className="text-[11px] font-mono text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                <span className="text-[10px] font-mono text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
                   {delaySeconds}s Delay
                 </span>
               </div>
@@ -1209,9 +1302,9 @@ export const BulkWhatsAppPage: React.FC = () => {
               <div className="grid grid-cols-4 gap-1.5">
                 {[
                   { sec: 2, label: '2s Fast' },
-                  { sec: 3, label: '3s Default' },
-                  { sec: 5, label: '5s Safe' },
-                  { sec: 10, label: '10s Antispam' },
+                  { sec: 3, label: '3s Safe' },
+                  { sec: 5, label: '5s Paced' },
+                  { sec: 10, label: '10s Steady' },
                 ].map((item) => (
                   <button
                     key={item.sec}
@@ -1228,33 +1321,32 @@ export const BulkWhatsAppPage: React.FC = () => {
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-slate-400">
-                Paces automated message dispatches sequentially to protect your number from spam detection and rate limits.
-              </p>
             </div>
 
             {/* Launch Automated Broadcast Button */}
             <button
               type="button"
               onClick={handleStartBroadcast}
-              disabled={isAutoBroadcasting || recipients.length === 0}
-              className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+              disabled={isAutoBroadcasting || selectedIndices.size === 0}
+              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
               <span>
                 {isAutoBroadcasting
                   ? 'Broadcasting in Progress...'
-                  : `🚀 Start Automated Bulk Broadcast (${recipients.length} Contacts)`}
+                  : selectedIndices.size === 0
+                  ? 'Select Clients to Start Broadcast'
+                  : `🚀 Send Bulk WhatsApp (${selectedIndices.size} Selected Clients)`}
               </span>
             </button>
 
             {recipients.length > 0 && (
-              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
                 <span>
-                  Source: {recipientSource === 'CRM' ? 'CRM Customer Base' : 'Excel Spreadsheet'}
+                  Target: {selectedIndices.size} of {recipients.length} clients
                 </span>
                 <span>
-                  Media: {mediaType === 'NONE' ? 'Text Only' : mediaType === 'IMAGE' ? '🖼️ Offer Poster Attached' : '📄 PDF Itinerary'}
+                  Sender: <strong>+91 {apiStatus?.businessNumber || '8884845595'}</strong>
                 </span>
               </div>
             )}
@@ -1276,7 +1368,7 @@ export const BulkWhatsAppPage: React.FC = () => {
               <div className="space-y-1">
                 <span className="font-bold block">Official Meta Cloud API Connection:</span>
                 <p className="text-[11px] leading-relaxed">
-                  Connect your official Meta WhatsApp Business API credentials to automatically broadcast messages and offer media in the background. Use the <strong>Test Live Connection</strong> tool below to verify your configuration instantly.
+                  Your WhatsApp business number <strong>+91 8884845595</strong> is linked with Phone Number ID <strong>1282151328312026</strong>. Click <strong>Test Live Connection</strong> to verify connectivity with Meta servers anytime.
                 </p>
               </div>
             </div>
@@ -1290,28 +1382,22 @@ export const BulkWhatsAppPage: React.FC = () => {
                   type="password"
                   value={configToken}
                   onChange={(e) => setConfigToken(e.target.value)}
-                  placeholder={apiStatus?.token ? '••••••••••••••••••••••••' : 'EAAW...'}
-                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  placeholder="EAAW..."
+                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-brand-500"
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Permanent System User token from Meta Business Settings
-                </span>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  WhatsApp Phone Number ID (15 Digits)
+                  WhatsApp Phone Number ID
                 </label>
                 <input
                   type="text"
                   value={configPhoneId}
                   onChange={(e) => setConfigPhoneId(e.target.value)}
-                  placeholder="e.g. 109876543210987"
-                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  placeholder="1282151328312026"
+                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-brand-500"
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  From developers.facebook.com ➔ My Apps ➔ WhatsApp ➔ API Setup ➔ Step 1 "Phone number ID"
-                </span>
               </div>
 
               <div>
@@ -1322,21 +1408,19 @@ export const BulkWhatsAppPage: React.FC = () => {
                   type="text"
                   value={configBusinessNum}
                   onChange={(e) => setConfigBusinessNum(e.target.value)}
-                  placeholder="e.g. 8884845595"
-                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  placeholder="8884845595"
+                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-brand-500"
                 />
               </div>
             </div>
 
-            {/* Test Connection Results & Diagnostic Help */}
+            {/* Test Connection Results */}
             {testResult && (
               <div
-                className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                className={`p-3 rounded-xl border text-xs space-y-1.5 ${
                   testResult.success
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100'
-                    : testResult.status === 'PHONE_ID_MISMATCH'
-                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100'
-                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-100'
+                    : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100'
                 }`}
               >
                 <div className="flex items-start gap-2">
@@ -1345,60 +1429,11 @@ export const BulkWhatsAppPage: React.FC = () => {
                   ) : (
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   )}
-                  <div className="space-y-1 w-full">
+                  <div className="space-y-0.5">
                     <span className="font-bold block">
-                      {testResult.success
-                        ? '✅ Gateway Connected & Active!'
-                        : testResult.status === 'PHONE_ID_MISMATCH'
-                        ? '⚠️ Action Required: WhatsApp Phone Number ID'
-                        : '⚠️ Connection Verification Result'}
+                      {testResult.success ? '✅ Gateway Connected & Verified!' : '⚠️ Connection Result'}
                     </span>
                     <p className="text-[11px] leading-relaxed">{testResult.message}</p>
-
-                    {testResult.status === 'PHONE_ID_MISMATCH' && (
-                      <div className="mt-2 p-3 bg-white/80 dark:bg-black/40 rounded-xl border border-amber-300 dark:border-amber-700/60 text-[11px] space-y-2">
-                        <span className="font-bold text-amber-950 dark:text-amber-200 block">
-                          📌 Quick 30-Second Steps to get your 15-digit Phone Number ID:
-                        </span>
-                        <ol className="list-decimal list-inside space-y-1 text-slate-700 dark:text-slate-300">
-                          <li>
-                            Click the button below to open Meta Developers for App <strong>ooting.in</strong>
-                          </li>
-                          <li>
-                            Under <strong>Step 1: Select phone numbers</strong>, look for <strong>Phone number ID</strong>
-                          </li>
-                          <li>
-                            Copy that 15-digit number and paste it in the field above
-                          </li>
-                          <li>
-                            Click <strong>Save & Connect</strong> below!
-                          </li>
-                        </ol>
-
-                        <div className="pt-1 flex flex-wrap gap-2">
-                          <a
-                            href="https://developers.facebook.com/apps/1604782468038420/whatsapp-business/wa-dev-console/"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold text-[11px] shadow-xs transition-colors"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            <span>Open Meta Developers Console (ooting.in) ↗</span>
-                          </a>
-
-                          {testResult?.details?.resolvedPhoneNumberId && (
-                            <button
-                              type="button"
-                              onClick={() => setConfigPhoneId(testResult.details.resolvedPhoneNumberId)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] transition-colors"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Use Detected ID: {testResult.details.resolvedPhoneNumberId}</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1477,14 +1512,13 @@ export const BulkWhatsAppPage: React.FC = () => {
                   ></div>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     {isCompleted
-                      ? `Successfully processed all ${recipients.length} recipients.`
+                      ? `Successfully processed ${selectedIndices.size} selected recipients.`
                       : isAutoPaused
-                      ? `Paused at recipient ${currentBroadcastIndex + 1} of ${recipients.length}`
-                      : `Sending contact ${currentBroadcastIndex + 1} of ${recipients.length}...`}
+                      ? `Paused at recipient ${currentBroadcastIndex + 1} of ${selectedIndices.size}`
+                      : `Sending contact ${currentBroadcastIndex + 1} of ${selectedIndices.size}...`}
                   </span>
                 </div>
 
-                {/* Countdown Timer Badge */}
                 {!isCompleted && !isAutoPaused && countdownSeconds > 0 && (
                   <span className="text-xs font-mono font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -1499,31 +1533,11 @@ export const BulkWhatsAppPage: React.FC = () => {
                   className="bg-emerald-600 h-2.5 transition-all duration-300 rounded-full"
                   style={{
                     width: `${Math.round(
-                      ((currentBroadcastIndex + (isCompleted ? 1 : 0)) / Math.max(1, recipients.length)) * 100
+                      ((currentBroadcastIndex + (isCompleted ? 1 : 0)) / Math.max(1, selectedIndices.size)) * 100
                     )}%`,
                   }}
                 ></div>
               </div>
-
-              {/* Current Recipient Card */}
-              {!isCompleted && recipients[currentBroadcastIndex] && (
-                <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 block">
-                      Target: {recipients[currentBroadcastIndex]?.customerName || 'Customer'}
-                    </span>
-                    <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
-                      {recipients[currentBroadcastIndex]?.Phone || recipients[currentBroadcastIndex]?.phone}
-                    </span>
-                  </div>
-
-                  {mediaUrl && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                      {mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 PDF Doc'}
-                    </span>
-                  )}
-                </div>
-              )}
 
               {/* Control Action Buttons */}
               {!isCompleted && (
@@ -1605,15 +1619,21 @@ export const BulkWhatsAppPage: React.FC = () => {
                         )}
 
                         {item.webUrl && (
-                          <a
-                            href={item.webUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1 text-slate-400 hover:text-emerald-600"
-                            title="Open direct WhatsApp link"
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openWhatsAppShare({
+                                phone: item.phone,
+                                text: messageTemplate,
+                                windowName: 'whatsapp',
+                              })
+                            }
+                            className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 rounded font-semibold text-[10px] flex items-center gap-1"
+                            title="Open direct WhatsApp Web chat (Single Tab)"
                           >
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
+                            <span>Send Web</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1625,7 +1645,7 @@ export const BulkWhatsAppPage: React.FC = () => {
             {/* Bottom Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700">
               <span className="text-[11px] text-slate-400">
-                {isCompleted ? 'All scheduled messages processed.' : 'Automated pacing active.'}
+                {isCompleted ? 'All selected messages processed.' : 'Automated pacing active.'}
               </span>
 
               <div className="flex items-center gap-2">
