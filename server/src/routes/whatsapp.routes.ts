@@ -7,6 +7,7 @@ import { logAudit } from '../middleware/audit.js';
 import {
   sendWhatsAppMessage,
   getWhatsAppConfigStatus,
+  testWhatsAppConnection,
   sanitizePhoneNumber,
 } from '../services/whatsapp.service.js';
 
@@ -253,11 +254,59 @@ router.post('/bulk-send', authenticate, async (req: AuthRequest, res: Response, 
   }
 });
 
+// Test live WhatsApp Meta Cloud API or Gateway connectivity
+router.post('/test-connection', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { token, phoneNumberId, businessNumber } = req.body;
+    const result = await testWhatsAppConnection({ token, phoneNumberId, businessNumber });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Auto-discover phone numbers under a WhatsApp Business Account ID (WABA)
+router.post('/resolve-waba', authenticate, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { token, wabaId } = req.body;
+    const config = await getWhatsAppConfigStatus();
+    const effectiveToken = token || config.token;
+    const effectiveWabaId = wabaId || config.phoneNumberId;
+
+    if (!effectiveToken || !effectiveWabaId) {
+      res.status(400).json({ message: 'Both access token and WhatsApp Business Account ID are required.' });
+      return;
+    }
+
+    const response = await fetch(
+      `https://graph.facebook.com/v20.0/${effectiveWabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating`,
+      {
+        headers: {
+          Authorization: `Bearer ${effectiveToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    const data: any = await response.json();
+    if (!response.ok || data.error) {
+      res.status(400).json({ message: data?.error?.message || 'Failed to query phone numbers for this ID.' });
+      return;
+    }
+
+    res.json({ phoneNumbers: data.data || [] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 const sendSchema = z.object({
   phone: z.string().min(8, 'Phone number is required'),
   message: z.string().min(1, 'Message text is required'),
   customerId: z.string().optional().nullable(),
   templateName: z.string().optional().nullable(),
+  mediaType: z.enum(['NONE', 'IMAGE', 'DOCUMENT']).optional().default('NONE'),
+  mediaUrl: z.string().optional().nullable(),
+  mediaFilename: z.string().optional().nullable(),
 });
 
 // Check integration configuration status
@@ -315,6 +364,9 @@ router.post('/send', authenticate, async (req: AuthRequest, res: Response, next)
       customerId: data.customerId,
       templateName: data.templateName,
       userId: req.user!.id,
+      mediaType: data.mediaType as any,
+      mediaUrl: data.mediaUrl || undefined,
+      mediaFilename: data.mediaFilename || undefined,
     });
 
     await logAudit({

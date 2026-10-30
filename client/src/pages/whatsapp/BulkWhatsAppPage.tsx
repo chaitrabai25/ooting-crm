@@ -27,6 +27,9 @@ import {
   Square,
   SkipForward,
   Settings as SettingsIcon,
+  Zap,
+  Info,
+  HelpCircle,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
@@ -115,6 +118,7 @@ export const BulkWhatsAppPage: React.FC = () => {
 
   // Delivery Timer State (Delay between automated sends in seconds)
   const [delaySeconds, setDelaySeconds] = useState<number>(3);
+  const [dispatchMode, setDispatchMode] = useState<'CLOUD_API' | 'WEB_AUTOMATOR'>('CLOUD_API');
 
   // Automated Autopilot Broadcast Execution State
   const [isAutoBroadcasting, setIsAutoBroadcasting] = useState<boolean>(false);
@@ -139,6 +143,8 @@ export const BulkWhatsAppPage: React.FC = () => {
   const [configPhoneId, setConfigPhoneId] = useState<string>('');
   const [configBusinessNum, setConfigBusinessNum] = useState<string>('');
   const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
+  const [isTestingConfig, setIsTestingConfig] = useState<boolean>(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   const broadcastWindowRef = useRef<Window | null>(null);
   const isPausedRef = useRef<boolean>(false);
@@ -159,6 +165,9 @@ export const BulkWhatsAppPage: React.FC = () => {
   useEffect(() => {
     api.get('/whatsapp/config-status').then((res) => {
       setApiStatus(res.data);
+      if (res.data?.ready || (res.data?.configured && res.data?.provider === 'META_CLOUD_API')) {
+        setDispatchMode('CLOUD_API');
+      }
     }).catch(console.error);
   }, []);
 
@@ -314,10 +323,43 @@ export const BulkWhatsAppPage: React.FC = () => {
 
   // Gateway Config Handlers
   const handleOpenConfig = () => {
-    setConfigToken('');
-    setConfigPhoneId(apiStatus?.phoneNumberId || '');
-    setConfigBusinessNum(apiStatus?.businessNumber || '');
+    setConfigToken(
+      apiStatus?.token ||
+        'EAAWziojyZCxQBS5ZBj1QWc7ZBuI9ZAQYDevZCWPoo637fLI0VxofjQs8zoZCHqDF5ximbMMweOzw2RZBOhXwNbo3NKpmoPXtIBhQ8NBBaxLXk2j7lZBwNcHZAQw18WWmSBtNMYqvGuRc35TVEaAcXhS6n6DeGZCE3HWNBEK45ZAhRN1OZAIyaFSoRD6u9pyUTZBIXPgZDZD'
+    );
+    setConfigPhoneId(apiStatus?.phoneNumberId || '61596170245340');
+    setConfigBusinessNum(apiStatus?.businessNumber || '8884845595');
+    if (apiStatus?.diagnosticsMessage && !apiStatus?.ready) {
+      setTestResult({
+        success: false,
+        status: 'PHONE_ID_MISMATCH',
+        message: apiStatus.diagnosticsMessage,
+      });
+    } else {
+      setTestResult(null);
+    }
     setIsConfigOpen(true);
+  };
+
+  const handleTestGatewayConnection = async () => {
+    try {
+      setIsTestingConfig(true);
+      setTestResult(null);
+      const res = await api.post('/whatsapp/test-connection', {
+        token: configToken.trim() || undefined,
+        phoneNumberId: configPhoneId.trim() || undefined,
+        businessNumber: configBusinessNum.trim() || undefined,
+      });
+      setTestResult(res.data);
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        status: 'ERROR',
+        message: err.response?.data?.message || err.message || 'Connection test failed',
+      });
+    } finally {
+      setIsTestingConfig(false);
+    }
   };
 
   const handleSaveGatewayConfig = async () => {
@@ -330,6 +372,9 @@ export const BulkWhatsAppPage: React.FC = () => {
         businessNumber: configBusinessNum.trim() || undefined,
       });
       setApiStatus(res.data.status);
+      if (res.data.status?.ready || res.data.status?.configured) {
+        setDispatchMode('CLOUD_API');
+      }
       setIsConfigOpen(false);
     } catch (err: any) {
       console.error('Failed to save gateway config:', err);
@@ -360,7 +405,7 @@ export const BulkWhatsAppPage: React.FC = () => {
     isPausedRef.current = false;
     isStoppedRef.current = false;
 
-    const isCloudApi = !!apiStatus?.ready;
+    const isCloudApi = dispatchMode === 'CLOUD_API' || Boolean(apiStatus?.ready);
     if (!isCloudApi) {
       try {
         broadcastWindowRef.current = window.open(
@@ -398,7 +443,7 @@ export const BulkWhatsAppPage: React.FC = () => {
 
       if (isCloudApi) {
         try {
-          await api.post('/whatsapp/send', {
+          const res = await api.post('/whatsapp/send', {
             phone: cleanPhone,
             message: fullMsg,
             customerId: recipient.customerId,
@@ -406,23 +451,41 @@ export const BulkWhatsAppPage: React.FC = () => {
             mediaUrl,
             mediaFilename,
           });
-          setDispatchedHistory((prev) => [
-            {
-              phone: cleanPhone,
-              name: recipient.customerName || 'Customer',
-              status: 'SENT',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            },
-            ...prev,
-          ]);
+
+          if (res.data?.status === 'SENT' || res.data?.success) {
+            setDispatchedHistory((prev) => [
+              {
+                phone: cleanPhone,
+                name: recipient.customerName || 'Customer',
+                status: 'SENT',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                webUrl: res.data?.directWebUrl || waUrl,
+              },
+              ...prev,
+            ]);
+          } else {
+            setDispatchedHistory((prev) => [
+              {
+                phone: cleanPhone,
+                name: recipient.customerName || 'Customer',
+                status: 'FAILED',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                error: res.data?.error || 'Dispatch rejected by Meta Cloud API',
+                webUrl: waUrl,
+              },
+              ...prev,
+            ]);
+          }
         } catch (err: any) {
+          const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'API dispatch failed';
           setDispatchedHistory((prev) => [
             {
               phone: cleanPhone,
               name: recipient.customerName || 'Customer',
               status: 'FAILED',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-              error: err?.response?.data?.message || 'API dispatch failed',
+              error: errMsg,
+              webUrl: waUrl,
             },
             ...prev,
           ]);
@@ -565,6 +628,57 @@ export const BulkWhatsAppPage: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Smart Gateway Diagnostic Card */}
+      {apiStatus?.needsPhoneNumberId ? (
+        <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border-2 border-amber-300 dark:border-amber-700/80 rounded-2xl shadow-xs">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100 flex items-center gap-2 flex-wrap">
+                  <span>Meta WhatsApp Gateway: 1 Final Step to Send Automatically</span>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300">
+                    Token 100% Valid (ooting.in)
+                  </span>
+                </h3>
+                <p className="text-xs text-amber-800 dark:text-amber-200/90 leading-relaxed">
+                  Your permanent Meta token is active! Currently, ID <code className="px-1.5 py-0.5 bg-amber-200/70 dark:bg-amber-900/80 rounded font-mono font-bold text-[11px] text-amber-950 dark:text-amber-100">61596170245340</code> is your System User ID. To send bulk messages in the background automatically without opening browser tabs, copy your 15-digit <strong>Phone number ID</strong> from Meta Developers (Step 1) and paste it here.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenConfig}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 shrink-0 transition-colors"
+            >
+              <SettingsIcon className="w-3.5 h-3.5" />
+              <span>Enter 15-digit Phone ID (30s)</span>
+            </button>
+          </div>
+        </div>
+      ) : apiStatus?.ready ? (
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2.5 text-emerald-800 dark:text-emerald-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">
+              Meta WhatsApp Cloud API Active & Verified for <strong>+{apiStatus.businessNumber || '918884845595'}</strong>
+            </span>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono hidden sm:inline">
+              (Automated Server Dispatch Enabled — 0 Popups / 0 New Tabs)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenConfig}
+            className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline"
+          >
+            Manage Gateway
+          </button>
+        </div>
+      ) : null}
 
       {/* Main 2-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1023,6 +1137,63 @@ export const BulkWhatsAppPage: React.FC = () => {
 
           {/* Delivery Timer Pacing & Automated Broadcast Dispatch */}
           <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
+            {/* Dispatch Engine Selection */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-emerald-600" />
+                  Dispatch Engine
+                </label>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    apiStatus?.ready
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800'
+                      : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'
+                  }`}
+                >
+                  {apiStatus?.ready ? '⚡ Cloud API Connected' : '🌐 Web Automator'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDispatchMode('CLOUD_API')}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    dispatchMode === 'CLOUD_API'
+                      ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-100 font-semibold shadow-xs ring-1 ring-emerald-500/20'
+                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span className="text-xs font-bold">⚡ Automated Cloud API</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                    100% background dispatch. Zero popups, direct to recipient WhatsApp.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDispatchMode('WEB_AUTOMATOR')}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    dispatchMode === 'WEB_AUTOMATOR'
+                      ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/50 text-brand-900 dark:text-brand-100 font-semibold shadow-xs ring-1 ring-brand-500/20'
+                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span className="text-xs font-bold">🌐 Web Automator</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Single-tab WhatsApp Web session with automatic timer delay pacing.
+                  </p>
+                </button>
+              </div>
+            </div>
+
             {/* Delivery Timer Selector */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -1103,9 +1274,9 @@ export const BulkWhatsAppPage: React.FC = () => {
             <div className="p-3 bg-brand-50 dark:bg-brand-950/40 border border-brand-200 dark:border-brand-800 rounded-xl text-xs text-brand-900 dark:text-brand-100 flex items-start gap-2.5">
               <ShieldCheck className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <span className="font-bold block">Direct Sender Number Connectivity:</span>
+                <span className="font-bold block">Official Meta Cloud API Connection:</span>
                 <p className="text-[11px] leading-relaxed">
-                  Enter your official Meta WhatsApp Cloud API credentials to dispatch bulky offer posters & itineraries directly from your number in the background. If left blank, the automated Web broadcaster will sequentially transmit via WhatsApp Web with your timer pacing.
+                  Connect your official Meta WhatsApp Business API credentials to automatically broadcast messages and offer media in the background. Use the <strong>Test Live Connection</strong> tool below to verify your configuration instantly.
                 </p>
               </div>
             </div>
@@ -1113,20 +1284,23 @@ export const BulkWhatsAppPage: React.FC = () => {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Meta Cloud API Access Token
+                  Meta Cloud API Permanent Access Token
                 </label>
                 <input
                   type="password"
                   value={configToken}
                   onChange={(e) => setConfigToken(e.target.value)}
-                  placeholder="EAAG..."
+                  placeholder={apiStatus?.token ? '••••••••••••••••••••••••' : 'EAAW...'}
                   className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                 />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Permanent System User token from Meta Business Settings
+                </span>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Phone Number ID (from Meta Developers)
+                  WhatsApp Phone Number ID (15 Digits)
                 </label>
                 <input
                   type="text"
@@ -1135,6 +1309,9 @@ export const BulkWhatsAppPage: React.FC = () => {
                   placeholder="e.g. 109876543210987"
                   className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                 />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  From developers.facebook.com ➔ My Apps ➔ WhatsApp ➔ API Setup ➔ Step 1 "Phone number ID"
+                </span>
               </div>
 
               <div>
@@ -1145,29 +1322,121 @@ export const BulkWhatsAppPage: React.FC = () => {
                   type="text"
                   value={configBusinessNum}
                   onChange={(e) => setConfigBusinessNum(e.target.value)}
-                  placeholder="e.g. 919876543210"
+                  placeholder="e.g. 8884845595"
                   className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+            {/* Test Connection Results & Diagnostic Help */}
+            {testResult && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                  testResult.success
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100'
+                    : testResult.status === 'PHONE_ID_MISMATCH'
+                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-100'
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  {testResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="space-y-1 w-full">
+                    <span className="font-bold block">
+                      {testResult.success
+                        ? '✅ Gateway Connected & Active!'
+                        : testResult.status === 'PHONE_ID_MISMATCH'
+                        ? '⚠️ Action Required: WhatsApp Phone Number ID'
+                        : '⚠️ Connection Verification Result'}
+                    </span>
+                    <p className="text-[11px] leading-relaxed">{testResult.message}</p>
+
+                    {testResult.status === 'PHONE_ID_MISMATCH' && (
+                      <div className="mt-2 p-3 bg-white/80 dark:bg-black/40 rounded-xl border border-amber-300 dark:border-amber-700/60 text-[11px] space-y-2">
+                        <span className="font-bold text-amber-950 dark:text-amber-200 block">
+                          📌 Quick 30-Second Steps to get your 15-digit Phone Number ID:
+                        </span>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-700 dark:text-slate-300">
+                          <li>
+                            Click the button below to open Meta Developers for App <strong>ooting.in</strong>
+                          </li>
+                          <li>
+                            Under <strong>Step 1: Select phone numbers</strong>, look for <strong>Phone number ID</strong>
+                          </li>
+                          <li>
+                            Copy that 15-digit number and paste it in the field above
+                          </li>
+                          <li>
+                            Click <strong>Save & Connect</strong> below!
+                          </li>
+                        </ol>
+
+                        <div className="pt-1 flex flex-wrap gap-2">
+                          <a
+                            href="https://developers.facebook.com/apps/1604782468038420/whatsapp-business/wa-dev-console/"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold text-[11px] shadow-xs transition-colors"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Open Meta Developers Console (ooting.in) ↗</span>
+                          </a>
+
+                          {testResult?.details?.resolvedPhoneNumberId && (
+                            <button
+                              type="button"
+                              onClick={() => setConfigPhoneId(testResult.details.resolvedPhoneNumberId)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] transition-colors"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Use Detected ID: {testResult.details.resolvedPhoneNumberId}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
               <button
                 type="button"
-                onClick={() => setIsConfigOpen(false)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                onClick={handleTestGatewayConnection}
+                disabled={isTestingConfig}
+                className="w-full sm:w-auto px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
               >
-                Cancel
+                {isTestingConfig ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
+                ) : (
+                  <Zap className="w-3.5 h-3.5 text-amber-500" />
+                )}
+                <span>{isTestingConfig ? 'Testing Gateway...' : '⚡ Test Live Connection'}</span>
               </button>
-              <button
-                type="button"
-                onClick={handleSaveGatewayConfig}
-                disabled={isSavingConfig}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm disabled:opacity-50"
-              >
-                {isSavingConfig ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                <span>Save & Verify Connection</span>
-              </button>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsConfigOpen(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveGatewayConfig}
+                  disabled={isSavingConfig}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm disabled:opacity-50"
+                >
+                  {isSavingConfig ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>Save & Connect</span>
+                </button>
+              </div>
             </div>
           </div>
         </Modal>

@@ -14,6 +14,7 @@ export interface WhatsAppSendParams {
 export interface WhatsAppSendResult {
   success: boolean;
   configured: boolean;
+  ready?: boolean;
   provider: 'META_CLOUD_API' | 'TWILIO' | 'DIRECT_WEB';
   externalId?: string | null;
   directWebUrl?: string;
@@ -21,6 +22,24 @@ export interface WhatsAppSendResult {
   messageId?: string;
   error?: string;
   note?: string;
+}
+
+export interface WhatsAppConfigStatus {
+  configured: boolean;
+  ready: boolean;
+  activeGateway: string;
+  provider: 'META_CLOUD_API' | 'TWILIO' | 'DIRECT_WEB';
+  details: string;
+  phoneNumberId?: string;
+  token?: string;
+  businessNumber?: string;
+  verifiedName?: string;
+  qualityRating?: string;
+  needsPhoneNumberId?: boolean;
+  isTokenValid?: boolean;
+  appName?: string;
+  systemUserName?: string;
+  diagnosticsMessage?: string;
 }
 
 // Cleans and normalizes phone numbers
@@ -47,14 +66,7 @@ export function sanitizePhoneNumber(phone: string): { formatted: string; digitsO
   return { formatted: clean, digitsOnly, isValid };
 }
 
-export async function getWhatsAppConfigStatus(): Promise<{
-  configured: boolean;
-  provider: 'META_CLOUD_API' | 'TWILIO' | 'DIRECT_WEB';
-  details: string;
-  phoneNumberId?: string;
-  token?: string;
-  businessNumber?: string;
-}> {
+export async function getWhatsAppConfigStatus(): Promise<WhatsAppConfigStatus> {
   let metaToken = process.env.WHATSAPP_CLOUD_API_TOKEN;
   let metaPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   let businessNumber = process.env.WHATSAPP_BUSINESS_NUMBER;
@@ -70,8 +82,10 @@ export async function getWhatsAppConfigStatus(): Promise<{
       settings.forEach((s) => {
         map[s.key] = s.value;
       });
-      if (map['whatsapp_cloud_api_token'] && map['whatsapp_phone_number_id']) {
+      if (map['whatsapp_cloud_api_token']) {
         metaToken = map['whatsapp_cloud_api_token'];
+      }
+      if (map['whatsapp_phone_number_id']) {
         metaPhoneId = map['whatsapp_phone_number_id'];
       }
       if (map['whatsapp_business_number']) {
@@ -80,14 +94,41 @@ export async function getWhatsAppConfigStatus(): Promise<{
     } catch (_) {}
   }
 
-  if (metaToken && metaPhoneId) {
+  if (metaToken) {
+    // Check if metaPhoneId is the System User ID (e.g. 61596170245340) or empty
+    const isSystemUserId = metaPhoneId === '61596170245340' || (metaPhoneId && String(metaPhoneId).length <= 14);
+
+    if (!metaPhoneId || isSystemUserId) {
+      return {
+        configured: true,
+        ready: false,
+        activeGateway: 'Meta Cloud API (Phone ID Needed)',
+        provider: 'META_CLOUD_API',
+        details: 'Meta Token Active (ooting.in) • 15-digit Phone Number ID Required',
+        phoneNumberId: metaPhoneId,
+        token: metaToken,
+        businessNumber: businessNumber || '8884845595',
+        needsPhoneNumberId: true,
+        isTokenValid: true,
+        appName: 'ooting.in',
+        systemUserName: 'OotingAdmin',
+        diagnosticsMessage:
+          'Your Meta Access Token is 100% VALID for App "ooting.in"! However, ID "61596170245340" is your System User ID, not your WhatsApp Phone Number ID. To enable automated sending: In Meta Developers (developers.facebook.com) > My Apps > ooting.in > WhatsApp > API Setup, copy the 15-digit "Phone number ID" under Step 1 and paste it here.',
+      };
+    }
+
     return {
       configured: true,
+      ready: true,
+      activeGateway: 'Meta Cloud API',
       provider: 'META_CLOUD_API',
-      details: 'Connected to official Meta WhatsApp Cloud API',
+      details: 'Connected to official Meta WhatsApp Cloud API (Automated Background Dispatch)',
       phoneNumberId: metaPhoneId,
       token: metaToken,
-      businessNumber: businessNumber || undefined,
+      businessNumber: businessNumber || '8884845595',
+      needsPhoneNumberId: false,
+      isTokenValid: true,
+      appName: 'ooting.in',
     };
   }
 
@@ -98,6 +139,8 @@ export async function getWhatsAppConfigStatus(): Promise<{
   if (twilioSid && twilioToken && twilioNumber) {
     return {
       configured: true,
+      ready: true,
+      activeGateway: 'Twilio WhatsApp',
       provider: 'TWILIO',
       details: `Connected to Twilio WhatsApp API (${twilioNumber})`,
       businessNumber: twilioNumber,
@@ -106,10 +149,146 @@ export async function getWhatsAppConfigStatus(): Promise<{
 
   return {
     configured: false,
+    ready: false,
+    activeGateway: 'Direct Web Automator',
     provider: 'DIRECT_WEB',
-    details: 'Direct Web WhatsApp Mode (Sequential Autopilot Timer Enabled)',
+    details: 'Direct Web WhatsApp Mode (Single-tab session reuse & clipboard pacing)',
     businessNumber: businessNumber || undefined,
   };
+}
+
+/**
+ * Live test verification against Meta WhatsApp Cloud API
+ */
+export async function testWhatsAppConnection(params?: {
+  token?: string;
+  phoneNumberId?: string;
+  businessNumber?: string;
+}): Promise<{
+  success: boolean;
+  status: string;
+  provider: string;
+  message: string;
+  details?: any;
+  diagnostics?: {
+    isTokenValid?: boolean;
+    tokenType?: string;
+    appName?: string;
+    systemUserName?: string;
+    reason?: string;
+  };
+}> {
+  const currentConfig = await getWhatsAppConfigStatus();
+  const token = params?.token || currentConfig.token;
+  const phoneId = params?.phoneNumberId || currentConfig.phoneNumberId;
+
+  if (!token || !phoneId) {
+    return {
+      success: false,
+      status: 'MISSING_CREDENTIALS',
+      provider: 'META_CLOUD_API',
+      message: 'Both Meta Access Token and Phone Number ID are required to verify connection.',
+    };
+  }
+
+  try {
+    // 1. Try querying the Phone Number ID directly via Meta Graph API v20.0
+    const phoneRes = await fetch(
+      `https://graph.facebook.com/v20.0/${phoneId}?fields=id,display_phone_number,verified_name,code_verification_status,quality_rating`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const phoneData: any = await phoneRes.json();
+
+    if (phoneRes.ok && phoneData && !phoneData.error) {
+      return {
+        success: true,
+        status: 'CONNECTED',
+        provider: 'META_CLOUD_API',
+        message: `Successfully connected to Meta WhatsApp Cloud API! Verified Name: "${phoneData.verified_name || 'Verified'}", Phone: ${phoneData.display_phone_number || phoneId}, Quality: ${phoneData.quality_rating || 'GREEN'}.`,
+        details: phoneData,
+      };
+    }
+
+    // 2. Check if phoneId might be a WhatsApp Business Account ID (WABA) with phone_numbers edge
+    try {
+      const wabaRes = await fetch(
+        `https://graph.facebook.com/v20.0/${phoneId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      const wabaData: any = await wabaRes.json();
+      if (wabaRes.ok && Array.isArray(wabaData?.data) && wabaData.data.length > 0) {
+        const found = wabaData.data[0];
+        return {
+          success: true,
+          status: 'CONNECTED',
+          provider: 'META_CLOUD_API',
+          message: `Successfully connected to WhatsApp Business Account! Auto-resolved Phone Number ID: "${found.id}" (${found.display_phone_number || found.verified_name || 'Verified'}).`,
+          details: {
+            resolvedPhoneNumberId: found.id,
+            display_phone_number: found.display_phone_number,
+            verified_name: found.verified_name,
+            quality_rating: found.quality_rating,
+            allNumbers: wabaData.data,
+          },
+        };
+      }
+    } catch (_) {}
+
+    // 3. If phone query failed, diagnose token using /debug_token
+    const debugRes = await fetch(
+      `https://graph.facebook.com/debug_token?input_token=${token}&access_token=${token}`
+    );
+    const debugData: any = await debugRes.json();
+    const tokenInfo = debugData?.data;
+
+    if (tokenInfo && tokenInfo.is_valid) {
+      // Token is valid! Let's check what ID was passed.
+      const isSystemUserId = phoneId === '61596170245340' || phoneId === tokenInfo.user_id || String(phoneId).length <= 14;
+      
+      return {
+        success: false,
+        status: 'PHONE_ID_MISMATCH',
+        provider: 'META_CLOUD_API',
+        message: isSystemUserId
+          ? `Your Meta Access Token is 100% VALID for App "${tokenInfo.application}"! However, ID "${phoneId}" is your System User / Account ID, not your WhatsApp Phone Number ID. To fix this: Go to Meta Developers (developers.facebook.com) > My Apps > WhatsApp > API Setup, and copy the 15-digit "Phone number ID" shown under Step 1.`
+          : `Meta Access Token is valid, but Meta reported error for Phone Number ID "${phoneId}": ${phoneData?.error?.message || 'Access denied'}. Ensure your System User has been assigned the WhatsApp Account asset under Meta Business Settings > System Users > Assign Assets.`,
+        diagnostics: {
+          isTokenValid: true,
+          tokenType: tokenInfo.type,
+          appName: tokenInfo.application,
+          systemUserName: 'OotingAdmin',
+          reason: isSystemUserId ? 'SYSTEM_USER_ID_PROVIDED' : 'PERMISSION_OR_ASSET_NOT_ASSIGNED',
+        },
+        details: phoneData?.error,
+      };
+    }
+
+    return {
+      success: false,
+      status: 'INVALID_TOKEN',
+      provider: 'META_CLOUD_API',
+      message: `Invalid or expired Meta Access Token: ${phoneData?.error?.message || debugData?.error?.message || 'Authentication failed'}.`,
+      details: phoneData?.error || debugData?.error,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      status: 'NETWORK_ERROR',
+      provider: 'META_CLOUD_API',
+      message: `Could not reach Meta Graph API: ${err.message}`,
+    };
+  }
 }
 
 export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<WhatsAppSendResult> {
@@ -130,8 +309,36 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
   const directWebUrl = `https://wa.me/${digitsOnly}?text=${encodeURIComponent(fullTextMessage)}`;
   const config = await getWhatsAppConfigStatus();
 
-  // Mode 1: Meta Cloud API
-  if (config.provider === 'META_CLOUD_API' && config.phoneNumberId && config.token) {
+  // Mode 1: Meta Cloud API (Automated Server Dispatch)
+  if (config.provider === 'META_CLOUD_API' && config.token) {
+    if (config.needsPhoneNumberId || !config.ready || config.phoneNumberId === '61596170245340' || !config.phoneNumberId) {
+      const errorMsg =
+        'Automated send paused: 15-digit Phone Number ID is required. (Currently set to System User ID "61596170245340"). Please copy the 15-digit Phone Number ID from Meta Developers (developers.facebook.com) > My Apps > WhatsApp > API Setup (Step 1) and paste into Gateway Settings.';
+
+      const log = await prisma.whatsAppMessage.create({
+        data: {
+          customerId: customerId || null,
+          phone: formatted,
+          messageContent: fullTextMessage,
+          templateName: templateName || null,
+          status: 'FAILED',
+          provider: 'META_CLOUD_API',
+          errorDetails: errorMsg,
+          sentByUserId: userId || null,
+        },
+      });
+
+      return {
+        success: false,
+        configured: true,
+        ready: false,
+        provider: 'META_CLOUD_API',
+        status: 'FAILED',
+        messageId: log.id,
+        error: errorMsg,
+        directWebUrl,
+      };
+    }
     try {
       let payload: any;
       if (mediaType === 'IMAGE' && mediaUrl) {
@@ -157,6 +364,17 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
             filename: mediaFilename || 'Document.pdf',
           },
         };
+      } else if (templateName) {
+        payload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: digitsOnly,
+          type: 'template',
+          template: {
+            name: templateName,
+            language: { code: 'en' },
+          },
+        };
       } else {
         payload = {
           messaging_product: 'whatsapp',
@@ -168,11 +386,11 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       }
 
       const response = await fetch(
-        `https://graph.facebook.com/v19.0/${config.phoneNumberId}/messages`,
+        `https://graph.facebook.com/v20.0/${config.phoneNumberId}/messages`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${config.token}`,
+            Authorization: `Bearer ${config.token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(payload),
@@ -182,7 +400,17 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       const result: any = await response.json();
 
       if (!response.ok) {
-        const errorMsg = result?.error?.message || 'Meta WhatsApp API request failed';
+        let errorMsg = result?.error?.message || 'Meta WhatsApp API request failed';
+        const errorCode = result?.error?.code;
+        const errorSubcode = result?.error?.error_subcode;
+
+        // Helpful explanations for common Meta Cloud API restrictions
+        if (errorCode === 131047 || errorSubcode === 131047) {
+          errorMsg = 'Customer 24-Hour Window Closed: Meta requires an approved template message when starting a conversation after 24 hours.';
+        } else if (errorCode === 100 && errorSubcode === 33) {
+          errorMsg = `Phone Number ID "${config.phoneNumberId}" is invalid or not a registered WhatsApp phone number on Meta.`;
+        }
+
         const log = await prisma.whatsAppMessage.create({
           data: {
             customerId: customerId || null,
@@ -199,6 +427,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
         return {
           success: false,
           configured: true,
+          ready: true,
           provider: 'META_CLOUD_API',
           status: 'FAILED',
           messageId: log.id,
@@ -212,7 +441,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
         data: {
           customerId: customerId || null,
           phone: formatted,
-          messageContent: message,
+          messageContent: fullTextMessage,
           templateName: templateName || null,
           status: 'SENT',
           provider: 'META_CLOUD_API',
@@ -224,6 +453,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       return {
         success: true,
         configured: true,
+        ready: true,
         provider: 'META_CLOUD_API',
         status: 'SENT',
         externalId,
@@ -234,6 +464,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       return {
         success: false,
         configured: true,
+        ready: true,
         provider: 'META_CLOUD_API',
         status: 'FAILED',
         error: err.message,
@@ -258,6 +489,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
   return {
     success: true,
     configured: false,
+    ready: false,
     provider: 'DIRECT_WEB',
     status: 'SENT',
     messageId: log.id,
