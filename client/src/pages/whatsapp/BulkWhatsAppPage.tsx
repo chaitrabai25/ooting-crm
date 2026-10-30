@@ -39,7 +39,6 @@ import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
-import { openWhatsAppShare } from '../../utils/whatsappHelper.js';
 
 interface RecipientRow {
   Phone: string;
@@ -121,24 +120,25 @@ export const BulkWhatsAppPage: React.FC = () => {
   const [recipientSource, setRecipientSource] = useState<'CRM' | 'EXCEL'>('CRM');
   const [isLoadingCustomers, setIsLoadingCustomers] = useState<boolean>(false);
 
-  // Delivery Mode: Defaults to WEB_AUTOMATOR for guaranteed delivery from active Chrome tab
-  const [delaySeconds, setDelaySeconds] = useState<number>(4);
-  const [dispatchMode, setDispatchMode] = useState<'WEB_AUTOMATOR' | 'CLOUD_API'>('WEB_AUTOMATOR');
-  const [autoAdvance, setAutoAdvance] = useState<boolean>(true);
+  // Delivery Mode: Defaults to CLOUD_API for 100% automated server dispatch from +91 8884845595
+  const [delaySeconds, setDelaySeconds] = useState<number>(2);
+  const [dispatchMode, setDispatchMode] = useState<'CLOUD_API' | 'WEB_AUTOMATOR'>('CLOUD_API');
+  const [sendingSinglePhone, setSendingSinglePhone] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string>('');
+  const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
 
   // Automated Broadcast Execution State
   const [isAutoBroadcasting, setIsAutoBroadcasting] = useState<boolean>(false);
   const [isAutoPaused, setIsAutoPaused] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [currentBroadcastIndex, setCurrentBroadcastIndex] = useState<number>(0);
-  const [countdownSeconds, setCountdownSeconds] = useState<number>(0);
   const [dispatchedHistory, setDispatchedHistory] = useState<
     Array<{
       phone: string;
       name: string;
       status: 'SENT' | 'FAILED' | 'DISPATCHED';
       time: string;
-      webUrl?: string;
+      externalId?: string;
       error?: string;
     }>
   >([]);
@@ -280,46 +280,107 @@ export const BulkWhatsAppPage: React.FC = () => {
     }
   };
 
-  // Upload Excel Spreadsheet (.xlsx only)
+  // Helper to extract values by flexible keyword matching across Excel columns
+  const findColumnValue = (row: any, keywords: string[]): any => {
+    const keys = Object.keys(row);
+    // 1. Exact or alphanumeric match
+    for (const kw of keywords) {
+      const match = keys.find(
+        (k) => k.toLowerCase().replace(/[^a-z0-9]/g, '') === kw.toLowerCase().replace(/[^a-z0-9]/g, '')
+      );
+      if (match && row[match] !== undefined && row[match] !== null && String(row[match]).trim() !== '') {
+        return row[match];
+      }
+    }
+    // 2. Substring match
+    for (const kw of keywords) {
+      const match = keys.find((k) =>
+        k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(kw.toLowerCase().replace(/[^a-z0-9]/g, ''))
+      );
+      if (match && row[match] !== undefined && row[match] !== null && String(row[match]).trim() !== '') {
+        return row[match];
+      }
+    }
+    return undefined;
+  };
+
+  // Upload Excel Spreadsheet (.xlsx, .xls, .csv) with smart header detection
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.match(/\.(xlsx|xls)$/i)) {
-      setError('Please upload a valid Excel spreadsheet (.xlsx or .xls) only.');
+    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+      setError('Please upload a valid Excel spreadsheet (.xlsx, .xls) or .csv file.');
       return;
     }
 
     try {
       setIsLoading(true);
       setError(null);
+      setUploadSuccessMessage(null);
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[firstSheetName];
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+
+      let rows: any[] = [];
+      for (const name of workbook.SheetNames) {
+        const s = workbook.Sheets[name];
+        const r: any[] = XLSX.utils.sheet_to_json(s);
+        if (r && r.length > 0) {
+          rows = r;
+          break;
+        }
+      }
 
       if (!rows || rows.length === 0) {
-        setError('The selected Excel file contains no data rows.');
+        setError('The selected spreadsheet contains no data rows.');
         return;
       }
 
-      const validRows: RecipientRow[] = rows.map((r) => ({
-        Phone: String(r.Phone || r.phone || r.Mobile || r.mobile || ''),
-        customerName: r.customerName || r['Customer Name'] || r.name || 'Valued Guest',
-        package: r.package || r.Package || 'Tour Package',
-        travelDate: r.travelDate || r['Travel Date'] || '',
-        bookingNumber: r.bookingNumber || r['Booking Number'] || '',
-        quotationAmount: r.quotationAmount || r['Quotation Amount'] || '',
-        dueAmount: r.dueAmount || r['Due Amount'] || '',
-      }));
+      const validRows: RecipientRow[] = [];
+      rows.forEach((r, idx) => {
+        const rawPhoneVal = findColumnValue(r, [
+          'phone', 'mobile', 'whatsapp', 'contact', 'cell', 'tel',
+          'phonenumber', 'mobilenumber', 'contactnumber', 'whatsappnumber', 'number', 'recipient'
+        ]);
 
+        let rawPhoneStr = String(rawPhoneVal || '').trim().replace(/\.0+$/, '');
+        let cleanDigits = rawPhoneStr.replace(/\D/g, '');
+        if (cleanDigits.length === 10) cleanDigits = '91' + cleanDigits;
+
+        if (cleanDigits.length >= 10) {
+          const nameVal = findColumnValue(r, ['name', 'customername', 'clientname', 'fullname', 'customer', 'client', 'guest', 'passenger', 'lead', 'party']) || `Guest ${idx + 1}`;
+          const pkgVal = findColumnValue(r, ['package', 'packagename', 'tour', 'tourpackage', 'itinerary', 'trip', 'destination']) || 'Tour Package';
+          const dateVal = findColumnValue(r, ['traveldate', 'date', 'departuredate', 'tourdate', 'startdate']) || '';
+          const bNumVal = findColumnValue(r, ['bookingnumber', 'bookingno', 'bookingid', 'refno', 'reference']) || '';
+          const quotVal = findColumnValue(r, ['quotationamount', 'quotation', 'totalamount', 'totalfare', 'fare', 'amount', 'price']) || '';
+          const dueVal = findColumnValue(r, ['dueamount', 'balance', 'balanceamount', 'pendingamount', 'due']) || '0';
+
+          validRows.push({
+            Phone: cleanDigits,
+            customerName: String(nameVal),
+            package: String(pkgVal),
+            travelDate: String(dateVal),
+            bookingNumber: String(bNumVal),
+            quotationAmount: String(quotVal),
+            dueAmount: String(dueVal),
+          });
+        }
+      });
+
+      if (validRows.length === 0) {
+        setError('No valid phone numbers found in the uploaded file. Please make sure your sheet has a "Phone" or "Mobile" column with 10-digit numbers.');
+        return;
+      }
+
+      setRecipientSource('EXCEL');
+      setUploadedFileName(file.name);
       setRecipients(validRows);
       setSelectedIndices(new Set(validRows.map((_, i) => i)));
       setSelectedPreviewIndex(0);
+      setUploadSuccessMessage(`Successfully imported ${validRows.length} contacts from "${file.name}". All selected for automated broadcast.`);
     } catch (err: any) {
-      console.error('Failed to parse Excel file:', err);
-      setError('Failed to parse Excel spreadsheet. Please make sure it is a valid .xlsx file.');
+      console.error('Failed to parse spreadsheet:', err);
+      setError('Failed to parse spreadsheet. Please make sure it is a valid .xlsx or .xls file.');
     } finally {
       setIsLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -387,8 +448,8 @@ export const BulkWhatsAppPage: React.FC = () => {
     });
   };
 
-  // Quick Send directly to a single recipient (Reusing single tab in Chrome & copying to clipboard)
-  const handleQuickSend = (recipient: RecipientRow) => {
+  // Quick Send directly to a single recipient via Server Gateway (+91 8884845595)
+  const handleQuickSend = async (recipient: RecipientRow) => {
     const rawPhone = recipient.Phone || recipient.phone || '';
     const cleanPhone = sanitizePhoneNumber(rawPhone);
     const personalizedMsg = interpolateClientTemplate(messageTemplate, recipient);
@@ -398,28 +459,65 @@ export const BulkWhatsAppPage: React.FC = () => {
       fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
     }
 
-    openWhatsAppShare({
-      phone: cleanPhone,
-      text: fullMsg,
-      windowName: 'ooting_whatsapp_window',
-    });
-
-    setDispatchedHistory((prev) => [
-      {
+    try {
+      setSendingSinglePhone(cleanPhone);
+      const res = await api.post('/whatsapp/send', {
         phone: cleanPhone,
-        name: recipient.customerName || 'Customer',
-        status: 'DISPATCHED',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      },
-      ...prev,
-    ]);
+        message: fullMsg,
+        customerId: recipient.customerId,
+        mediaType,
+        mediaUrl,
+        mediaFilename,
+      });
+
+      if (res.data?.status === 'SENT' || res.data?.success) {
+        setDispatchedHistory((prev) => [
+          {
+            phone: cleanPhone,
+            name: recipient.customerName || 'Customer',
+            status: 'SENT',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            externalId: res.data?.externalId,
+          },
+          ...prev,
+        ]);
+      } else {
+        setDispatchedHistory((prev) => [
+          {
+            phone: cleanPhone,
+            name: recipient.customerName || 'Customer',
+            status: 'FAILED',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            error: res.data?.error || 'Gateway dispatch failed',
+          },
+          ...prev,
+        ]);
+      }
+    } catch (err: any) {
+      setDispatchedHistory((prev) => [
+        {
+          phone: cleanPhone,
+          name: recipient.customerName || 'Customer',
+          status: 'FAILED',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          error: err?.response?.data?.message || err.message || 'Dispatch error',
+        },
+        ...prev,
+      ]);
+    } finally {
+      setSendingSinglePhone(null);
+    }
   };
 
-  // Dispatches current recipient in the broadcast loop
+  // Dispatches recipient automatically via Server Gateway in the broadcast loop
   const dispatchRecipient = async (index: number) => {
-    if (index >= targetRecipients.length) {
+    if (isStoppedRef.current || index >= targetRecipients.length) {
       setIsCompleted(true);
-      setCountdownSeconds(0);
+      setIsAutoBroadcasting(false);
+      return;
+    }
+
+    if (isPausedRef.current) {
       return;
     }
 
@@ -434,103 +532,70 @@ export const BulkWhatsAppPage: React.FC = () => {
       fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
     }
 
-    const waUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(fullMsg)}`;
+    try {
+      const res = await api.post('/whatsapp/send', {
+        phone: cleanPhone,
+        message: fullMsg,
+        customerId: recipient.customerId,
+        mediaType,
+        mediaUrl,
+        mediaFilename,
+      });
 
-    if (dispatchMode === 'CLOUD_API' && apiStatus?.ready) {
-      try {
-        const res = await api.post('/whatsapp/send', {
-          phone: cleanPhone,
-          message: fullMsg,
-          customerId: recipient.customerId,
-          mediaType,
-          mediaUrl,
-          mediaFilename,
-        });
-
-        if (res.data?.status === 'SENT' || res.data?.success) {
-          setDispatchedHistory((prev) => [
-            {
-              phone: cleanPhone,
-              name: recipient.customerName || 'Customer',
-              status: 'SENT',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-              webUrl: res.data?.directWebUrl || waUrl,
-            },
-            ...prev,
-          ]);
-        } else {
-          setDispatchedHistory((prev) => [
-            {
-              phone: cleanPhone,
-              name: recipient.customerName || 'Customer',
-              status: 'FAILED',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-              error: res.data?.error || 'Meta Cloud API requires terms acceptance in Meta Overview page.',
-              webUrl: waUrl,
-            },
-            ...prev,
-          ]);
-        }
-      } catch (err: any) {
+      if (res.data?.status === 'SENT' || res.data?.success) {
+        setDispatchedHistory((prev) => [
+          {
+            phone: cleanPhone,
+            name: recipient.customerName || 'Customer',
+            status: 'SENT',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            externalId: res.data?.externalId,
+          },
+          ...prev,
+        ]);
+      } else {
         setDispatchedHistory((prev) => [
           {
             phone: cleanPhone,
             name: recipient.customerName || 'Customer',
             status: 'FAILED',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            error: err?.response?.data?.message || 'Dispatch failed',
-            webUrl: waUrl,
+            error: res.data?.error || 'Gateway dispatch failed',
           },
           ...prev,
         ]);
       }
-    } else {
-      // Guaranteed Delivery: Open in single WhatsApp tab & copy to clipboard
-      openWhatsAppShare({
-        phone: cleanPhone,
-        text: fullMsg,
-        windowName: 'ooting_whatsapp_window',
-      });
-
+    } catch (err: any) {
       setDispatchedHistory((prev) => [
         {
           phone: cleanPhone,
           name: recipient.customerName || 'Customer',
-          status: 'DISPATCHED',
+          status: 'FAILED',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          webUrl: waUrl,
+          error: err?.response?.data?.message || err.message || 'Dispatch error',
         },
         ...prev,
       ]);
     }
 
-    // Auto-advance setup if more recipients remain
-    if (index < targetRecipients.length - 1) {
-      if (autoAdvance) {
-        let remaining = delaySeconds;
-        setCountdownSeconds(remaining);
-        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = setInterval(() => {
-          if (isPausedRef.current || isStoppedRef.current) return;
-          remaining -= 1;
-          setCountdownSeconds(remaining);
-          if (remaining <= 0) {
-            clearInterval(timerIntervalRef.current);
-            if (!isStoppedRef.current) {
-              const nextIndex = index + 1;
-              setCurrentBroadcastIndex(nextIndex);
-              dispatchRecipient(nextIndex);
-            }
-          }
-        }, 1000);
+    // Automatically proceed to next contact after pacing delay
+    if (index < targetRecipients.length - 1 && !isStoppedRef.current) {
+      const nextIndex = index + 1;
+      setCurrentBroadcastIndex(nextIndex);
+
+      const sleepTime = Math.max(1000, delaySeconds * 1000);
+      await new Promise((resolve) => setTimeout(resolve, sleepTime));
+
+      if (!isStoppedRef.current && !isPausedRef.current) {
+        dispatchRecipient(nextIndex);
       }
     } else {
       setIsCompleted(true);
-      setCountdownSeconds(0);
+      setIsAutoBroadcasting(false);
     }
   };
 
-  // Launch Broadcast
+  // Launch Automated Broadcast
   const handleStartBroadcast = () => {
     if (targetRecipients.length === 0) {
       setError('Please select at least 1 client using the checkboxes below before starting broadcast.');
@@ -546,7 +611,6 @@ export const BulkWhatsAppPage: React.FC = () => {
     setIsAutoPaused(false);
     setIsCompleted(false);
     setCurrentBroadcastIndex(0);
-    setCountdownSeconds(0);
     setDispatchedHistory([]);
     isPausedRef.current = false;
     isStoppedRef.current = false;
@@ -555,30 +619,20 @@ export const BulkWhatsAppPage: React.FC = () => {
     dispatchRecipient(0);
   };
 
-  // Advance to next contact manually
-  const handleNextContactManual = () => {
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    setCountdownSeconds(0);
-    if (currentBroadcastIndex < targetRecipients.length - 1) {
-      const nextIndex = currentBroadcastIndex + 1;
-      setCurrentBroadcastIndex(nextIndex);
-      dispatchRecipient(nextIndex);
-    } else {
-      setIsCompleted(true);
-    }
-  };
-
   const handleTogglePause = () => {
-    isPausedRef.current = !isPausedRef.current;
-    setIsAutoPaused(isPausedRef.current);
+    const nextPaused = !isPausedRef.current;
+    isPausedRef.current = nextPaused;
+    setIsAutoPaused(nextPaused);
+    if (!nextPaused && !isCompleted && !isStoppedRef.current) {
+      dispatchRecipient(currentBroadcastIndex);
+    }
   };
 
   const handleStopBroadcast = () => {
     isStoppedRef.current = true;
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     setIsAutoPaused(false);
     setIsCompleted(true);
-    setCountdownSeconds(0);
+    setIsAutoBroadcasting(false);
   };
 
   const handleExportBroadcastReport = () => {
@@ -760,7 +814,7 @@ export const BulkWhatsAppPage: React.FC = () => {
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept=".xlsx, .xls"
+                  accept=".xlsx, .xls, .csv"
                   className="hidden"
                 />
 
@@ -770,12 +824,24 @@ export const BulkWhatsAppPage: React.FC = () => {
                 >
                   <Upload className="w-6 h-6 text-emerald-600 mx-auto mb-1.5" />
                   <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
-                    Click to browse and upload Excel spreadsheet (.xlsx / .xls)
+                    Click to browse and upload Excel spreadsheet (.xlsx / .xls / .csv)
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5">
-                    Requires a 'Phone' column, and optional 'customerName', 'package', 'travelDate'
+                    Recognizes 'Phone' / 'Mobile' / 'WhatsApp' columns, and optional 'Name', 'Package', 'Travel Date'
                   </span>
                 </div>
+
+                {uploadSuccessMessage && (
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{uploadSuccessMessage}</span>
+                    </div>
+                    <button onClick={() => setUploadSuccessMessage(null)} className="font-bold underline text-[11px] cursor-pointer">
+                      Dismiss
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -919,11 +985,21 @@ export const BulkWhatsAppPage: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleQuickSend(r)}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
-                                  title="Send directly via WhatsApp Web (Single Tab)"
+                                  disabled={sendingSinglePhone === sanitizePhoneNumber(r.Phone || r.phone || '')}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                                  title="Send automatically via connected number +91 8884845595"
                                 >
-                                  <Send className="w-3 h-3" />
-                                  <span>Send</span>
+                                  {sendingSinglePhone === sanitizePhoneNumber(r.Phone || r.phone || '') ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      <span>Sending...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Send className="w-3 h-3" />
+                                      <span>Send</span>
+                                    </>
+                                  )}
                                 </button>
                               </div>
                             </div>
@@ -1232,51 +1308,25 @@ export const BulkWhatsAppPage: React.FC = () => {
               Step 4: Dispatch Settings & Launch Broadcast
             </h2>
 
-            {/* Engine Selection: Web Automator (Recommended) vs Cloud API */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setDispatchMode('WEB_AUTOMATOR')}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                  dispatchMode === 'WEB_AUTOMATOR'
-                    ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-100 font-semibold shadow-xs ring-1 ring-emerald-500/20'
-                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <span className="text-xs font-bold">🌐 Direct WhatsApp Web</span>
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-                  100% Guaranteed. Reuses your active Chrome WhatsApp Web tab.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDispatchMode('CLOUD_API')}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                  dispatchMode === 'CLOUD_API'
-                    ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/50 text-brand-900 dark:text-brand-100 font-semibold shadow-xs ring-1 ring-brand-500/20'
-                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="w-2 h-2 rounded-full bg-brand-500"></span>
-                  <span className="text-xs font-bold">⚡ Meta Cloud API</span>
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-                  Background server dispatch (Requires Meta Overview terms).
-                </p>
-              </button>
+            {/* Connected Business Gateway Banner */}
+            <div className="p-3.5 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
+                  Automated Gateway Sender: +91 {apiStatus?.businessNumber || '8884845595'} ({apiStatus?.verifiedName || 'Ooting'})
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-300 leading-snug">
+                Messages are dispatched automatically in the background through your connected business gateway. Zero WhatsApp Web logins and zero manual button clicks required.
+              </p>
             </div>
 
-            {/* Delay Timer & Auto-Advance Toggle */}
+            {/* Delay Pacing Interval */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                  Pacing Interval (Between Clients):
+                  Anti-Spam Safety Delay (Between Clients):
                 </label>
                 <span className="text-[10px] font-mono text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
                   {delaySeconds}s Delay
@@ -1285,10 +1335,10 @@ export const BulkWhatsAppPage: React.FC = () => {
 
               <div className="grid grid-cols-4 gap-1.5">
                 {[
-                  { sec: 2, label: '2s Quick' },
-                  { sec: 4, label: '4s Safe' },
-                  { sec: 6, label: '6s Paced' },
-                  { sec: 10, label: '10s Steady' },
+                  { sec: 1, label: '1s Fast' },
+                  { sec: 2, label: '2s Safe' },
+                  { sec: 3, label: '3s Steady' },
+                  { sec: 5, label: '5s Paced' },
                 ].map((item) => (
                   <button
                     key={item.sec}
@@ -1305,18 +1355,6 @@ export const BulkWhatsAppPage: React.FC = () => {
                   </button>
                 ))}
               </div>
-
-              <label className="flex items-center gap-2 cursor-pointer pt-1">
-                <input
-                  type="checkbox"
-                  checked={autoAdvance}
-                  onChange={(e) => setAutoAdvance(e.target.checked)}
-                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
-                />
-                <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                  Auto-advance to next client after pacing delay (Hit Enter in WhatsApp to send)
-                </span>
-              </label>
             </div>
 
             {/* Launch Automated Broadcast Button */}
@@ -1326,13 +1364,13 @@ export const BulkWhatsAppPage: React.FC = () => {
               disabled={isAutoBroadcasting || selectedIndices.size === 0}
               className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
             >
-              <Send className="w-4 h-4" />
+              {isAutoBroadcasting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               <span>
                 {isAutoBroadcasting
-                  ? 'Broadcasting in Progress...'
+                  ? `Broadcasting in Progress... (${currentBroadcastIndex + 1}/${targetRecipients.length})`
                   : selectedIndices.size === 0
                   ? 'Select Clients Above to Start Broadcast'
-                  : `🚀 Start WhatsApp Broadcast (${selectedIndices.size} Selected Clients)`}
+                  : `🚀 Send Bulk Messages Automatically (${selectedIndices.size} Selected Clients)`}
               </span>
             </button>
 
@@ -1485,13 +1523,13 @@ export const BulkWhatsAppPage: React.FC = () => {
           }}
           title={
             isCompleted
-              ? '✅ WhatsApp Broadcast Complete'
-              : '🚀 WhatsApp Broadcast Runner (+91 8884845595)'
+              ? '✅ Automated Broadcast Completed (+91 8884845595)'
+              : '🚀 Automated WhatsApp Gateway Broadcast (+91 8884845595)'
           }
           maxWidth="2xl"
         >
           <div className="space-y-4">
-            {/* Top Status & Live Progress */}
+            {/* Top Status & 4 Metric Badges */}
             <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1507,104 +1545,137 @@ export const BulkWhatsAppPage: React.FC = () => {
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     {isCompleted
                       ? `Finished! All ${targetRecipients.length} clients processed.`
-                      : `Client ${currentBroadcastIndex + 1} of ${targetRecipients.length}: ${currentRecipient?.customerName || 'Customer'}`}
+                      : `Sending to client ${currentBroadcastIndex + 1} of ${targetRecipients.length}: ${currentRecipient?.customerName || 'Customer'}`}
                   </span>
                 </div>
 
-                {!isCompleted && countdownSeconds > 0 && (
-                  <span className="text-xs font-mono font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>Next client in {countdownSeconds}s</span>
-                  </span>
-                )}
+                <span className="text-xs font-mono font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-emerald-600" />
+                  <span>Sender: +91 8884845595</span>
+                </span>
               </div>
 
               {/* Progress bar */}
-              <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-emerald-600 h-2.5 transition-all duration-300 rounded-full"
-                  style={{
-                    width: `${Math.round(
-                      ((currentBroadcastIndex + (isCompleted ? 1 : 0)) / Math.max(1, targetRecipients.length)) * 100
-                    )}%`,
-                  }}
-                ></div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  <span>
+                    Processed {dispatchedHistory.length} of {targetRecipients.length} clients
+                  </span>
+                  <span>
+                    {Math.min(
+                      100,
+                      Math.round(
+                        (dispatchedHistory.length / Math.max(1, targetRecipients.length)) * 100
+                      )
+                    )}%
+                  </span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="bg-emerald-600 h-2.5 transition-all duration-300 rounded-full"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          (dispatchedHistory.length / Math.max(1, targetRecipients.length)) * 100
+                        )
+                      )}%`,
+                    }}
+                  ></div>
+                </div>
               </div>
 
-              {/* Active Client Card with Action Prompts */}
+              {/* 4 Real-time Stat Badges */}
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl text-center border border-slate-200 dark:border-slate-700 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Total
+                  </span>
+                  <span className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                    {targetRecipients.length}
+                  </span>
+                </div>
+                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl text-center border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                    Sent
+                  </span>
+                  <span className="text-base font-extrabold text-emerald-700 dark:text-emerald-300">
+                    {dispatchedHistory.filter((h) => h.status === 'SENT').length}
+                  </span>
+                </div>
+                <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl text-center border border-rose-200 dark:border-rose-800/60 shadow-2xs">
+                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
+                    Failed
+                  </span>
+                  <span className="text-base font-extrabold text-rose-700 dark:text-rose-300">
+                    {dispatchedHistory.filter((h) => h.status === 'FAILED').length}
+                  </span>
+                </div>
+                <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-center border border-blue-200 dark:border-blue-800/60 shadow-2xs">
+                  <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                    Remaining
+                  </span>
+                  <span className="text-base font-extrabold text-blue-700 dark:text-blue-300">
+                    {Math.max(0, targetRecipients.length - dispatchedHistory.length)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Active Client Card */}
               {!isCompleted && currentRecipient && (
-                <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-2">
+                <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-xs text-emerald-950 dark:text-emerald-100 block">
-                        Sending To: {currentRecipient.customerName || 'Customer'}
-                      </span>
-                      <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-300">
-                        {currentRecipient.Phone || currentRecipient.phone} • {currentRecipient.package || 'Tour Package'}
-                      </span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+                        {isAutoPaused ? (
+                          <Pause className="w-4 h-4 text-amber-200" />
+                        ) : (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        )}
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-slate-900 dark:text-slate-100 block">
+                          {isAutoPaused ? 'Broadcast Paused' : 'Currently Sending To:'}{' '}
+                          {currentRecipient.customerName || 'Customer'}
+                        </span>
+                        <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-300">
+                          +{currentRecipient.Phone || currentRecipient.phone} •{' '}
+                          {currentRecipient.package || 'General Inquiry'}
+                        </span>
+                      </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => dispatchRecipient(currentBroadcastIndex)}
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs cursor-pointer"
-                    >
-                      <span>Re-Open in WhatsApp</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </button>
+                    <span className="text-[11px] font-semibold px-2.5 py-1 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-700">
+                      Pacing: {delaySeconds}s delay
+                    </span>
                   </div>
 
-                  <p className="text-[11px] text-emerald-800 dark:text-emerald-200/90 leading-relaxed bg-white/70 dark:bg-black/30 p-2.5 rounded-lg border border-emerald-100 dark:border-emerald-900/40">
-                    💡 <strong>Tip:</strong> The chat for <strong>{currentRecipient.customerName}</strong> is opened in your WhatsApp tab with the message ready. Simply hit <strong>Enter</strong> in WhatsApp to send, then click <strong>Next Client</strong> below.
+                  <p className="text-[11px] text-emerald-800 dark:text-emerald-200/90 leading-relaxed bg-white/70 dark:bg-black/30 p-2.5 rounded-lg border border-emerald-100 dark:border-emerald-900/40 flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>
+                      <strong>Automated Server Dispatch:</strong> Messages are transmitted automatically in the background directly from your official WhatsApp number (+91 8884845595).
+                    </span>
                   </p>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={autoAdvance}
-                        onChange={(e) => setAutoAdvance(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded text-emerald-600 accent-emerald-600"
-                      />
-                      <span>Auto-advance after {delaySeconds}s</span>
-                    </label>
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleTogglePause}
+                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      {isAutoPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                      <span>{isAutoPaused ? 'Resume Broadcast' : 'Pause Broadcast'}</span>
+                    </button>
 
                     <button
                       type="button"
-                      onClick={handleNextContactManual}
-                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-98"
+                      onClick={handleStopBroadcast}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <span>
-                        {currentBroadcastIndex < targetRecipients.length - 1
-                          ? `Next: ${targetRecipients[currentBroadcastIndex + 1]?.customerName || 'Next Client'} ➔`
-                          : 'Finish Broadcast 🎉'}
-                      </span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <Square className="w-3.5 h-3.5" />
+                      <span>Stop Broadcast</span>
                     </button>
                   </div>
-                </div>
-              )}
-
-              {/* Runner Controls */}
-              {!isCompleted && (
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleTogglePause}
-                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    {isAutoPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                    <span>{isAutoPaused ? 'Resume Timer' : 'Pause Timer'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleStopBroadcast}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Square className="w-3.5 h-3.5" />
-                    <span>Stop Broadcast</span>
-                  </button>
                 </div>
               )}
             </div>
@@ -1634,10 +1705,13 @@ export const BulkWhatsAppPage: React.FC = () => {
                   </div>
                 ) : (
                   dispatchedHistory.map((item, idx) => (
-                    <div key={idx} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                    <div
+                      key={idx}
+                      className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
+                    >
                       <div>
                         <span className="font-semibold text-slate-900 dark:text-slate-100 block">
-                          {item.name} ({item.phone})
+                          {item.name} (+{item.phone})
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono">
                           Dispatched at {item.time} {item.error ? `• ${item.error}` : ''}
@@ -1647,7 +1721,7 @@ export const BulkWhatsAppPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         {item.status === 'SENT' || item.status === 'DISPATCHED' ? (
                           <span className="text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Dispatched
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Sent
                           </span>
                         ) : (
                           <span className="text-rose-600 font-bold flex items-center gap-1 text-[11px]">
@@ -1655,21 +1729,27 @@ export const BulkWhatsAppPage: React.FC = () => {
                           </span>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openWhatsAppShare({
-                              phone: item.phone,
-                              text: messageTemplate,
-                              windowName: 'ooting_whatsapp_window',
-                            })
-                          }
-                          className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 rounded font-semibold text-[10px] flex items-center gap-1 cursor-pointer"
-                          title="Open WhatsApp chat for this client"
-                        >
-                          <span>Re-Send</span>
-                          <ExternalLink className="w-2.5 h-2.5" />
-                        </button>
+                        {item.status === 'FAILED' && (
+                          <button
+                            type="button"
+                            disabled={sendingSinglePhone === item.phone}
+                            onClick={() =>
+                              handleQuickSend({
+                                Phone: item.phone,
+                                customerName: item.name,
+                              })
+                            }
+                            className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 rounded font-semibold text-[10px] flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            title="Retry sending via connected WhatsApp Gateway (+91 8884845595)"
+                          >
+                            {sendingSinglePhone === item.phone ? (
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-2.5 h-2.5" />
+                            )}
+                            <span>Retry</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))
@@ -1680,7 +1760,7 @@ export const BulkWhatsAppPage: React.FC = () => {
             {/* Bottom Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700">
               <span className="text-[11px] text-slate-400">
-                {isCompleted ? 'All selected messages processed.' : 'Runner active.'}
+                {isCompleted ? 'All selected messages processed.' : 'Automated broadcast runner active.'}
               </span>
 
               <div className="flex items-center gap-2">
