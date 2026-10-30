@@ -339,11 +339,26 @@ router.post('/config', authenticate, async (req: AuthRequest, res: Response, nex
       });
     }
     if (phoneNumberId !== undefined) {
+      let resolvedPhoneId = String(phoneNumberId).trim();
+      let wabaId = '';
+      if (resolvedPhoneId === '1770457630964236') {
+        wabaId = '1770457630964236';
+        resolvedPhoneId = '1282151328312026';
+      } else if (resolvedPhoneId === '61596170245340') {
+        resolvedPhoneId = '1282151328312026';
+      }
       await prisma.companySetting.upsert({
         where: { key: 'whatsapp_phone_number_id' },
-        update: { value: String(phoneNumberId).trim() },
-        create: { key: 'whatsapp_phone_number_id', value: String(phoneNumberId).trim() },
+        update: { value: resolvedPhoneId },
+        create: { key: 'whatsapp_phone_number_id', value: resolvedPhoneId },
       });
+      if (wabaId) {
+        await prisma.companySetting.upsert({
+          where: { key: 'whatsapp_waba_id' },
+          update: { value: wabaId },
+          create: { key: 'whatsapp_waba_id', value: wabaId },
+        });
+      }
     }
     if (businessNumber !== undefined) {
       await prisma.companySetting.upsert({

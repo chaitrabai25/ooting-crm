@@ -1423,15 +1423,18 @@ export const BulkWhatsAppPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  WhatsApp Phone Number ID
+                  WhatsApp Phone Number ID or WABA ID
                 </label>
                 <input
                   type="text"
                   value={configPhoneId}
                   onChange={(e) => setConfigPhoneId(e.target.value)}
-                  placeholder="1282151328312026"
+                  placeholder="1282151328312026 or 1770457630964236"
                   className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-brand-500"
                 />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  💡 You can enter Phone ID (<code>1282151328312026</code>) or WABA ID (<code>1770457630964236</code>). Both automatically route to connected number +91 8884845595.
+                </span>
               </div>
 
               <div>
