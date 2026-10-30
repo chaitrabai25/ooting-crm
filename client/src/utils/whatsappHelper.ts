@@ -1,33 +1,24 @@
 /**
  * WhatsApp Integration & Session Manager for Ooting CRM
  * 
- * Objectives:
  * 1. Single-Session / Window Reuse:
- *    Reuses the existing WhatsApp Web tab/window using standard window target ('whatsapp').
- *    Never passes a 3rd windowFeatures argument, as in Chromium/Chrome any 3rd argument
- *    forces Chrome to open a new popup window rather than reusing an existing tab.
+ *    Maintains a single open WhatsApp window reference and targets a fixed window name ('ooting_whatsapp_window').
+ *    Does NOT use rel="noreferrer" on anchors, which forces Chrome to isolate and spawn separate tabs.
  * 
  * 2. Instant Clipboard Sync:
- *    Automatically writes the full message to the system clipboard (navigator.clipboard.writeText).
- *    If the user already has WhatsApp Web open in Chrome from an earlier session,
- *    they can switch to that tab and simply press Ctrl+V to send immediately.
+ *    Automatically writes the full message to the system clipboard (navigator.clipboard.writeText)
+ *    so user can also paste directly into WhatsApp if preferred.
  * 
  * 3. Direct Web & App Dispatch:
- *    On desktop, connects to https://web.whatsapp.com/send (bypassing the intermediate wa.me landing page).
+ *    On desktop, connects to https://web.whatsapp.com/send directly.
  *    On mobile devices, launches native WhatsApp via https://api.whatsapp.com/send.
- * 
- * 4. Safe Phone Number Sanitization:
- *    Formats numbers for international standard (E.164 without plus sign).
  */
 
 let activeWhatsAppSession: Window | null = null;
 
-/**
- * Clean and format phone numbers for WhatsApp
- */
 export function sanitizeWhatsAppPhone(phone?: string | null): string {
   if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
+  let digits = phone.replace(/\D/g, '');
   if (!digits) return '';
 
   // 10 digits Indian mobile number (e.g. 9876543210 -> 919876543210)
@@ -43,17 +34,11 @@ export function sanitizeWhatsAppPhone(phone?: string | null): string {
   return digits;
 }
 
-/**
- * Check if the client is currently running on a mobile browser
- */
 export function isMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-/**
- * Safely copy text to clipboard with fallback
- */
 export async function copyToClipboard(text: string): Promise<boolean> {
   if (!text) return false;
   try {
@@ -89,26 +74,22 @@ export interface WhatsAppShareOptions {
 }
 
 /**
- * Open WhatsApp with active tab/session reuse to prevent repeated login prompts & extra tabs.
- * Also copies the message text to clipboard so it's ready to paste into any open WhatsApp tab.
+ * Open WhatsApp with strict single-tab session reuse in Chrome.
+ * Never opens multiple tabs.
  */
 export function openWhatsAppShare({
   phone,
   text,
-  windowName = 'whatsapp',
+  windowName = 'ooting_whatsapp_window',
 }: WhatsAppShareOptions): Window | null {
   if (typeof window === 'undefined') return null;
 
-  // 1. Always copy text to clipboard for zero-effort manual paste if user already has WhatsApp open
   copyToClipboard(text).catch(() => {});
 
   const cleanPhone = sanitizeWhatsAppPhone(phone);
   const encodedText = encodeURIComponent(text);
   const isMobile = isMobileDevice();
 
-  // Direct target URL determination:
-  // On Desktop: web.whatsapp.com directly opens the contact chat.
-  // On Mobile: api.whatsapp.com triggers the native WhatsApp app.
   let targetUrl: string;
   if (isMobile) {
     targetUrl = cleanPhone
@@ -121,40 +102,28 @@ export function openWhatsAppShare({
   }
 
   try {
-    // Check if an existing session window is open and alive in memory
+    // 1. If we have an existing open session window in memory, navigate it directly!
     if (activeWhatsAppSession && !activeWhatsAppSession.closed) {
       try {
         activeWhatsAppSession.location.href = targetUrl;
         activeWhatsAppSession.focus();
         return activeWhatsAppSession;
-      } catch {
-        // Cross-origin restriction fallback
+      } catch (_) {
+        // Fall back to window.open if cross-origin navigation is blocked
       }
     }
 
-    // Standard DOM anchor click targeting named window 'whatsapp'
-    // In Chromium / Chrome, using an anchor with target="whatsapp" without any
-    // window features is the most reliable mechanism to reuse the existing tab
-    // and never open duplicate tabs.
-    const link = document.createElement('a');
-    link.href = targetUrl;
-    link.target = windowName;
-    link.rel = 'noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Keep named window reference if possible
-    try {
-      activeWhatsAppSession = window.open('', windowName);
-      if (activeWhatsAppSession) {
+    // 2. Open named window. In Chrome, calling window.open with the same target name
+    // reuses the exact same tab and avoids opening duplicate tabs.
+    activeWhatsAppSession = window.open(targetUrl, windowName);
+    if (activeWhatsAppSession) {
+      try {
         activeWhatsAppSession.focus();
-      }
-    } catch {}
-
+      } catch (_) {}
+    }
     return activeWhatsAppSession;
   } catch (err) {
-    console.warn('WhatsApp tab reuse encountered error, using standard fallback:', err);
+    console.warn('Error opening WhatsApp tab:', err);
     return window.open(targetUrl, windowName);
   }
 }

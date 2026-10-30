@@ -317,10 +317,10 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
 
     try {
       let payload: any;
+      const hasUrl = /https?:\/\//i.test(fullTextMessage);
       if (mediaType === 'IMAGE' && mediaUrl) {
         payload = {
           messaging_product: 'whatsapp',
-          recipient_type: 'individual',
           to: digitsOnly,
           type: 'image',
           image: {
@@ -331,7 +331,6 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       } else if (mediaType === 'DOCUMENT' && mediaUrl) {
         payload = {
           messaging_product: 'whatsapp',
-          recipient_type: 'individual',
           to: digitsOnly,
           type: 'document',
           document: {
@@ -343,7 +342,6 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       } else if (templateName) {
         payload = {
           messaging_product: 'whatsapp',
-          recipient_type: 'individual',
           to: digitsOnly,
           type: 'template',
           template: {
@@ -354,10 +352,11 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       } else {
         payload = {
           messaging_product: 'whatsapp',
-          recipient_type: 'individual',
           to: digitsOnly,
           type: 'text',
-          text: { preview_url: true, body: fullTextMessage },
+          text: hasUrl
+            ? { preview_url: true, body: fullTextMessage }
+            : { body: fullTextMessage },
         };
       }
 
