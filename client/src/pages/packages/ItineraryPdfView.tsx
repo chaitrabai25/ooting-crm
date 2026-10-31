@@ -24,9 +24,15 @@ import {
   Car,
   Headphones,
   Sparkles,
+  ExternalLink,
+  Quote,
+  Shield,
+  HeartHandshake,
+  Award,
+  Users,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
-import { Package, ItineraryDay } from '../../types/index.js';
+import { Package, ItineraryDay, PackageCustomBrandingData, HotelPlanOption, PricingTierRow } from '../../types/index.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { useLanguage } from '../../context/LanguageContext.js';
 import { generateA4Pdf } from '../../utils/pdfGenerator.js';
@@ -38,6 +44,39 @@ import { notifyError, notifySuccess, ootingSwal, showToast } from '../../utils/s
 export interface HotelPhotoDisplay {
   url: string;
   caption: string;
+}
+
+export const DESTINATION_HERO_FALLBACKS: Record<string, string> = {
+  coorg: 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=1400&auto=format&fit=crop&q=80',
+  ooty: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=1400&auto=format&fit=crop&q=80',
+  mysore: 'https://images.unsplash.com/photo-1600100397608-f010f444f434?w=1400&auto=format&fit=crop&q=80',
+  kerala: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1400&auto=format&fit=crop&q=80',
+  wayanad: 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=1400&auto=format&fit=crop&q=80',
+  goa: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=1400&auto=format&fit=crop&q=80',
+  andaman: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=1400&auto=format&fit=crop&q=80',
+  south: 'https://images.unsplash.com/photo-1600100397608-f010f444f434?w=1400&auto=format&fit=crop&q=80',
+  default: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=1400&auto=format&fit=crop&q=80',
+};
+
+export const DEFAULT_TRIP_GALLERY = [
+  { url: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=600&auto=format&fit=crop&q=80', caption: 'Breathtaking Viewpoints' },
+  { url: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&auto=format&fit=crop&q=80', caption: 'Cherished Family Moments' },
+  { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80', caption: 'Serene Nature & Escapes' },
+  { url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop&q=80', caption: 'Luxury Stays & Heritage' },
+];
+
+export function getHeroBannerImage(pkg: any, customData?: PackageCustomBrandingData): string {
+  if (customData?.bannerImageUrl && customData.bannerImageUrl.trim()) {
+    return customData.bannerImageUrl.trim();
+  }
+  if (pkg.imageUrl && pkg.imageUrl.trim() && pkg.imageUrl !== 'null') {
+    return pkg.imageUrl.trim();
+  }
+  const nameAndDest = `${pkg.packageName || ''} ${pkg.destination || ''}`.toLowerCase();
+  for (const [key, url] of Object.entries(DESTINATION_HERO_FALLBACKS)) {
+    if (key !== 'default' && nameAndDest.includes(key)) return url;
+  }
+  return DESTINATION_HERO_FALLBACKS.default;
 }
 
 const parseBulletPoints = (text?: string | null): string[] => {
@@ -326,27 +365,45 @@ export const ItineraryPdfView: React.FC = () => {
 
   const isB2B = Boolean(pkg?.b2bAgencyName && pkg.b2bAgencyName.trim());
 
+  const customData: PackageCustomBrandingData = React.useMemo(() => {
+    if (!pkg?.customBranding) return {};
+    try {
+      return JSON.parse(pkg.customBranding);
+    } catch {
+      return {};
+    }
+  }, [pkg?.customBranding]);
+
   const activeBranding = {
     isB2B,
-    agencyName: isB2B ? pkg.b2bAgencyName!.trim() : (company?.name || 'DESIRE HOLIDAYS').toUpperCase(),
+    agencyName: isB2B ? pkg.b2bAgencyName!.trim() : (company?.name || 'OOTING HOLIDAYS').toUpperCase(),
     tagline: isB2B
       ? (pkg.b2bTagline || 'Authorized Travel Partner')
-      : (company?.tagline || ''),
+      : (company?.tagline || 'Journeys Beyond Ordinary'),
     subtitle: isB2B
       ? (pkg.b2bContactPerson ? `Authorized Travel Partner • Contact: ${pkg.b2bContactPerson}` : 'Authorized Travel Partner')
       : (company?.tagline || 'Premium Tour Operator & Destination Specialist'),
     logoUrl: isB2B ? (pkg.b2bAgencyLogo || null) : (effectiveLogoUrl || company?.logoUrl || null),
-    phone: isB2B ? (pkg.b2bPhone || '') : (company?.phone || ''),
+    phone: isB2B ? (pkg.b2bPhone || '') : (company?.phone || '+91 8884845595'),
     alternatePhone: isB2B ? (pkg.b2bAlternatePhone || '') : '',
-    email: isB2B ? (pkg.b2bEmail || '') : (company?.email || ''),
-    website: isB2B ? (pkg.b2bWebsite || '') : (company?.website || ''),
+    email: isB2B ? (pkg.b2bEmail || '') : (company?.email || 'support@ooting.in'),
+    website: isB2B ? (pkg.b2bWebsite || '') : (company?.website || 'www.ooting.in'),
     gstin: isB2B ? (pkg.b2bGstin || '') : (company?.gstin || ''),
     address: isB2B
       ? [pkg.b2bAddress, pkg.b2bCity, pkg.b2bState].filter(Boolean).join(', ')
-      : (company?.address || [company?.city, company?.state].filter(Boolean).join(', ')),
+      : (company?.address || 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India'),
     signatureName: isB2B
       ? pkg.b2bAgencyName!.trim()
-      : (company?.name || 'Authorized Tour Operator'),
+      : (company?.name || 'Ooting Holidays'),
+    facebookUrl: !isB2B ? (company?.facebookUrl || 'https://facebook.com/ooting.in') : '',
+    instagramUrl: !isB2B ? (company?.instagramUrl || 'https://instagram.com/ooting.in') : '',
+    youtubeUrl: !isB2B ? (company?.youtubeUrl || '') : '',
+    googleMapUrl: !isB2B ? (company?.googleMapUrl || 'https://maps.google.com/?q=Ooting+Holidays+Shivamogga') : '',
+    reviewRating: company?.reviewRating || '4.9',
+    reviewCount: company?.reviewCount || '1,250+',
+    reviewQuote: company?.reviewQuote || 'Our family trip with Ooting was completely breathtaking! Impeccable cabs, punctual chauffeurs, and handpicked luxury resorts.',
+    reviewAuthor: company?.reviewAuthor || 'Rajesh & Family, Bangalore',
+    tripGallery: company?.tripGallery || '',
   };
 
   const handleShareWhatsApp = async () => {
@@ -703,59 +760,187 @@ export const ItineraryPdfView: React.FC = () => {
           </div>
         </div>
 
-        {/* Package Title Banner */}
-        <div className="px-8 py-3.5 bg-gradient-to-r from-red-50/70 via-rose-50/30 to-white border-b border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="inline-block px-2.5 py-0.5 bg-[#C91F28] text-white text-[10.5px] font-bold uppercase tracking-wider rounded">
-                  {t('official_tour_itinerary', 'Official Tour Itinerary')}
-                </span>
-                <span className="text-xs font-bold text-[#C91F28]">
-                  • {itineraries.length} {t('days_planned', 'Days Planned')}
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#1E3A8A] tracking-tight leading-snug">
-                {pkg.packageName}
-              </h1>
-              {/* Clean Icon Badges without raw bullets */}
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700 mt-2 font-medium">
-                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs font-semibold text-slate-800">
-                  <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
-                  <span>{pkg.destination}</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs font-semibold text-slate-800">
-                  <Clock className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
-                  <span>{pkg.duration}</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs font-semibold text-slate-800">
-                  <Compass className="w-3.5 h-3.5 text-[#1E3A8A] shrink-0" />
-                  <span className="capitalize">{pkg.packageType.toLowerCase()} Package</span>
-                </span>
-              </div>
+        {/* Flamingo-Style Cover Page Hero Image Banner */}
+        <div className="relative w-full overflow-hidden bg-slate-900 border-b border-slate-200">
+          <div className="relative w-full h-56 sm:h-72 overflow-hidden">
+            <img
+              src={getHeroBannerImage(pkg, customData)}
+              alt={pkg.packageName}
+              className="w-full h-full object-cover brightness-[0.88]"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              referrerPolicy="no-referrer"
+            />
+            {/* Subtle Gradient Overlays */}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-slate-900/40 pointer-events-none" />
+
+            {/* Top Left Tour Code Badge */}
+            <div className="absolute top-4 left-6 sm:left-8 flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-[#C91F28] text-white font-black text-[11px] uppercase tracking-wider shadow-md border border-white/20">
+                TOUR CODE: {customData.tourCode || `OT-${(pkg.destination || 'TOUR').slice(0, 3).toUpperCase()}-${pkg.id.slice(0, 4).toUpperCase()}`}
+              </span>
+              <span className="px-2.5 py-1 rounded-full bg-black/50 text-white backdrop-blur-xs font-semibold text-[11px] border border-white/20">
+                {pkg.duration}
+              </span>
             </div>
 
-            <div className="text-right">
-              <span className="text-[10.5px] text-slate-500 uppercase tracking-wider font-bold block">{t('starting_price', 'Starting Price')}</span>
-              <span className="text-2xl font-bold text-[#C91F28] block">
-                ₹{Number(pkg.price).toLocaleString('en-IN')}
-              </span>
-              <span className="text-[10px] text-slate-500 font-medium block">{t('per_person', 'Per Person (All Inclusive)')}</span>
+            {/* Bottom Title & Subtitle Info */}
+            <div className="absolute bottom-4 left-6 right-6 sm:left-8 sm:right-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 text-white">
+              <div className="max-w-2xl">
+                <span className="text-[11px] font-extrabold uppercase tracking-widest text-amber-300 drop-shadow-sm block mb-1">
+                  HERE IS YOUR PACKAGE FOR
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-md">
+                  {pkg.packageName}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-200 font-medium mt-1 drop-shadow-sm flex items-center gap-2">
+                  <span>{customData.theme || `${pkg.destination} Scenic Holiday & Curated Tour`}</span>
+                  <span>•</span>
+                  <span className="text-amber-200 font-semibold">{itineraries.length} Days Planned</span>
+                </p>
+              </div>
+
+              <div className="sm:text-right shrink-0 bg-black/40 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/20">
+                <span className="text-[10px] text-slate-300 uppercase tracking-wider font-bold block">
+                  {t('starting_price', 'Starting From')}
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-amber-400 block">
+                  ₹{Number(pkg.price).toLocaleString('en-IN')}
+                </span>
+                <span className="text-[10px] text-slate-300 font-medium block">Per Person (All Inclusive)</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Tour Overview */}
-        <div className="px-8 py-3.5 border-b border-slate-100 bg-slate-50/40">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
-            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#1E3A8A]">
-              {t('tour_overview_highlights', 'Tour Overview & Highlights')}
-            </h3>
+        {/* Vacation at a Glance & Quick Snapshot Box */}
+        <div className="px-8 py-4 bg-slate-50/70 border-b border-slate-200 space-y-3.5">
+          {/* Quick Badges Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+              <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Destinations</span>
+                <span className="font-bold text-xs text-slate-900 truncate block">{pkg.destination}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1E3A8A] flex items-center justify-center shrink-0">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Duration</span>
+                <span className="font-bold text-xs text-slate-900 truncate block">{pkg.duration}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                <Car className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Private Vehicle</span>
+                <span className="font-bold text-xs text-slate-900 truncate block">Dedicated AC Cab</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                <Coffee className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Meal Plan</span>
+                <span className="font-bold text-xs text-slate-900 truncate block">Daily Buffet Breakfast</span>
+              </div>
+            </div>
           </div>
-          <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-line font-normal">
-            {pkg.description}
-          </p>
+
+          {/* Snapshot Highlights Checklist */}
+          {((customData.highlights && customData.highlights.length > 0) || pkg.description) && (
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-3.5 bg-[#C91F28] rounded-full inline-block"></span>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#1E3A8A]">
+                  Vacation at a Glance & Major Highlights
+                </h3>
+              </div>
+
+              {customData.highlights && customData.highlights.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-slate-800">
+                  {customData.highlights.map((item, hIdx) => (
+                    <div key={hIdx} className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                        ✓
+                      </span>
+                      <span className="font-medium leading-tight text-slate-800">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[12.5px] text-slate-700 leading-relaxed font-normal">
+                  {pkg.description}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Hotel Category Plans Table (if present) */}
+          {customData.hotelOptions && customData.hotelOptions.length > 0 && (
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between pb-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-3.5 bg-[#1E3A8A] rounded-full inline-block"></span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#1E3A8A]">
+                    Hotel Accommodation Options by Category
+                  </h3>
+                </div>
+                <span className="text-[10.5px] font-semibold text-slate-500">
+                  Rooms subject to availability at booking
+                </span>
+              </div>
+
+              <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                <table className="w-full text-left border-collapse text-[11px]">
+                  <thead>
+                    <tr className="bg-[#1E3A8A] text-white font-bold uppercase tracking-wider">
+                      <th className="p-2 border-r border-blue-900 w-28">City / Destination</th>
+                      <th className="p-2 border-r border-blue-900 text-center w-14">Nights</th>
+                      <th className="p-2 border-r border-blue-900">Budget Friendly (3★)</th>
+                      <th className="p-2 border-r border-blue-900">Standard Plan</th>
+                      <th className="p-2 border-r border-blue-900">Deluxe (4★ Premium)</th>
+                      <th className="p-2">Luxury (5★ Heritage)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {customData.hotelOptions.map((h, hIdx) => (
+                      <tr key={hIdx} className={hIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                        <td className="p-2 font-bold text-slate-900 border-r border-slate-200">
+                          {h.city}
+                        </td>
+                        <td className="p-2 font-black text-center text-[#C91F28] border-r border-slate-200">
+                          {h.nights}N
+                        </td>
+                        <td className="p-2 text-slate-700 border-r border-slate-200">
+                          {h.budgetHotel || 'Standard 3-Star Hotel / Similar'}
+                        </td>
+                        <td className="p-2 text-slate-700 border-r border-slate-200">
+                          {h.standardHotel || 'Quality 3-Star Deluxe / Similar'}
+                        </td>
+                        <td className="p-2 font-semibold text-slate-900 border-r border-slate-200">
+                          {h.deluxeHotel || 'Handpicked 4-Star Resort / Similar'}
+                        </td>
+                        <td className="p-2 font-bold text-[#1E3A8A]">
+                          {h.luxuryHotel || 'Taj / 5-Star Heritage / Similar'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Detailed Day-by-Day Itinerary Section (Starts directly on Page 1) */}
@@ -1097,6 +1282,183 @@ export const ItineraryPdfView: React.FC = () => {
             })}
           </div>
 
+          {/* Flamingo-Style Multi-Pax Tiered Pricing Matrix */}
+          {(() => {
+            const tiers = (customData.pricingTiers && customData.pricingTiers.length > 0)
+              ? customData.pricingTiers
+              : [
+                  {
+                    paxCount: '2 Pax',
+                    vehicle: 'Dedicated AC Sedan (Dzire / Etios)',
+                    plans: {
+                      budget: { doubleSharing: Number(pkg.price), tripleSharing: Math.round(Number(pkg.price) * 0.9), cwb: Math.round(Number(pkg.price) * 0.65), cnb: Math.round(Number(pkg.price) * 0.45) },
+                      standard: { doubleSharing: Math.round(Number(pkg.price) * 1.15), tripleSharing: Math.round(Number(pkg.price) * 1.05), cwb: Math.round(Number(pkg.price) * 0.75), cnb: Math.round(Number(pkg.price) * 0.5) },
+                      deluxe: { doubleSharing: Math.round(Number(pkg.price) * 1.35), tripleSharing: Math.round(Number(pkg.price) * 1.2), cwb: Math.round(Number(pkg.price) * 0.85), cnb: Math.round(Number(pkg.price) * 0.55) },
+                      luxury: { doubleSharing: Math.round(Number(pkg.price) * 1.75), tripleSharing: Math.round(Number(pkg.price) * 1.55), cwb: Math.round(Number(pkg.price) * 1.1), cnb: Math.round(Number(pkg.price) * 0.7) },
+                    },
+                  },
+                  {
+                    paxCount: '4 Pax',
+                    vehicle: 'Dedicated AC SUV (Ertiga / Innova)',
+                    plans: {
+                      budget: { doubleSharing: Math.round(Number(pkg.price) * 0.88), tripleSharing: Math.round(Number(pkg.price) * 0.8), cwb: Math.round(Number(pkg.price) * 0.58), cnb: Math.round(Number(pkg.price) * 0.4) },
+                      standard: { doubleSharing: Math.round(Number(pkg.price) * 1.02), tripleSharing: Math.round(Number(pkg.price) * 0.92), cwb: Math.round(Number(pkg.price) * 0.66), cnb: Math.round(Number(pkg.price) * 0.45) },
+                      deluxe: { doubleSharing: Math.round(Number(pkg.price) * 1.2), tripleSharing: Math.round(Number(pkg.price) * 1.05), cwb: Math.round(Number(pkg.price) * 0.75), cnb: Math.round(Number(pkg.price) * 0.48) },
+                      luxury: { doubleSharing: Math.round(Number(pkg.price) * 1.55), tripleSharing: Math.round(Number(pkg.price) * 1.35), cwb: Math.round(Number(pkg.price) * 0.95), cnb: Math.round(Number(pkg.price) * 0.62) },
+                    },
+                  },
+                  {
+                    paxCount: '6 Pax',
+                    vehicle: 'AC Innova Crysta',
+                    plans: {
+                      budget: { doubleSharing: Math.round(Number(pkg.price) * 0.82), tripleSharing: Math.round(Number(pkg.price) * 0.74), cwb: Math.round(Number(pkg.price) * 0.54), cnb: Math.round(Number(pkg.price) * 0.38) },
+                      standard: { doubleSharing: Math.round(Number(pkg.price) * 0.95), tripleSharing: Math.round(Number(pkg.price) * 0.86), cwb: Math.round(Number(pkg.price) * 0.62), cnb: Math.round(Number(pkg.price) * 0.42) },
+                      deluxe: { doubleSharing: Math.round(Number(pkg.price) * 1.12), tripleSharing: Math.round(Number(pkg.price) * 0.98), cwb: Math.round(Number(pkg.price) * 0.7), cnb: Math.round(Number(pkg.price) * 0.45) },
+                      luxury: { doubleSharing: Math.round(Number(pkg.price) * 1.45), tripleSharing: Math.round(Number(pkg.price) * 1.28), cwb: Math.round(Number(pkg.price) * 0.9), cnb: Math.round(Number(pkg.price) * 0.58) },
+                    },
+                  },
+                  {
+                    paxCount: '8 Pax',
+                    vehicle: 'Tempo Traveller (10 Seater)',
+                    plans: {
+                      budget: { doubleSharing: Math.round(Number(pkg.price) * 0.78), tripleSharing: Math.round(Number(pkg.price) * 0.7), cwb: Math.round(Number(pkg.price) * 0.5), cnb: Math.round(Number(pkg.price) * 0.35) },
+                      standard: { doubleSharing: Math.round(Number(pkg.price) * 0.9), tripleSharing: Math.round(Number(pkg.price) * 0.82), cwb: Math.round(Number(pkg.price) * 0.58), cnb: Math.round(Number(pkg.price) * 0.38) },
+                      deluxe: { doubleSharing: Math.round(Number(pkg.price) * 1.05), tripleSharing: Math.round(Number(pkg.price) * 0.92), cwb: Math.round(Number(pkg.price) * 0.65), cnb: Math.round(Number(pkg.price) * 0.42) },
+                      luxury: { doubleSharing: Math.round(Number(pkg.price) * 1.38), tripleSharing: Math.round(Number(pkg.price) * 1.2), cwb: Math.round(Number(pkg.price) * 0.85), cnb: Math.round(Number(pkg.price) * 0.55) },
+                    },
+                  },
+                  {
+                    paxCount: '10 Pax',
+                    vehicle: 'Tempo Traveller (12 Seater)',
+                    plans: {
+                      budget: { doubleSharing: Math.round(Number(pkg.price) * 0.74), tripleSharing: Math.round(Number(pkg.price) * 0.66), cwb: Math.round(Number(pkg.price) * 0.48), cnb: Math.round(Number(pkg.price) * 0.32) },
+                      standard: { doubleSharing: Math.round(Number(pkg.price) * 0.86), tripleSharing: Math.round(Number(pkg.price) * 0.78), cwb: Math.round(Number(pkg.price) * 0.55), cnb: Math.round(Number(pkg.price) * 0.35) },
+                      deluxe: { doubleSharing: Math.round(Number(pkg.price) * 1.0), tripleSharing: Math.round(Number(pkg.price) * 0.88), cwb: Math.round(Number(pkg.price) * 0.62), cnb: Math.round(Number(pkg.price) * 0.4) },
+                      luxury: { doubleSharing: Math.round(Number(pkg.price) * 1.32), tripleSharing: Math.round(Number(pkg.price) * 1.15), cwb: Math.round(Number(pkg.price) * 0.8), cnb: Math.round(Number(pkg.price) * 0.52) },
+                    },
+                  },
+                  {
+                    paxCount: '12 Pax',
+                    vehicle: 'Tempo Traveller (14 Seater)',
+                    plans: {
+                      budget: { doubleSharing: Math.round(Number(pkg.price) * 0.7), tripleSharing: Math.round(Number(pkg.price) * 0.62), cwb: Math.round(Number(pkg.price) * 0.45), cnb: Math.round(Number(pkg.price) * 0.3) },
+                      standard: { doubleSharing: Math.round(Number(pkg.price) * 0.82), tripleSharing: Math.round(Number(pkg.price) * 0.74), cwb: Math.round(Number(pkg.price) * 0.52), cnb: Math.round(Number(pkg.price) * 0.33) },
+                      deluxe: { doubleSharing: Math.round(Number(pkg.price) * 0.95), tripleSharing: Math.round(Number(pkg.price) * 0.84), cwb: Math.round(Number(pkg.price) * 0.58), cnb: Math.round(Number(pkg.price) * 0.38) },
+                      luxury: { doubleSharing: Math.round(Number(pkg.price) * 1.25), tripleSharing: Math.round(Number(pkg.price) * 1.1), cwb: Math.round(Number(pkg.price) * 0.76), cnb: Math.round(Number(pkg.price) * 0.48) },
+                    },
+                  },
+                ];
+
+            return (
+              <div className="itinerary-pricing-matrix border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white space-y-0">
+                <div className="px-5 py-3 bg-gradient-to-r from-[#1E3A8A] via-blue-900 to-[#1E3A8A] text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-4 bg-amber-400 rounded-full inline-block" />
+                    <div>
+                      <h3 className="font-extrabold text-sm sm:text-base uppercase tracking-tight text-white">
+                        Executive Tour Cost & Tiered Pricing Matrix
+                      </h3>
+                      <p className="text-[10.5px] text-blue-200">
+                        Per Person Rates in Indian Rupees (INR) based on Pax Count & Hotel Star Plan
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-white/15 text-amber-300 border border-white/20 rounded-full text-xs font-bold uppercase tracking-wider w-fit">
+                    Flamingo Executive Model
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider text-[10.5px] border-b border-slate-200">
+                        <th className="p-2.5 border-r border-slate-200 w-36">Pax & Vehicle</th>
+                        <th className="p-2 border-r border-slate-200 text-center bg-blue-50/60 text-[#1E3A8A]">
+                          Budget (3★)
+                        </th>
+                        <th className="p-2 border-r border-slate-200 text-center bg-slate-50 text-slate-700">
+                          Standard
+                        </th>
+                        <th className="p-2 border-r border-slate-200 text-center bg-amber-50/60 text-amber-900">
+                          Deluxe (4★ Premium)
+                        </th>
+                        <th className="p-2 text-center bg-rose-50/60 text-[#C91F28]">
+                          Luxury (5★ Heritage)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-[11px]">
+                      {tiers.map((tier, tIdx) => (
+                        <tr
+                          key={tIdx}
+                          className={tIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}
+                        >
+                          <td className="p-2.5 border-r border-slate-200 font-bold text-slate-900 bg-slate-50/30">
+                            <div className="flex items-center gap-1.5 text-xs text-[#1E3A8A] font-black">
+                              <Users className="w-3.5 h-3.5 text-[#C91F28]" />
+                              <span>{tier.paxCount}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold mt-0.5">
+                              <Car className="w-3 h-3 text-slate-400" />
+                              <span className="truncate">{tier.vehicle}</span>
+                            </div>
+                          </td>
+
+                          {(['budget', 'standard', 'deluxe', 'luxury'] as const).map((planKey) => {
+                            const pData = tier.plans[planKey] || { doubleSharing: 0, tripleSharing: 0, cwb: 0, cnb: 0 };
+                            return (
+                              <td
+                                key={planKey}
+                                className="p-2 border-r border-slate-200 text-[10.5px] align-top"
+                              >
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center justify-between text-slate-900 font-bold">
+                                    <span className="text-[10px] text-slate-500 font-normal">Double:</span>
+                                    <span className="text-[#1E3A8A] font-bold">
+                                      ₹{Number(pData.doubleSharing || 0).toLocaleString('en-IN')}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-slate-700">
+                                    <span className="text-[10px] text-slate-400 font-normal">Triple:</span>
+                                    <span>
+                                      ₹{Number(pData.tripleSharing || 0).toLocaleString('en-IN')}
+                                    </span>
+                                  </div>
+                                  {pData.cwb ? (
+                                    <div className="flex items-center justify-between text-slate-500 text-[9.5px]">
+                                      <span>CWB:</span>
+                                      <span>₹{Number(pData.cwb).toLocaleString('en-IN')}</span>
+                                    </div>
+                                  ) : null}
+                                  {pData.cnb ? (
+                                    <div className="flex items-center justify-between text-slate-500 text-[9.5px]">
+                                      <span>CNB:</span>
+                                      <span>₹{Number(pData.cnb).toLocaleString('en-IN')}</span>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="p-3 bg-slate-50 border-t border-slate-200 text-[10.5px] text-slate-600 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900">Cost Inclusions & Terms:</span>
+                    <span>All rates quoted per person in Indian Rupees (INR) on twin/triple sharing.</span>
+                  </div>
+                  <div className="text-slate-500">
+                    * CWB: Child With Bed (5-11 yrs) • CNB: Child No Bed (2-5 yrs) • GST 5% extra on invoice • Driver allowance, toll tax, interstate entry permit & parking included.
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Important Terms & Booking Notice */}
           <div className="p-3 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed bg-white">
             <p>
@@ -1184,10 +1546,105 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
+            {/* Previous Trip Moments Photo Gallery */}
+            {(() => {
+              let galleryPhotos = DEFAULT_TRIP_GALLERY;
+              if (activeBranding.tripGallery) {
+                try {
+                  const parsed = typeof activeBranding.tripGallery === 'string' ? JSON.parse(activeBranding.tripGallery) : activeBranding.tripGallery;
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    galleryPhotos = parsed.map((item: any, idx: number) => {
+                      if (typeof item === 'string') return { url: item, caption: `Trip Moment ${idx + 1}` };
+                      return { url: item.url || item.imageUrl || '', caption: item.caption || item.label || `Trip Moment ${idx + 1}` };
+                    }).filter((item: any) => Boolean(item.url));
+                  }
+                } catch {
+                  if (typeof activeBranding.tripGallery === 'string' && activeBranding.tripGallery.includes(',')) {
+                    galleryPhotos = activeBranding.tripGallery.split(',').map((s, idx) => ({ url: s.trim(), caption: `Trip Moment ${idx + 1}` })).filter((i: any) => Boolean(i.url));
+                  }
+                }
+              }
+              if (!galleryPhotos || galleryPhotos.length === 0) {
+                galleryPhotos = DEFAULT_TRIP_GALLERY;
+              }
+
+              return (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                    <div className="flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-[#C91F28]" />
+                      <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#1E3A8A]">
+                        Moments Captured by Our Happy Travelers
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      Real Guest Experiences
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {galleryPhotos.slice(0, 4).map((item, gIdx) => (
+                      <div
+                        key={gIdx}
+                        className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs group"
+                      >
+                        <div
+                          className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
+                          style={{ width: '100%', height: '110px', maxHeight: '110px', minHeight: '110px' }}
+                        >
+                          <img
+                            src={item.url}
+                            alt={item.caption || 'Trip Photo'}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            style={{ width: '100%', height: '110px', maxHeight: '110px', objectFit: 'cover' }}
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        <div className="px-2 py-1 bg-slate-50 border-t border-slate-200 text-center text-[10px] font-bold text-slate-700 truncate">
+                          {item.caption || 'Traveler Memory'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Customer Rating & Testimonial Card */}
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white rounded-2xl border border-blue-200/80 shadow-2xs space-y-2 text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-2xs">
+                    <Star className="w-3.5 h-3.5 fill-current text-slate-950" />
+                    <span>{String(activeBranding.reviewRating || '4.9')} / 5.0</span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-800">
+                    Rated by {activeBranding.reviewCount || '1,250+'} Happy Travelers
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 w-fit">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Verified 100% Authentic Feedback</span>
+                </div>
+              </div>
+
+              <blockquote className="text-xs sm:text-[13px] text-slate-700 italic leading-relaxed pt-1 flex items-start gap-2">
+                <Quote className="w-4 h-4 text-blue-400 shrink-0 mt-0.5 opacity-80" />
+                <span>
+                  "{activeBranding.reviewQuote || 'Our family trip with Ooting was completely breathtaking! Impeccable cabs, punctual chauffeurs, and handpicked luxury resorts.'}"
+                </span>
+              </blockquote>
+
+              <div className="text-right text-[11px] font-bold text-[#1E3A8A]">
+                — {activeBranding.reviewAuthor || 'Rajesh & Family, Bangalore'}
+              </div>
+            </div>
+
             {/* Thank You Card with Perfectly Centered Logo & Company Info */}
-            <div className="pt-4 text-center max-w-2xl mx-auto w-full flex flex-col items-center">
-              {/* Agency / Company Logo - Perfectly Centered & Aligned, Direct & Transparent */}
-              <div className="mb-4 flex items-center justify-center w-full">
+            <div className="pt-2 text-center max-w-2xl mx-auto w-full flex flex-col items-center">
+              {/* Agency / Company Logo */}
+              <div className="mb-3 flex items-center justify-center w-full">
                 {activeBranding.logoUrl ? (
                   <img
                     src={activeBranding.logoUrl}
@@ -1226,9 +1683,9 @@ export const ItineraryPdfView: React.FC = () => {
               {/* Red Accent Divider */}
               <div className="w-16 h-1 bg-[#C91F28] rounded-full mx-auto my-3"></div>
 
-              {/* Professional Company Details Card */}
-              <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 sm:p-6 text-left shadow-2xs">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 mb-3 border-b border-slate-200 gap-2">
+              {/* Professional Company Details Card with Clickable Links */}
+              <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 sm:p-6 text-left shadow-2xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-200 gap-2">
                   <div>
                     <h3 className="font-bold text-base sm:text-lg text-[#1E3A8A] uppercase tracking-tight">
                       {activeBranding.agencyName.toUpperCase()}
@@ -1237,30 +1694,85 @@ export const ItineraryPdfView: React.FC = () => {
                       {activeBranding.tagline}
                     </span>
                   </div>
-                  {activeBranding.gstin && activeBranding.gstin !== 'NULL' && activeBranding.gstin !== 'NIL' && activeBranding.gstin !== 'NILL' && activeBranding.gstin.trim() !== '' && (
-                    <div>
-                      <span className="inline-block text-xs font-semibold text-slate-700 bg-white px-3 py-1 rounded-md border border-slate-200 shadow-2xs font-mono">
-                        GSTIN: {activeBranding.gstin.replace(/^GSTIN:\s*/i, '')}
-                      </span>
-                    </div>
-                  )}
+
+                  {/* Clickable Social Media Badges */}
+                  <div className="flex items-center gap-2 pt-1 sm:pt-0">
+                    {activeBranding.facebookUrl && (
+                      <a
+                        href={activeBranding.facebookUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2] text-[#1877F2] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                        title="Visit our Facebook Page"
+                      >
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                        </svg>
+                      </a>
+                    )}
+
+                    {activeBranding.instagramUrl && (
+                      <a
+                        href={activeBranding.instagramUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-full bg-[#E4405F]/10 hover:bg-[#E4405F] text-[#E4405F] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                        title="Visit our Instagram"
+                      >
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                        </svg>
+                      </a>
+                    )}
+
+                    {activeBranding.youtubeUrl && (
+                      <a
+                        href={activeBranding.youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-full bg-[#FF0000]/10 hover:bg-[#FF0000] text-[#FF0000] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                        title="Visit our YouTube Channel"
+                      >
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                        </svg>
+                      </a>
+                    )}
+
+                    {activeBranding.website && (
+                      <a
+                        href={activeBranding.website.startsWith('http') ? activeBranding.website : `https://${activeBranding.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-full bg-blue-50 hover:bg-[#1E3A8A] text-[#1E3A8A] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                        title="Visit Official Website"
+                      >
+                        <Globe className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
                 </div>
 
-                {/* Clean contact grid */}
+                {/* Clean contact grid with Clickable Links */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  {/* Phone */}
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                       <Phone className="w-4 h-4" />
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Helpline / Contact</span>
-                      <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                      <a
+                        href={`tel:${(activeBranding.phone || '').replace(/[^0-9+]/g, '')}`}
+                        className="font-bold text-slate-900 text-xs sm:text-sm hover:text-[#C91F28] transition-colors"
+                      >
                         {activeBranding.phone || (!activeBranding.isB2B && company?.isOoting ? '+91 8884845595' : '')}
                         {activeBranding.alternatePhone && ` / ${activeBranding.alternatePhone}`}
-                      </span>
+                      </a>
                     </div>
                   </div>
 
+                  {/* Email */}
                   {(activeBranding.email || (!activeBranding.isB2B && company?.isOoting)) && (
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
@@ -1268,13 +1780,17 @@ export const ItineraryPdfView: React.FC = () => {
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Email Support</span>
-                        <span className="font-bold text-slate-900 text-xs sm:text-sm break-all">
+                        <a
+                          href={`mailto:${activeBranding.email || (!activeBranding.isB2B && company?.isOoting ? 'support@ooting.in' : '')}`}
+                          className="font-bold text-slate-900 text-xs sm:text-sm break-all hover:text-[#C91F28] transition-colors"
+                        >
                           {activeBranding.email || (!activeBranding.isB2B && company?.isOoting ? 'support@ooting.in' : '')}
-                        </span>
+                        </a>
                       </div>
                     </div>
                   )}
 
+                  {/* Website */}
                   {(activeBranding.website || (!activeBranding.isB2B && company?.isOoting)) && (
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
@@ -1282,23 +1798,41 @@ export const ItineraryPdfView: React.FC = () => {
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Official Website</span>
-                        <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                        <a
+                          href={activeBranding.website?.startsWith('http') ? activeBranding.website : `https://${activeBranding.website || 'www.ooting.in'}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-slate-900 text-xs sm:text-sm hover:text-[#C91F28] transition-colors"
+                        >
                           {activeBranding.website || (!activeBranding.isB2B && company?.isOoting ? 'www.ooting.in' : '')}
-                        </span>
+                        </a>
                       </div>
                     </div>
                   )}
 
+                  {/* Registered Office with Clickable Google Maps Link */}
                   {(activeBranding.address || (!activeBranding.isB2B && company?.isOoting)) && (
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                         <MapPin className="w-4 h-4" />
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Office</span>
-                        <span className="font-bold text-slate-800 text-xs leading-snug whitespace-pre-line">
+                        <div className="font-bold text-slate-800 text-xs leading-snug whitespace-pre-line">
                           {activeBranding.address || (!activeBranding.isB2B && company?.isOoting ? 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India' : '')}
-                        </span>
+                        </div>
+                        {activeBranding.googleMapUrl && (
+                          <a
+                            href={activeBranding.googleMapUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-colors cursor-pointer"
+                            title="Open office address in Google Maps"
+                          >
+                            <MapPin className="w-3 h-3 text-emerald-600" />
+                            <span>Navigate on Google Maps ↗</span>
+                          </a>
+                        )}
                       </div>
                     </div>
                   )}

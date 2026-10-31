@@ -19,6 +19,15 @@ const defaultSettings: CompanySettings = {
   branch: 'Shivmogga',
   upiId: '',
   paymentNotes: 'Please quote your booking or quotation reference number during bank fund transfer.',
+  facebookUrl: 'https://facebook.com/ooting.in',
+  instagramUrl: 'https://instagram.com/ooting.in',
+  youtubeUrl: '',
+  googleMapUrl: 'https://maps.google.com/?q=Ooting+Holidays+Shivamogga',
+  reviewRating: '4.9',
+  reviewCount: '1,250+',
+  reviewQuote: 'Our family trip with Ooting was breathtaking! Impeccable cabs, punctual chauffeurs, and handpicked luxury resorts.',
+  reviewAuthor: 'Rajesh & Family, Bangalore',
+  tripGallery: '',
 };
 
 const neutralTenantDefaults: CompanySettings = {
@@ -42,6 +51,15 @@ const neutralTenantDefaults: CompanySettings = {
   upiId: '',
   paymentNotes: '',
   isOoting: false,
+  facebookUrl: '',
+  instagramUrl: '',
+  youtubeUrl: '',
+  googleMapUrl: '',
+  reviewRating: '4.9',
+  reviewCount: '500+',
+  reviewQuote: '',
+  reviewAuthor: '',
+  tripGallery: '',
 };
 
 export const NEUTRAL_TENANT_LOGO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="%232563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';

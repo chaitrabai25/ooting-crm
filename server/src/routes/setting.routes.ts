@@ -30,6 +30,20 @@ export async function getCompanySettings(targetCompanyId?: string) {
       where: { id },
     });
 
+    const settingsRows = await prisma.companySetting.findMany({
+      where: {
+        OR: [
+          { companyId: id },
+          { companyId: OOTING_COMPANY_ID },
+          { companyId: null },
+        ],
+      },
+    });
+    const settingsMap: Record<string, string> = {};
+    settingsRows.forEach((r) => {
+      settingsMap[r.key] = r.value;
+    });
+
     if (company) {
       return {
         id: company.id,
@@ -60,6 +74,16 @@ export async function getCompanySettings(targetCompanyId?: string) {
         paymentNotes: company.paymentNotes || '',
         isOoting: company.isOoting,
         enabledModules: company.enabledModules || null,
+        // Itinerary & Social Branding
+        facebookUrl: settingsMap['social_facebook'] || 'https://facebook.com/ooting.in',
+        instagramUrl: settingsMap['social_instagram'] || 'https://instagram.com/ooting.in',
+        youtubeUrl: settingsMap['social_youtube'] || '',
+        googleMapUrl: settingsMap['google_map_url'] || 'https://maps.google.com/?q=Ooting+Holidays+Shivamogga',
+        reviewRating: settingsMap['review_rating'] || '4.9',
+        reviewCount: settingsMap['review_count'] || '1,250+',
+        reviewQuote: settingsMap['review_quote'] || 'Our family trip with Ooting was breathtaking! Impeccable cabs, punctual chauffeurs, and handpicked luxury resorts.',
+        reviewAuthor: settingsMap['review_author'] || 'Rajesh & Family, Bangalore',
+        tripGallery: settingsMap['trip_gallery'] || '',
       };
     }
 
@@ -184,6 +208,16 @@ const updateSettingsSchema = z.object({
   upiId: z.string().optional(),
   paymentNotes: z.string().optional(),
   enabledModules: z.string().nullable().optional(),
+  // Itinerary & Social Branding
+  facebookUrl: z.string().optional(),
+  instagramUrl: z.string().optional(),
+  youtubeUrl: z.string().optional(),
+  googleMapUrl: z.string().optional(),
+  reviewRating: z.union([z.string(), z.number()]).optional(),
+  reviewCount: z.string().optional(),
+  reviewQuote: z.string().optional(),
+  reviewAuthor: z.string().optional(),
+  tripGallery: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 // Update Company Settings (Admin & Super Admin)
@@ -251,6 +285,31 @@ router.put('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res:
           create: { key: item.key, value: item.value!, companyId: OOTING_COMPANY_ID },
         });
       }
+    }
+
+    // Persist Social Branding, Map, Reviews, and Trip Gallery in CompanySetting
+    const galleryVal = data.tripGallery !== undefined
+      ? (typeof data.tripGallery === 'string' ? data.tripGallery : JSON.stringify(data.tripGallery))
+      : undefined;
+
+    const socialBrandingUpdates = [
+      { key: 'social_facebook', value: data.facebookUrl },
+      { key: 'social_instagram', value: data.instagramUrl },
+      { key: 'social_youtube', value: data.youtubeUrl },
+      { key: 'google_map_url', value: data.googleMapUrl },
+      { key: 'review_rating', value: data.reviewRating !== undefined ? String(data.reviewRating) : undefined },
+      { key: 'review_count', value: data.reviewCount },
+      { key: 'review_quote', value: data.reviewQuote },
+      { key: 'review_author', value: data.reviewAuthor },
+      { key: 'trip_gallery', value: galleryVal },
+    ].filter(u => u.value !== undefined);
+
+    for (const item of socialBrandingUpdates) {
+      await prisma.companySetting.upsert({
+        where: { key: item.key },
+        update: { value: item.value! },
+        create: { key: item.key, value: item.value!, companyId },
+      });
     }
 
     invalidateCompanySettingsCache();

@@ -30,6 +30,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { EmptyState } from '../../components/ui/EmptyState.js';
 import { PackageModal } from './PackageModal.js';
 import { CustomItineraryModal } from '../../components/packages/CustomItineraryModal.js';
+import { PackageCatalogModal } from './PackageCatalogModal.js';
 import { Package } from '../../types/index.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
@@ -90,6 +91,7 @@ export const PackageList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCustomItineraryOpen, setIsCustomItineraryOpen] = useState(false);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
   const [deletingPackage, setDeletingPackage] = useState<Package | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -176,6 +178,17 @@ export const PackageList: React.FC = () => {
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Export Excel</span>
+          </button>
+
+          {/* Export Catalog Brochure PDF */}
+          <button
+            type="button"
+            onClick={() => setIsCatalogOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs transition-colors cursor-pointer"
+            title="Generate multi-package brochure / catalog PDF"
+          >
+            <FileText className="w-3.5 h-3.5 text-[#C91F28]" />
+            <span>Export Catalog (PDF)</span>
           </button>
 
           {(isSuperAdmin || can('packages', 'create')) && (
@@ -675,6 +688,15 @@ export const PackageList: React.FC = () => {
           isOpen={isCustomItineraryOpen}
           onClose={() => setIsCustomItineraryOpen(false)}
           onSuccess={() => fetchPackages()}
+        />
+      )}
+
+      {/* Multi-Package Catalog / Brochure Generator Modal */}
+      {isCatalogOpen && (
+        <PackageCatalogModal
+          isOpen={isCatalogOpen}
+          onClose={() => setIsCatalogOpen(false)}
+          packages={packages}
         />
       )}
 

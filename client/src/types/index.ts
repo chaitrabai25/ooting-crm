@@ -202,6 +202,40 @@ export interface B2BBranding {
   customBranding?: string | null;
 }
 
+export interface HotelPlanOption {
+  city: string;
+  nights: number;
+  budgetHotel?: string;
+  standardHotel?: string;
+  deluxeHotel?: string;
+  premiumHotel?: string;
+  luxuryHotel?: string;
+}
+
+export interface PricingTierRow {
+  paxCount: string; // e.g. "2 Pax", "4 Pax", "6 Pax", "8 Pax", "10 Pax", "12 Pax"
+  vehicle: string; // e.g. "AC Sedan", "AC Innova", "Innova Crysta", "Tempo Traveller (12S)"
+  plans: {
+    [planKey: string]: {
+      doubleSharing: number;
+      tripleSharing: number;
+      cwb?: number; // Child with bed
+      cnb?: number; // Child no bed
+    };
+  };
+}
+
+export interface PackageCustomBrandingData {
+  tourCode?: string;
+  theme?: string;
+  bannerImageUrl?: string;
+  highlights?: string[];
+  hotelOptions?: HotelPlanOption[];
+  pricingTiers?: PricingTierRow[];
+  activePlans?: string[];
+  termsNotes?: string[];
+}
+
 export interface Package {
   id: string;
   packageName: string;
@@ -568,6 +602,16 @@ export interface CompanySettings {
   subscriptionTier?: string;
   subscriptionExpiresAt?: string | null;
   enabledModules?: string | null;
+  // Itinerary & Social Branding
+  facebookUrl?: string;
+  instagramUrl?: string;
+  youtubeUrl?: string;
+  googleMapUrl?: string;
+  reviewRating?: string | number;
+  reviewCount?: string;
+  reviewQuote?: string;
+  reviewAuthor?: string;
+  tripGallery?: string | string[];
 }
 
 export interface Company {

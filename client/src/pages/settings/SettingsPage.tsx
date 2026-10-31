@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard, Upload, Loader2, RotateCcw, Compass, FileSpreadsheet } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard, Upload, Loader2, RotateCcw, Compass, FileSpreadsheet, Star, Share2, Camera } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
@@ -668,6 +668,159 @@ export const SettingsPage: React.FC = () => {
                   placeholder="e.g. Share transaction UTR screenshot after payment"
                   className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Itinerary & Social Branding Section (For PDFs, Closing Page & Client Itineraries) */}
+          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-1.5 bg-rose-50 dark:bg-rose-950/40 text-[#C91F28] rounded-md">
+                <Share2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                  Itinerary & Social Branding (For PDF & Web Itineraries)
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Configure social links, interactive Google Maps office location, rating badges, and previous trip photo gallery for your itinerary closing pages
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Facebook URL */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Facebook Page URL</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.facebookUrl || ''}
+                  onChange={(e) => setCompany({ ...company, facebookUrl: e.target.value })}
+                  placeholder="https://facebook.com/ooting.in"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
+                />
+              </div>
+
+              {/* Instagram URL */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Instagram Profile URL</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.instagramUrl || ''}
+                  onChange={(e) => setCompany({ ...company, instagramUrl: e.target.value })}
+                  placeholder="https://instagram.com/ooting.in"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
+                />
+              </div>
+
+              {/* YouTube Channel URL */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">YouTube Channel URL</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.youtubeUrl || ''}
+                  onChange={(e) => setCompany({ ...company, youtubeUrl: e.target.value })}
+                  placeholder="https://youtube.com/@ooting"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
+                />
+              </div>
+
+              {/* Google Maps Office Location URL */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Office Google Maps Navigation URL</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.googleMapUrl || ''}
+                  onChange={(e) => setCompany({ ...company, googleMapUrl: e.target.value })}
+                  placeholder="https://maps.google.com/?q=Ooting+Holidays+Shivamogga"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5">Clickable on itinerary PDFs for instant smartphone Google Maps navigation</p>
+              </div>
+
+              {/* Review Rating Score */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Customer Rating (e.g. 4.9)</label>
+                <div className="relative mt-1">
+                  <input
+                    type="text"
+                    disabled={!isAdmin}
+                    value={company.reviewRating ?? '4.9'}
+                    onChange={(e) => setCompany({ ...company, reviewRating: e.target.value })}
+                    placeholder="4.9"
+                    className="w-full p-2.5 pl-8 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs font-bold"
+                  />
+                  <Star className="w-4 h-4 text-amber-500 absolute left-2.5 top-3 fill-current" />
+                </div>
+              </div>
+
+              {/* Review Count Badge */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Review Count Badge (e.g. 1,250+ Reviews)</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.reviewCount || ''}
+                  onChange={(e) => setCompany({ ...company, reviewCount: e.target.value })}
+                  placeholder="1,250+ Reviews"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
+                />
+              </div>
+
+              {/* Featured Review Author */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Featured Reviewer / Client Name</label>
+                <input
+                  type="text"
+                  disabled={!isAdmin}
+                  value={company.reviewAuthor || ''}
+                  onChange={(e) => setCompany({ ...company, reviewAuthor: e.target.value })}
+                  placeholder="e.g. Rajesh & Family, Bangalore"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
+                />
+              </div>
+
+              {/* Featured Review Quote */}
+              <div className="md:col-span-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Featured Customer Review Quote</label>
+                <textarea
+                  rows={2}
+                  disabled={!isAdmin}
+                  value={company.reviewQuote || ''}
+                  onChange={(e) => setCompany({ ...company, reviewQuote: e.target.value })}
+                  placeholder="Our family trip with Ooting was breathtaking! Impeccable cabs, punctual chauffeurs, and handpicked luxury resorts."
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs"
+                />
+              </div>
+
+              {/* Previous Trip Photo Gallery */}
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Previous Trip Photo Gallery (Image URLs)</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">One image URL per line or comma-separated</span>
+                </div>
+                <textarea
+                  rows={3}
+                  disabled={!isAdmin}
+                  value={
+                    Array.isArray(company.tripGallery)
+                      ? company.tripGallery.join('\n')
+                      : (company.tripGallery || '')
+                  }
+                  onChange={(e) => setCompany({ ...company, tripGallery: e.target.value })}
+                  placeholder="https://images.unsplash.com/photo-1596176530529-78163a4f7af2?auto=format&fit=crop&w=600&q=80&#10;https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=600&q=80"
+                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs font-mono"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  These photos will appear in the "Memories from Our Previous Travelers" section of your itinerary brochures.
+                </p>
               </div>
             </div>
           </div>
