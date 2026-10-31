@@ -192,6 +192,17 @@ export const ItineraryPdfView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
+  const customData: PackageCustomBrandingData = React.useMemo(() => {
+    if (!pkg?.customBranding) return {};
+    try {
+      return typeof pkg.customBranding === 'string'
+        ? JSON.parse(pkg.customBranding)
+        : (pkg.customBranding || {});
+    } catch {
+      return {};
+    }
+  }, [pkg?.customBranding]);
+
   useEffect(() => {
     let isMounted = true;
     const fetchData = async () => {
@@ -369,12 +380,24 @@ export const ItineraryPdfView: React.FC = () => {
     try {
       setIsGeneratingPdf(true);
       const cleanTitle = (pkg.packageName || 'Itinerary').replace(/[^a-zA-Z0-9]/g, '_');
-      notifySuccess('Opening Print Process', 'Select "Save as PDF" in the print window to download with perfect alignment.');
-      await printElement('itinerary-document', {
-        title: `Itinerary_${cleanTitle}`,
-      });
+      notifySuccess('Preparing PDF', 'Generating high-resolution official tour itinerary PDF...');
+      try {
+        const { download } = await generateA4Pdf({
+          elementId: 'itinerary-document',
+          filename: `Itinerary_${cleanTitle}.pdf`,
+          title: pkg.packageName,
+          onePageOnly: false,
+          margin: 6,
+        });
+        await download();
+      } catch (genErr) {
+        console.warn('Canvas PDF export fallback to print pipeline:', genErr);
+        await printElement('itinerary-document', {
+          title: `Itinerary_${cleanTitle}`,
+        });
+      }
     } catch (err) {
-      console.error('Failed to download itinerary PDF via print:', err);
+      console.error('Failed to download itinerary PDF:', err);
       notifyError('Print Error', 'Could not open print window. Please try again or use the Print button.');
     } finally {
       setIsGeneratingPdf(false);
@@ -406,15 +429,6 @@ export const ItineraryPdfView: React.FC = () => {
   const itineraries: ItineraryDay[] = pkg.itineraries || [];
 
   const isB2B = Boolean(pkg?.b2bAgencyName && pkg.b2bAgencyName.trim());
-
-  const customData: PackageCustomBrandingData = React.useMemo(() => {
-    if (!pkg?.customBranding) return {};
-    try {
-      return JSON.parse(pkg.customBranding);
-    } catch {
-      return {};
-    }
-  }, [pkg?.customBranding]);
 
   const activeBranding = {
     isB2B,
