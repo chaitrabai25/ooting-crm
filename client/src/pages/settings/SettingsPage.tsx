@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard, Upload, Loader2, RotateCcw, Compass, FileSpreadsheet, Star, Share2, Camera } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, FileText, CheckCircle2, ShieldAlert, Sparkles, Image, Save, Database, Download, Globe, Landmark, CreditCard, Upload, Loader2, RotateCcw, Compass, FileSpreadsheet, Star, Share2, Camera, X } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
@@ -105,6 +105,91 @@ export const SettingsPage: React.FC = () => {
         logoInputRef.current.value = '';
       }
     }
+  };
+
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingGallery(true);
+    setErrorMessage(null);
+
+    const uploadedUrls: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > 15 * 1024 * 1024) continue; // Skip files > 15MB
+
+      try {
+        const formData = new FormData();
+        const safeName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') + '.webp';
+        formData.append('image', file, safeName);
+        formData.append('folder', 'company');
+
+        const res = await api.post('/upload/image?folder=company', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (res.data?.url) {
+          uploadedUrls.push(res.data.url);
+        }
+      } catch {
+        // Fallback to local Data URL
+        await new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (reader.result) {
+              uploadedUrls.push(reader.result as string);
+            }
+            resolve();
+          };
+          reader.onerror = () => resolve();
+          reader.readAsDataURL(file);
+        });
+      }
+    }
+
+    if (uploadedUrls.length > 0) {
+      setCompany((prev) => {
+        const currentList = Array.isArray(prev.tripGallery)
+          ? prev.tripGallery
+          : (prev.tripGallery || '')
+              .split(/[\n,]/)
+              .map((u) => u.trim())
+              .filter(Boolean);
+        const combined = [...currentList, ...uploadedUrls];
+        return {
+          ...prev,
+          tripGallery: combined.join('\n'),
+        };
+      });
+      setSuccessMessage(`${uploadedUrls.length} Happy Moments photo(s) uploaded! Remember to click "Save Settings" below.`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+    }
+
+    setIsUploadingGallery(false);
+    if (galleryInputRef.current) {
+      galleryInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveGalleryPhoto = (indexToRemove: number) => {
+    setCompany((prev) => {
+      const currentList = Array.isArray(prev.tripGallery)
+        ? prev.tripGallery
+        : (prev.tripGallery || '')
+            .split(/[\n,]/)
+            .map((u) => u.trim())
+            .filter(Boolean);
+      const updated = currentList.filter((_, idx) => idx !== indexToRemove);
+      return {
+        ...prev,
+        tripGallery: updated.join('\n'),
+      };
+    });
   };
 
   const fetchSettings = async () => {
@@ -797,30 +882,114 @@ export const SettingsPage: React.FC = () => {
                 />
               </div>
 
-              {/* Previous Trip Photo Gallery */}
-              <div className="md:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Previous Trip Photo Gallery (Image URLs)</span>
-                  </label>
-                  <span className="text-[11px] text-slate-400">One image URL per line or comma-separated</span>
+              {/* Previous Trip Photo Gallery / Happy Moments */}
+              <div className="md:col-span-2 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-1 border-b border-slate-200 dark:border-slate-800">
+                  <div>
+                    <label className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 text-xs uppercase tracking-wider">
+                      <Camera className="w-4 h-4 text-[#C91F28]" />
+                      <span>Happy Moments & Previous Trip Photos</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Upload memorable photos of past travelers to display on your official itinerary closing page.
+                    </p>
+                  </div>
+
+                  {isAdmin && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        ref={galleryInputRef}
+                        onChange={handleGalleryUpload}
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        disabled={isUploadingGallery}
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {isUploadingGallery ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isUploadingGallery ? 'Uploading...' : 'Upload Trip Photos'}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <textarea
-                  rows={3}
-                  disabled={!isAdmin}
-                  value={
-                    Array.isArray(company.tripGallery)
-                      ? company.tripGallery.join('\n')
-                      : (company.tripGallery || '')
+
+                {/* Thumbnail Previews Grid */}
+                {(() => {
+                  const photos = Array.isArray(company.tripGallery)
+                    ? company.tripGallery
+                    : (company.tripGallery || '')
+                        .split(/[\n,]/)
+                        .map((u) => u.trim())
+                        .filter(Boolean);
+
+                  if (photos.length === 0) {
+                    return (
+                      <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-center">
+                        <Camera className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">No Happy Moments photos uploaded yet.</p>
+                        <p className="text-[11px] text-slate-400">Click "Upload Trip Photos" above to add traveler photos directly from your computer.</p>
+                      </div>
+                    );
                   }
-                  onChange={(e) => setCompany({ ...company, tripGallery: e.target.value })}
-                  placeholder="https://images.unsplash.com/photo-1596176530529-78163a4f7af2?auto=format&fit=crop&w=600&q=80&#10;https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=600&q=80"
-                  className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs font-mono"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  These photos will appear in the "Memories from Our Previous Travelers" section of your itinerary brochures.
-                </p>
+
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 pt-1">
+                      {photos.map((photoUrl, pIdx) => (
+                        <div key={pIdx} className="group relative aspect-4/3 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 shadow-2xs">
+                          <img
+                            src={photoUrl}
+                            alt={`Happy Moment ${pIdx + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveGalleryPhoto(pIdx)}
+                              className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/80 hover:bg-rose-600 text-white transition cursor-pointer shadow-sm"
+                              title="Remove photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                          <span className="absolute bottom-1 left-1.5 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold">
+                            #{pIdx + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Advanced: Manual URLs Textarea */}
+                <details className="mt-2 text-xs">
+                  <summary className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer">
+                    Advanced: Edit Image URLs manually
+                  </summary>
+                  <textarea
+                    rows={3}
+                    disabled={!isAdmin}
+                    value={
+                      Array.isArray(company.tripGallery)
+                        ? company.tripGallery.join('\n')
+                        : (company.tripGallery || '')
+                    }
+                    onChange={(e) => setCompany({ ...company, tripGallery: e.target.value })}
+                    placeholder="https://images.unsplash.com/photo-1596176530529-78163a4f7af2?auto=format&fit=crop&w=600&q=80"
+                    className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 text-xs font-mono"
+                  />
+                </details>
               </div>
             </div>
           </div>

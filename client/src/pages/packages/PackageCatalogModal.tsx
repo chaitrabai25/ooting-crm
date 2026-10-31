@@ -87,6 +87,7 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
   const [catalogTitle, setCatalogTitle] = useState('Exclusive Tour Packages & Master Itineraries');
   const [catalogSubtitle, setCatalogSubtitle] = useState('Curated Holiday Collections • Handcrafted Itineraries • Unforgettable Moments');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [zoomScale, setZoomScale] = useState<number>(0.9);
 
   // Sync initial selection when modal opens
   React.useEffect(() => {
@@ -227,8 +228,8 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
 
         {/* Modal Body: Split into Left Selection Controls & Right Live A4 Document Preview */}
         <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0">
-          {/* Left Control Panel (5 Cols) */}
-          <div className="lg:col-span-5 p-4 sm:p-5 border-r border-slate-200 dark:border-slate-800 overflow-y-auto space-y-4 bg-white dark:bg-slate-900/50">
+          {/* Left Control Panel (4 Cols) */}
+          <div className="lg:col-span-4 p-4 sm:p-5 border-r border-slate-200 dark:border-slate-800 overflow-y-auto space-y-4 bg-white dark:bg-slate-900/50">
             {/* Title & Subtitle Customization */}
             <div className="space-y-2.5 p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
@@ -382,14 +383,59 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
             </div>
           </div>
 
-          {/* Right Preview Panel (7 Cols) */}
-          <div className="lg:col-span-7 p-4 sm:p-6 bg-slate-200/80 dark:bg-slate-950 overflow-y-auto flex justify-center">
+          {/* Right Preview Panel (8 Cols) */}
+          <div className="lg:col-span-8 p-3 sm:p-5 bg-slate-200/80 dark:bg-slate-950 overflow-x-auto overflow-y-auto flex flex-col items-center min-w-0">
+            {/* Top Preview Status Bar & Zoom Controls */}
+            <div className="w-full max-w-2xl flex items-center justify-between pb-3 text-xs text-slate-500 shrink-0">
+              <span className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 text-xs">
+                <FileText className="w-3.5 h-3.5 text-[#C91F28]" />
+                <span>Live A4 Brochure Preview</span>
+              </span>
+              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-300 dark:border-slate-700 shadow-2xs">
+                <span className="text-[10px] text-slate-400 font-semibold px-1">Zoom:</span>
+                <button
+                  type="button"
+                  onClick={() => setZoomScale(0.8)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    zoomScale === 0.8
+                      ? 'bg-[#C91F28] text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  80%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomScale(0.9)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    zoomScale === 0.9
+                      ? 'bg-[#C91F28] text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  90%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomScale(1)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    zoomScale === 1
+                      ? 'bg-[#C91F28] text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  100%
+                </button>
+              </div>
+            </div>
+
             {/* The Dedicated Printable Container */}
             <div
               id="catalog-printable-doc"
-              className="w-full max-w-2xl bg-white text-slate-900 rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 space-y-6 print:p-0 print:shadow-none print:rounded-none"
+              className="w-full max-w-2xl bg-white text-slate-900 rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 space-y-6 print:p-0 print:shadow-none print:rounded-none shrink-0 origin-top transition-transform"
               style={{
                 fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                transform: zoomScale !== 1 ? `scale(${zoomScale})` : undefined,
               }}
             >
               {/* Header Letterhead */}
