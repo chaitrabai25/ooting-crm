@@ -253,16 +253,6 @@ export const ItineraryPdfView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  const customData: PackageCustomBrandingData = React.useMemo(() => {
-    if (!pkg?.customBranding) return {};
-    try {
-      return typeof pkg.customBranding === 'string'
-        ? JSON.parse(pkg.customBranding)
-        : (pkg.customBranding || {});
-    } catch {
-      return {};
-    }
-  }, [pkg?.customBranding]);
 
   useEffect(() => {
     let isMounted = true;
@@ -491,6 +481,17 @@ export const ItineraryPdfView: React.FC = () => {
 
   const isB2B = Boolean(pkg?.b2bAgencyName && pkg.b2bAgencyName.trim());
 
+  let customData: PackageCustomBrandingData = {};
+  if (pkg.customBranding) {
+    try {
+      customData = typeof pkg.customBranding === 'string'
+        ? JSON.parse(pkg.customBranding)
+        : (pkg.customBranding || {});
+    } catch {
+      customData = {};
+    }
+  }
+
   const activeBranding = {
     isB2B,
     agencyName: isB2B ? pkg.b2bAgencyName!.trim() : (company?.name || 'OOTING HOLIDAYS').toUpperCase(),
@@ -523,18 +524,16 @@ export const ItineraryPdfView: React.FC = () => {
     tripGallery: company?.tripGallery || '',
   };
 
-  const samplePricing = React.useMemo(() => {
-    const base = Number(pkg?.price) || 12000;
-    const firstTier = customData.pricingTiers?.[0]?.plans;
-    return {
-      budget: firstTier?.budget?.doubleSharing || base,
-      standard: firstTier?.standard?.doubleSharing || Math.round(base * 1.15),
-      deluxe: firstTier?.deluxe?.doubleSharing || Math.round(base * 1.35),
-      luxury: firstTier?.luxury?.doubleSharing || Math.round(base * 1.75),
-    };
-  }, [pkg?.price, customData.pricingTiers]);
+  const basePrice = Number(pkg?.price) || 12000;
+  const firstTier = customData.pricingTiers?.[0]?.plans;
+  const samplePricing = {
+    budget: firstTier?.budget?.doubleSharing || basePrice,
+    standard: firstTier?.standard?.doubleSharing || Math.round(basePrice * 1.15),
+    deluxe: firstTier?.deluxe?.doubleSharing || Math.round(basePrice * 1.35),
+    luxury: firstTier?.luxury?.doubleSharing || Math.round(basePrice * 1.75),
+  };
 
-  const effectiveHotelOptions: HotelPlanOption[] = React.useMemo(() => {
+  const effectiveHotelOptions: HotelPlanOption[] = (() => {
     if (Array.isArray(customData.hotelOptions) && customData.hotelOptions.length > 0) {
       return customData.hotelOptions;
     }
@@ -565,13 +564,13 @@ export const ItineraryPdfView: React.FC = () => {
         luxuryHotel: 'Taj / 5-Star Heritage / Similar',
       },
     ];
-  }, [customData.hotelOptions, itineraries, pkg?.destination]);
+  })();
 
-  const tiers: PricingTierRow[] = React.useMemo(() => {
+  const tiers: PricingTierRow[] = (() => {
     if (Array.isArray(customData.pricingTiers) && customData.pricingTiers.length > 0) {
       return customData.pricingTiers;
     }
-    const base = Number(pkg?.price) || 12000;
+    const base = basePrice;
     return [
       {
         paxCount: '2 Pax',
@@ -634,7 +633,7 @@ export const ItineraryPdfView: React.FC = () => {
         },
       },
     ];
-  }, [customData.pricingTiers, pkg?.price]);
+  })();
 
   const handleShareWhatsApp = async () => {
     if (!pkg) return;
