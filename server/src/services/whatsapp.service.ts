@@ -31,10 +31,15 @@ export interface WhatsAppConfigStatus {
   provider: 'META_CLOUD_API' | 'TWILIO' | 'DIRECT_WEB';
   details: string;
   phoneNumberId?: string;
+  wabaId?: string;
   token?: string;
   businessNumber?: string;
   verifiedName?: string;
   qualityRating?: string;
+  codeVerificationStatus?: string;
+  isPinEnabled?: boolean;
+  deliveryReady?: boolean;
+  deliveryWarning?: string;
   needsPhoneNumberId?: boolean;
   isTokenValid?: boolean;
   appName?: string;
@@ -112,16 +117,48 @@ export async function getWhatsAppConfigStatus(): Promise<WhatsAppConfigStatus> {
       }).catch(() => {});
     }
 
+    let codeVerificationStatus = 'UNKNOWN';
+    let isPinEnabled = false;
+    let liveStatus = 'CONNECTED';
+    let deliveryReady = true;
+    let deliveryWarning = '';
+
+    try {
+      const liveCheck = await fetch(
+        `https://graph.facebook.com/v20.0/${metaPhoneId}?fields=id,code_verification_status,is_pin_enabled,status,verified_name,display_phone_number`,
+        { headers: { Authorization: `Bearer ${metaToken}` } }
+      );
+      if (liveCheck.ok) {
+        const liveData: any = await liveCheck.json();
+        codeVerificationStatus = liveData.code_verification_status || 'UNKNOWN';
+        isPinEnabled = Boolean(liveData.is_pin_enabled);
+        liveStatus = liveData.status || 'CONNECTED';
+
+        if (codeVerificationStatus === 'NOT_VERIFIED') {
+          deliveryReady = false;
+          deliveryWarning =
+            'Phone Number is NOT_VERIFIED on Meta. Meta accepts requests (wamid generated), but holds handset delivery until 6-digit SMS OTP verification is completed in Meta Business Suite.';
+        }
+      }
+    } catch (_) {}
+
     return {
       configured: true,
       ready: true,
       activeGateway: 'Meta Cloud API',
       provider: 'META_CLOUD_API',
-      details: 'Connected to official Meta WhatsApp Cloud API (+91 8884845595 Ooting)',
+      details: deliveryReady
+        ? 'Connected to official Meta WhatsApp Cloud API (+91 8884845595 Ooting)'
+        : 'Connected (+91 8884845595), but Phone is NOT_VERIFIED on Meta',
       phoneNumberId: metaPhoneId,
+      wabaId: '1770457630964236',
       token: metaToken,
       businessNumber: businessNumber || '8884845595',
       verifiedName: 'Ooting',
+      codeVerificationStatus,
+      isPinEnabled,
+      deliveryReady,
+      deliveryWarning,
       needsPhoneNumberId: false,
       isTokenValid: true,
       appName: 'ooting.in',
@@ -205,11 +242,16 @@ export async function testWhatsAppConnection(params?: {
     const phoneData: any = await phoneRes.json();
 
     if (phoneRes.ok && phoneData && !phoneData.error) {
+      const isNotVerified = phoneData.code_verification_status === 'NOT_VERIFIED';
+      const msg = isNotVerified
+        ? `Connected to Meta Cloud API (+91 8884845595)! Important: Meta reports Phone Status as NOT_VERIFIED. Meta accepts messages and generates message IDs (wamid), but holds physical handset delivery until 6-digit SMS OTP verification and terms acceptance are completed in Meta Business Suite (WhatsApp Manager).`
+        : `Successfully connected to Meta WhatsApp Cloud API! Verified Name: "${phoneData.verified_name || 'Verified'}", Phone: ${phoneData.display_phone_number || phoneId}, Quality: ${phoneData.quality_rating || 'GREEN'}.`;
+
       return {
         success: true,
-        status: 'CONNECTED',
+        status: isNotVerified ? 'PENDING_META_VERIFICATION' : 'CONNECTED',
         provider: 'META_CLOUD_API',
-        message: `Successfully connected to Meta WhatsApp Cloud API! Verified Name: "${phoneData.verified_name || 'Verified'}", Phone: ${phoneData.display_phone_number || phoneId}, Quality: ${phoneData.quality_rating || 'GREEN'}.`,
+        message: msg,
         details: phoneData,
       };
     }
@@ -412,6 +454,10 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       }
 
       const externalId = result?.messages?.[0]?.id || null;
+      const statusNote = config.deliveryReady === false
+        ? 'Accepted by Meta gateway (wamid generated). Handset delivery held pending phone verification in Meta Business Suite.'
+        : undefined;
+
       const log = await prisma.whatsAppMessage.create({
         data: {
           customerId: customerId || null,
@@ -421,6 +467,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
           status: 'SENT',
           provider: 'META_CLOUD_API',
           externalId,
+          errorDetails: statusNote || null,
           sentByUserId: userId || null,
         },
       });
@@ -433,6 +480,8 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
         status: 'SENT',
         externalId,
         messageId: log.id,
+        note: statusNote,
+        error: statusNote,
         directWebUrl,
       };
     } catch (err: any) {
