@@ -28,9 +28,18 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('ooting_crm_token');
-      localStorage.removeItem('ooting_crm_user');
-      if (window.location.pathname !== '/login') {
+      const path = typeof window !== 'undefined' ? window.location.pathname : '';
+      const isPublicPath =
+        path.includes('/itinerary-pdf') ||
+        path.includes('/pdf') ||
+        path.startsWith('/itinerary/') ||
+        path.startsWith('/register-tour/') ||
+        path.startsWith('/trip-registration/') ||
+        path === '/login';
+
+      if (!isPublicPath) {
+        localStorage.removeItem('ooting_crm_token');
+        localStorage.removeItem('ooting_crm_user');
         window.location.href = '/login';
       }
     } else if (

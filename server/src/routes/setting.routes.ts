@@ -6,7 +6,6 @@ import { logAudit } from '../middleware/audit.js';
 import { config } from '../config/index.js';
 
 const router = Router();
-router.use(authenticate);
 
 export function normalizeGstin(val?: string | null): string {
   if (!val || val === 'NULL') return 'NILL';
@@ -151,7 +150,7 @@ export async function getCompanySettings(targetCompanyId?: string) {
   }
 }
 
-// Get Public / Authenticated Company Settings
+// Get Public / Authenticated Company Settings (Accessible to visitors & public itineraries)
 router.get('/company', async (req: AuthRequest, res: Response, next) => {
   try {
     const companyId = req.user?.companyId || OOTING_COMPANY_ID;
@@ -161,6 +160,8 @@ router.get('/company', async (req: AuthRequest, res: Response, next) => {
     next(error);
   }
 });
+
+router.use(authenticate);
 
 // Get All Settings
 router.get('/', async (req: AuthRequest, res: Response, next) => {

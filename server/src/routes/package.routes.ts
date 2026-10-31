@@ -8,6 +8,71 @@ import { cache } from '../services/cache.service.js';
 import { optimizeBase64IfNeeded } from '../services/image.service.js';
 
 const router = Router();
+
+// Public Itinerary Endpoint (For clients, travelers & shared PDF / Web itinerary previews)
+router.get('/public/:id', async (req, res, next) => {
+  try {
+    const id = req.params.id as string;
+    const pkg = await prisma.package.findUnique({
+      where: { id },
+      include: {
+        itineraries: { orderBy: { dayNumber: 'asc' } },
+        _count: { select: { bookings: true, leads: true } },
+      },
+    });
+
+    if (!pkg) {
+      res.status(404).json({ message: 'Travel package not found.' });
+      return;
+    }
+
+    // Auto-sync live hotel & place data if updated in Master Library
+    if (pkg.itineraries && pkg.itineraries.length > 0) {
+      try {
+        const hotelIds = pkg.itineraries.map((d: any) => d.hotelId).filter(Boolean);
+        const hotelNames = pkg.itineraries.map((d: any) => d.hotelName).filter(Boolean);
+        if (hotelIds.length > 0 || hotelNames.length > 0) {
+          const liveHotels = await (prisma as any).hotel.findMany({
+            where: {
+              isDeleted: false,
+              OR: [
+                ...(hotelIds.length > 0 ? [{ id: { in: hotelIds } }] : []),
+                ...(hotelNames.length > 0 ? [{ name: { in: hotelNames } }] : []),
+              ],
+            },
+          });
+          const hotelIdMap = new Map<string, any>(liveHotels.map((h: any) => [h.id, h]));
+          const hotelNameMap = new Map<string, any>(liveHotels.map((h: any) => [h.name.toLowerCase().trim(), h]));
+
+          pkg.itineraries = pkg.itineraries.map((d: any) => {
+            const h = (d.hotelId && hotelIdMap.get(d.hotelId)) ||
+                      (d.hotelName && hotelNameMap.get(d.hotelName.toLowerCase().trim()));
+            if (h) {
+              return {
+                ...d,
+                hotelName: h.name || d.hotelName,
+                hotelStarCategory: h.starCategory || d.hotelStarCategory,
+                hotelImageUrl: h.imageUrl || d.hotelImageUrl,
+                hotelLocation: (h.city ? `${h.city}, ` : '') + (h.district || d.hotelLocation || ''),
+                hotelDetails: h.description || h.address || d.hotelDetails,
+                hotelCheckIn: h.checkInTime || d.hotelCheckIn,
+                hotelCheckOut: h.checkOutTime || d.hotelCheckOut,
+              };
+            }
+            return d;
+          });
+        }
+      } catch (syncErr) {
+        console.warn('[PackageRoute] Public itinerary hotel sync warning:', syncErr);
+      }
+    }
+
+    res.json(pkg);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.use(authenticate);
 
 export const invalidatePackageCache = (companyId?: string, packageId?: string) => {

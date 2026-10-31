@@ -100,6 +100,9 @@ export const App: React.FC = () => {
                   <Route path="/suspended" element={<SuspendedPage />} />
                   <Route path="/register-tour/:id" element={<TourCustomerRegistrationForm />} />
                   <Route path="/trip-registration/:id" element={<TourCustomerRegistrationForm />} />
+                  <Route path="/packages/:id/itinerary-pdf" element={<ItineraryPdfView />} />
+                  <Route path="/packages/:id/pdf" element={<ItineraryPdfView />} />
+                  <Route path="/itinerary/:id" element={<ItineraryPdfView />} />
 
                   {/* Protected routes */}
                   <Route element={<ProtectedRoute />}>
@@ -123,8 +126,6 @@ export const App: React.FC = () => {
                       {/* Travel Packages & Itineraries */}
                       <Route path="/packages" element={<PackageList />} />
                       <Route path="/packages/:id" element={<PackageDetail />} />
-                      <Route path="/packages/:id/itinerary-pdf" element={<ItineraryPdfView />} />
-                      <Route path="/packages/:id/pdf" element={<ItineraryPdfView />} />
 
                       {/* Master Data */}
                       <Route path="/places" element={<PlaceList />} />

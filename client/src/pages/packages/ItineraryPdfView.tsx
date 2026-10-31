@@ -193,27 +193,36 @@ export const ItineraryPdfView: React.FC = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchData = async () => {
       try {
         if (!id) return;
         setIsLoading(true);
 
-        // Fetch fresh package with latest itinerary & hotel master sync
-        const pkgRes = await api.get(`/packages/${id}?fresh=true&_t=${Date.now()}`);
-        const packageData = pkgRes.data;
+        let packageData: any = null;
+        try {
+          // 1. Try authenticated package endpoint with fresh flag
+          const pkgRes = await api.get(`/packages/${id}?fresh=true&_t=${Date.now()}`);
+          packageData = pkgRes.data;
+        } catch {
+          // 2. If 401 or unauthorized/not found, fallback to public itinerary endpoint
+          try {
+            const pubRes = await api.get(`/packages/public/${id}?_t=${Date.now()}`);
+            packageData = pubRes.data;
+          } catch (pubErr) {
+            console.error('Failed to load package from public endpoint:', pubErr);
+          }
+        }
+
+        if (!isMounted) return;
+        if (!packageData) {
+          setPkg(null);
+          return;
+        }
         setPkg(packageData);
 
-        // Targeted hotel lookup: only fetch the hotels actually referenced in this itinerary
-        const neededHotelIds = Array.from(
-          new Set(
-            (packageData.itineraries || [])
-              .map((d: any) => d.hotelId)
-              .filter(Boolean)
-          )
-        ) as string[];
-
+        // Prepopulate lookup from embedded itinerary hotel details
         const lookup = new Map<string, any>();
-        // Prepopulate lookup from embedded itinerary hotel details for instant zero-latency render
         (packageData.itineraries || []).forEach((d: any) => {
           if (d.hotelName) {
             lookup.set(d.hotelName.toLowerCase().trim(), {
@@ -222,33 +231,66 @@ export const ItineraryPdfView: React.FC = () => {
               imageUrl: d.hotelImageUrl,
               starCategory: d.hotelStarCategory,
               city: d.hotelLocation,
+              details: d.hotelDetails,
+              checkIn: d.hotelCheckIn,
+              checkOut: d.hotelCheckOut,
+            });
+          }
+          if (d.hotelId) {
+            lookup.set(d.hotelId, {
+              id: d.hotelId,
+              name: d.hotelName,
+              imageUrl: d.hotelImageUrl,
+              starCategory: d.hotelStarCategory,
+              city: d.hotelLocation,
+              details: d.hotelDetails,
+              checkIn: d.hotelCheckIn,
+              checkOut: d.hotelCheckOut,
             });
           }
         });
 
-        // Concurrently fetch full details/galleries only for the 1-2 assigned hotels instead of 250
-        if (neededHotelIds.length > 0) {
-          const hotelFetches = neededHotelIds.map((hId) =>
-            api.get(`/hotels/${hId}?_t=${Date.now()}`).catch(() => null)
-          );
-          const hotelResults = await Promise.all(hotelFetches);
-          hotelResults.forEach((res) => {
-            if (res?.data) {
-              const h = res.data;
-              if (h.id) lookup.set(h.id, h);
-              if (h.name) lookup.set(h.name.toLowerCase().trim(), h);
-            }
-          });
+        // Concurrently fetch full details/galleries only if user has a token
+        const token = localStorage.getItem('ooting_crm_token');
+        const neededHotelIds = Array.from(
+          new Set(
+            (packageData.itineraries || [])
+              .map((d: any) => d.hotelId)
+              .filter(Boolean)
+          )
+        ) as string[];
+
+        if (token && neededHotelIds.length > 0) {
+          try {
+            const hotelFetches = neededHotelIds.map((hId) =>
+              api.get(`/hotels/${hId}?_t=${Date.now()}`).catch(() => null)
+            );
+            const hotelResults = await Promise.all(hotelFetches);
+            hotelResults.forEach((res) => {
+              if (res?.data) {
+                const h = res.data;
+                if (h.id) lookup.set(h.id, h);
+                if (h.name) lookup.set(h.name.toLowerCase().trim(), h);
+              }
+            });
+          } catch {}
         }
 
-        setHotelsLookup(lookup);
+        if (isMounted) {
+          setHotelsLookup(lookup);
+        }
       } catch (err) {
         console.error('Failed to load package itinerary for PDF:', err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
     if (id) fetchData();
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   const getHotelPhotos = (day: ItineraryDay): HotelPhotoDisplay[] => {
@@ -858,7 +900,7 @@ export const ItineraryPdfView: React.FC = () => {
           </div>
 
           {/* Snapshot Highlights Checklist */}
-          {((customData.highlights && customData.highlights.length > 0) || pkg.description) && (
+          {((Array.isArray(customData.highlights) && customData.highlights.length > 0) || pkg.description) && (
             <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-3.5 bg-[#C91F28] rounded-full inline-block"></span>
@@ -867,7 +909,7 @@ export const ItineraryPdfView: React.FC = () => {
                 </h3>
               </div>
 
-              {customData.highlights && customData.highlights.length > 0 ? (
+              {Array.isArray(customData.highlights) && customData.highlights.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-slate-800">
                   {customData.highlights.map((item, hIdx) => (
                     <div key={hIdx} className="flex items-start gap-2">
@@ -887,7 +929,7 @@ export const ItineraryPdfView: React.FC = () => {
           )}
 
           {/* Hotel Category Plans Table (if present) */}
-          {customData.hotelOptions && customData.hotelOptions.length > 0 && (
+          {Array.isArray(customData.hotelOptions) && customData.hotelOptions.length > 0 && (
             <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
               <div className="flex items-center justify-between pb-1">
                 <div className="flex items-center gap-2">
@@ -1284,7 +1326,7 @@ export const ItineraryPdfView: React.FC = () => {
 
           {/* Flamingo-Style Multi-Pax Tiered Pricing Matrix */}
           {(() => {
-            const tiers = (customData.pricingTiers && customData.pricingTiers.length > 0)
+            const tiers = (Array.isArray(customData.pricingTiers) && customData.pricingTiers.length > 0)
               ? customData.pricingTiers
               : [
                   {
@@ -1405,7 +1447,7 @@ export const ItineraryPdfView: React.FC = () => {
                           </td>
 
                           {(['budget', 'standard', 'deluxe', 'luxury'] as const).map((planKey) => {
-                            const pData = tier.plans[planKey] || { doubleSharing: 0, tripleSharing: 0, cwb: 0, cnb: 0 };
+                            const pData = (tier && tier.plans && tier.plans[planKey]) ? tier.plans[planKey] : { doubleSharing: 0, tripleSharing: 0, cwb: 0, cnb: 0 };
                             return (
                               <td
                                 key={planKey}
@@ -1899,3 +1941,5 @@ export const ItineraryPdfView: React.FC = () => {
     </div>
   );
 };
+
+export default ItineraryPdfView;
