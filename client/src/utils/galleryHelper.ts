@@ -91,7 +91,50 @@ export function parseGalleryUrls(raw: unknown): string[] {
       if (curr.length < 20) continue;
     }
 
-    sanitized.push(curr);
+    // 4. Strict Image Validation: Filter out non-image URLs (e.g. Google Maps, YouTube, HTML pages)
+    let finalUrl = curr;
+    if (curr.startsWith('data:image/')) {
+      if (curr.length > 50 && curr.includes(';base64,')) {
+        sanitized.push(curr);
+      }
+      continue;
+    }
+
+    if (curr.startsWith('/') || curr.startsWith('./')) {
+      if (/\.(jpe?g|png|webp|gif|svg|avif)($|\?)/i.test(curr)) {
+        sanitized.push(curr);
+      }
+      continue;
+    }
+
+    if (curr.startsWith('http://') || curr.startsWith('https://')) {
+      const lower = curr.toLowerCase();
+      // Explicitly reject known non-image domains
+      if (
+        lower.includes('maps.app.goo.gl') ||
+        lower.includes('google.com/maps') ||
+        lower.includes('maps.google.com') ||
+        lower.includes('youtube.com') ||
+        lower.includes('youtu.be')
+      ) {
+        continue;
+      }
+
+      // Check common image extension or trusted image CDN patterns
+      const isImgExt = /\.(jpe?g|png|webp|gif|svg|avif)($|\?)/i.test(curr);
+      const isImgCdn =
+        lower.includes('images.unsplash.com') ||
+        lower.includes('res.cloudinary.com') ||
+        lower.includes('drive.google.com/uc') ||
+        lower.includes('blob.core.windows.net') ||
+        lower.includes('firebasestorage.googleapis.com') ||
+        lower.includes('/images/') ||
+        lower.includes('/img/');
+
+      if (isImgExt || isImgCdn) {
+        sanitized.push(curr);
+      }
+    }
   }
 
   return sanitized;

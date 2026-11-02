@@ -135,9 +135,9 @@ export const PackageModal: React.FC<PackageModalProps> = ({
   const [duration, setDuration] = useState(initialData?.duration || '4 Days / 3 Nights');
   const [price, setPrice] = useState(initialData?.price || 12000);
   const [packageType, setPackageType] = useState(initialData?.packageType || 'HOLIDAY');
-  const [description, setDescription] = useState(initialData?.description || '');
-  const [inclusions, setInclusions] = useState(initialData?.inclusions || '');
-  const [exclusions, setExclusions] = useState(initialData?.exclusions || '');
+  const [description, setDescription] = useState(initialData?.description || (parsedCustom as any).tourOverview || (parsedCustom as any).description || '');
+  const [inclusions, setInclusions] = useState(initialData?.inclusions || (parsedCustom as any).inclusions || '');
+  const [exclusions, setExclusions] = useState(initialData?.exclusions || (parsedCustom as any).exclusions || '');
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || '');
   const [status, setStatus] = useState(initialData?.status || 'ACTIVE');
 
@@ -169,17 +169,6 @@ export const PackageModal: React.FC<PackageModalProps> = ({
   // Synchronize state when initialData or modal open status changes
   useEffect(() => {
     if (isOpen) {
-      setPackageName(initialData?.packageName || '');
-      setDestination(initialData?.destination || '');
-      setDuration(initialData?.duration || '4 Days / 3 Nights');
-      setPrice(initialData?.price || 12000);
-      setPackageType(initialData?.packageType || 'HOLIDAY');
-      setDescription(initialData?.description || '');
-      setInclusions(initialData?.inclusions || '');
-      setExclusions(initialData?.exclusions || '');
-      setImageUrl(initialData?.imageUrl || '');
-      setStatus(initialData?.status || 'ACTIVE');
-
       let parsed: PackageCustomBrandingData = {};
       if (initialData?.customBranding) {
         try {
@@ -190,6 +179,17 @@ export const PackageModal: React.FC<PackageModalProps> = ({
           parsed = {};
         }
       }
+
+      setPackageName(initialData?.packageName || '');
+      setDestination(initialData?.destination || '');
+      setDuration(initialData?.duration || '4 Days / 3 Nights');
+      setPrice(initialData?.price || 12000);
+      setPackageType(initialData?.packageType || 'HOLIDAY');
+      setDescription(initialData?.description || (parsed as any).tourOverview || (parsed as any).description || '');
+      setInclusions(initialData?.inclusions || (parsed as any).inclusions || '');
+      setExclusions(initialData?.exclusions || (parsed as any).exclusions || '');
+      setImageUrl(initialData?.imageUrl || '');
+      setStatus(initialData?.status || 'ACTIVE');
 
       setTourCode(parsed.tourCode || '');
       setTheme(parsed.theme || '');

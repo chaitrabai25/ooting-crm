@@ -321,9 +321,27 @@ router.put('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res:
         }
       }
 
+      // Filter out non-image URLs (e.g. accidental Google Maps links, web pages)
+      const validImageList = rawList.filter((item) => {
+        if (!item || typeof item !== 'string') return false;
+        const trimmed = item.trim();
+        if (trimmed.startsWith('data:image/')) return trimmed.length > 50;
+        if (trimmed.startsWith('/') || trimmed.startsWith('./')) return true;
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+          const lower = trimmed.toLowerCase();
+          if (lower.includes('maps.app.goo.gl') || lower.includes('google.com/maps') || lower.includes('youtube.com')) return false;
+          return /\.(jpe?g|png|webp|gif|svg|avif)($|\?)/i.test(trimmed) ||
+            lower.includes('images.unsplash.com') ||
+            lower.includes('res.cloudinary.com') ||
+            lower.includes('drive.google.com/uc') ||
+            lower.includes('blob.core.windows.net');
+        }
+        return false;
+      });
+
       // Optimize each base64 image if present
       const optimizedList = await Promise.all(
-        rawList.map(async (item) => {
+        validImageList.map(async (item) => {
           if (typeof item === 'string' && item.startsWith('data:image/')) {
             try {
               const opt = await optimizeBase64IfNeeded(item);

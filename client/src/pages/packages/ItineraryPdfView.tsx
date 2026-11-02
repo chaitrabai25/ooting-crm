@@ -581,6 +581,22 @@ export const ItineraryPdfView: React.FC = () => {
     tripGallery: company?.tripGallery || '',
   };
 
+  const effectiveDescription =
+    (customData as any)?.tourOverview?.trim() ||
+    (pkg.description && pkg.description.trim()) ||
+    (customData as any)?.description?.trim() ||
+    '';
+
+  const effectiveInclusions =
+    (customData as any)?.inclusions?.trim() ||
+    (pkg.inclusions && pkg.inclusions.trim()) ||
+    '';
+
+  const effectiveExclusions =
+    (customData as any)?.exclusions?.trim() ||
+    (pkg.exclusions && pkg.exclusions.trim()) ||
+    '';
+
   const basePrice = Number(pkg?.price) || 12000;
   const firstTier = customData.pricingTiers?.[0]?.plans;
   const samplePricing = {
@@ -687,12 +703,19 @@ export const ItineraryPdfView: React.FC = () => {
     ];
   })();
 
+  const hasOnlyFewTiers = tiers.length <= 2;
+  const hasHotels = effectiveHotelOptions.length > 0;
+  // If only 1-2 tiers (e.g. 2 Pax or single tier), show pricing on Page 1!
+  const showPricingOnPage1 = hasOnlyFewTiers;
+  // If no hotels and only 1-2 tiers, skip standalone Page 2 completely so there is no empty page!
+  const showStandalonePricingPage = !hasOnlyFewTiers || hasHotels;
+
   // 1 Day Per Dedicated Page Architecture:
-  // Page 1: Official Cover Page
-  // Page 2: Tour Pricing & Hotel Matrix
-  // Pages 3 to (2 + N): Dedicated Day-by-Day Schedule Pages
+  // Page 1: Official Cover Page (includes 1-2 pax pricing if compact)
+  // Page 2: Standalone Pricing & Hotels (only if >2 tiers OR has hotels)
+  // Subsequent Pages: Dedicated Day-by-Day Schedule Pages
   // Final Page: Official Terms, Inclusions & Executive Closing Profile
-  const totalPages = 2 + Math.max(1, itineraries.length) + 1;
+  const totalPages = (showStandalonePricingPage ? 2 : 1) + Math.max(1, itineraries.length) + 1;
 
   const handleShareWhatsApp = async () => {
     if (!pkg) return;
@@ -1087,7 +1110,7 @@ export const ItineraryPdfView: React.FC = () => {
 
             {/* Ooting-Style Cover Page Hero Image Banner */}
             <div className="relative w-full overflow-hidden bg-slate-900 border-b border-slate-200">
-              <div className="relative w-full h-64 sm:h-76 overflow-hidden">
+              <div className={`relative w-full ${showPricingOnPage1 ? 'h-56 sm:h-64' : 'h-[320px] sm:h-[340px]'} overflow-hidden`}>
                 <img
                   src={getHeroBannerImage(pkg, customData)}
                   alt={pkg.packageName}
@@ -1095,6 +1118,9 @@ export const ItineraryPdfView: React.FC = () => {
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   crossOrigin="anonymous"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = DESTINATION_HERO_FALLBACKS.default;
+                  }}
                 />
                 {/* Subtle Gradient Overlays */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-slate-900/30 pointer-events-none" />
@@ -1184,7 +1210,7 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
-            {/* Overview & Truncated Description (Word limit: max 55 words so it stays on Page 1) */}
+            {/* Overview & Truncated Description */}
             <div className="px-6 py-2.5 space-y-2.5">
               <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
                 <div className="flex items-center gap-2">
@@ -1195,11 +1221,8 @@ export const ItineraryPdfView: React.FC = () => {
                 </div>
                 <p className="text-[12px] text-slate-700 leading-relaxed font-normal whitespace-pre-line">
                   {getTruncatedDescription(
-                    (pkg.description && pkg.description.trim()) ||
-                      (customData as any)?.tourOverview ||
-                      (customData as any)?.description ||
-                      null,
-                    100
+                    effectiveDescription,
+                    showPricingOnPage1 ? 55 : 100
                   ) ||
                     `Experience the captivating sights, scenic landscapes, and cultural heritage of ${pkg.destination}. Handcrafted for memorable comfort, seamless private transfers, and handpicked premium accommodation.`}
                 </p>
@@ -1221,8 +1244,8 @@ export const ItineraryPdfView: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-slate-800">
                   {(Array.isArray(customData.highlights) && customData.highlights.length > 0
-                    ? customData.highlights.slice(0, 6)
-                    : itineraries.slice(0, 6).map((d) => d.title || `Day ${d.dayNumber}: ${d.places || 'Sightseeing Tour'}`)
+                    ? customData.highlights.slice(0, showPricingOnPage1 ? 4 : 6)
+                    : itineraries.slice(0, showPricingOnPage1 ? 4 : 6).map((d) => d.title || `Day ${d.dayNumber}: ${d.places || 'Sightseeing Tour'}`)
                   ).map((item, hIdx) => (
                     <div key={hIdx} className="flex items-start gap-2">
                       <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
@@ -1233,6 +1256,90 @@ export const ItineraryPdfView: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              {/* If 1-2 pax tiers, render compact Executive Tour Cost on Page 1 */}
+              {showPricingOnPage1 && (
+                <div className="itinerary-pricing-matrix border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white space-y-0">
+                  <div className="px-3.5 py-1.5 bg-gradient-to-r from-[#1E3A8A] via-blue-900 to-[#1E3A8A] text-white flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-3 bg-amber-400 rounded-full inline-block" />
+                      <h3 className="font-extrabold text-[10.5px] uppercase tracking-tight text-white">
+                        Executive Tour Cost & Tiered Pricing Matrix
+                      </h3>
+                    </div>
+                    <span className="px-2 py-0.5 bg-white/15 text-amber-300 border border-white/20 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                      Ooting Executive Model
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs table-fixed">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider text-[9px] border-b border-slate-200">
+                          <th className="p-1.5 border-r border-slate-200 w-[24%]">Pax & Vehicle</th>
+                          <th className="p-1 border-r border-slate-200 text-center bg-blue-50/60 text-[#1E3A8A] w-[19%]">
+                            Budget (3★)
+                          </th>
+                          <th className="p-1 border-r border-slate-200 text-center bg-slate-50 text-slate-700 w-[19%]">
+                            Standard Plan
+                          </th>
+                          <th className="p-1 border-r border-slate-200 text-center bg-amber-50/60 text-amber-900 w-[19%]">
+                            Deluxe (4★ Premium)
+                          </th>
+                          <th className="p-1 text-center bg-rose-50/60 text-[#C91F28] w-[19%]">
+                            Luxury (5★ Heritage)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 text-[10.5px]">
+                        {tiers.map((tier, tIdx) => (
+                          <tr
+                            key={tIdx}
+                            className={tIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}
+                          >
+                            <td className="p-1.5 border-r border-slate-200 font-bold text-slate-900 bg-slate-50/30">
+                              <div className="flex items-center gap-1 text-[10.5px] text-[#1E3A8A] font-black">
+                                <Users className="w-3 h-3 text-[#C91F28]" />
+                                <span>{tier.paxCount}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-[9px] text-slate-500 font-semibold mt-0.5 truncate">
+                                <Car className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                <span className="truncate">{tier.vehicle}</span>
+                              </div>
+                            </td>
+
+                            {(['budget', 'standard', 'deluxe', 'luxury'] as const).map((planKey) => {
+                              const pData = (tier && tier.plans && tier.plans[planKey]) ? tier.plans[planKey] : { doubleSharing: 0, tripleSharing: 0, cwb: 0, cnb: 0 };
+                              return (
+                                <td
+                                  key={planKey}
+                                  className="p-1 border-r border-slate-200 text-[10px] align-middle text-center"
+                                >
+                                  <div className="space-y-0.5">
+                                    <div className="text-slate-900 font-bold">
+                                      <span className="text-[#1E3A8A] font-black text-[10.5px]">
+                                        ₹{Number(pData.doubleSharing || 0).toLocaleString('en-IN')}
+                                      </span>
+                                    </div>
+                                    <div className="text-[8.5px] text-slate-500">
+                                      {pData.tripleSharing ? `Triple: ₹${Number(pData.tripleSharing).toLocaleString('en-IN')}` : 'Per Person Rate'}
+                                    </div>
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="px-2.5 py-1 bg-slate-50 border-t border-slate-200 text-[9px] text-slate-500 flex items-center justify-between">
+                    <span>* Rates quoted per person in INR • Chauffeur allowance, fuel, toll & parking included</span>
+                    <span className="font-semibold text-slate-700">GST 5% extra</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1248,241 +1355,240 @@ export const ItineraryPdfView: React.FC = () => {
         {/* ========================================================================= */}
         {/* PAGE 2: TOUR PRICING & HOTEL ACCOMMODATION MATRIX (WITH AMOUNTS)         */}
         {/* ========================================================================= */}
-        <div
-          className="pdf-page pdf-page-pricing flex flex-col justify-between bg-white text-slate-800"
-          style={{
-            width: '794px',
-            maxWidth: '794px',
-            minWidth: '794px',
-            height: '1123px',
-            minHeight: '1123px',
-            maxHeight: '1123px',
-            boxSizing: 'border-box',
-            overflow: 'hidden',
-            breakAfter: 'page',
-            pageBreakAfter: 'always',
-          }}
-        >
-          <div>
-            <PdfPageHeader
-              branding={activeBranding}
-              packageName={pkg.packageName}
-            />
+        {/* ========================================================================= */}
+        {/* PAGE 2: TOUR PRICING & HOTEL ACCOMMODATION MATRIX (WITH AMOUNTS)         */}
+        {/* ========================================================================= */}
+        {showStandalonePricingPage && (
+          <div
+            className="pdf-page pdf-page-pricing flex flex-col justify-between bg-white text-slate-800"
+            style={{
+              width: '794px',
+              maxWidth: '794px',
+              minWidth: '794px',
+              height: '1123px',
+              minHeight: '1123px',
+              maxHeight: '1123px',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
+              breakAfter: 'page',
+              pageBreakAfter: 'always',
+            }}
+          >
+            <div>
+              <PdfPageHeader
+                branding={activeBranding}
+                packageName={pkg.packageName}
+              />
 
-            <div className="px-6 py-3.5 space-y-3">
-              {/* Ooting Multi-Pax Tiered Pricing Matrix */}
-              <div className="itinerary-pricing-matrix border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white space-y-0">
-                <div className="px-4 py-2.5 bg-gradient-to-r from-[#1E3A8A] via-blue-900 to-[#1E3A8A] text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-4 bg-amber-400 rounded-full inline-block" />
-                    <div>
-                      <h3 className="font-extrabold text-xs sm:text-sm uppercase tracking-tight text-white">
-                        Executive Tour Cost & Tiered Pricing Matrix
-                      </h3>
-                      <p className="text-[10px] text-blue-200">
-                        Per Person Rates in Indian Rupees (INR) based on Pax Count & Hotel Star Plan
-                      </p>
+              <div className="px-6 py-3.5 space-y-3">
+                {/* Ooting Multi-Pax Tiered Pricing Matrix (Only if not already shown on Page 1) */}
+                {!showPricingOnPage1 && (
+                  <div className="itinerary-pricing-matrix border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white space-y-0">
+                    <div className="px-4 py-2.5 bg-gradient-to-r from-[#1E3A8A] via-blue-900 to-[#1E3A8A] text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-4 bg-amber-400 rounded-full inline-block" />
+                        <div>
+                          <h3 className="font-extrabold text-xs sm:text-sm uppercase tracking-tight text-white">
+                            Executive Tour Cost & Tiered Pricing Matrix
+                          </h3>
+                          <p className="text-[10px] text-blue-200">
+                            Per Person Rates in Indian Rupees (INR) based on Pax Count & Hotel Star Plan
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-0.5 bg-white/15 text-amber-300 border border-white/20 rounded-full text-[11px] font-bold uppercase tracking-wider w-fit">
+                        Ooting Executive Model
+                      </span>
                     </div>
-                  </div>
-                  <span className="px-2.5 py-0.5 bg-white/15 text-amber-300 border border-white/20 rounded-full text-[11px] font-bold uppercase tracking-wider w-fit">
-                    Ooting Executive Model
-                  </span>
-                </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs table-fixed">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
-                        <th className="p-2 border-r border-slate-200 w-[24%]">Pax & Vehicle</th>
-                        <th className="p-1.5 border-r border-slate-200 text-center bg-blue-50/60 text-[#1E3A8A] w-[19%]">
-                          Budget (3★)
-                        </th>
-                        <th className="p-1.5 border-r border-slate-200 text-center bg-slate-50 text-slate-700 w-[19%]">
-                          Standard Plan
-                        </th>
-                        <th className="p-1.5 border-r border-slate-200 text-center bg-amber-50/60 text-amber-900 w-[19%]">
-                          Deluxe (4★ Premium)
-                        </th>
-                        <th className="p-1.5 text-center bg-rose-50/60 text-[#C91F28] w-[19%]">
-                          Luxury (5★ Heritage)
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 text-[11px]">
-                      {tiers.map((tier, tIdx) => (
-                        <tr
-                          key={tIdx}
-                          className={tIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}
-                        >
-                          <td className="p-2 border-r border-slate-200 font-bold text-slate-900 bg-slate-50/30">
-                            <div className="flex items-center gap-1.5 text-[11px] text-[#1E3A8A] font-black">
-                              <Users className="w-3.5 h-3.5 text-[#C91F28]" />
-                              <span>{tier.paxCount}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-[9.5px] text-slate-500 font-semibold mt-0.5">
-                              <Car className="w-3 h-3 text-slate-400" />
-                              <span className="truncate">{tier.vehicle}</span>
-                            </div>
-                          </td>
-
-                          {(['budget', 'standard', 'deluxe', 'luxury'] as const).map((planKey) => {
-                            const pData = (tier && tier.plans && tier.plans[planKey]) ? tier.plans[planKey] : { doubleSharing: 0, tripleSharing: 0, cwb: 0, cnb: 0 };
-                            return (
-                              <td
-                                key={planKey}
-                                className="p-1.5 border-r border-slate-200 text-[10.5px] align-top"
-                              >
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center justify-between text-slate-900 font-bold">
-                                    <span className="text-[9px] text-slate-500 font-normal">Double:</span>
-                                    <span className="text-[#1E3A8A] font-bold text-[10px]">
-                                      ₹{Number(pData.doubleSharing || 0).toLocaleString('en-IN')}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center justify-between text-slate-700">
-                                    <span className="text-[9px] text-slate-400 font-normal">Triple:</span>
-                                    <span className="text-[10px]">
-                                      ₹{Number(pData.tripleSharing || 0).toLocaleString('en-IN')}
-                                    </span>
-                                  </div>
-                                  {pData.cwb ? (
-                                    <div className="flex items-center justify-between text-slate-500 text-[8.5px]">
-                                      <span>CWB:</span>
-                                      <span>₹{Number(pData.cwb).toLocaleString('en-IN')}</span>
-                                    </div>
-                                  ) : null}
-                                  {pData.cnb ? (
-                                    <div className="flex items-center justify-between text-slate-500 text-[8.5px]">
-                                      <span>CNB:</span>
-                                      <span>₹{Number(pData.cnb).toLocaleString('en-IN')}</span>
-                                    </div>
-                                  ) : null}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs table-fixed">
+                        <thead>
+                          <tr className="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                            <th className="p-2 border-r border-slate-200 w-[24%]">Pax & Vehicle</th>
+                            <th className="p-1.5 border-r border-slate-200 text-center bg-blue-50/60 text-[#1E3A8A] w-[19%]">
+                              Budget (3★)
+                            </th>
+                            <th className="p-1.5 border-r border-slate-200 text-center bg-slate-50 text-slate-700 w-[19%]">
+                              Standard Plan
+                            </th>
+                            <th className="p-1.5 border-r border-slate-200 text-center bg-amber-50/60 text-amber-900 w-[19%]">
+                              Deluxe (4★ Premium)
+                            </th>
+                            <th className="p-1.5 text-center bg-rose-50/60 text-[#C91F28] w-[19%]">
+                              Luxury (5★ Heritage)
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 text-[11px]">
+                          {tiers.map((tier, tIdx) => (
+                            <tr
+                              key={tIdx}
+                              className={tIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}
+                            >
+                              <td className="p-2 border-r border-slate-200 font-bold text-slate-900 bg-slate-50/30">
+                                <div className="flex items-center gap-1.5 text-[11px] text-[#1E3A8A] font-black">
+                                  <Users className="w-3.5 h-3.5 text-[#C91F28]" />
+                                  <span>{tier.paxCount}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-[9.5px] text-slate-500 font-semibold mt-0.5">
+                                  <Car className="w-3 h-3 text-slate-400" />
+                                  <span className="truncate">{tier.vehicle}</span>
                                 </div>
                               </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
 
-                <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[10px] text-slate-600 space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">Cost Inclusions & Terms:</span>
-                    <span>All rates quoted per person in Indian Rupees (INR) on twin/triple sharing.</span>
-                  </div>
-                  <div className="text-slate-500 text-[9.5px]">
-                    * CWB: Child With Bed (5-11 yrs) • CNB: Child No Bed (2-5 yrs) • GST 5% extra on invoice • Chauffeur allowance, fuel, toll tax, interstate entry permit & parking included.
-                  </div>
-                </div>
-              </div>
+                              {(['budget', 'standard', 'deluxe', 'luxury'] as const).map((planKey) => {
+                                const pData = (tier && tier.plans && tier.plans[planKey]) ? tier.plans[planKey] : { doubleSharing: 0, tripleSharing: 0, cwb: 0, cnb: 0 };
+                                return (
+                                  <td
+                                    key={planKey}
+                                    className="p-1.5 border-r border-slate-200 text-[10.5px] align-top"
+                                  >
+                                    <div className="space-y-0.5">
+                                      <div className="flex items-center justify-between text-slate-900 font-bold">
+                                        <span className="text-[9px] text-slate-500 font-normal">Double:</span>
+                                        <span className="text-[#1E3A8A] font-bold text-[10px]">
+                                          ₹{Number(pData.doubleSharing || 0).toLocaleString('en-IN')}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-slate-700">
+                                        <span className="text-[9px] text-slate-400 font-normal">Triple:</span>
+                                        <span className="text-[10px]">
+                                          ₹{Number(pData.tripleSharing || 0).toLocaleString('en-IN')}
+                                        </span>
+                                      </div>
+                                      {pData.cwb ? (
+                                        <div className="flex items-center justify-between text-slate-500 text-[8.5px]">
+                                          <span>CWB:</span>
+                                          <span>₹{Number(pData.cwb).toLocaleString('en-IN')}</span>
+                                        </div>
+                                      ) : null}
+                                      {pData.cnb ? (
+                                        <div className="flex items-center justify-between text-slate-500 text-[8.5px]">
+                                          <span>CNB:</span>
+                                          <span>₹{Number(pData.cnb).toLocaleString('en-IN')}</span>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
 
-              {/* Hotel Accommodation Plans by Category & Rates Table WITH AMOUNTS */}
-              <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-1 gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-4 bg-[#1E3A8A] rounded-full inline-block"></span>
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1E3A8A]">
-                      Hotel Accommodation Plans by Category & Rates
-                    </h3>
-                  </div>
-                  <span className="text-[10px] font-semibold text-slate-500">
-                    Rooms subject to availability at confirmation
-                  </span>
-                </div>
-
-                {effectiveHotelOptions.length > 0 ? (
-                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                    <table className="w-full text-left border-collapse text-[10px] table-fixed">
-                      <thead>
-                        <tr className="bg-[#1E3A8A] text-white font-bold uppercase tracking-wider text-[9.5px]">
-                          <th className="p-2 border-r border-blue-900 w-[20%]">City / Destination</th>
-                          <th className="p-1.5 border-r border-blue-900 text-center w-[8%]">Nights</th>
-                          <th className="p-1.5 border-r border-blue-900 w-[18%]">
-                            <div>Budget (3★)</div>
-                            <div className="text-[9px] text-amber-300 font-bold font-sans">
-                              From ₹{samplePricing.budget.toLocaleString('en-IN')}/pax
-                            </div>
-                          </th>
-                          <th className="p-1.5 border-r border-blue-900 w-[18%]">
-                            <div>Standard Plan</div>
-                            <div className="text-[9px] text-blue-200 font-bold font-sans">
-                              From ₹{samplePricing.standard.toLocaleString('en-IN')}/pax
-                            </div>
-                          </th>
-                          <th className="p-1.5 border-r border-blue-900 w-[18%]">
-                            <div>Deluxe (4★ Premium)</div>
-                            <div className="text-[9px] text-amber-300 font-bold font-sans">
-                              From ₹{samplePricing.deluxe.toLocaleString('en-IN')}/pax
-                            </div>
-                          </th>
-                          <th className="p-1.5 w-[18%]">
-                            <div>Luxury (5★ Heritage)</div>
-                            <div className="text-[9px] text-amber-300 font-bold font-sans">
-                              From ₹{samplePricing.luxury.toLocaleString('en-IN')}/pax
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {effectiveHotelOptions.map((h, hIdx) => (
-                          <tr key={hIdx} className={hIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                            <td className="p-2 font-bold text-slate-900 border-r border-slate-200 truncate">
-                              {h.city}
-                            </td>
-                            <td className="p-1.5 font-black text-center text-[#C91F28] border-r border-slate-200">
-                              {h.nights}N
-                            </td>
-                            <td className="p-1.5 text-slate-700 border-r border-slate-200">
-                              <div className="font-semibold truncate">{h.budgetHotel || 'Standard 3-Star Hotel / Similar'}</div>
-                              <div className="text-[9px] text-slate-500 font-medium">Rate: ₹{samplePricing.budget.toLocaleString('en-IN')}</div>
-                            </td>
-                            <td className="p-1.5 text-slate-700 border-r border-slate-200">
-                              <div className="font-semibold truncate">{h.standardHotel || 'Quality 3-Star Deluxe / Similar'}</div>
-                              <div className="text-[9px] text-slate-500 font-medium">Rate: ₹{samplePricing.standard.toLocaleString('en-IN')}</div>
-                            </td>
-                            <td className="p-1.5 font-semibold text-slate-900 border-r border-slate-200">
-                              <div className="font-bold text-slate-900 truncate">{h.deluxeHotel || 'Handpicked 4-Star Resort / Similar'}</div>
-                              <div className="text-[9px] text-slate-500 font-medium">Rate: ₹{samplePricing.deluxe.toLocaleString('en-IN')}</div>
-                            </td>
-                            <td className="p-1.5 font-bold text-[#1E3A8A]">
-                              <div className="font-bold text-[#1E3A8A] truncate">{h.luxuryHotel || 'Taj / 5-Star Heritage / Similar'}</div>
-                              <div className="text-[9px] text-amber-700 font-semibold">Rate: ₹{samplePricing.luxury.toLocaleString('en-IN')}</div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-600 space-y-1">
-                    <Building2 className="w-5 h-5 mx-auto text-[#1E3A8A]" />
-                    <p className="font-bold text-slate-800 text-xs">Custom / Open Hotel Accommodation Plan</p>
-                    <p className="text-[10.5px] text-slate-500 max-w-md mx-auto">
-                      Hotels can be chosen dynamically according to your preference or self-arranged. Contact tour desk for custom property upgrades.
-                    </p>
+                    <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[10px] text-slate-600 space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">Cost Inclusions & Terms:</span>
+                        <span>All rates quoted per person in Indian Rupees (INR) on twin/triple sharing.</span>
+                      </div>
+                      <div className="text-slate-500 text-[9.5px]">
+                        * CWB: Child With Bed (5-11 yrs) • CNB: Child No Bed (2-5 yrs) • GST 5% extra on invoice • Chauffeur allowance, fuel, toll tax, interstate entry permit & parking included.
+                      </div>
+                    </div>
                   </div>
                 )}
-              </div>
 
-              {/* Booking Notice & Guarantee */}
-              <div className="p-3.5 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed bg-white shadow-2xs">
-                <p>
-                  <strong className="text-slate-900 font-bold">Booking Notice & Price Guarantee:</strong> All hotel accommodations and vehicle choices are subject to confirmation at the time of deposit payment. Rates are valid for 15 days from quote generation and include dedicated chauffeur allowance, fuel, toll taxes, and interstate permits.
-                </p>
+                {/* Hotel Accommodation Plans by Category & Rates Table (Only if hotels are configured) */}
+                {effectiveHotelOptions.length > 0 && (
+                  <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-1 gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-4 bg-[#1E3A8A] rounded-full inline-block"></span>
+                        <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1E3A8A]">
+                          Hotel Accommodation Plans by Category & Rates
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-semibold text-slate-500">
+                        Rooms subject to availability at confirmation
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                      <table className="w-full text-left border-collapse text-[10px] table-fixed">
+                        <thead>
+                          <tr className="bg-[#1E3A8A] text-white font-bold uppercase tracking-wider text-[9.5px]">
+                            <th className="p-2 border-r border-blue-900 w-[20%]">City / Destination</th>
+                            <th className="p-1.5 border-r border-blue-900 text-center w-[8%]">Nights</th>
+                            <th className="p-1.5 border-r border-blue-900 w-[18%]">
+                              <div>Budget (3★)</div>
+                              <div className="text-[9px] text-amber-300 font-bold font-sans">
+                                From ₹{samplePricing.budget.toLocaleString('en-IN')}/pax
+                              </div>
+                            </th>
+                            <th className="p-1.5 border-r border-blue-900 w-[18%]">
+                              <div>Standard Plan</div>
+                              <div className="text-[9px] text-blue-200 font-bold font-sans">
+                                From ₹{samplePricing.standard.toLocaleString('en-IN')}/pax
+                              </div>
+                            </th>
+                            <th className="p-1.5 border-r border-blue-900 w-[18%]">
+                              <div>Deluxe (4★ Premium)</div>
+                              <div className="text-[9px] text-amber-300 font-bold font-sans">
+                                From ₹{samplePricing.deluxe.toLocaleString('en-IN')}/pax
+                              </div>
+                            </th>
+                            <th className="p-1.5 w-[18%]">
+                              <div>Luxury (5★ Heritage)</div>
+                              <div className="text-[9px] text-amber-300 font-bold font-sans">
+                                From ₹{samplePricing.luxury.toLocaleString('en-IN')}/pax
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {effectiveHotelOptions.map((h, hIdx) => (
+                            <tr key={hIdx} className={hIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                              <td className="p-2 font-bold text-slate-900 border-r border-slate-200 truncate">
+                                {h.city}
+                              </td>
+                              <td className="p-1.5 font-black text-center text-[#C91F28] border-r border-slate-200">
+                                {h.nights}N
+                              </td>
+                              <td className="p-1.5 text-slate-700 border-r border-slate-200">
+                                <div className="font-semibold truncate">{h.budgetHotel || 'Standard 3-Star Hotel / Similar'}</div>
+                                <div className="text-[9px] text-slate-500 font-medium">Rate: ₹{samplePricing.budget.toLocaleString('en-IN')}</div>
+                              </td>
+                              <td className="p-1.5 text-slate-700 border-r border-slate-200">
+                                <div className="font-semibold truncate">{h.standardHotel || 'Quality 3-Star Deluxe / Similar'}</div>
+                                <div className="text-[9px] text-slate-500 font-medium">Rate: ₹{samplePricing.standard.toLocaleString('en-IN')}</div>
+                              </td>
+                              <td className="p-1.5 font-semibold text-slate-900 border-r border-slate-200">
+                                <div className="font-bold text-slate-900 truncate">{h.deluxeHotel || 'Handpicked 4-Star Resort / Similar'}</div>
+                                <div className="text-[9px] text-slate-500 font-medium">Rate: ₹{samplePricing.deluxe.toLocaleString('en-IN')}</div>
+                              </td>
+                              <td className="p-1.5 font-bold text-[#1E3A8A]">
+                                <div className="font-bold text-[#1E3A8A] truncate">{h.luxuryHotel || 'Taj / 5-Star Heritage / Similar'}</div>
+                                <div className="text-[9px] text-amber-700 font-semibold">Rate: ₹{samplePricing.luxury.toLocaleString('en-IN')}</div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Booking Notice & Guarantee */}
+                <div className="p-3.5 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed bg-white shadow-2xs">
+                  <p>
+                    <strong className="text-slate-900 font-bold">Booking Notice & Price Guarantee:</strong> All hotel accommodations and vehicle choices are subject to confirmation at the time of deposit payment. Rates are valid for 15 days from quote generation and include dedicated chauffeur allowance, fuel, toll taxes, and interstate permits.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Page 2 Footer Bar */}
-          <PdfPageFooter
-            branding={activeBranding}
-            packageName={pkg.packageName}
-            pageNumber={2}
-            totalPages={totalPages}
-          />
-        </div>
+            {/* Page 2 Footer Bar */}
+            <PdfPageFooter
+              branding={activeBranding}
+              packageName={pkg.packageName}
+              pageNumber={2}
+              totalPages={totalPages}
+            />
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* PAGE 3+: DETAILED DAY-BY-DAY TRAVEL SCHEDULE (1 DEDICATED PAGE PER DAY)   */}
@@ -1515,13 +1621,13 @@ export const ItineraryPdfView: React.FC = () => {
             <PdfPageFooter
               branding={activeBranding}
               packageName={pkg.packageName}
-              pageNumber={3}
+              pageNumber={showStandalonePricingPage ? 3 : 2}
               totalPages={totalPages}
             />
           </div>
         ) : (
           itineraries.map((day, dayIdx) => {
-            const currentPageNum = 3 + dayIdx;
+            const currentPageNum = (showStandalonePricingPage ? 3 : 2) + dayIdx;
             const hotelPhotos = getHotelPhotos(day);
 
             return (
@@ -1946,8 +2052,7 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
                     <ul className="space-y-1.5 pt-2">
                       {parseBulletPoints(
-                        (pkg.inclusions && pkg.inclusions.trim()) ||
-                          (customData as any)?.inclusions ||
+                        effectiveInclusions ||
                           'Hotel accommodation in selected room category\nDaily breakfast at hotel restaurant\nPrivate dedicated AC vehicle for transfers and sightseeing\nDriver beta, toll charges, fuel, and parking fees\nAll applicable state taxes and GST'
                       ).slice(0, 8).map((pt, i) => (
                         <li key={i} className="flex items-start gap-1.5 text-[10.5px] text-slate-800 leading-snug">
@@ -1973,8 +2078,7 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
                     <ul className="space-y-1.5 pt-2">
                       {parseBulletPoints(
-                        (pkg.exclusions && pkg.exclusions.trim()) ||
-                          (customData as any)?.exclusions ||
+                        effectiveExclusions ||
                           'Airfare, train fare, or bus tickets to destination\nEntry monument tickets, safari, camera fees, or boat rides\nLunch, dinner, laundry, telephone calls, and room mini-bar\nTravel, baggage, or medical insurance\nAny tips or personal expenses not mentioned in inclusions'
                       ).slice(0, 8).map((pt, i) => (
                         <li key={i} className="flex items-start gap-1.5 text-[10.5px] text-slate-800 leading-snug">
@@ -2023,19 +2127,25 @@ export const ItineraryPdfView: React.FC = () => {
                     {galleryPhotos.slice(0, 4).map((item, gIdx) => (
                       <div
                         key={gIdx}
-                        className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs group"
+                        className="happy-moment-card bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs group"
                       >
                         <div
                           className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                          style={{ width: '100%', height: '70px', maxHeight: '70px', minHeight: '70px' }}
+                          style={{ width: '100%', height: '110px', maxHeight: '110px', minHeight: '110px' }}
                         >
                           <img
                             src={item.url}
                             alt={item.caption || 'Trip Photo'}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            style={{ width: '100%', height: '70px', maxHeight: '70px', objectFit: 'cover' }}
+                            style={{ width: '100%', height: '110px', maxHeight: '110px', objectFit: 'cover' }}
                             crossOrigin="anonymous"
                             referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              target.onerror = null;
+                              const parentCard = target.closest('.happy-moment-card');
+                              if (parentCard) (parentCard as HTMLElement).style.display = 'none';
+                            }}
                           />
                         </div>
                         <div className="px-1.5 py-0.5 bg-slate-50 border-t border-slate-200 text-center text-[9px] font-bold text-slate-700 truncate">
@@ -2079,38 +2189,25 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
-            {/* Thank You Card with Centered Binoculars Logo & Company Info */}
-            <div className="pt-1 text-center max-w-2xl mx-auto w-full flex flex-col items-center">
-              {/* Agency / Company Binoculars Logo */}
-              <div className="mb-1.5 flex items-center justify-center w-full">
-                <img
-                  src={activeBranding.logoUrl || "/assets/ooting-binoculars.png"}
-                  alt={activeBranding.agencyName}
-                  className="h-10 w-auto max-w-[140px] object-contain mx-auto drop-shadow-sm"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/assets/ooting-binoculars.png';
-                  }}
-                />
-              </div>
-
-              {/* Large Font THANK YOU */}
-              <h1 className="text-xl font-extrabold uppercase tracking-tight text-[#1E3A8A] leading-tight text-center">
+            {/* Thank You Section */}
+            <div className="pt-2 text-center max-w-2xl mx-auto w-full flex flex-col items-center">
+              {/* Large Font THANK YOU Header */}
+              <h1 className="text-xl font-black uppercase tracking-tight text-[#1E3A8A] leading-tight text-center">
                 {language === 'kn' ? 'ಧನ್ಯವಾದಗಳು' : 'THANK YOU'}
               </h1>
 
-              {/* Below One Line */}
-              <p className="text-[11px] font-medium text-slate-600 italic mt-0.5 max-w-md mx-auto text-center leading-snug">
+              {/* Red Accent Divider */}
+              <div className="w-12 h-0.5 bg-[#C91F28] rounded-full mx-auto my-1.5"></div>
+
+              {/* Below One Line Subtitle */}
+              <p className="text-[11px] font-medium text-slate-600 italic max-w-lg mx-auto text-center leading-snug">
                 {language === 'kn'
                   ? `${activeBranding.agencyName} ಅನ್ನು ಆಯ್ಕೆ ಮಾಡಿದ್ದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು — ನಿಮ್ಮ ಮುಂದಿನ ಸ್ಮರಣೀಯ ಪ್ರವಾಸವನ್ನು ಯೋಜಿಸಲು ನಾವು ಎದುರುನೋಡುತ್ತಿದ್ದೇವೆ.`
                   : `Thank you for choosing ${activeBranding.agencyName} — we look forward to curating your next unforgettable journey.`}
               </p>
 
-              {/* Red Accent Divider */}
-              <div className="w-12 h-0.5 bg-[#C91F28] rounded-full mx-auto my-1.5"></div>
-
               {/* Professional Company Details Card with Clickable Links */}
-              <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-left shadow-2xs space-y-2.5">
+              <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-left shadow-2xs space-y-2.5 mt-2">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-slate-200 gap-1.5">
                   <div>
                     <h3 className="font-bold text-sm text-[#1E3A8A] uppercase tracking-tight">

@@ -34,8 +34,15 @@ export async function generateA4Pdf({
     images.map((img) => {
       if (img.complete) return Promise.resolve();
       return new Promise<void>((resolve) => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
+        const timer = setTimeout(() => resolve(), 2000);
+        img.onload = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          resolve();
+        };
       });
     })
   );
@@ -246,9 +253,12 @@ export async function generateA4Pdf({
         src === 'undefined' ||
         src.trim() === '' ||
         src === 'data:image/webp;base64' ||
+        src.includes('maps.app.goo.gl') ||
+        src.includes('google.com/maps') ||
+        src.includes('maps.google.com') ||
         (!src.startsWith('http') && !src.startsWith('/') && !src.startsWith('data:') && !src.startsWith('blob:'))
       ) {
-        const photoCard = img.closest('.day-photo-card, .photo-item') as HTMLElement;
+        const photoCard = img.closest('.day-photo-card, .photo-item, .happy-moment-card') as HTMLElement;
         if (photoCard) photoCard.style.display = 'none';
         else img.style.display = 'none';
         return;
@@ -331,7 +341,7 @@ export async function generateA4Pdf({
         scale: 2, // 2x crisp retina resolution
         useCORS: true,
         allowTaint: false,
-        imageTimeout: 10000,
+        imageTimeout: 3000,
         logging: false,
         backgroundColor: '#ffffff',
         width: a4StandardPxWidth,
@@ -430,7 +440,7 @@ export async function generateA4Pdf({
       scale: 2,
       useCORS: true,
       allowTaint: false,
-      imageTimeout: 10000,
+      imageTimeout: 3000,
       logging: false,
       backgroundColor: '#ffffff',
       windowWidth: a4StandardPxWidth,
