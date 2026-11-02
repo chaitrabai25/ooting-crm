@@ -439,46 +439,72 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
               }}
             >
               {/* Header Letterhead */}
-              <div className="border-b border-slate-200 pb-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    {effectiveLogoUrl ? (
+              <div className="border-b border-slate-200 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  {/* LEFT SIDE: Binoculars Logo, Agency Name & Tagline */}
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0">
                       <img
-                        src={effectiveLogoUrl}
-                        alt={company?.name || 'Ooting'}
-                        className="h-12 w-auto object-contain max-w-[200px]"
+                        src={effectiveLogoUrl || "/assets/ooting-binoculars.png"}
+                        alt={company?.name || 'Ooting Holidays'}
+                        className="max-w-full max-h-full object-contain"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
+                          (e.target as HTMLImageElement).src = '/assets/ooting-binoculars.png';
                         }}
                       />
-                    ) : (
-                      <h2 className="text-xl font-black text-[#1E3A8A] uppercase tracking-tight">
-                        {company?.name || 'OOTING HOLIDAYS'}
-                      </h2>
-                    )}
-                    <p className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wider">
-                      {company?.tagline || 'Journeys Beyond Ordinary'}
-                    </p>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                        {(company?.name || 'OOTING HOLIDAYS').toUpperCase()}
+                      </span>
+                      <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                        {company?.tagline || 'Journeys Beyond Ordinary'}
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-medium block">
+                        Premium Tour Operator & Destination Specialist
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="text-right text-[11px] text-slate-600 space-y-0.5">
-                    <div className="font-bold text-slate-800 flex items-center justify-end gap-1">
-                      <Phone className="w-3 h-3 text-[#C91F28]" />
-                      <span>{company?.phone || '+91 8884845595'}</span>
+                  {/* RIGHT SIDE: Dynamic Contact Details */}
+                  <div className="text-right text-xs text-slate-700 space-y-1 shrink-0">
+                    <div className="flex items-center justify-start sm:justify-end gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                      <a
+                        href={`tel:${(company?.phone || '+918884845595').replace(/[^0-9+]/g, '')}`}
+                        className="font-bold text-slate-900 hover:text-[#C91F28]"
+                      >
+                        {company?.phone || '+91 8884845595'}
+                      </a>
                     </div>
-                    <div className="flex items-center justify-end gap-1">
-                      <Mail className="w-3 h-3 text-slate-400" />
-                      <span>{company?.email || 'support@ooting.in'}</span>
+                    <div className="flex items-center justify-start sm:justify-end gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <a
+                        href={`mailto:${company?.email || 'support@ooting.in'}`}
+                        className="font-medium text-slate-700 hover:text-[#C91F28]"
+                      >
+                        {company?.email || 'support@ooting.in'}
+                      </a>
                     </div>
-                    <div className="flex items-center justify-end gap-1">
-                      <Globe className="w-3 h-3 text-slate-400" />
-                      <span>{company?.website || 'www.ooting.in'}</span>
+                    <div className="flex items-center justify-start sm:justify-end gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <a
+                        href={company?.website?.startsWith('http') ? company.website : `https://${company?.website || 'www.ooting.in'}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-slate-700 hover:text-[#C91F28]"
+                      >
+                        {company?.website || 'www.ooting.in'}
+                      </a>
                     </div>
                   </div>
                 </div>
 
-                {/* Red Decorative Divider */}
-                <div className="w-full h-1 bg-[#C91F28] rounded-full mt-4"></div>
+                {/* Red 2 Lines Divider: One Thick (3px) and One Thin (1px) */}
+                <div className="w-full space-y-[1.5px] leading-none mt-4">
+                  <div className="w-full h-[3px] bg-[#C91F28]" />
+                  <div className="w-full h-[1px] bg-[#C91F28]/70" />
+                </div>
 
                 {/* Catalog Main Banner Title */}
                 <div className="mt-4 text-center space-y-1">

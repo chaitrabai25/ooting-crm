@@ -340,6 +340,33 @@ export async function generateA4Pdf({
 
       const pageImgData = canvas.toDataURL('image/png', 1.0);
       pdf.addImage(pageImgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+
+      // Extract and inject native interactive clickable links from <a> tags
+      try {
+        const links = Array.from(pageEl.querySelectorAll<HTMLAnchorElement>('a[href]'));
+        const pageRect = pageEl.getBoundingClientRect();
+        const elWidth = pageEl.offsetWidth || a4StandardPxWidth;
+        const elHeight = pageEl.offsetHeight || a4StandardPxHeight;
+        const scaleX = pageWidth / elWidth;
+        const scaleY = pageHeight / elHeight;
+
+        links.forEach((linkEl) => {
+          const href = linkEl.getAttribute('href');
+          if (!href || href === '#' || href.startsWith('javascript:')) return;
+          const linkRect = linkEl.getBoundingClientRect();
+          if (linkRect.width > 0 && linkRect.height > 0) {
+            const xMm = (linkRect.left - pageRect.left) * scaleX;
+            const yMm = (linkRect.top - pageRect.top) * scaleY;
+            const wMm = linkRect.width * scaleX;
+            const hMm = linkRect.height * scaleY;
+            if (xMm >= 0 && yMm >= 0 && xMm + wMm <= pageWidth + 5 && yMm + hMm <= pageHeight + 5) {
+              pdf.link(xMm, yMm, wMm, hMm, { url: href });
+            }
+          }
+        });
+      } catch (linkErr) {
+        console.warn('Could not extract PDF links for page', i + 1, linkErr);
+      }
     }
   } else {
     // Single container fallback (e.g. duty-slip or single-page quotation or dynamic itinerary)
@@ -389,6 +416,30 @@ export async function generateA4Pdf({
       const imgData = canvas.toDataURL('image/png', 1.0);
 
       pdf.addImage(imgData, 'PNG', offsetX, offsetY, finalWidth, finalHeight, undefined, 'FAST');
+
+      try {
+        const links = Array.from(element.querySelectorAll<HTMLAnchorElement>('a[href]'));
+        const elRect = element.getBoundingClientRect();
+        const elWidth = element.offsetWidth || canvas.width;
+        const elHeight = element.offsetHeight || canvas.height;
+        const scaleX = finalWidth / elWidth;
+        const scaleY = finalHeight / elHeight;
+
+        links.forEach((linkEl) => {
+          const href = linkEl.getAttribute('href');
+          if (!href || href === '#' || href.startsWith('javascript:')) return;
+          const linkRect = linkEl.getBoundingClientRect();
+          if (linkRect.width > 0 && linkRect.height > 0) {
+            const xMm = offsetX + (linkRect.left - elRect.left) * scaleX;
+            const yMm = offsetY + (linkRect.top - elRect.top) * scaleY;
+            const wMm = linkRect.width * scaleX;
+            const hMm = linkRect.height * scaleY;
+            pdf.link(xMm, yMm, wMm, hMm, { url: href });
+          }
+        });
+      } catch (linkErr) {
+        console.warn('Could not extract single-page PDF links', linkErr);
+      }
     } else {
       // Smart Element-Aware Multi-Page Slicing:
       // Keep sections, day cards and table rows intact.

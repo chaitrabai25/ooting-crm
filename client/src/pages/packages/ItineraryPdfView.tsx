@@ -194,21 +194,35 @@ export const PdfPageHeader: React.FC<{
   packageName: string;
   pageLabel: string;
 }> = ({ branding, packageName, pageLabel }) => (
-  <div className="pdf-page-header px-8 py-2.5 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
-    <div className="flex items-center gap-2 min-w-0">
-      <div className="w-5 h-5 rounded-md bg-[#C91F28] text-white flex items-center justify-center font-black text-[10px] shrink-0">
-        {branding.agencyName ? branding.agencyName.slice(0, 2) : 'OT'}
+  <div className="pdf-page-header bg-white shrink-0">
+    <div className="px-8 py-2.5 bg-slate-50/90 flex items-center justify-between text-xs text-slate-600">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="w-7 h-7 flex items-center justify-center shrink-0">
+          <img
+            src={branding.isB2B && branding.logoUrl ? branding.logoUrl : "/assets/ooting-binoculars.png"}
+            alt={branding.agencyName || 'Ooting'}
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+        </div>
+        <span className="font-extrabold uppercase tracking-tight text-slate-900 text-xs shrink-0">
+          {branding.agencyName}
+        </span>
+        <span className="text-slate-300 shrink-0">|</span>
+        <span className="text-[#1E3A8A] font-semibold truncate max-w-[340px]">
+          {packageName}
+        </span>
       </div>
-      <span className="font-extrabold uppercase tracking-tight text-slate-900 text-[11px] shrink-0">
-        {branding.agencyName}
-      </span>
-      <span className="text-slate-300 shrink-0">|</span>
-      <span className="text-[#1E3A8A] font-semibold truncate max-w-[320px]">
-        {packageName}
-      </span>
+      <div className="flex items-center gap-2 text-[10.5px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
+        <span>{pageLabel}</span>
+      </div>
     </div>
-    <div className="flex items-center gap-2 text-[10.5px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
-      <span>{pageLabel}</span>
+    {/* Header Red 2 lines: One thick and one thin line */}
+    <div className="w-full space-y-[1.5px] leading-none">
+      <div className="w-full h-[3px] bg-[#C91F28]" />
+      <div className="w-full h-[1px] bg-[#C91F28]/70" />
     </div>
   </div>
 );
@@ -220,25 +234,44 @@ export const PdfPageFooter: React.FC<{
   totalPages?: number;
   totalLabel?: string;
 }> = ({ branding, packageName, pageNumber, totalPages, totalLabel }) => (
-  <div className="pdf-page-footer px-8 py-2 bg-slate-50/90 border-t border-slate-200 flex items-center justify-between text-[10.5px] text-slate-500">
-    <div className="flex items-center gap-3">
-      <span className="font-bold text-slate-800 uppercase tracking-wider">
-        {branding.agencyName}
-      </span>
-      {branding.phone && (
-        <span className="text-slate-600 hidden sm:inline">📞 {branding.phone}</span>
-      )}
-      {branding.website && (
-        <span className="text-slate-600 hidden sm:inline">🌐 {branding.website}</span>
-      )}
+  <div className="pdf-page-footer bg-white shrink-0 mt-auto">
+    {/* Footer Red 2 lines: One thin and one thick line */}
+    <div className="w-full space-y-[1.5px] leading-none">
+      <div className="w-full h-[1px] bg-[#C91F28]/70" />
+      <div className="w-full h-[3px] bg-[#C91F28]" />
     </div>
-    <div className="flex items-center gap-2">
-      <span className="text-slate-400 truncate max-w-[220px] hidden md:inline">
-        {packageName}
-      </span>
-      <span className="px-2.5 py-0.5 rounded-full bg-slate-200/90 font-black text-slate-700 text-[10px]">
-        Page {pageNumber}{totalPages ? ` of ${totalPages}` : (totalLabel ? ` • ${totalLabel}` : '')}
-      </span>
+    <div className="px-8 py-2 bg-slate-50/90 flex items-center justify-between text-[10.5px] text-slate-500">
+      <div className="flex items-center gap-3">
+        <span className="font-bold text-slate-800 uppercase tracking-wider">
+          {branding.agencyName}
+        </span>
+        {branding.phone && (
+          <a
+            href={`tel:${(branding.phone || '').replace(/[^0-9+]/g, '')}`}
+            className="text-slate-600 hover:text-[#C91F28] hidden sm:inline"
+          >
+            📞 {branding.phone}
+          </a>
+        )}
+        {branding.website && (
+          <a
+            href={branding.website.startsWith('http') ? branding.website : `https://${branding.website}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-600 hover:text-[#C91F28] hidden sm:inline"
+          >
+            🌐 {branding.website}
+          </a>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-slate-400 truncate max-w-[220px] hidden md:inline">
+          {packageName}
+        </span>
+        <span className="px-2.5 py-0.5 rounded-full bg-slate-200/90 font-black text-slate-700 text-[10px]">
+          Page {pageNumber}{totalPages ? ` of ${totalPages}` : (totalLabel ? ` • ${totalLabel}` : '')}
+        </span>
+      </div>
     </div>
   </div>
 );
@@ -313,7 +346,12 @@ export const ItineraryPdfView: React.FC = () => {
           }
         });
 
-        // Concurrently fetch full details/galleries only if user has a token
+        if (isMounted) {
+          setHotelsLookup(lookup);
+          setIsLoading(false);
+        }
+
+        // Concurrently enrich full details/galleries in the background without blocking UI
         const token = localStorage.getItem('ooting_crm_token');
         const neededHotelIds = Array.from(
           new Set(
@@ -329,18 +367,18 @@ export const ItineraryPdfView: React.FC = () => {
               api.get(`/hotels/${hId}?_t=${Date.now()}`).catch(() => null)
             );
             const hotelResults = await Promise.all(hotelFetches);
+            const enriched = new Map(lookup);
             hotelResults.forEach((res) => {
               if (res?.data) {
                 const h = res.data;
-                if (h.id) lookup.set(h.id, h);
-                if (h.name) lookup.set(h.name.toLowerCase().trim(), h);
+                if (h.id) enriched.set(h.id, h);
+                if (h.name) enriched.set(h.name.toLowerCase().trim(), h);
               }
             });
+            if (isMounted) {
+              setHotelsLookup(enriched);
+            }
           } catch {}
-        }
-
-        if (isMounted) {
-          setHotelsLookup(lookup);
         }
       } catch (err) {
         console.error('Failed to load package itinerary for PDF:', err);
@@ -501,8 +539,8 @@ export const ItineraryPdfView: React.FC = () => {
       : (company?.tagline || 'Journeys Beyond Ordinary'),
     subtitle: isB2B
       ? (pkg.b2bContactPerson ? `Authorized Travel Partner • Contact: ${pkg.b2bContactPerson}` : 'Authorized Travel Partner')
-      : (company?.tagline || 'Premium Tour Operator & Destination Specialist'),
-    logoUrl: isB2B ? (pkg.b2bAgencyLogo || null) : (effectiveLogoUrl || company?.logoUrl || null),
+      : ((company as any)?.subtitle || 'Premium Tour Operator & Destination Specialist'),
+    logoUrl: isB2B ? (pkg.b2bAgencyLogo || null) : (effectiveLogoUrl || company?.logoUrl || '/assets/ooting-binoculars.png'),
     phone: isB2B ? (pkg.b2bPhone || '') : (company?.phone || '+91 8884845595'),
     alternatePhone: isB2B ? (pkg.b2bAlternatePhone || '') : '',
     email: isB2B ? (pkg.b2bEmail || '') : (company?.email || 'support@ooting.in'),
@@ -631,16 +669,12 @@ export const ItineraryPdfView: React.FC = () => {
     ];
   })();
 
-  const dayChunks: ItineraryDay[][] = (() => {
-    if (itineraries.length === 0) return [[]];
-    const chunks: ItineraryDay[][] = [];
-    for (let i = 0; i < itineraries.length; i += 2) {
-      chunks.push(itineraries.slice(i, i + 2));
-    }
-    return chunks;
-  })();
-
-  const totalPages = 2 + Math.max(1, dayChunks.length) + 1;
+  // 1 Day Per Dedicated Page Architecture:
+  // Page 1: Official Cover Page
+  // Page 2: Tour Pricing & Hotel Matrix
+  // Pages 3 to (2 + N): Dedicated Day-by-Day Schedule Pages
+  // Final Page: Official Terms, Inclusions & Executive Closing Profile
+  const totalPages = 2 + Math.max(1, itineraries.length) + 1;
 
   const handleShareWhatsApp = async () => {
     if (!pkg) return;
@@ -887,7 +921,7 @@ export const ItineraryPdfView: React.FC = () => {
         {/* PAGE 1: OFFICIAL COVER PAGE (Branding, Hero Banner, Overview & Highlights) */}
         {/* ========================================================================= */}
         <div
-          className="pdf-page-cover flex flex-col justify-between bg-white text-slate-800"
+          className="pdf-page pdf-page-cover flex flex-col justify-between bg-white text-slate-800"
           style={{
             breakAfter: 'page',
             pageBreakAfter: 'always',
@@ -909,51 +943,43 @@ export const ItineraryPdfView: React.FC = () => {
             </div>
 
             {/* Letterhead Header Section */}
-            <div className="px-8 py-3.5 border-b border-slate-200">
+            <div className="px-8 py-3.5">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                {/* LEFT SIDE: Logo & Agency / Company Name & Tagline */}
+                {/* LEFT SIDE: Binoculars Logo & Agency Name & Single Tagline */}
                 <div className="flex items-center gap-3.5">
                   <div
                     className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
                     style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px', minHeight: '56px', maxHeight: '56px', overflow: 'hidden' }}
                   >
-                    {activeBranding.logoUrl ? (
-                      <img
-                        src={activeBranding.logoUrl}
-                        alt={activeBranding.agencyName}
-                        className="max-w-full max-h-full object-contain"
-                        style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          if (activeBranding.isB2B) {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          } else if (company?.isOoting) {
-                            (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
-                          } else {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full rounded-lg bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center font-black text-sm uppercase tracking-wider shadow-inner">
-                        {activeBranding.agencyName.slice(0, 2)}
-                      </div>
-                    )}
+                    <img
+                      src={activeBranding.logoUrl || "/assets/ooting-binoculars.png"}
+                      alt={activeBranding.agencyName}
+                      className="max-w-full max-h-full object-contain"
+                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/assets/ooting-binoculars.png';
+                      }}
+                    />
                   </div>
                   <div className="min-w-0">
                     <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
                       {activeBranding.agencyName}
                     </span>
-                    <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
-                      {activeBranding.tagline}
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-medium block">
-                      {activeBranding.subtitle}
-                    </span>
+                    {activeBranding.tagline && (
+                      <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                        {activeBranding.tagline}
+                      </span>
+                    )}
+                    {activeBranding.subtitle && activeBranding.subtitle.trim().toLowerCase() !== activeBranding.tagline?.trim().toLowerCase() && (
+                      <span className="text-[11px] text-slate-500 font-medium block">
+                        {activeBranding.subtitle}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: Dynamic Contact Details */}
+                {/* RIGHT SIDE: Dynamic Clickable Contact Details */}
                 <div className="flex justify-end ml-auto shrink-0">
                   <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[340px]">
                     {activeBranding.website && (
@@ -961,7 +987,14 @@ export const ItineraryPdfView: React.FC = () => {
                         <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                           <Globe className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                         </span>
-                        <span className="font-semibold text-slate-800 tracking-tight break-all text-xs">{activeBranding.website}</span>
+                        <a
+                          href={activeBranding.website.startsWith('http') ? activeBranding.website : `https://${activeBranding.website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-slate-800 hover:text-[#C91F28] tracking-tight break-all text-xs"
+                        >
+                          {activeBranding.website}
+                        </a>
                       </div>
                     )}
                     {activeBranding.email && (
@@ -969,7 +1002,12 @@ export const ItineraryPdfView: React.FC = () => {
                         <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                           <Mail className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                         </span>
-                        <span className="font-semibold text-slate-800 tracking-tight break-all text-xs">{activeBranding.email}</span>
+                        <a
+                          href={`mailto:${activeBranding.email}`}
+                          className="font-semibold text-slate-800 hover:text-[#C91F28] tracking-tight break-all text-xs"
+                        >
+                          {activeBranding.email}
+                        </a>
                       </div>
                     )}
                     {activeBranding.phone && (
@@ -977,10 +1015,13 @@ export const ItineraryPdfView: React.FC = () => {
                         <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
                           <Phone className="w-3.5 h-3.5" style={{ width: '14px', height: '14px' }} />
                         </span>
-                        <span className="font-semibold text-slate-800 tracking-tight text-xs">
+                        <a
+                          href={`tel:${(activeBranding.phone || '').replace(/[^0-9+]/g, '')}`}
+                          className="font-semibold text-slate-800 hover:text-[#C91F28] tracking-tight text-xs"
+                        >
                           {activeBranding.phone}
                           {activeBranding.alternatePhone && ` / ${activeBranding.alternatePhone}`}
-                        </span>
+                        </a>
                       </div>
                     )}
                     {activeBranding.gstin && activeBranding.gstin !== 'NULL' && activeBranding.gstin !== 'NIL' && activeBranding.gstin.trim() !== '' && (
@@ -1006,6 +1047,12 @@ export const ItineraryPdfView: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Header Red 2 Lines: One Thick and One Thin */}
+            <div className="w-full space-y-[1.5px] leading-none">
+              <div className="w-full h-[3px] bg-[#C91F28]" />
+              <div className="w-full h-[1px] bg-[#C91F28]/70" />
             </div>
 
             {/* Ooting-Style Cover Page Hero Image Banner */}
@@ -1164,7 +1211,7 @@ export const ItineraryPdfView: React.FC = () => {
         {/* PAGE 2: TOUR PRICING & HOTEL ACCOMMODATION MATRIX (WITH AMOUNTS)         */}
         {/* ========================================================================= */}
         <div
-          className="pdf-page-pricing flex flex-col justify-between bg-white text-slate-800"
+          className="pdf-page pdf-page-pricing flex flex-col justify-between bg-white text-slate-800"
           style={{
             breakAfter: 'page',
             pageBreakAfter: 'always',
@@ -1394,57 +1441,76 @@ export const ItineraryPdfView: React.FC = () => {
         </div>
 
         {/* ========================================================================= */}
-        {/* PAGE 3+: DETAILED DAY-BY-DAY TRAVEL SCHEDULE                             */}
+        {/* PAGE 3+: DETAILED DAY-BY-DAY TRAVEL SCHEDULE (1 DEDICATED PAGE PER DAY)   */}
         {/* ========================================================================= */}
-        {dayChunks.map((chunk, chunkIdx) => {
-          const currentPageNum = 3 + chunkIdx;
-          const firstDay = chunk[0]?.dayNumber || (chunkIdx * 2 + 1);
-          const lastDay = chunk[chunk.length - 1]?.dayNumber || (chunkIdx * 2 + chunk.length);
-          const chunkLabel = chunk.length <= 1
-            ? `Travel Schedule • Day ${firstDay}`
-            : `Travel Schedule • Days ${firstDay} - ${lastDay}`;
+        {itineraries.length === 0 ? (
+          <div
+            className="pdf-page pdf-page-schedule flex flex-col justify-between bg-white text-slate-800"
+            style={{
+              breakAfter: 'page',
+              pageBreakAfter: 'always',
+              minHeight: '1020px',
+            }}
+          >
+            <div>
+              <PdfPageHeader
+                branding={activeBranding}
+                packageName={pkg.packageName}
+                pageLabel="Travel Schedule • Day 1"
+              />
+              <div className="px-8 py-16 text-center text-slate-400 text-xs">
+                Detailed day-by-day travel schedule will be customized upon booking.
+              </div>
+            </div>
+            <PdfPageFooter
+              branding={activeBranding}
+              packageName={pkg.packageName}
+              pageNumber={3}
+              totalPages={totalPages}
+            />
+          </div>
+        ) : (
+          itineraries.map((day, dayIdx) => {
+            const currentPageNum = 3 + dayIdx;
+            const pageLabel = `Travel Schedule • Day ${day.dayNumber || dayIdx + 1}`;
+            const hotelPhotos = getHotelPhotos(day);
 
-          return (
-            <div
-              key={`schedule-page-${chunkIdx}`}
-              className="pdf-page-schedule flex flex-col justify-between bg-white text-slate-800"
-              style={{
-                breakAfter: 'page',
-                pageBreakAfter: 'always',
-                minHeight: '1020px',
-              }}
-            >
-              <div>
-                <PdfPageHeader
-                  branding={activeBranding}
-                  packageName={pkg.packageName}
-                  pageLabel={chunkLabel}
-                />
+            return (
+              <div
+                key={day.id || `schedule-page-${dayIdx}`}
+                className="pdf-page pdf-page-schedule flex flex-col justify-between bg-white text-slate-800"
+                style={{
+                  breakAfter: 'page',
+                  pageBreakAfter: 'always',
+                  minHeight: '1020px',
+                }}
+              >
+                <div>
+                  <PdfPageHeader
+                    branding={activeBranding}
+                    packageName={pkg.packageName}
+                    pageLabel={pageLabel}
+                  />
 
-                <div className="px-8 py-4 space-y-3.5">
-                  {chunkIdx === 0 && (
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
-                        <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#1E3A8A]">
-                          {t('detailed_travel_schedule', 'Detailed Day-by-Day Travel Schedule')}
-                        </h2>
+                  <div className="px-8 py-4 space-y-3">
+                    {dayIdx === 0 && (
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
+                          <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#1E3A8A]">
+                            {t('detailed_travel_schedule', 'Detailed Day-by-Day Travel Schedule')}
+                          </h2>
+                        </div>
+                        <span className="px-2.5 py-0.5 bg-red-50 text-[#C91F28] border border-red-200 rounded-full text-xs font-bold">
+                          {itineraries.length} {t('days_planned', 'Days Planned')}
+                        </span>
                       </div>
-                      <span className="px-2.5 py-0.5 bg-red-50 text-[#C91F28] border border-red-200 rounded-full text-xs font-bold">
-                        {itineraries.length} {t('days_planned', 'Days Planned')}
-                      </span>
-                    </div>
-                  )}
+                    )}
 
-                  <div className="space-y-3.5">
-                    {chunk.map((day, idx) => {
-              const hotelPhotos = getHotelPhotos(day);
-
-              return (
-                <div
-                  key={day.id || idx}
-                  className="itinerary-day-card border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white"
-                >
+                    <div
+                      key={day.id || dayIdx}
+                      className="itinerary-day-card border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white"
+                    >
                   {/* Day Header Bar */}
                   <div className="itinerary-day-header px-4 py-2 bg-slate-50/80 border-b border-slate-200">
                     {((day as any).date || day.startTime || day.endTime) ? (
@@ -1757,13 +1823,10 @@ export const ItineraryPdfView: React.FC = () => {
                     )}
                   </div>
                 </div>
-              );
-            })}
-                  </div>
-                </div>
               </div>
+            </div>
 
-              {/* Schedule Section Footer Bar */}
+            {/* Schedule Page Footer Bar */}
               <PdfPageFooter
                 branding={activeBranding}
                 packageName={pkg.packageName}
@@ -1772,17 +1835,20 @@ export const ItineraryPdfView: React.FC = () => {
               />
             </div>
           );
-        })}
+        })
+      )}
 
         {/* ========================================================================= */}
         {/* FINAL PAGE: TERMS, GUEST EXPERIENCES & EXECUTIVE THANK YOU                */}
         {/* ========================================================================= */}
         <div
-          className="pdf-page-closing flex flex-col justify-between bg-white text-slate-900"
+          className="pdf-page pdf-page-closing flex flex-col justify-between bg-white text-slate-900"
           style={{
             breakBefore: 'page',
             pageBreakBefore: 'always',
             minHeight: '1020px',
+            maxHeight: '1080px',
+            overflow: 'hidden',
           }}
         >
           <div>
@@ -1792,41 +1858,40 @@ export const ItineraryPdfView: React.FC = () => {
               pageLabel="Official Terms & Closing Profile"
             />
 
-            <div className="px-8 sm:px-12 py-6 max-w-4xl mx-auto w-full space-y-6">
+            <div className="px-8 py-3.5 max-w-4xl mx-auto w-full space-y-3">
               {/* Tour Terms, Inclusions & Exclusions */}
-              <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
-                  <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#1E3A8A]">
-                    {t('terms_conditions', 'Tour Terms, Inclusions & Exclusions')}
-                  </h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-3.5 bg-[#C91F28] rounded-full inline-block"></span>
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#1E3A8A]">
+                      {t('terms_conditions', 'Tour Terms, Inclusions & Exclusions')}
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wide">
+                    {language === 'kn' ? 'ಅಧಿಕೃತ ಪ್ರವಾಸದ ವ್ಯಾಪ್ತಿ' : 'Official Travel Scope'}
+                  </span>
                 </div>
-                <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide">
-                  {language === 'kn' ? 'ಅಧಿಕೃತ ಪ್ರವಾಸದ ವ್ಯಾಪ್ತಿ' : 'Official Travel Scope'}
-                </span>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                {/* Inclusions List */}
-                <div className="bg-emerald-50/50 p-4 sm:p-5 rounded-2xl border border-emerald-200 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
-                      <div className="flex items-center gap-2 font-bold text-sm text-[#1E3A8A]">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Inclusions List */}
+                  <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-200 shadow-2xs">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-emerald-200">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-[#1E3A8A]">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>{t('inclusions', 'Tour Inclusions')}</span>
                       </div>
-                      <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">
+                      <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">
                         {language === 'kn' ? 'ಪ್ಯಾಕೇಜ್‌ನಲ್ಲಿ ಒಳಗೊಂಡಿದೆ' : 'Included in Package'}
                       </span>
                     </div>
-                    <ul className="space-y-2 pt-2.5">
+                    <ul className="space-y-1.5 pt-2">
                       {parseBulletPoints(
                         pkg.inclusions ||
                           'Hotel accommodation in selected room category\nDaily breakfast at hotel restaurant\nPrivate dedicated AC vehicle for transfers and sightseeing\nDriver beta, toll charges, fuel, and parking fees\nAll applicable state taxes and GST'
-                      ).map((pt, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs sm:text-[13px] text-slate-800 leading-snug">
-                          <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                      ).slice(0, 4).map((pt, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-800 leading-snug">
+                          <span className="w-3.5 h-3.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
                             ✓
                           </span>
                           <span>{pt}</span>
@@ -1834,27 +1899,25 @@ export const ItineraryPdfView: React.FC = () => {
                       ))}
                     </ul>
                   </div>
-                </div>
 
-                {/* Exclusions List */}
-                <div className="bg-rose-50/50 p-4 sm:p-5 rounded-2xl border border-rose-200 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-rose-200">
-                      <div className="flex items-center gap-2 font-bold text-sm text-[#1E3A8A]">
-                        <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  {/* Exclusions List */}
+                  <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-200 shadow-2xs">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-rose-200">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-[#1E3A8A]">
+                        <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                         <span>{t('exclusions', 'Tour Exclusions')}</span>
                       </div>
-                      <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wide">
+                      <span className="text-[10px] font-semibold text-rose-700 uppercase tracking-wide">
                         {language === 'kn' ? 'ಒಳಗೊಂಡಿಲ್ಲ' : 'Not Included'}
                       </span>
                     </div>
-                    <ul className="space-y-2 pt-2.5">
+                    <ul className="space-y-1.5 pt-2">
                       {parseBulletPoints(
                         pkg.exclusions ||
                           'Airfare, train fare, or bus tickets to destination\nEntry monument tickets, safari, camera fees, or boat rides\nLunch, dinner, laundry, telephone calls, and room mini-bar\nTravel, baggage, or medical insurance\nAny tips or personal expenses not mentioned in inclusions'
-                      ).map((pt, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs sm:text-[13px] text-slate-800 leading-snug">
-                          <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                      ).slice(0, 4).map((pt, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-800 leading-snug">
+                          <span className="w-3.5 h-3.5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
                             ✕
                           </span>
                           <span>{pt}</span>
@@ -1864,7 +1927,6 @@ export const ItineraryPdfView: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </div>
 
             {/* Previous Trip Moments Photo Gallery */}
             {(() => {
@@ -1889,38 +1951,38 @@ export const ItineraryPdfView: React.FC = () => {
               }
 
               return (
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                    <div className="flex items-center gap-2">
-                      <Camera className="w-4 h-4 text-[#C91F28]" />
-                      <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#1E3A8A]">
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1">
+                    <div className="flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-[#C91F28]" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#1E3A8A]">
                         Moments Captured by Our Happy Travelers
                       </h3>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-500">
+                    <span className="text-[10px] font-semibold text-slate-500">
                       Real Guest Experiences
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {galleryPhotos.slice(0, 4).map((item, gIdx) => (
                       <div
                         key={gIdx}
-                        className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs group"
+                        className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs group"
                       >
                         <div
                           className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
-                          style={{ width: '100%', height: '110px', maxHeight: '110px', minHeight: '110px' }}
+                          style={{ width: '100%', height: '70px', maxHeight: '70px', minHeight: '70px' }}
                         >
                           <img
                             src={item.url}
                             alt={item.caption || 'Trip Photo'}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            style={{ width: '100%', height: '110px', maxHeight: '110px', objectFit: 'cover' }}
+                            style={{ width: '100%', height: '70px', maxHeight: '70px', objectFit: 'cover' }}
                             referrerPolicy="no-referrer"
                           />
                         </div>
-                        <div className="px-2 py-1 bg-slate-50 border-t border-slate-200 text-center text-[10px] font-bold text-slate-700 truncate">
+                        <div className="px-1.5 py-0.5 bg-slate-50 border-t border-slate-200 text-center text-[9px] font-bold text-slate-700 truncate">
                           {item.caption || 'Traveler Memory'}
                         </div>
                       </div>
@@ -1931,101 +1993,89 @@ export const ItineraryPdfView: React.FC = () => {
             })()}
 
             {/* Customer Rating & Testimonial Card */}
-            <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white rounded-2xl border border-blue-200/80 shadow-2xs space-y-2 text-left">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-2xs">
-                    <Star className="w-3.5 h-3.5 fill-current text-slate-950" />
+            <div className="p-3 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white rounded-xl border border-blue-200/80 shadow-2xs space-y-1 text-left">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black text-[11px] flex items-center gap-1 shadow-2xs">
+                    <Star className="w-3 h-3 fill-current text-slate-950" />
                     <span>{String(activeBranding.reviewRating || '4.9')} / 5.0</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-800">
+                  <span className="text-[11px] font-bold text-slate-800">
                     Rated by {activeBranding.reviewCount || '1,250+'} Happy Travelers
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 w-fit">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Verified 100% Authentic Feedback</span>
+                <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  <span>Verified Authentic Feedback</span>
                 </div>
               </div>
 
-              <blockquote className="text-xs sm:text-[13px] text-slate-700 italic leading-relaxed pt-1 flex items-start gap-2">
-                <Quote className="w-4 h-4 text-blue-400 shrink-0 mt-0.5 opacity-80" />
+              <blockquote className="text-[11px] text-slate-700 italic leading-snug pt-0.5 flex items-start gap-1.5">
+                <Quote className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5 opacity-80" />
                 <span>
                   "{activeBranding.reviewQuote || 'Our family trip with Ooting was completely breathtaking! Impeccable cabs, punctual chauffeurs, and handpicked luxury resorts.'}"
                 </span>
               </blockquote>
 
-              <div className="text-right text-[11px] font-bold text-[#1E3A8A]">
+              <div className="text-right text-[10px] font-bold text-[#1E3A8A]">
                 — {activeBranding.reviewAuthor || 'Rajesh & Family, Bangalore'}
               </div>
             </div>
 
-            {/* Thank You Card with Perfectly Centered Logo & Company Info */}
-            <div className="pt-2 text-center max-w-2xl mx-auto w-full flex flex-col items-center">
-              {/* Agency / Company Logo */}
-              <div className="mb-3 flex items-center justify-center w-full">
-                {activeBranding.logoUrl ? (
-                  <img
-                    src={activeBranding.logoUrl}
-                    alt={activeBranding.agencyName}
-                    className="h-16 sm:h-20 w-auto max-w-[220px] object-contain mx-auto drop-shadow-sm"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      if (activeBranding.isB2B) {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      } else if (company?.isOoting) {
-                        (e.target as HTMLImageElement).src = '/assets/ooting-logo.jpg';
-                      } else {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center font-black text-xl uppercase tracking-wider shadow-md mx-auto">
-                    {activeBranding.agencyName.slice(0, 2)}
-                  </div>
-                )}
+            {/* Thank You Card with Centered Binoculars Logo & Company Info */}
+            <div className="pt-1 text-center max-w-2xl mx-auto w-full flex flex-col items-center">
+              {/* Agency / Company Binoculars Logo */}
+              <div className="mb-1.5 flex items-center justify-center w-full">
+                <img
+                  src={activeBranding.logoUrl || "/assets/ooting-binoculars.png"}
+                  alt={activeBranding.agencyName}
+                  className="h-10 w-auto max-w-[140px] object-contain mx-auto drop-shadow-sm"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/assets/ooting-binoculars.png';
+                  }}
+                />
               </div>
 
               {/* Large Font THANK YOU */}
-              <h1 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-[#1E3A8A] leading-tight text-center">
+              <h1 className="text-xl font-extrabold uppercase tracking-tight text-[#1E3A8A] leading-tight text-center">
                 {language === 'kn' ? 'ಧನ್ಯವಾದಗಳು' : 'THANK YOU'}
               </h1>
 
               {/* Below One Line */}
-              <p className="text-xs sm:text-sm font-medium text-slate-600 italic mt-1.5 max-w-lg mx-auto text-center leading-relaxed">
+              <p className="text-[11px] font-medium text-slate-600 italic mt-0.5 max-w-md mx-auto text-center leading-snug">
                 {language === 'kn'
                   ? `${activeBranding.agencyName} ಅನ್ನು ಆಯ್ಕೆ ಮಾಡಿದ್ದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು — ನಿಮ್ಮ ಮುಂದಿನ ಸ್ಮರಣೀಯ ಪ್ರವಾಸವನ್ನು ಯೋಜಿಸಲು ನಾವು ಎದುರುನೋಡುತ್ತಿದ್ದೇವೆ.`
                   : `Thank you for choosing ${activeBranding.agencyName} — we look forward to curating your next unforgettable journey.`}
               </p>
 
               {/* Red Accent Divider */}
-              <div className="w-16 h-1 bg-[#C91F28] rounded-full mx-auto my-3"></div>
+              <div className="w-12 h-0.5 bg-[#C91F28] rounded-full mx-auto my-1.5"></div>
 
               {/* Professional Company Details Card with Clickable Links */}
-              <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 sm:p-6 text-left shadow-2xs space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-200 gap-2">
+              <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-left shadow-2xs space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-slate-200 gap-1.5">
                   <div>
-                    <h3 className="font-bold text-base sm:text-lg text-[#1E3A8A] uppercase tracking-tight">
+                    <h3 className="font-bold text-sm text-[#1E3A8A] uppercase tracking-tight">
                       {activeBranding.agencyName.toUpperCase()}
                     </h3>
-                    <span className="text-xs font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
+                    <span className="text-[10px] font-bold text-[#C91F28] uppercase tracking-wide block mt-0.5">
                       {activeBranding.tagline}
                     </span>
                   </div>
 
                   {/* Clickable Social Media Badges */}
-                  <div className="flex items-center gap-2 pt-1 sm:pt-0">
+                  <div className="flex items-center gap-2 pt-0.5 sm:pt-0">
                     {activeBranding.facebookUrl && (
                       <a
                         href={activeBranding.facebookUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2] text-[#1877F2] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                        className="w-7 h-7 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2] text-[#1877F2] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
                         title="Visit our Facebook Page"
                       >
-                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                           <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                         </svg>
                       </a>
@@ -2036,10 +2086,10 @@ export const ItineraryPdfView: React.FC = () => {
                         href={activeBranding.instagramUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-full bg-[#E4405F]/10 hover:bg-[#E4405F] text-[#E4405F] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                        className="w-7 h-7 rounded-full bg-[#E4405F]/10 hover:bg-[#E4405F] text-[#E4405F] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
                         title="Visit our Instagram"
                       >
-                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                           <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
                         </svg>
                       </a>
@@ -2050,10 +2100,10 @@ export const ItineraryPdfView: React.FC = () => {
                         href={activeBranding.youtubeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-full bg-[#FF0000]/10 hover:bg-[#FF0000] text-[#FF0000] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                        className="w-7 h-7 rounded-full bg-[#FF0000]/10 hover:bg-[#FF0000] text-[#FF0000] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
                         title="Visit our YouTube Channel"
                       >
-                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                           <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                         </svg>
                       </a>
@@ -2064,27 +2114,27 @@ export const ItineraryPdfView: React.FC = () => {
                         href={activeBranding.website.startsWith('http') ? activeBranding.website : `https://${activeBranding.website}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-full bg-blue-50 hover:bg-[#1E3A8A] text-[#1E3A8A] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                        className="w-7 h-7 rounded-full bg-blue-50 hover:bg-[#1E3A8A] text-[#1E3A8A] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
                         title="Visit Official Website"
                       >
-                        <Globe className="w-4 h-4" />
+                        <Globe className="w-3.5 h-3.5" />
                       </a>
                     )}
                   </div>
                 </div>
 
-                {/* Clean contact grid with Clickable Links */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                {/* Clean Contact Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   {/* Phone */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                      <Phone className="w-4 h-4" />
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                      <Phone className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Helpline / Contact</span>
+                      <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">Helpline / Contact</span>
                       <a
                         href={`tel:${(activeBranding.phone || '').replace(/[^0-9+]/g, '')}`}
-                        className="font-bold text-slate-900 text-xs sm:text-sm hover:text-[#C91F28] transition-colors"
+                        className="font-bold text-slate-900 text-xs hover:text-[#C91F28] transition-colors"
                       >
                         {activeBranding.phone || (!activeBranding.isB2B && company?.isOoting ? '+91 8884845595' : '')}
                         {activeBranding.alternatePhone && ` / ${activeBranding.alternatePhone}`}
@@ -2094,15 +2144,15 @@ export const ItineraryPdfView: React.FC = () => {
 
                   {/* Email */}
                   {(activeBranding.email || (!activeBranding.isB2B && company?.isOoting)) && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                        <Mail className="w-4 h-4" />
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <Mail className="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Email Support</span>
+                        <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">Email Support</span>
                         <a
                           href={`mailto:${activeBranding.email || (!activeBranding.isB2B && company?.isOoting ? 'support@ooting.in' : '')}`}
-                          className="font-bold text-slate-900 text-xs sm:text-sm break-all hover:text-[#C91F28] transition-colors"
+                          className="font-bold text-slate-900 text-xs break-all hover:text-[#C91F28] transition-colors"
                         >
                           {activeBranding.email || (!activeBranding.isB2B && company?.isOoting ? 'support@ooting.in' : '')}
                         </a>
@@ -2112,17 +2162,17 @@ export const ItineraryPdfView: React.FC = () => {
 
                   {/* Website */}
                   {(activeBranding.website || (!activeBranding.isB2B && company?.isOoting)) && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                        <Globe className="w-4 h-4" />
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <Globe className="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Official Website</span>
+                        <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">Official Website</span>
                         <a
                           href={activeBranding.website?.startsWith('http') ? activeBranding.website : `https://${activeBranding.website || 'www.ooting.in'}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-bold text-slate-900 text-xs sm:text-sm hover:text-[#C91F28] transition-colors"
+                          className="font-bold text-slate-900 text-xs hover:text-[#C91F28] transition-colors"
                         >
                           {activeBranding.website || (!activeBranding.isB2B && company?.isOoting ? 'www.ooting.in' : '')}
                         </a>
@@ -2132,13 +2182,13 @@ export const ItineraryPdfView: React.FC = () => {
 
                   {/* Registered Office with Clickable Google Maps Link */}
                   {(activeBranding.address || (!activeBranding.isB2B && company?.isOoting)) && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                        <MapPin className="w-4 h-4" />
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <MapPin className="w-3.5 h-3.5" />
                       </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registered Office</span>
-                        <div className="font-bold text-slate-800 text-xs leading-snug whitespace-pre-line">
+                      <div className="space-y-0.5">
+                        <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">Registered Office</span>
+                        <div className="font-bold text-slate-800 text-[11px] leading-tight">
                           {activeBranding.address || (!activeBranding.isB2B && company?.isOoting ? 'Ooting 3rd Cross, Malavagoppa, BH Road, Shivamogga, Karnataka, India' : '')}
                         </div>
                         {activeBranding.googleMapUrl && (
@@ -2146,10 +2196,10 @@ export const ItineraryPdfView: React.FC = () => {
                             href={activeBranding.googleMapUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200 transition-colors cursor-pointer"
                             title="Open office address in Google Maps"
                           >
-                            <MapPin className="w-3 h-3 text-emerald-600" />
+                            <MapPin className="w-2.5 h-2.5 text-emerald-600" />
                             <span>Navigate on Google Maps ↗</span>
                           </a>
                         )}
@@ -2160,11 +2210,11 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
 
               {/* Warm Signature Quote */}
-              <div className="mt-6 text-center space-y-1">
-                <div className="font-serif italic text-slate-700 text-xs sm:text-sm">
+              <div className="mt-2 text-center space-y-0.5">
+                <div className="font-serif italic text-slate-600 text-[11px]">
                   "Curating unforgettable experiences to cherish for a lifetime."
                 </div>
-                <div className="text-xs font-bold text-slate-800">
+                <div className="text-[11px] font-bold text-slate-800">
                   Warmest Regards, The Team at {activeBranding.signatureName}
                 </div>
               </div>
