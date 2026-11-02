@@ -320,10 +320,27 @@ export async function generateA4Pdf({
         allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
+        width: a4StandardPxWidth,
+        height: a4StandardPxHeight,
         windowWidth: a4StandardPxWidth,
+        windowHeight: a4StandardPxHeight,
         scrollY: 0,
         scrollX: 0,
         onclone: (clonedDoc) => {
+          clonedDoc.body.style.margin = '0';
+          clonedDoc.body.style.padding = '0';
+          clonedDoc.body.style.width = `${a4StandardPxWidth}px`;
+
+          const clonedContainer = clonedDoc.getElementById(elementId);
+          if (clonedContainer) {
+            clonedContainer.style.width = `${a4StandardPxWidth}px`;
+            clonedContainer.style.maxWidth = `${a4StandardPxWidth}px`;
+            clonedContainer.style.minWidth = `${a4StandardPxWidth}px`;
+            clonedContainer.style.margin = '0 auto';
+            clonedContainer.style.padding = '0';
+            clonedContainer.style.boxSizing = 'border-box';
+          }
+
           const clonedPage = clonedDoc.querySelectorAll<HTMLElement>('.pdf-page')[i];
           if (clonedPage) {
             clonedPage.style.width = `${a4StandardPxWidth}px`;
@@ -332,6 +349,8 @@ export async function generateA4Pdf({
             clonedPage.style.height = `${a4StandardPxHeight}px`;
             clonedPage.style.minHeight = `${a4StandardPxHeight}px`;
             clonedPage.style.maxHeight = `${a4StandardPxHeight}px`;
+            clonedPage.style.boxSizing = 'border-box';
+            clonedPage.style.margin = '0 auto';
             clonedPage.style.overflow = 'hidden';
             fixSvgAndStyles(clonedDoc, clonedPage);
           }
@@ -361,6 +380,27 @@ export async function generateA4Pdf({
             const hMm = linkRect.height * scaleY;
             if (xMm >= 0 && yMm >= 0 && xMm + wMm <= pageWidth + 5 && yMm + hMm <= pageHeight + 5) {
               pdf.link(xMm, yMm, wMm, hMm, { url: href });
+
+              // Normalize PDF Annotation /Rect coordinates (ISO 32000-1 requirement: llx < urx, lly < ury)
+              const pageInfo = (pdf as any).internal.getCurrentPageInfo();
+              const annots = pageInfo.pageContext.annotations;
+              const ann = annots[annots.length - 1];
+              if (ann && ann.finalBounds) {
+                const y1 = parseFloat(ann.finalBounds.y);
+                const y2 = parseFloat(ann.finalBounds.h);
+                if (y1 > y2) {
+                  const temp = ann.finalBounds.y;
+                  ann.finalBounds.y = ann.finalBounds.h;
+                  ann.finalBounds.h = temp;
+                }
+                const x1 = parseFloat(ann.finalBounds.x);
+                const x2 = parseFloat(ann.finalBounds.w);
+                if (x1 > x2) {
+                  const temp = ann.finalBounds.x;
+                  ann.finalBounds.x = ann.finalBounds.w;
+                  ann.finalBounds.w = temp;
+                }
+              }
             }
           }
         });
@@ -435,6 +475,27 @@ export async function generateA4Pdf({
             const wMm = linkRect.width * scaleX;
             const hMm = linkRect.height * scaleY;
             pdf.link(xMm, yMm, wMm, hMm, { url: href });
+
+            // Normalize PDF Annotation /Rect coordinates (ISO 32000-1 requirement: llx < urx, lly < ury)
+            const pageInfo = (pdf as any).internal.getCurrentPageInfo();
+            const annots = pageInfo.pageContext.annotations;
+            const ann = annots[annots.length - 1];
+            if (ann && ann.finalBounds) {
+              const y1 = parseFloat(ann.finalBounds.y);
+              const y2 = parseFloat(ann.finalBounds.h);
+              if (y1 > y2) {
+                const temp = ann.finalBounds.y;
+                ann.finalBounds.y = ann.finalBounds.h;
+                ann.finalBounds.h = temp;
+              }
+              const x1 = parseFloat(ann.finalBounds.x);
+              const x2 = parseFloat(ann.finalBounds.w);
+              if (x1 > x2) {
+                const temp = ann.finalBounds.x;
+                ann.finalBounds.x = ann.finalBounds.w;
+                ann.finalBounds.w = temp;
+              }
+            }
           }
         });
       } catch (linkErr) {

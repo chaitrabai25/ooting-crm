@@ -192,12 +192,13 @@ const renderColoredDayTitle = (rawTitle: string) => {
 export const PdfPageHeader: React.FC<{
   branding: any;
   packageName: string;
-  pageLabel: string;
-}> = ({ branding, packageName, pageLabel }) => (
+  pageLabel?: string;
+}> = ({ branding, packageName }) => (
   <div className="pdf-page-header bg-white shrink-0">
-    <div className="px-8 py-2.5 bg-slate-50/90 flex items-center justify-between text-xs text-slate-600">
+    <div className="px-6 py-2.5 bg-slate-50/90 flex items-center justify-between text-xs text-slate-600">
+      {/* Top Left: Official Binoculars Logo & Agency Name */}
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="w-7 h-7 flex items-center justify-center shrink-0">
+        <div className="w-6 h-6 flex items-center justify-center shrink-0">
           <img
             src={branding.isB2B && branding.logoUrl ? branding.logoUrl : "/assets/ooting-binoculars.png"}
             alt={branding.agencyName || 'Ooting'}
@@ -210,13 +211,13 @@ export const PdfPageHeader: React.FC<{
         <span className="font-extrabold uppercase tracking-tight text-slate-900 text-xs shrink-0">
           {branding.agencyName}
         </span>
-        <span className="text-slate-300 shrink-0">|</span>
-        <span className="text-[#1E3A8A] font-semibold truncate max-w-[340px]">
+      </div>
+
+      {/* Top Right: Package Name (Clean & prominent, replaces Travel Schedule label) */}
+      <div className="text-right min-w-0 pl-3">
+        <span className="text-[#1E3A8A] font-bold text-xs truncate max-w-[440px] block">
           {packageName}
         </span>
-      </div>
-      <div className="flex items-center gap-2 text-[10.5px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
-        <span>{pageLabel}</span>
       </div>
     </div>
     {/* Header Red 2 lines: One thick and one thin line */}
@@ -229,46 +230,62 @@ export const PdfPageHeader: React.FC<{
 
 export const PdfPageFooter: React.FC<{
   branding: any;
-  packageName: string;
+  packageName?: string;
   pageNumber: number;
   totalPages?: number;
   totalLabel?: string;
-}> = ({ branding, packageName, pageNumber, totalPages, totalLabel }) => (
+}> = ({ branding, pageNumber, totalPages, totalLabel }) => (
   <div className="pdf-page-footer bg-white shrink-0 mt-auto">
     {/* Footer Red 2 lines: One thin and one thick line */}
     <div className="w-full space-y-[1.5px] leading-none">
       <div className="w-full h-[1px] bg-[#C91F28]/70" />
       <div className="w-full h-[3px] bg-[#C91F28]" />
     </div>
-    <div className="px-8 py-2 bg-slate-50/90 flex items-center justify-between text-[10.5px] text-slate-500">
-      <div className="flex items-center gap-3">
-        <span className="font-bold text-slate-800 uppercase tracking-wider">
+    <div className="px-6 py-2 bg-slate-50/90 flex items-center justify-between text-[10.5px] text-slate-600">
+      {/* Left: Mini Binoculars Logo & Agency Name */}
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="w-4 h-4 flex items-center justify-center shrink-0">
+          <img
+            src="/assets/ooting-binoculars.png"
+            alt=""
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <span className="font-extrabold text-slate-800 uppercase tracking-wider text-[10.5px]">
           {branding.agencyName}
         </span>
+      </div>
+
+      {/* Center: Contact Number & Website with Clickable Hyperlinks */}
+      <div className="flex items-center justify-center gap-3.5 text-[10.5px] font-semibold text-slate-700">
         {branding.phone && (
           <a
             href={`tel:${(branding.phone || '').replace(/[^0-9+]/g, '')}`}
-            className="text-slate-600 hover:text-[#C91F28] hidden sm:inline"
+            className="inline-flex items-center gap-1.5 text-slate-700 hover:text-[#C91F28] transition-colors"
           >
-            📞 {branding.phone}
+            <Phone className="w-3.5 h-3.5 text-[#C91F28]" />
+            <span>{branding.phone}</span>
           </a>
+        )}
+        {branding.phone && branding.website && (
+          <span className="text-slate-300 select-none">•</span>
         )}
         {branding.website && (
           <a
             href={branding.website.startsWith('http') ? branding.website : `https://${branding.website}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-slate-600 hover:text-[#C91F28] hidden sm:inline"
+            className="inline-flex items-center gap-1.5 text-slate-700 hover:text-[#C91F28] transition-colors"
           >
-            🌐 {branding.website}
+            <Globe className="w-3.5 h-3.5 text-[#C91F28]" />
+            <span>{branding.website.replace(/^https?:\/\//, '')}</span>
           </a>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-slate-400 truncate max-w-[220px] hidden md:inline">
-          {packageName}
-        </span>
-        <span className="px-2.5 py-0.5 rounded-full bg-slate-200/90 font-black text-slate-700 text-[10px]">
+
+      {/* Right: Page Number with Safe Padding */}
+      <div className="shrink-0 text-right">
+        <span className="font-bold text-slate-700 text-[10.5px]">
           Page {pageNumber}{totalPages ? ` of ${totalPages}` : (totalLabel ? ` • ${totalLabel}` : '')}
         </span>
       </div>
@@ -844,91 +861,103 @@ export const ItineraryPdfView: React.FC = () => {
       </div>
 
       {/* Main A4 Printable Document Paper */}
-      <div
-        id="itinerary-document"
-        lang={language}
-        className={`max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:max-w-full text-slate-800 font-sans antialiased print:m-0 ${
-          language === 'kn' ? 'kannada-newspaper-text' : ''
-        }`}
-        style={{
-          fontFamily: language === 'kn'
-            ? "'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif"
-            : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        }}
-      >
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Noto+Sans+Kannada:wght@400;500;600;700;800;900&family=Noto+Serif+Kannada:wght@400;500;600;700;800;900&display=swap');
-          #itinerary-document {
-            font-family: 'Inter', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-          }
-          #itinerary-document h1,
-          #itinerary-document h2,
-          #itinerary-document h3,
-          #itinerary-document h4,
-          #itinerary-document h5,
-          #itinerary-document h6,
-          #itinerary-document .font-heading,
-          #itinerary-document .font-display,
-          #itinerary-document [class*="font-heading"] {
-            font-family: 'Plus Jakarta Sans', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-          }
-          #itinerary-document p,
-          #itinerary-document span,
-          #itinerary-document td,
-          #itinerary-document th,
-          #itinerary-document li {
-            font-family: 'Inter', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          }
-
-          /* Authentic Kannada Newspaper Typography (Vijaya Karnataka / Kannada Prabha style) */
-          #itinerary-document[lang="kn"],
-          #itinerary-document.kannada-newspaper-text,
-          .kannada-newspaper-text {
-            font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
-            letter-spacing: normal !important;
-            word-spacing: normal !important;
-          }
-          #itinerary-document[lang="kn"] h1,
-          #itinerary-document[lang="kn"] h2,
-          #itinerary-document[lang="kn"] h3,
-          #itinerary-document[lang="kn"] h4,
-          .kannada-newspaper-text h1,
-          .kannada-newspaper-text h2,
-          .kannada-newspaper-text h3,
-          .kannada-newspaper-text h4 {
-            font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
-            font-weight: 700 !important;
-            line-height: 1.45 !important;
-            letter-spacing: normal !important;
-            word-spacing: normal !important;
-          }
-          #itinerary-document[lang="kn"] p,
-          #itinerary-document[lang="kn"] span,
-          #itinerary-document[lang="kn"] li,
-          #itinerary-document[lang="kn"] td,
-          .kannada-newspaper-text p,
-          .kannada-newspaper-text span,
-          .kannada-newspaper-text li,
-          .kannada-newspaper-text td {
-            font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
-            line-height: 1.65 !important;
-            letter-spacing: normal !important;
-            word-spacing: normal !important;
-          }
-        `}</style>
-        
-        {/* ========================================================================= */}
-        {/* PAGE 1: OFFICIAL COVER PAGE (Branding, Hero Banner, Overview & Highlights) */}
-        {/* ========================================================================= */}
+      <div className="w-full flex justify-center overflow-x-auto pb-8 print:p-0 print:overflow-visible">
         <div
-          className="pdf-page pdf-page-cover flex flex-col justify-between bg-white text-slate-800"
+          id="itinerary-document"
+          lang={language}
+          className={`w-[794px] max-w-[794px] min-w-[794px] bg-white rounded-2xl shadow-xl overflow-hidden print:shadow-none print:rounded-none print:w-full print:max-w-full print:min-w-0 text-slate-800 font-sans antialiased print:m-0 shrink-0 ${
+            language === 'kn' ? 'kannada-newspaper-text' : ''
+          }`}
           style={{
-            breakAfter: 'page',
-            pageBreakAfter: 'always',
-            minHeight: '1020px',
+            width: '794px',
+            maxWidth: '794px',
+            minWidth: '794px',
+            boxSizing: 'border-box',
+            fontFamily: language === 'kn'
+              ? "'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif"
+              : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
           }}
         >
-          <div>
+          <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Noto+Sans+Kannada:wght@400;500;600;700;800;900&family=Noto+Serif+Kannada:wght@400;500;600;700;800;900&display=swap');
+            #itinerary-document {
+              font-family: 'Inter', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            }
+            #itinerary-document h1,
+            #itinerary-document h2,
+            #itinerary-document h3,
+            #itinerary-document h4,
+            #itinerary-document h5,
+            #itinerary-document h6,
+            #itinerary-document .font-heading,
+            #itinerary-document .font-display,
+            #itinerary-document [class*="font-heading"] {
+              font-family: 'Plus Jakarta Sans', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            }
+            #itinerary-document p,
+            #itinerary-document span,
+            #itinerary-document td,
+            #itinerary-document th,
+            #itinerary-document li {
+              font-family: 'Inter', 'Noto Sans Kannada', 'Noto Serif Kannada', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+
+            /* Authentic Kannada Newspaper Typography (Vijaya Karnataka / Kannada Prabha style) */
+            #itinerary-document[lang="kn"],
+            #itinerary-document.kannada-newspaper-text,
+            .kannada-newspaper-text {
+              font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
+              letter-spacing: normal !important;
+              word-spacing: normal !important;
+            }
+            #itinerary-document[lang="kn"] h1,
+            #itinerary-document[lang="kn"] h2,
+            #itinerary-document[lang="kn"] h3,
+            #itinerary-document[lang="kn"] h4,
+            .kannada-newspaper-text h1,
+            .kannada-newspaper-text h2,
+            .kannada-newspaper-text h3,
+            .kannada-newspaper-text h4 {
+              font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
+              font-weight: 700 !important;
+              line-height: 1.45 !important;
+              letter-spacing: normal !important;
+              word-spacing: normal !important;
+            }
+            #itinerary-document[lang="kn"] p,
+            #itinerary-document[lang="kn"] span,
+            #itinerary-document[lang="kn"] li,
+            #itinerary-document[lang="kn"] td,
+            .kannada-newspaper-text p,
+            .kannada-newspaper-text span,
+            .kannada-newspaper-text li,
+            .kannada-newspaper-text td {
+              font-family: 'Noto Sans Kannada', 'Noto Serif Kannada', system-ui, serif !important;
+              line-height: 1.65 !important;
+              letter-spacing: normal !important;
+              word-spacing: normal !important;
+            }
+          `}</style>
+          
+          {/* ========================================================================= */}
+          {/* PAGE 1: OFFICIAL COVER PAGE (Branding, Hero Banner, Overview & Highlights) */}
+          {/* ========================================================================= */}
+          <div
+            className="pdf-page pdf-page-cover flex flex-col justify-between bg-white text-slate-800"
+            style={{
+              width: '794px',
+              maxWidth: '794px',
+              minWidth: '794px',
+              height: '1123px',
+              minHeight: '1123px',
+              maxHeight: '1123px',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
+              breakAfter: 'page',
+              pageBreakAfter: 'always',
+            }}
+          >
+            <div>
             {/* Top Header Wave Asset */}
             <div
               className="w-full bg-[#C91F28] overflow-hidden relative shrink-0"
@@ -943,13 +972,13 @@ export const ItineraryPdfView: React.FC = () => {
             </div>
 
             {/* Letterhead Header Section */}
-            <div className="px-8 py-3.5">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="px-6 py-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 {/* LEFT SIDE: Binoculars Logo & Agency Name & Single Tagline */}
-                <div className="flex items-center gap-3.5">
+                <div className="flex items-center gap-3">
                   <div
-                    className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
-                    style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px', minHeight: '56px', maxHeight: '56px', overflow: 'hidden' }}
+                    className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-white p-1 border border-slate-200 shadow-2xs shrink-0"
+                    style={{ width: '48px', height: '48px', minWidth: '48px', maxWidth: '48px', minHeight: '48px', maxHeight: '48px', overflow: 'hidden' }}
                   >
                     <img
                       src={activeBranding.logoUrl || "/assets/ooting-binoculars.png"}
@@ -963,7 +992,7 @@ export const ItineraryPdfView: React.FC = () => {
                     />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight uppercase">
+                    <span className="text-lg font-black tracking-tight text-slate-900 block leading-tight uppercase">
                       {activeBranding.agencyName}
                     </span>
                     {activeBranding.tagline && (
@@ -972,7 +1001,7 @@ export const ItineraryPdfView: React.FC = () => {
                       </span>
                     )}
                     {activeBranding.subtitle && activeBranding.subtitle.trim().toLowerCase() !== activeBranding.tagline?.trim().toLowerCase() && (
-                      <span className="text-[11px] text-slate-500 font-medium block">
+                      <span className="text-[10.5px] text-slate-500 font-medium block">
                         {activeBranding.subtitle}
                       </span>
                     )}
@@ -981,7 +1010,7 @@ export const ItineraryPdfView: React.FC = () => {
 
                 {/* RIGHT SIDE: Dynamic Clickable Contact Details */}
                 <div className="flex justify-end ml-auto shrink-0">
-                  <div className="w-fit ml-auto flex flex-col space-y-1.5 text-xs text-slate-700 max-w-[340px]">
+                  <div className="w-fit ml-auto flex flex-col space-y-1 text-xs text-slate-700 max-w-[320px]">
                     {activeBranding.website && (
                       <div className="flex items-center gap-2">
                         <span className="w-4 h-4 mr-2 flex items-center justify-center shrink-0 text-[#C91F28]">
@@ -1079,82 +1108,82 @@ export const ItineraryPdfView: React.FC = () => {
                 </div>
 
                 {/* Bottom Title & Subtitle Info */}
-                <div className="absolute bottom-4 left-6 right-6 sm:left-8 sm:right-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 text-white">
-                  <div className="max-w-2xl">
-                    <span className="text-xs font-black uppercase tracking-widest text-amber-300 drop-shadow-sm block mb-1">
+                <div className="absolute bottom-3 left-5 right-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 text-white">
+                  <div className="max-w-2xl min-w-0">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-amber-300 drop-shadow-sm block mb-1">
                       OFFICIAL TOUR ITINERARY & VACATION PROPOSAL
                     </span>
-                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-md">
+                    <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight drop-shadow-md">
                       {pkg.packageName}
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-200 font-medium mt-1 drop-shadow-sm flex items-center gap-2">
+                    <p className="text-xs text-slate-200 font-medium mt-1 drop-shadow-sm flex items-center gap-2">
                       <span>{customData.theme || `${pkg.destination} Scenic Holiday & Curated Tour`}</span>
                       <span>•</span>
                       <span className="text-amber-200 font-semibold">{itineraries.length} Days Planned</span>
                     </p>
                   </div>
 
-                  <div className="sm:text-right shrink-0 bg-black/50 backdrop-blur-xs p-3 rounded-xl border border-white/25">
-                    <span className="text-[10px] text-slate-300 uppercase tracking-wider font-bold block">
+                  <div className="sm:text-right shrink-0 bg-black/60 backdrop-blur-xs px-3 py-2 rounded-xl border border-white/25">
+                    <span className="text-[9.5px] text-slate-300 uppercase tracking-wider font-bold block">
                       {t('starting_price', 'Starting From')}
                     </span>
-                    <span className="text-xl sm:text-2xl font-black text-amber-400 block">
+                    <span className="text-lg sm:text-xl font-black text-amber-400 block">
                       ₹{Number(pkg.price).toLocaleString('en-IN')}
                     </span>
-                    <span className="text-[10px] text-slate-300 font-medium block">Per Person (All Inclusive)</span>
+                    <span className="text-[9.5px] text-slate-300 font-medium block">Per Person (All Inclusive)</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Vacation at a Glance & Quick Snapshot Box */}
-            <div className="px-8 py-3.5 bg-slate-50/80 border-b border-slate-200 space-y-3">
+            <div className="px-6 py-2.5 bg-slate-50/80 border-b border-slate-200 space-y-2.5">
               {/* Quick Badges Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <div className="w-8 h-8 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
-                    <MapPin className="w-4 h-4" />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-red-50 text-[#C91F28] flex items-center justify-center shrink-0">
+                    <MapPin className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Destinations</span>
-                    <span className="font-bold text-xs text-slate-900 truncate block">{pkg.destination}</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Destinations</span>
+                    <span className="font-bold text-[11px] text-slate-900 truncate block">{pkg.destination}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1E3A8A] flex items-center justify-center shrink-0">
-                    <Clock className="w-4 h-4" />
+                <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#1E3A8A] flex items-center justify-center shrink-0">
+                    <Clock className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Duration</span>
-                    <span className="font-bold text-xs text-slate-900 truncate block">{pkg.duration}</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Duration</span>
+                    <span className="font-bold text-[11px] text-slate-900 truncate block">{pkg.duration}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-                    <Car className="w-4 h-4" />
+                <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                    <Car className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Private Vehicle</span>
-                    <span className="font-bold text-xs text-slate-900 truncate block">Dedicated AC Cab</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Private Vehicle</span>
+                    <span className="font-bold text-[11px] text-slate-900 truncate block">Dedicated AC Cab</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                    <Coffee className="w-4 h-4" />
+                <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                    <Coffee className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Meal Plan</span>
-                    <span className="font-bold text-xs text-slate-900 truncate block">Daily Buffet Breakfast</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Meal Plan</span>
+                    <span className="font-bold text-[11px] text-slate-900 truncate block">Daily Buffet Breakfast</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Overview & Truncated Description (Word limit: max 55 words so it stays on Page 1) */}
-            <div className="px-8 py-3.5 space-y-3">
+            <div className="px-6 py-2.5 space-y-2.5">
               <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="w-1.5 h-3.5 bg-[#C91F28] rounded-full inline-block"></span>
@@ -1213,53 +1242,59 @@ export const ItineraryPdfView: React.FC = () => {
         <div
           className="pdf-page pdf-page-pricing flex flex-col justify-between bg-white text-slate-800"
           style={{
+            width: '794px',
+            maxWidth: '794px',
+            minWidth: '794px',
+            height: '1123px',
+            minHeight: '1123px',
+            maxHeight: '1123px',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
             breakAfter: 'page',
             pageBreakAfter: 'always',
-            minHeight: '1020px',
           }}
         >
           <div>
             <PdfPageHeader
               branding={activeBranding}
               packageName={pkg.packageName}
-              pageLabel="Tour Pricing & Hotel Plans"
             />
 
-            <div className="px-8 py-5 space-y-4">
+            <div className="px-6 py-3.5 space-y-3">
               {/* Ooting Multi-Pax Tiered Pricing Matrix */}
               <div className="itinerary-pricing-matrix border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white space-y-0">
-                <div className="px-5 py-3 bg-gradient-to-r from-[#1E3A8A] via-blue-900 to-[#1E3A8A] text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="px-4 py-2.5 bg-gradient-to-r from-[#1E3A8A] via-blue-900 to-[#1E3A8A] text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-4 bg-amber-400 rounded-full inline-block" />
                     <div>
-                      <h3 className="font-extrabold text-sm sm:text-base uppercase tracking-tight text-white">
+                      <h3 className="font-extrabold text-xs sm:text-sm uppercase tracking-tight text-white">
                         Executive Tour Cost & Tiered Pricing Matrix
                       </h3>
-                      <p className="text-[10.5px] text-blue-200">
+                      <p className="text-[10px] text-blue-200">
                         Per Person Rates in Indian Rupees (INR) based on Pax Count & Hotel Star Plan
                       </p>
                     </div>
                   </div>
-                  <span className="px-3 py-1 bg-white/15 text-amber-300 border border-white/20 rounded-full text-xs font-bold uppercase tracking-wider w-fit">
+                  <span className="px-2.5 py-0.5 bg-white/15 text-amber-300 border border-white/20 rounded-full text-[11px] font-bold uppercase tracking-wider w-fit">
                     Ooting Executive Model
                   </span>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
+                  <table className="w-full text-left border-collapse text-xs table-fixed">
                     <thead>
-                      <tr className="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider text-[10.5px] border-b border-slate-200">
-                        <th className="p-2.5 border-r border-slate-200 w-36">Pax & Vehicle</th>
-                        <th className="p-2 border-r border-slate-200 text-center bg-blue-50/60 text-[#1E3A8A]">
+                      <tr className="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                        <th className="p-2 border-r border-slate-200 w-[24%]">Pax & Vehicle</th>
+                        <th className="p-1.5 border-r border-slate-200 text-center bg-blue-50/60 text-[#1E3A8A] w-[19%]">
                           Budget (3★)
                         </th>
-                        <th className="p-2 border-r border-slate-200 text-center bg-slate-50 text-slate-700">
+                        <th className="p-1.5 border-r border-slate-200 text-center bg-slate-50 text-slate-700 w-[19%]">
                           Standard Plan
                         </th>
-                        <th className="p-2 border-r border-slate-200 text-center bg-amber-50/60 text-amber-900">
+                        <th className="p-1.5 border-r border-slate-200 text-center bg-amber-50/60 text-amber-900 w-[19%]">
                           Deluxe (4★ Premium)
                         </th>
-                        <th className="p-2 text-center bg-rose-50/60 text-[#C91F28]">
+                        <th className="p-1.5 text-center bg-rose-50/60 text-[#C91F28] w-[19%]">
                           Luxury (5★ Heritage)
                         </th>
                       </tr>
@@ -1270,12 +1305,12 @@ export const ItineraryPdfView: React.FC = () => {
                           key={tIdx}
                           className={tIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}
                         >
-                          <td className="p-2.5 border-r border-slate-200 font-bold text-slate-900 bg-slate-50/30">
-                            <div className="flex items-center gap-1.5 text-xs text-[#1E3A8A] font-black">
+                          <td className="p-2 border-r border-slate-200 font-bold text-slate-900 bg-slate-50/30">
+                            <div className="flex items-center gap-1.5 text-[11px] text-[#1E3A8A] font-black">
                               <Users className="w-3.5 h-3.5 text-[#C91F28]" />
                               <span>{tier.paxCount}</span>
                             </div>
-                            <div className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold mt-0.5">
+                            <div className="flex items-center gap-1 text-[9.5px] text-slate-500 font-semibold mt-0.5">
                               <Car className="w-3 h-3 text-slate-400" />
                               <span className="truncate">{tier.vehicle}</span>
                             </div>
@@ -1286,29 +1321,29 @@ export const ItineraryPdfView: React.FC = () => {
                             return (
                               <td
                                 key={planKey}
-                                className="p-2 border-r border-slate-200 text-[10.5px] align-top"
+                                className="p-1.5 border-r border-slate-200 text-[10.5px] align-top"
                               >
                                 <div className="space-y-0.5">
                                   <div className="flex items-center justify-between text-slate-900 font-bold">
-                                    <span className="text-[10px] text-slate-500 font-normal">Double:</span>
-                                    <span className="text-[#1E3A8A] font-bold">
+                                    <span className="text-[9px] text-slate-500 font-normal">Double:</span>
+                                    <span className="text-[#1E3A8A] font-bold text-[10px]">
                                       ₹{Number(pData.doubleSharing || 0).toLocaleString('en-IN')}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between text-slate-700">
-                                    <span className="text-[10px] text-slate-400 font-normal">Triple:</span>
-                                    <span>
+                                    <span className="text-[9px] text-slate-400 font-normal">Triple:</span>
+                                    <span className="text-[10px]">
                                       ₹{Number(pData.tripleSharing || 0).toLocaleString('en-IN')}
                                     </span>
                                   </div>
                                   {pData.cwb ? (
-                                    <div className="flex items-center justify-between text-slate-500 text-[9.5px]">
+                                    <div className="flex items-center justify-between text-slate-500 text-[8.5px]">
                                       <span>CWB:</span>
                                       <span>₹{Number(pData.cwb).toLocaleString('en-IN')}</span>
                                     </div>
                                   ) : null}
                                   {pData.cnb ? (
-                                    <div className="flex items-center justify-between text-slate-500 text-[9.5px]">
+                                    <div className="flex items-center justify-between text-slate-500 text-[8.5px]">
                                       <span>CNB:</span>
                                       <span>₹{Number(pData.cnb).toLocaleString('en-IN')}</span>
                                     </div>
@@ -1323,59 +1358,59 @@ export const ItineraryPdfView: React.FC = () => {
                   </table>
                 </div>
 
-                <div className="p-3 bg-slate-50 border-t border-slate-200 text-[10.5px] text-slate-600 space-y-1">
+                <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[10px] text-slate-600 space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900">Cost Inclusions & Terms:</span>
                     <span>All rates quoted per person in Indian Rupees (INR) on twin/triple sharing.</span>
                   </div>
-                  <div className="text-slate-500">
+                  <div className="text-slate-500 text-[9.5px]">
                     * CWB: Child With Bed (5-11 yrs) • CNB: Child No Bed (2-5 yrs) • GST 5% extra on invoice • Chauffeur allowance, fuel, toll tax, interstate entry permit & parking included.
                   </div>
                 </div>
               </div>
 
               {/* Hotel Accommodation Plans by Category & Rates Table WITH AMOUNTS */}
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2.5">
+              <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-1 gap-1">
                   <div className="flex items-center gap-2">
                     <span className="w-1.5 h-4 bg-[#1E3A8A] rounded-full inline-block"></span>
-                    <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-[#1E3A8A]">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1E3A8A]">
                       Hotel Accommodation Plans by Category & Rates
                     </h3>
                   </div>
-                  <span className="text-[10.5px] font-semibold text-slate-500">
+                  <span className="text-[10px] font-semibold text-slate-500">
                     Rooms subject to availability at confirmation
                   </span>
                 </div>
 
                 {effectiveHotelOptions.length > 0 ? (
                   <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                    <table className="w-full text-left border-collapse text-[11px]">
+                    <table className="w-full text-left border-collapse text-[10px] table-fixed">
                       <thead>
-                        <tr className="bg-[#1E3A8A] text-white font-bold uppercase tracking-wider">
-                          <th className="p-2.5 border-r border-blue-900 w-28">City / Destination</th>
-                          <th className="p-2 border-r border-blue-900 text-center w-14">Nights</th>
-                          <th className="p-2 border-r border-blue-900">
-                            <div>Budget Friendly (3★)</div>
-                            <div className="text-[10px] text-amber-300 font-bold font-sans">
+                        <tr className="bg-[#1E3A8A] text-white font-bold uppercase tracking-wider text-[9.5px]">
+                          <th className="p-2 border-r border-blue-900 w-[20%]">City / Destination</th>
+                          <th className="p-1.5 border-r border-blue-900 text-center w-[8%]">Nights</th>
+                          <th className="p-1.5 border-r border-blue-900 w-[18%]">
+                            <div>Budget (3★)</div>
+                            <div className="text-[9px] text-amber-300 font-bold font-sans">
                               From ₹{samplePricing.budget.toLocaleString('en-IN')}/pax
                             </div>
                           </th>
-                          <th className="p-2 border-r border-blue-900">
+                          <th className="p-1.5 border-r border-blue-900 w-[18%]">
                             <div>Standard Plan</div>
-                            <div className="text-[10px] text-blue-200 font-bold font-sans">
+                            <div className="text-[9px] text-blue-200 font-bold font-sans">
                               From ₹{samplePricing.standard.toLocaleString('en-IN')}/pax
                             </div>
                           </th>
-                          <th className="p-2 border-r border-blue-900">
+                          <th className="p-1.5 border-r border-blue-900 w-[18%]">
                             <div>Deluxe (4★ Premium)</div>
-                            <div className="text-[10px] text-amber-300 font-bold font-sans">
+                            <div className="text-[9px] text-amber-300 font-bold font-sans">
                               From ₹{samplePricing.deluxe.toLocaleString('en-IN')}/pax
                             </div>
                           </th>
-                          <th className="p-2">
+                          <th className="p-1.5 w-[18%]">
                             <div>Luxury (5★ Heritage)</div>
-                            <div className="text-[10px] text-amber-300 font-bold font-sans">
+                            <div className="text-[9px] text-amber-300 font-bold font-sans">
                               From ₹{samplePricing.luxury.toLocaleString('en-IN')}/pax
                             </div>
                           </th>
@@ -1384,27 +1419,27 @@ export const ItineraryPdfView: React.FC = () => {
                       <tbody className="divide-y divide-slate-200">
                         {effectiveHotelOptions.map((h, hIdx) => (
                           <tr key={hIdx} className={hIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                            <td className="p-2.5 font-bold text-slate-900 border-r border-slate-200">
+                            <td className="p-2 font-bold text-slate-900 border-r border-slate-200 truncate">
                               {h.city}
                             </td>
-                            <td className="p-2 font-black text-center text-[#C91F28] border-r border-slate-200">
+                            <td className="p-1.5 font-black text-center text-[#C91F28] border-r border-slate-200">
                               {h.nights}N
                             </td>
-                            <td className="p-2 text-slate-700 border-r border-slate-200">
-                              <div className="font-semibold">{h.budgetHotel || 'Standard 3-Star Hotel / Similar'}</div>
-                              <div className="text-[10px] text-slate-500 font-medium">Category Rate: ₹{samplePricing.budget.toLocaleString('en-IN')}</div>
+                            <td className="p-1.5 text-slate-700 border-r border-slate-200">
+                              <div className="font-semibold truncate">{h.budgetHotel || 'Standard 3-Star Hotel / Similar'}</div>
+                              <div className="text-[9px] text-slate-500 font-medium">Rate: ₹{samplePricing.budget.toLocaleString('en-IN')}</div>
                             </td>
-                            <td className="p-2 text-slate-700 border-r border-slate-200">
-                              <div className="font-semibold">{h.standardHotel || 'Quality 3-Star Deluxe / Similar'}</div>
-                              <div className="text-[10px] text-slate-500 font-medium">Category Rate: ₹{samplePricing.standard.toLocaleString('en-IN')}</div>
+                            <td className="p-1.5 text-slate-700 border-r border-slate-200">
+                              <div className="font-semibold truncate">{h.standardHotel || 'Quality 3-Star Deluxe / Similar'}</div>
+                              <div className="text-[9px] text-slate-500 font-medium">Rate: ₹{samplePricing.standard.toLocaleString('en-IN')}</div>
                             </td>
-                            <td className="p-2 font-semibold text-slate-900 border-r border-slate-200">
-                              <div className="font-bold text-slate-900">{h.deluxeHotel || 'Handpicked 4-Star Resort / Similar'}</div>
-                              <div className="text-[10px] text-slate-500 font-medium">Category Rate: ₹{samplePricing.deluxe.toLocaleString('en-IN')}</div>
+                            <td className="p-1.5 font-semibold text-slate-900 border-r border-slate-200">
+                              <div className="font-bold text-slate-900 truncate">{h.deluxeHotel || 'Handpicked 4-Star Resort / Similar'}</div>
+                              <div className="text-[9px] text-slate-500 font-medium">Rate: ₹{samplePricing.deluxe.toLocaleString('en-IN')}</div>
                             </td>
-                            <td className="p-2 font-bold text-[#1E3A8A]">
-                              <div className="font-bold text-[#1E3A8A]">{h.luxuryHotel || 'Taj / 5-Star Heritage / Similar'}</div>
-                              <div className="text-[10px] text-amber-700 font-semibold">Category Rate: ₹{samplePricing.luxury.toLocaleString('en-IN')}</div>
+                            <td className="p-1.5 font-bold text-[#1E3A8A]">
+                              <div className="font-bold text-[#1E3A8A] truncate">{h.luxuryHotel || 'Taj / 5-Star Heritage / Similar'}</div>
+                              <div className="text-[9px] text-amber-700 font-semibold">Rate: ₹{samplePricing.luxury.toLocaleString('en-IN')}</div>
                             </td>
                           </tr>
                         ))}
@@ -1412,10 +1447,10 @@ export const ItineraryPdfView: React.FC = () => {
                     </table>
                   </div>
                 ) : (
-                  <div className="p-5 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-600 space-y-1">
-                    <Building2 className="w-6 h-6 mx-auto text-[#1E3A8A]" />
+                  <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-600 space-y-1">
+                    <Building2 className="w-5 h-5 mx-auto text-[#1E3A8A]" />
                     <p className="font-bold text-slate-800 text-xs">Custom / Open Hotel Accommodation Plan</p>
-                    <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                    <p className="text-[10.5px] text-slate-500 max-w-md mx-auto">
                       Hotels can be chosen dynamically according to your preference or self-arranged. Contact tour desk for custom property upgrades.
                     </p>
                   </div>
@@ -1447,18 +1482,24 @@ export const ItineraryPdfView: React.FC = () => {
           <div
             className="pdf-page pdf-page-schedule flex flex-col justify-between bg-white text-slate-800"
             style={{
+              width: '794px',
+              maxWidth: '794px',
+              minWidth: '794px',
+              height: '1123px',
+              minHeight: '1123px',
+              maxHeight: '1123px',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
               breakAfter: 'page',
               pageBreakAfter: 'always',
-              minHeight: '1020px',
             }}
           >
             <div>
               <PdfPageHeader
                 branding={activeBranding}
                 packageName={pkg.packageName}
-                pageLabel="Travel Schedule • Day 1"
               />
-              <div className="px-8 py-16 text-center text-slate-400 text-xs">
+              <div className="px-6 py-16 text-center text-slate-400 text-xs">
                 Detailed day-by-day travel schedule will be customized upon booking.
               </div>
             </div>
@@ -1472,7 +1513,6 @@ export const ItineraryPdfView: React.FC = () => {
         ) : (
           itineraries.map((day, dayIdx) => {
             const currentPageNum = 3 + dayIdx;
-            const pageLabel = `Travel Schedule • Day ${day.dayNumber || dayIdx + 1}`;
             const hotelPhotos = getHotelPhotos(day);
 
             return (
@@ -1480,19 +1520,25 @@ export const ItineraryPdfView: React.FC = () => {
                 key={day.id || `schedule-page-${dayIdx}`}
                 className="pdf-page pdf-page-schedule flex flex-col justify-between bg-white text-slate-800"
                 style={{
+                  width: '794px',
+                  maxWidth: '794px',
+                  minWidth: '794px',
+                  height: '1123px',
+                  minHeight: '1123px',
+                  maxHeight: '1123px',
+                  boxSizing: 'border-box',
+                  overflow: 'hidden',
                   breakAfter: 'page',
                   pageBreakAfter: 'always',
-                  minHeight: '1020px',
                 }}
               >
                 <div>
                   <PdfPageHeader
                     branding={activeBranding}
                     packageName={pkg.packageName}
-                    pageLabel={pageLabel}
                   />
 
-                  <div className="px-8 py-4 space-y-3">
+                  <div className="px-6 py-3 space-y-2.5">
                     {dayIdx === 0 && (
                       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                         <div className="flex items-center gap-2">
@@ -1844,21 +1890,25 @@ export const ItineraryPdfView: React.FC = () => {
         <div
           className="pdf-page pdf-page-closing flex flex-col justify-between bg-white text-slate-900"
           style={{
+            width: '794px',
+            maxWidth: '794px',
+            minWidth: '794px',
+            height: '1123px',
+            minHeight: '1123px',
+            maxHeight: '1123px',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
             breakBefore: 'page',
             pageBreakBefore: 'always',
-            minHeight: '1020px',
-            maxHeight: '1080px',
-            overflow: 'hidden',
           }}
         >
           <div>
             <PdfPageHeader
               branding={activeBranding}
               packageName={pkg.packageName}
-              pageLabel="Official Terms & Closing Profile"
             />
 
-            <div className="px-8 py-3.5 max-w-4xl mx-auto w-full space-y-3">
+            <div className="px-6 py-3 w-full space-y-2.5">
               {/* Tour Terms, Inclusions & Exclusions */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
@@ -2246,6 +2296,7 @@ export const ItineraryPdfView: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
 
       {/* Printable CSS style tags */}
       <style>{`
