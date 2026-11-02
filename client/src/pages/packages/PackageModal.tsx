@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layers,
   Sparkles,
@@ -11,6 +11,7 @@ import {
   Car,
   Users,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { Modal } from '../../components/ui/Modal.js';
@@ -69,6 +70,46 @@ function generateDefaultTiers(basePrice: number): PricingTierRow[] {
   });
 }
 
+function deriveHotelsFromItineraries(itineraries?: any[], destination?: string): HotelPlanOption[] {
+  if (Array.isArray(itineraries) && itineraries.length > 0) {
+    const daysWithHotels = itineraries.filter((d: any) => Boolean(d.hotelName && d.hotelName.trim()));
+    if (daysWithHotels.length > 0) {
+      const cityMap = new Map<string, { nights: number; hotelName: string; star: string }>();
+      daysWithHotels.forEach((d: any) => {
+        const city = (d.hotelLocation || destination || 'Main Destination').split(/[,•/]/)[0].trim() || 'Main Destination';
+        const existing = cityMap.get(city);
+        if (existing) {
+          existing.nights += 1;
+        } else {
+          cityMap.set(city, {
+            nights: 1,
+            hotelName: d.hotelName.trim(),
+            star: d.hotelStarCategory || '',
+          });
+        }
+      });
+      return Array.from(cityMap.entries()).map(([city, data]) => ({
+        city,
+        nights: data.nights,
+        budgetHotel: data.hotelName || 'Comfort 3-Star Inn / Similar',
+        standardHotel: data.hotelName ? `${data.hotelName} (Deluxe Plan)` : 'Quality 3-Star Deluxe / Similar',
+        deluxeHotel: 'Handpicked 4-Star Resort / Similar',
+        luxuryHotel: 'Taj / 5-Star Heritage / Similar',
+      }));
+    }
+  }
+  return [
+    {
+      city: destination?.split(/[,•/]/)[0]?.trim() || 'Main Destination',
+      nights: 2,
+      budgetHotel: 'Hotel City Comforts / Similar (3★)',
+      standardHotel: 'Sterling Holidays / Similar (3★ Deluxe)',
+      deluxeHotel: 'The Serai / Accord / Similar (4★)',
+      luxuryHotel: 'Taj / Heritage Resort / Similar (5★)',
+    },
+  ];
+}
+
 export const PackageModal: React.FC<PackageModalProps> = ({
   isOpen,
   onClose,
@@ -100,7 +141,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || '');
   const [status, setStatus] = useState(initialData?.status || 'ACTIVE');
 
-  // Tab 2: Flamingo Tiered Pricing Matrix
+  // Tab 2: Ooting Tiered Pricing Matrix
   const [pricingTiers, setPricingTiers] = useState<PricingTierRow[]>(() => {
     if (parsedCustom.pricingTiers && parsedCustom.pricingTiers.length > 0) {
       return parsedCustom.pricingTiers;
@@ -110,19 +151,10 @@ export const PackageModal: React.FC<PackageModalProps> = ({
 
   // Tab 3: Hotel Plans by Destination
   const [hotelOptions, setHotelOptions] = useState<HotelPlanOption[]>(() => {
-    if (parsedCustom.hotelOptions && parsedCustom.hotelOptions.length > 0) {
+    if (Array.isArray(parsedCustom.hotelOptions)) {
       return parsedCustom.hotelOptions;
     }
-    return [
-      {
-        city: initialData?.destination?.split(/[,•/]/)[0]?.trim() || 'Main Destination',
-        nights: 2,
-        budgetHotel: 'Hotel City Comforts / Similar (3★)',
-        standardHotel: 'Sterling Holidays / Similar (3★ Deluxe)',
-        deluxeHotel: 'The Serai / Accord / Similar (4★)',
-        luxuryHotel: 'Taj / Heritage Resort / Similar (5★)',
-      },
-    ];
+    return deriveHotelsFromItineraries(initialData?.itineraries, initialData?.destination);
   });
 
   // Tab 4: Cover Banner & Highlights
@@ -134,9 +166,59 @@ export const PackageModal: React.FC<PackageModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Synchronize state when initialData or modal open status changes
+  useEffect(() => {
+    if (isOpen) {
+      setPackageName(initialData?.packageName || '');
+      setDestination(initialData?.destination || '');
+      setDuration(initialData?.duration || '4 Days / 3 Nights');
+      setPrice(initialData?.price || 12000);
+      setPackageType(initialData?.packageType || 'HOLIDAY');
+      setDescription(initialData?.description || '');
+      setInclusions(initialData?.inclusions || '');
+      setExclusions(initialData?.exclusions || '');
+      setImageUrl(initialData?.imageUrl || '');
+      setStatus(initialData?.status || 'ACTIVE');
+
+      let parsed: PackageCustomBrandingData = {};
+      if (initialData?.customBranding) {
+        try {
+          parsed = typeof initialData.customBranding === 'string'
+            ? JSON.parse(initialData.customBranding)
+            : (initialData.customBranding || {});
+        } catch {
+          parsed = {};
+        }
+      }
+
+      setTourCode(parsed.tourCode || '');
+      setTheme(parsed.theme || '');
+      setBannerImageUrl(parsed.bannerImageUrl || '');
+      setHighlightsText((parsed.highlights || []).join('\n'));
+
+      if (Array.isArray(parsed.pricingTiers) && parsed.pricingTiers.length > 0) {
+        setPricingTiers(parsed.pricingTiers);
+      } else {
+        setPricingTiers(generateDefaultTiers(initialData?.price || 12000));
+      }
+
+      if (Array.isArray(parsed.hotelOptions)) {
+        setHotelOptions(parsed.hotelOptions);
+      } else {
+        setHotelOptions(deriveHotelsFromItineraries(initialData?.itineraries, initialData?.destination));
+      }
+    }
+  }, [isOpen, initialData]);
+
   // Auto-fill pricing tiers from current base price
   const handleAutoFillTiers = () => {
     setPricingTiers(generateDefaultTiers(Number(price) || 12000));
+  };
+
+  // Sync hotel options directly from itinerary days
+  const handleSyncHotelsFromDays = () => {
+    const derived = deriveHotelsFromItineraries(initialData?.itineraries, destination || initialData?.destination);
+    setHotelOptions(derived);
   };
 
   const updateTierField = (
@@ -237,7 +319,12 @@ export const PackageModal: React.FC<PackageModalProps> = ({
         theme: theme.trim() || undefined,
         bannerImageUrl: bannerImageUrl.trim() || imageUrl.trim() || undefined,
         highlights: highlightsArray.length > 0 ? highlightsArray : undefined,
-        hotelOptions: hotelOptions.filter((h) => h.city.trim()),
+        hotelOptions: hotelOptions
+          .map((h) => ({
+            ...h,
+            city: h.city.trim() || destination.split(/[,•/]/)[0].trim() || 'Tour Destination',
+          }))
+          .filter((h) => (h.city && h.city.trim()) || (h.budgetHotel && h.budgetHotel.trim()) || (h.standardHotel && h.standardHotel.trim())),
         pricingTiers: pricingTiers.filter((t) => t.paxCount.trim()),
         activePlans: ['budget', 'standard', 'deluxe', 'luxury'],
       };
@@ -489,14 +576,14 @@ export const PackageModal: React.FC<PackageModalProps> = ({
           </div>
         )}
 
-        {/* TAB 2: FLAMINGO TIERED PRICING MATRIX */}
+        {/* TAB 2: OOTING TIERED PRICING MATRIX */}
         {activeTab === 'pricing' && (
           <div className="space-y-3.5 animate-fadeIn">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-red-50/70 border border-red-200 rounded-xl">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-[#1E3A8A] text-xs uppercase tracking-wide">
-                    Executive Flamingo Pricing Matrix
+                    Executive Ooting Pricing Matrix
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-[#C91F28] text-white font-bold text-[10px]">
                     2, 4, 6, 8, 10, 12 Pax
@@ -685,7 +772,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({
         {/* TAB 3: HOTEL CATEGORIES & DESTINATIONS */}
         {activeTab === 'hotels' && (
           <div className="space-y-3.5 animate-fadeIn">
-            <div className="flex items-center justify-between p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl">
               <div>
                 <span className="font-bold text-[#1E3A8A] text-xs uppercase tracking-wide block">
                   Hotel Category Breakdown by City
@@ -694,18 +781,38 @@ export const PackageModal: React.FC<PackageModalProps> = ({
                   Specify night stay and hotel names for each category (Budget, Standard, Deluxe, Luxury).
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={addHotelOption}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-2xs cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add City Stay</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSyncHotelsFromDays}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1E3A8A] border border-blue-200 rounded-lg font-bold text-xs shadow-2xs cursor-pointer transition-colors"
+                  title="Auto-load real cities and hotels from the package's day itineraries"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-[#1E3A8A]" />
+                  <span>Sync from Days</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={addHotelOption}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-2xs cursor-pointer transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add City Stay</span>
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
-              {hotelOptions.map((opt, hIdx) => (
+              {hotelOptions.length === 0 ? (
+                <div className="p-6 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
+                  <Building2 className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No Hotel Category Plans Added</p>
+                  <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                    Click <strong>"Sync from Days"</strong> to automatically pull hotels and nights from day itineraries, or <strong>"+ Add City Stay"</strong> to configure manually. If left empty, no hotel matrix will be shown in the PDF.
+                  </p>
+                </div>
+              ) : (
+                hotelOptions.map((opt, hIdx) => (
                 <div
                   key={hIdx}
                   className="p-3.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl space-y-2.5 shadow-2xs"
@@ -799,7 +906,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({
                     </div>
                   </div>
                 </div>
-              ))}
+              )))}
             </div>
           </div>
         )}
@@ -809,7 +916,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({
           <div className="space-y-3.5 animate-fadeIn">
             <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl">
               <span className="font-bold text-[#1E3A8A] text-xs uppercase tracking-wide block">
-                Official Cover Page Branding (Flamingo Style)
+                Official Cover Page Branding (Ooting Style)
               </span>
               <span className="text-[11px] text-slate-600">
                 These elements appear prominently on Sheet 1 of the generated PDF and customer web view.
@@ -888,7 +995,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({
         <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2 text-slate-500 text-[11px]">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Flamingo-grade pricing & cover branding ready</span>
+            <span>Ooting-grade pricing & cover branding ready</span>
           </div>
 
           <div className="flex items-center gap-2">

@@ -52,6 +52,7 @@ import { PlaceModal } from '../places/PlaceModal.js';
 import { HotelModal } from '../hotels/HotelModal.js';
 import { DayEditorWorkspace } from '../../components/packages/DayEditorWorkspace.js';
 import { B2BAgencyBrandingModal } from './B2BAgencyBrandingModal.js';
+import { PackageModal } from './PackageModal.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 import { useAuth } from '../../context/AuthContext.js';
@@ -71,6 +72,9 @@ export const PackageDetail: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Edit Package Details & Pricing Matrix Modal State
+  const [isEditPackageModalOpen, setIsEditPackageModalOpen] = useState(false);
 
   // Unified B2B Travel Agent Branding Modal State
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
@@ -1330,6 +1334,16 @@ export const PackageDetail: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => setIsEditPackageModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+            title="Edit Package Details, Pricing Tiers, Hotels & Cover Branding"
+          >
+            <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+            <span>Edit Package & Pricing</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => navigate(`/guides/assignments?action=assign&packageId=${id}`)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors cursor-pointer"
             title="Assign field tour guide to this package trip"
@@ -2148,6 +2162,19 @@ export const PackageDetail: React.FC = () => {
         onSaveBranding={handleSaveBranding}
         onResetToDefault={handleResetToDefaultBranding}
       />
+
+      {/* Edit Package & Pricing Modal */}
+      {isEditPackageModalOpen && (
+        <PackageModal
+          isOpen={isEditPackageModalOpen}
+          initialData={pkg}
+          onClose={() => setIsEditPackageModalOpen(false)}
+          onSuccess={async () => {
+            await fetchPackage();
+            showToast('Package details, pricing matrix & hotels updated successfully!');
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

@@ -217,8 +217,9 @@ export const PdfPageFooter: React.FC<{
   branding: any;
   packageName: string;
   pageNumber: number;
+  totalPages?: number;
   totalLabel?: string;
-}> = ({ branding, packageName, pageNumber, totalLabel }) => (
+}> = ({ branding, packageName, pageNumber, totalPages, totalLabel }) => (
   <div className="pdf-page-footer px-8 py-2 bg-slate-50/90 border-t border-slate-200 flex items-center justify-between text-[10.5px] text-slate-500">
     <div className="flex items-center gap-3">
       <span className="font-bold text-slate-800 uppercase tracking-wider">
@@ -236,7 +237,7 @@ export const PdfPageFooter: React.FC<{
         {packageName}
       </span>
       <span className="px-2.5 py-0.5 rounded-full bg-slate-200/90 font-black text-slate-700 text-[10px]">
-        Page {pageNumber}{totalLabel ? ` • ${totalLabel}` : ''}
+        Page {pageNumber}{totalPages ? ` of ${totalPages}` : (totalLabel ? ` • ${totalLabel}` : '')}
       </span>
     </div>
   </div>
@@ -534,15 +535,20 @@ export const ItineraryPdfView: React.FC = () => {
   };
 
   const effectiveHotelOptions: HotelPlanOption[] = (() => {
-    if (Array.isArray(customData.hotelOptions) && customData.hotelOptions.length > 0) {
-      return customData.hotelOptions;
+    // 1. If customData explicitly has hotelOptions array, use it (even if empty, respecting removals)
+    if (Array.isArray(customData.hotelOptions)) {
+      return customData.hotelOptions.filter(
+        (h) => Boolean(h && (h.city || h.budgetHotel || h.standardHotel || h.deluxeHotel || h.luxuryHotel))
+      );
     }
+    // 2. Otherwise auto-derive from day itineraries if available
     const cities = new Set<string>();
     const options: HotelPlanOption[] = [];
     itineraries.forEach((d) => {
-      const city = d.hotelLocation || pkg?.destination || 'Destination';
-      if (!cities.has(city)) {
-        cities.add(city);
+      const city = (d.hotelLocation || pkg?.destination || 'Destination').trim();
+      const hasHotel = Boolean((d.hotelName && d.hotelName.trim()) || (d.hotelLocation && d.hotelLocation.trim()));
+      if (hasHotel && !cities.has(city.toLowerCase())) {
+        cities.add(city.toLowerCase());
         options.push({
           city,
           nights: 1,
@@ -553,17 +559,7 @@ export const ItineraryPdfView: React.FC = () => {
         });
       }
     });
-    if (options.length > 0) return options;
-    return [
-      {
-        city: pkg?.destination || 'Tour Destination',
-        nights: itineraries.length || 1,
-        budgetHotel: 'Comfort 3-Star Inn / Similar',
-        standardHotel: 'Quality 3-Star Deluxe / Similar',
-        deluxeHotel: 'Handpicked 4-Star Resort / Similar',
-        luxuryHotel: 'Taj / 5-Star Heritage / Similar',
-      },
-    ];
+    return options;
   })();
 
   const tiers: PricingTierRow[] = (() => {
@@ -634,6 +630,17 @@ export const ItineraryPdfView: React.FC = () => {
       },
     ];
   })();
+
+  const dayChunks: ItineraryDay[][] = (() => {
+    if (itineraries.length === 0) return [[]];
+    const chunks: ItineraryDay[][] = [];
+    for (let i = 0; i < itineraries.length; i += 2) {
+      chunks.push(itineraries.slice(i, i + 2));
+    }
+    return chunks;
+  })();
+
+  const totalPages = 2 + Math.max(1, dayChunks.length) + 1;
 
   const handleShareWhatsApp = async () => {
     if (!pkg) return;
@@ -1001,7 +1008,7 @@ export const ItineraryPdfView: React.FC = () => {
               </div>
             </div>
 
-            {/* Flamingo-Style Cover Page Hero Image Banner */}
+            {/* Ooting-Style Cover Page Hero Image Banner */}
             <div className="relative w-full overflow-hidden bg-slate-900 border-b border-slate-200">
               <div className="relative w-full h-64 sm:h-76 overflow-hidden">
                 <img
@@ -1149,6 +1156,7 @@ export const ItineraryPdfView: React.FC = () => {
             branding={activeBranding}
             packageName={pkg.packageName}
             pageNumber={1}
+            totalPages={totalPages}
           />
         </div>
 
@@ -1171,7 +1179,7 @@ export const ItineraryPdfView: React.FC = () => {
             />
 
             <div className="px-8 py-5 space-y-4">
-              {/* Flamingo-Style Multi-Pax Tiered Pricing Matrix */}
+              {/* Ooting Multi-Pax Tiered Pricing Matrix */}
               <div className="itinerary-pricing-matrix border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white space-y-0">
                 <div className="px-5 py-3 bg-gradient-to-r from-[#1E3A8A] via-blue-900 to-[#1E3A8A] text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -1186,7 +1194,7 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
                   </div>
                   <span className="px-3 py-1 bg-white/15 text-amber-300 border border-white/20 rounded-full text-xs font-bold uppercase tracking-wider w-fit">
-                    Flamingo Executive Model
+                    Ooting Executive Model
                   </span>
                 </div>
 
@@ -1293,68 +1301,78 @@ export const ItineraryPdfView: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left border-collapse text-[11px]">
-                    <thead>
-                      <tr className="bg-[#1E3A8A] text-white font-bold uppercase tracking-wider">
-                        <th className="p-2.5 border-r border-blue-900 w-28">City / Destination</th>
-                        <th className="p-2 border-r border-blue-900 text-center w-14">Nights</th>
-                        <th className="p-2 border-r border-blue-900">
-                          <div>Budget Friendly (3★)</div>
-                          <div className="text-[10px] text-amber-300 font-bold font-sans">
-                            From ₹{samplePricing.budget.toLocaleString('en-IN')}/pax
-                          </div>
-                        </th>
-                        <th className="p-2 border-r border-blue-900">
-                          <div>Standard Plan</div>
-                          <div className="text-[10px] text-blue-200 font-bold font-sans">
-                            From ₹{samplePricing.standard.toLocaleString('en-IN')}/pax
-                          </div>
-                        </th>
-                        <th className="p-2 border-r border-blue-900">
-                          <div>Deluxe (4★ Premium)</div>
-                          <div className="text-[10px] text-amber-300 font-bold font-sans">
-                            From ₹{samplePricing.deluxe.toLocaleString('en-IN')}/pax
-                          </div>
-                        </th>
-                        <th className="p-2">
-                          <div>Luxury (5★ Heritage)</div>
-                          <div className="text-[10px] text-amber-300 font-bold font-sans">
-                            From ₹{samplePricing.luxury.toLocaleString('en-IN')}/pax
-                          </div>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {effectiveHotelOptions.map((h, hIdx) => (
-                        <tr key={hIdx} className={hIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                          <td className="p-2.5 font-bold text-slate-900 border-r border-slate-200">
-                            {h.city}
-                          </td>
-                          <td className="p-2 font-black text-center text-[#C91F28] border-r border-slate-200">
-                            {h.nights}N
-                          </td>
-                          <td className="p-2 text-slate-700 border-r border-slate-200">
-                            <div className="font-semibold">{h.budgetHotel || 'Standard 3-Star Hotel / Similar'}</div>
-                            <div className="text-[10px] text-slate-500 font-medium">Category Rate: ₹{samplePricing.budget.toLocaleString('en-IN')}</div>
-                          </td>
-                          <td className="p-2 text-slate-700 border-r border-slate-200">
-                            <div className="font-semibold">{h.standardHotel || 'Quality 3-Star Deluxe / Similar'}</div>
-                            <div className="text-[10px] text-slate-500 font-medium">Category Rate: ₹{samplePricing.standard.toLocaleString('en-IN')}</div>
-                          </td>
-                          <td className="p-2 font-semibold text-slate-900 border-r border-slate-200">
-                            <div className="font-bold text-slate-900">{h.deluxeHotel || 'Handpicked 4-Star Resort / Similar'}</div>
-                            <div className="text-[10px] text-slate-500 font-medium">Category Rate: ₹{samplePricing.deluxe.toLocaleString('en-IN')}</div>
-                          </td>
-                          <td className="p-2 font-bold text-[#1E3A8A]">
-                            <div className="font-bold text-[#1E3A8A]">{h.luxuryHotel || 'Taj / 5-Star Heritage / Similar'}</div>
-                            <div className="text-[10px] text-amber-700 font-semibold">Category Rate: ₹{samplePricing.luxury.toLocaleString('en-IN')}</div>
-                          </td>
+                {effectiveHotelOptions.length > 0 ? (
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                    <table className="w-full text-left border-collapse text-[11px]">
+                      <thead>
+                        <tr className="bg-[#1E3A8A] text-white font-bold uppercase tracking-wider">
+                          <th className="p-2.5 border-r border-blue-900 w-28">City / Destination</th>
+                          <th className="p-2 border-r border-blue-900 text-center w-14">Nights</th>
+                          <th className="p-2 border-r border-blue-900">
+                            <div>Budget Friendly (3★)</div>
+                            <div className="text-[10px] text-amber-300 font-bold font-sans">
+                              From ₹{samplePricing.budget.toLocaleString('en-IN')}/pax
+                            </div>
+                          </th>
+                          <th className="p-2 border-r border-blue-900">
+                            <div>Standard Plan</div>
+                            <div className="text-[10px] text-blue-200 font-bold font-sans">
+                              From ₹{samplePricing.standard.toLocaleString('en-IN')}/pax
+                            </div>
+                          </th>
+                          <th className="p-2 border-r border-blue-900">
+                            <div>Deluxe (4★ Premium)</div>
+                            <div className="text-[10px] text-amber-300 font-bold font-sans">
+                              From ₹{samplePricing.deluxe.toLocaleString('en-IN')}/pax
+                            </div>
+                          </th>
+                          <th className="p-2">
+                            <div>Luxury (5★ Heritage)</div>
+                            <div className="text-[10px] text-amber-300 font-bold font-sans">
+                              From ₹{samplePricing.luxury.toLocaleString('en-IN')}/pax
+                            </div>
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {effectiveHotelOptions.map((h, hIdx) => (
+                          <tr key={hIdx} className={hIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                            <td className="p-2.5 font-bold text-slate-900 border-r border-slate-200">
+                              {h.city}
+                            </td>
+                            <td className="p-2 font-black text-center text-[#C91F28] border-r border-slate-200">
+                              {h.nights}N
+                            </td>
+                            <td className="p-2 text-slate-700 border-r border-slate-200">
+                              <div className="font-semibold">{h.budgetHotel || 'Standard 3-Star Hotel / Similar'}</div>
+                              <div className="text-[10px] text-slate-500 font-medium">Category Rate: ₹{samplePricing.budget.toLocaleString('en-IN')}</div>
+                            </td>
+                            <td className="p-2 text-slate-700 border-r border-slate-200">
+                              <div className="font-semibold">{h.standardHotel || 'Quality 3-Star Deluxe / Similar'}</div>
+                              <div className="text-[10px] text-slate-500 font-medium">Category Rate: ₹{samplePricing.standard.toLocaleString('en-IN')}</div>
+                            </td>
+                            <td className="p-2 font-semibold text-slate-900 border-r border-slate-200">
+                              <div className="font-bold text-slate-900">{h.deluxeHotel || 'Handpicked 4-Star Resort / Similar'}</div>
+                              <div className="text-[10px] text-slate-500 font-medium">Category Rate: ₹{samplePricing.deluxe.toLocaleString('en-IN')}</div>
+                            </td>
+                            <td className="p-2 font-bold text-[#1E3A8A]">
+                              <div className="font-bold text-[#1E3A8A]">{h.luxuryHotel || 'Taj / 5-Star Heritage / Similar'}</div>
+                              <div className="text-[10px] text-amber-700 font-semibold">Category Rate: ₹{samplePricing.luxury.toLocaleString('en-IN')}</div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-5 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-600 space-y-1">
+                    <Building2 className="w-6 h-6 mx-auto text-[#1E3A8A]" />
+                    <p className="font-bold text-slate-800 text-xs">Custom / Open Hotel Accommodation Plan</p>
+                    <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                      Hotels can be chosen dynamically according to your preference or self-arranged. Contact tour desk for custom property upgrades.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Booking Notice & Guarantee */}
@@ -1371,34 +1389,55 @@ export const ItineraryPdfView: React.FC = () => {
             branding={activeBranding}
             packageName={pkg.packageName}
             pageNumber={2}
+            totalPages={totalPages}
           />
         </div>
 
         {/* ========================================================================= */}
         {/* PAGE 3+: DETAILED DAY-BY-DAY TRAVEL SCHEDULE                             */}
         {/* ========================================================================= */}
-        <div className="pdf-page-schedule bg-white text-slate-800">
-          <PdfPageHeader
-            branding={activeBranding}
-            packageName={pkg.packageName}
-            pageLabel="Detailed Day-by-Day Travel Schedule"
-          />
+        {dayChunks.map((chunk, chunkIdx) => {
+          const currentPageNum = 3 + chunkIdx;
+          const firstDay = chunk[0]?.dayNumber || (chunkIdx * 2 + 1);
+          const lastDay = chunk[chunk.length - 1]?.dayNumber || (chunkIdx * 2 + chunk.length);
+          const chunkLabel = chunk.length <= 1
+            ? `Travel Schedule • Day ${firstDay}`
+            : `Travel Schedule • Days ${firstDay} - ${lastDay}`;
 
-          <div className="px-8 py-4 space-y-3.5">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
-                <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#1E3A8A]">
-                  {t('detailed_travel_schedule', 'Detailed Day-by-Day Travel Schedule')}
-                </h2>
-              </div>
-              <span className="px-2.5 py-0.5 bg-red-50 text-[#C91F28] border border-red-200 rounded-full text-xs font-bold">
-                {itineraries.length} {t('days_planned', 'Days Planned')}
-              </span>
-            </div>
+          return (
+            <div
+              key={`schedule-page-${chunkIdx}`}
+              className="pdf-page-schedule flex flex-col justify-between bg-white text-slate-800"
+              style={{
+                breakAfter: 'page',
+                pageBreakAfter: 'always',
+                minHeight: '1020px',
+              }}
+            >
+              <div>
+                <PdfPageHeader
+                  branding={activeBranding}
+                  packageName={pkg.packageName}
+                  pageLabel={chunkLabel}
+                />
 
-            <div className="space-y-3.5">
-              {itineraries.map((day, idx) => {
+                <div className="px-8 py-4 space-y-3.5">
+                  {chunkIdx === 0 && (
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-4 bg-[#C91F28] rounded-full inline-block"></span>
+                        <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#1E3A8A]">
+                          {t('detailed_travel_schedule', 'Detailed Day-by-Day Travel Schedule')}
+                        </h2>
+                      </div>
+                      <span className="px-2.5 py-0.5 bg-red-50 text-[#C91F28] border border-red-200 rounded-full text-xs font-bold">
+                        {itineraries.length} {t('days_planned', 'Days Planned')}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="space-y-3.5">
+                    {chunk.map((day, idx) => {
               const hotelPhotos = getHotelPhotos(day);
 
               return (
@@ -1720,17 +1759,20 @@ export const ItineraryPdfView: React.FC = () => {
                 </div>
               );
             })}
-          </div>
-          </div>
+                  </div>
+                </div>
+              </div>
 
-          {/* Schedule Section Footer Bar */}
-          <PdfPageFooter
-            branding={activeBranding}
-            packageName={pkg.packageName}
-            pageNumber={3}
-            totalLabel="Schedule"
-          />
-        </div>
+              {/* Schedule Section Footer Bar */}
+              <PdfPageFooter
+                branding={activeBranding}
+                packageName={pkg.packageName}
+                pageNumber={currentPageNum}
+                totalPages={totalPages}
+              />
+            </div>
+          );
+        })}
 
         {/* ========================================================================= */}
         {/* FINAL PAGE: TERMS, GUEST EXPERIENCES & EXECUTIVE THANK YOU                */}
@@ -2148,8 +2190,8 @@ export const ItineraryPdfView: React.FC = () => {
             <PdfPageFooter
               branding={activeBranding}
               packageName={pkg.packageName}
-              pageNumber={4}
-              totalLabel="Final"
+              pageNumber={totalPages}
+              totalPages={totalPages}
             />
           </div>
         </div>
@@ -2172,6 +2214,10 @@ export const ItineraryPdfView: React.FC = () => {
             page-break-after: always !important;
           }
           .pdf-page-pricing {
+            break-after: page !important;
+            page-break-after: always !important;
+          }
+          .pdf-page-schedule {
             break-after: page !important;
             page-break-after: always !important;
           }
