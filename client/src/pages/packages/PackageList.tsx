@@ -106,6 +106,8 @@ export const PackageList: React.FC = () => {
       if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('limit', '100');
+      params.append('fresh', 'true');
+      params.append('_t', String(Date.now()));
       if (search) params.append('search', search);
       if (selectedType) params.append('packageType', selectedType);
       if (selectedStatus) params.append('status', selectedStatus);

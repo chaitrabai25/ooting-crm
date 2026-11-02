@@ -80,7 +80,7 @@ export function getHeroBannerImage(pkg: any, customData?: PackageCustomBrandingD
   return DESTINATION_HERO_FALLBACKS.default;
 }
 
-export function getTruncatedDescription(desc?: string | null, maxWords = 55): string {
+export function getTruncatedDescription(desc?: string | null, maxWords = 100): string {
   if (!desc) return '';
   const clean = desc.trim();
   const words = clean.split(/\s+/);
@@ -1193,8 +1193,15 @@ export const ItineraryPdfView: React.FC = () => {
                     Tour Overview & Destination Experience
                   </h3>
                 </div>
-                <p className="text-[12px] text-slate-700 leading-relaxed font-normal">
-                  {getTruncatedDescription(pkg.description, 55) || `Experience the captivating sights, scenic landscapes, and cultural heritage of ${pkg.destination}. Handcrafted for memorable comfort, seamless private transfers, and handpicked premium accommodation.`}
+                <p className="text-[12px] text-slate-700 leading-relaxed font-normal whitespace-pre-line">
+                  {getTruncatedDescription(
+                    (pkg.description && pkg.description.trim()) ||
+                      (customData as any)?.tourOverview ||
+                      (customData as any)?.description ||
+                      null,
+                    100
+                  ) ||
+                    `Experience the captivating sights, scenic landscapes, and cultural heritage of ${pkg.destination}. Handcrafted for memorable comfort, seamless private transfers, and handpicked premium accommodation.`}
                 </p>
               </div>
 
@@ -1939,10 +1946,11 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
                     <ul className="space-y-1.5 pt-2">
                       {parseBulletPoints(
-                        pkg.inclusions ||
+                        (pkg.inclusions && pkg.inclusions.trim()) ||
+                          (customData as any)?.inclusions ||
                           'Hotel accommodation in selected room category\nDaily breakfast at hotel restaurant\nPrivate dedicated AC vehicle for transfers and sightseeing\nDriver beta, toll charges, fuel, and parking fees\nAll applicable state taxes and GST'
-                      ).slice(0, 4).map((pt, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-800 leading-snug">
+                      ).slice(0, 8).map((pt, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-[10.5px] text-slate-800 leading-snug">
                           <span className="w-3.5 h-3.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
                             ✓
                           </span>
@@ -1965,10 +1973,11 @@ export const ItineraryPdfView: React.FC = () => {
                     </div>
                     <ul className="space-y-1.5 pt-2">
                       {parseBulletPoints(
-                        pkg.exclusions ||
+                        (pkg.exclusions && pkg.exclusions.trim()) ||
+                          (customData as any)?.exclusions ||
                           'Airfare, train fare, or bus tickets to destination\nEntry monument tickets, safari, camera fees, or boat rides\nLunch, dinner, laundry, telephone calls, and room mini-bar\nTravel, baggage, or medical insurance\nAny tips or personal expenses not mentioned in inclusions'
-                      ).slice(0, 4).map((pt, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-800 leading-snug">
+                      ).slice(0, 8).map((pt, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-[10.5px] text-slate-800 leading-snug">
                           <span className="w-3.5 h-3.5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
                             ✕
                           </span>

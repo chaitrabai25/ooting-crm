@@ -292,7 +292,7 @@ export const PackageDetail: React.FC = () => {
   const fetchPackage = async () => {
     try {
       setIsLoading(true);
-      const res = await api.get('/packages/' + id);
+      const res = await api.get(`/packages/${id}?fresh=true&_t=${Date.now()}`);
       setPkg(res.data);
       setItineraries(res.data.itineraries || []);
       setHasUnsavedChanges(false);

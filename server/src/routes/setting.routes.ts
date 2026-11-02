@@ -4,6 +4,7 @@ import { prisma } from '../db/prisma.js';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { config } from '../config/index.js';
+import { optimizeBase64IfNeeded } from '../services/image.service.js';
 
 const router = Router();
 
@@ -153,6 +154,9 @@ export async function getCompanySettings(targetCompanyId?: string) {
 // Get Public / Authenticated Company Settings (Accessible to visitors & public itineraries)
 router.get('/company', async (req: AuthRequest, res: Response, next) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const companyId = req.user?.companyId || OOTING_COMPANY_ID;
     const company = await getCompanySettings(companyId);
     res.json({ company });
@@ -166,6 +170,9 @@ router.use(authenticate);
 // Get All Settings
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const companyId = req.user?.companyId || OOTING_COMPANY_ID;
     const company = await getCompanySettings(companyId);
 
@@ -226,6 +233,16 @@ router.put('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res:
   try {
     const data = updateSettingsSchema.parse(req.body);
     const companyId = req.user?.companyId || OOTING_COMPANY_ID;
+
+    // Pre-optimize logoUrl if provided as base64 data URL
+    if (data.logoUrl && data.logoUrl.startsWith('data:image/')) {
+      try {
+        const optLogo = await optimizeBase64IfNeeded(data.logoUrl);
+        if (optLogo) data.logoUrl = optLogo;
+      } catch (logoErr) {
+        console.warn('[SettingsRoute] Logo optimization fallback:', logoErr);
+      }
+    }
 
     // Update Company record directly
     await prisma.company.update({
@@ -289,9 +306,37 @@ router.put('/', authorize('ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res:
     }
 
     // Persist Social Branding, Map, Reviews, and Trip Gallery in CompanySetting
-    const galleryVal = data.tripGallery !== undefined
-      ? (typeof data.tripGallery === 'string' ? data.tripGallery : JSON.stringify(data.tripGallery))
-      : undefined;
+    let galleryVal: string | undefined = undefined;
+    if (data.tripGallery !== undefined) {
+      let rawList: string[] = [];
+      if (Array.isArray(data.tripGallery)) {
+        rawList = data.tripGallery;
+      } else if (typeof data.tripGallery === 'string') {
+        try {
+          const parsed = JSON.parse(data.tripGallery);
+          if (Array.isArray(parsed)) rawList = parsed;
+          else rawList = data.tripGallery.split(/[\r\n]+/).map((s: string) => s.trim()).filter(Boolean);
+        } catch {
+          rawList = data.tripGallery.split(/[\r\n]+/).map((s: string) => s.trim()).filter(Boolean);
+        }
+      }
+
+      // Optimize each base64 image if present
+      const optimizedList = await Promise.all(
+        rawList.map(async (item) => {
+          if (typeof item === 'string' && item.startsWith('data:image/')) {
+            try {
+              const opt = await optimizeBase64IfNeeded(item);
+              return opt || item;
+            } catch {
+              return item;
+            }
+          }
+          return item;
+        })
+      );
+      galleryVal = optimizedList.join('\n');
+    }
 
     const socialBrandingUpdates = [
       { key: 'social_facebook', value: data.facebookUrl },

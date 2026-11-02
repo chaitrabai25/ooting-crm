@@ -182,7 +182,7 @@ export const SettingsPage: React.FC = () => {
   const fetchSettings = async () => {
     try {
       setIsLoading(true);
-      const res = await api.get('/settings');
+      const res = await api.get(`/settings?_t=${Date.now()}`);
       if (res.data.company) {
         const comp = res.data.company;
         if (comp.tripGallery) {

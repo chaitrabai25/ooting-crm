@@ -112,7 +112,7 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
     }
 
     try {
-      const res = await api.get('/settings/company');
+      const res = await api.get(`/settings/company?_t=${Date.now()}`);
       if (res.data?.company) {
         const base = res.data.company.isOoting === false ? neutralTenantDefaults : defaultSettings;
         const fetched = { ...base, ...res.data.company };

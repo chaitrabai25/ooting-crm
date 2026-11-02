@@ -67,6 +67,9 @@ router.get('/public/:id', async (req, res, next) => {
       }
     }
 
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.json(pkg);
   } catch (error) {
     next(error);
@@ -103,12 +106,19 @@ router.get('/', requirePermission('packages', 'view'), async (req: AuthRequest, 
     const sortBy = (req.query.sortBy as string || 'createdAt').trim();
     const sortOrder = (req.query.sortOrder as string || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
 
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    const fresh = req.query.fresh === 'true' || Boolean(req.query._t);
     const companyId = req.user!.companyId;
     const cacheKey = `packages:list:${companyId}:${page}:${limit}:${search.toLowerCase()}:${destination.toLowerCase()}:${packageType.toLowerCase()}:${status.toLowerCase()}:${sortBy}:${sortOrder}`;
-    const cached = cache.get<any>(cacheKey);
-    if (cached) {
-      res.json(cached);
-      return;
+    if (!fresh) {
+      const cached = cache.get<any>(cacheKey);
+      if (cached) {
+        res.json(cached);
+        return;
+      }
     }
 
     const allowedSorts = ['packageName', 'destination', 'price', 'duration', 'status', 'createdAt'];
@@ -169,6 +179,9 @@ router.get('/', requirePermission('packages', 'view'), async (req: AuthRequest, 
 // Single Package with itineraries with in-memory caching (< 1ms on cache hit)
 router.get('/:id', requirePermission('packages', 'view'), async (req: AuthRequest, res: Response, next) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const id = req.params.id as string;
     const companyId = req.user!.companyId;
     const fresh = req.query.fresh === 'true' || Boolean(req.query._t);
@@ -513,8 +526,9 @@ router.put('/:id', requirePermission('packages', 'edit'), async (req: AuthReques
       },
     });
 
-    cache.set(`package:${id}`, updated, 900);
     invalidatePackageCache(companyId, id);
+    cache.del(`package:${companyId}:${id}`);
+    cache.del(`package:${id}`);
 
     await logAudit({
       userId: req.user!.id,

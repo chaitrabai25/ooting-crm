@@ -234,6 +234,9 @@ export interface PackageCustomBrandingData {
   pricingTiers?: PricingTierRow[];
   activePlans?: string[];
   termsNotes?: string[];
+  tourOverview?: string;
+  inclusions?: string;
+  exclusions?: string;
 }
 
 export interface Package {

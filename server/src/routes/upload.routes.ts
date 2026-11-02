@@ -46,8 +46,8 @@ router.post(
 
     const processed = await processAndSaveImage(req.file.buffer, req.file.originalname, {
       folder,
-      maxDimension: 1600,
-      quality: 82,
+      maxDimension: folder === 'company' ? 800 : 1600,
+      quality: folder === 'company' ? 75 : 82,
     });
 
     res.json({
@@ -105,8 +105,8 @@ router.post(
         files.map((file) =>
           processAndSaveImage(file.buffer, file.originalname, {
             folder,
-            maxDimension: 1600,
-            quality: 82,
+            maxDimension: folder === 'company' ? 800 : 1600,
+            quality: folder === 'company' ? 75 : 82,
           })
         )
       );

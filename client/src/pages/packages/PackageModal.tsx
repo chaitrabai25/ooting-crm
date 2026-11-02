@@ -327,6 +327,9 @@ export const PackageModal: React.FC<PackageModalProps> = ({
           .filter((h) => (h.city && h.city.trim()) || (h.budgetHotel && h.budgetHotel.trim()) || (h.standardHotel && h.standardHotel.trim())),
         pricingTiers: pricingTiers.filter((t) => t.paxCount.trim()),
         activePlans: ['budget', 'standard', 'deluxe', 'luxury'],
+        tourOverview: description.trim() || undefined,
+        inclusions: inclusions.trim() || undefined,
+        exclusions: exclusions.trim() || undefined,
       };
 
       const payload = {
