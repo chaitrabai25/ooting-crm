@@ -104,17 +104,43 @@ export async function printElement(elementId: string, options: PrintOptions = {}
     }
   });
 
+  // Detect if document is a multi-page A4 layout (.pdf-page)
+  const hasPdfPages = Boolean(sourceElement.querySelector('.pdf-page'));
+
   // Reset desktop container constraints on the clone to ensure perfect A4 print fit
   cloned.style.boxShadow = 'none';
   cloned.style.border = 'none';
   cloned.style.borderRadius = '0';
   cloned.style.margin = '0 auto';
-  cloned.style.width = '100%';
-  cloned.style.maxWidth = '100%';
-  cloned.style.minWidth = '0';
+  cloned.style.width = hasPdfPages ? '210mm' : '100%';
+  cloned.style.maxWidth = hasPdfPages ? '210mm' : '100%';
+  cloned.style.minWidth = hasPdfPages ? '210mm' : '0';
   cloned.style.height = 'auto';
   cloned.style.maxHeight = 'none';
   cloned.style.minHeight = '0';
+
+  if (hasPdfPages) {
+    const clonedPages = cloned.querySelectorAll<HTMLElement>('.pdf-page');
+    clonedPages.forEach((p, idx) => {
+      p.style.width = '210mm';
+      p.style.maxWidth = '210mm';
+      p.style.minWidth = '210mm';
+      p.style.height = '296mm';
+      p.style.maxHeight = '296mm';
+      p.style.minHeight = '296mm';
+      p.style.margin = '0';
+      p.style.padding = '0';
+      p.style.boxSizing = 'border-box';
+      p.style.overflow = 'hidden';
+      if (idx === clonedPages.length - 1) {
+        p.style.breakAfter = 'avoid';
+        (p.style as any).pageBreakAfter = 'avoid';
+      } else {
+        p.style.breakAfter = 'page';
+        (p.style as any).pageBreakAfter = 'always';
+      }
+    });
+  }
 
   // Extract all existing CSS styles and link tags from main document
   const headStyles: string[] = [];
@@ -159,7 +185,7 @@ export async function printElement(elementId: string, options: PrintOptions = {}
       <style>
         @page {
           size: A4 portrait;
-          margin: 6mm 8mm;
+          margin: ${hasPdfPages ? '0 !important' : '6mm 8mm'};
         }
         *, *::before, *::after {
           box-sizing: border-box !important;
@@ -173,7 +199,7 @@ export async function printElement(elementId: string, options: PrintOptions = {}
           background: #ffffff !important;
           color: #0f172a !important;
           font-family: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-          width: 100% !important;
+          width: ${hasPdfPages ? '210mm !important' : '100% !important'};
           overflow: visible !important;
           -webkit-font-smoothing: antialiased !important;
         }
@@ -200,9 +226,9 @@ export async function printElement(elementId: string, options: PrintOptions = {}
           border: none !important;
           border-radius: 0 !important;
           background: #ffffff !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          min-width: 0 !important;
+          width: ${hasPdfPages ? '210mm !important' : '100% !important'};
+          max-width: ${hasPdfPages ? '210mm !important' : '100% !important'};
+          min-width: ${hasPdfPages ? '210mm !important' : '0 !important'};
           height: auto !important;
           min-height: 0 !important;
         }
@@ -219,10 +245,20 @@ export async function printElement(elementId: string, options: PrintOptions = {}
           page-break-inside: avoid !important;
         }
         .pdf-page {
+          width: 210mm !important;
+          max-width: 210mm !important;
+          min-width: 210mm !important;
+          height: 296mm !important;
+          max-height: 296mm !important;
+          min-height: 296mm !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
           page-break-inside: avoid !important;
           break-inside: avoid !important;
           page-break-after: always !important;
-          break-after: always !important;
+          break-after: page !important;
         }
         .pdf-page:last-child {
           page-break-after: avoid !important;

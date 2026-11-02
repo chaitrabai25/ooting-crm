@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client.js';
 import { CompanySettings } from '../types/index.js';
+import { parseGalleryUrls } from '../utils/galleryHelper.js';
 
 const defaultSettings: CompanySettings = {
   name: 'Ooting',
@@ -115,6 +116,9 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
       if (res.data?.company) {
         const base = res.data.company.isOoting === false ? neutralTenantDefaults : defaultSettings;
         const fetched = { ...base, ...res.data.company };
+        if (fetched.tripGallery) {
+          fetched.tripGallery = parseGalleryUrls(fetched.tripGallery).join('\n');
+        }
         setCompany(fetched);
         localStorage.setItem('ooting_company_settings', JSON.stringify(fetched));
       }

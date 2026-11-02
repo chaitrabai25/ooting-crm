@@ -240,11 +240,24 @@ export async function generateA4Pdf({
     const imgs = targetEl.querySelectorAll<HTMLImageElement>('img');
     imgs.forEach((img) => {
       const src = img.getAttribute('src') || '';
-      if (!src || src === 'null' || src === 'undefined' || src.trim() === '') {
+      if (
+        !src ||
+        src === 'null' ||
+        src === 'undefined' ||
+        src.trim() === '' ||
+        src === 'data:image/webp;base64' ||
+        (!src.startsWith('http') && !src.startsWith('/') && !src.startsWith('data:') && !src.startsWith('blob:'))
+      ) {
         const photoCard = img.closest('.day-photo-card, .photo-item') as HTMLElement;
         if (photoCard) photoCard.style.display = 'none';
         else img.style.display = 'none';
         return;
+      }
+
+      if (src.startsWith('http')) {
+        try {
+          img.crossOrigin = 'anonymous';
+        } catch {}
       }
 
       if (src.includes('logo') || img.classList.contains('object-contain')) {
@@ -317,7 +330,8 @@ export async function generateA4Pdf({
       const canvas = await html2canvas(pageEl, {
         scale: 2, // 2x crisp retina resolution
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
+        imageTimeout: 10000,
         logging: false,
         backgroundColor: '#ffffff',
         width: a4StandardPxWidth,
@@ -415,7 +429,8 @@ export async function generateA4Pdf({
     const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
+      imageTimeout: 10000,
       logging: false,
       backgroundColor: '#ffffff',
       windowWidth: a4StandardPxWidth,

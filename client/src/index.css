@@ -393,13 +393,27 @@ html.dark select:-webkit-autofill,
   }
 
   .pdf-page {
-    width: 210mm;
-    min-height: 297mm;
-    box-sizing: border-box;
-    background: #ffffff;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-width: 210mm !important;
+    height: 296mm !important;
+    max-height: 296mm !important;
+    min-height: 296mm !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
     position: relative;
-    page-break-after: always;
-    page-break-inside: avoid;
+    overflow: hidden !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .pdf-page:last-child {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   .print-only {

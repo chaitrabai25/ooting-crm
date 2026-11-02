@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { CompanySettings } from '../../types/index.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
+import { parseGalleryUrls } from '../../utils/galleryHelper.js';
 
 export const ALL_CRM_MODULES = [
   { id: 'dashboard', name: 'Dashboard', desc: 'CRM executive overview & live operational stats', category: 'General' },
@@ -80,9 +81,7 @@ export const SettingsPage: React.FC = () => {
       formData.append('image', file, safeName);
       formData.append('folder', 'company');
 
-      const res = await api.post('/upload/image?folder=company', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/upload/image?folder=company', formData);
 
       if (res.data?.url) {
         setCompany((prev) => ({ ...prev, logoUrl: res.data.url }));
@@ -129,9 +128,7 @@ export const SettingsPage: React.FC = () => {
         formData.append('image', file, safeName);
         formData.append('folder', 'company');
 
-        const res = await api.post('/upload/image?folder=company', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const res = await api.post('/upload/image?folder=company', formData);
 
         if (res.data?.url) {
           uploadedUrls.push(res.data.url);
@@ -154,12 +151,7 @@ export const SettingsPage: React.FC = () => {
 
     if (uploadedUrls.length > 0) {
       setCompany((prev) => {
-        const currentList = Array.isArray(prev.tripGallery)
-          ? prev.tripGallery
-          : (prev.tripGallery || '')
-              .split(/[\n,]/)
-              .map((u) => u.trim())
-              .filter(Boolean);
+        const currentList = parseGalleryUrls(prev.tripGallery);
         const combined = [...currentList, ...uploadedUrls];
         return {
           ...prev,
@@ -178,12 +170,7 @@ export const SettingsPage: React.FC = () => {
 
   const handleRemoveGalleryPhoto = (indexToRemove: number) => {
     setCompany((prev) => {
-      const currentList = Array.isArray(prev.tripGallery)
-        ? prev.tripGallery
-        : (prev.tripGallery || '')
-            .split(/[\n,]/)
-            .map((u) => u.trim())
-            .filter(Boolean);
+      const currentList = parseGalleryUrls(prev.tripGallery);
       const updated = currentList.filter((_, idx) => idx !== indexToRemove);
       return {
         ...prev,
@@ -197,7 +184,12 @@ export const SettingsPage: React.FC = () => {
       setIsLoading(true);
       const res = await api.get('/settings');
       if (res.data.company) {
-        setCompany(res.data.company);
+        const comp = res.data.company;
+        if (comp.tripGallery) {
+          const cleaned = parseGalleryUrls(comp.tripGallery);
+          comp.tripGallery = cleaned.join('\n');
+        }
+        setCompany(comp);
       }
       if (res.data.masterData) {
         setMasterData(res.data.masterData);
@@ -924,12 +916,7 @@ export const SettingsPage: React.FC = () => {
 
                 {/* Thumbnail Previews Grid */}
                 {(() => {
-                  const photos = Array.isArray(company.tripGallery)
-                    ? company.tripGallery
-                    : (company.tripGallery || '')
-                        .split(/[\n,]/)
-                        .map((u) => u.trim())
-                        .filter(Boolean);
+                  const photos = parseGalleryUrls(company.tripGallery);
 
                   if (photos.length === 0) {
                     return (

@@ -40,6 +40,7 @@ import { printElement } from '../../utils/printDocument.js';
 import { openWhatsAppShare, copyToClipboard } from '../../utils/whatsappHelper.js';
 import { BrandLoader } from '../../components/ui/BrandLoader.js';
 import { notifyError, notifySuccess, ootingSwal, showToast } from '../../utils/sweetalert.js';
+import { parseGalleryUrls } from '../../utils/galleryHelper.js';
 
 export interface HotelPhotoDisplay {
   url: string;
@@ -1092,6 +1093,7 @@ export const ItineraryPdfView: React.FC = () => {
                   alt={pkg.packageName}
                   className="w-full h-full object-cover contrast-105 saturate-110 brightness-[0.92]"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  crossOrigin="anonymous"
                   referrerPolicy="no-referrer"
                 />
                 {/* Subtle Gradient Overlays */}
@@ -1674,6 +1676,7 @@ export const ItineraryPdfView: React.FC = () => {
                                   alt={placeLabel || day.title}
                                   className="w-full h-full object-cover"
                                   style={{ width: '100%', height: '125px', maxHeight: '125px', objectFit: 'cover' }}
+                                  crossOrigin="anonymous"
                                   referrerPolicy="no-referrer"
                                 />
                               </div>
@@ -1707,6 +1710,7 @@ export const ItineraryPdfView: React.FC = () => {
                                       alt={placeLabel || ''}
                                       className="w-full h-full object-cover"
                                       style={{ width: '100%', height: '115px', maxHeight: '115px', objectFit: 'cover' }}
+                                      crossOrigin="anonymous"
                                       referrerPolicy="no-referrer"
                                     />
                                   </div>
@@ -1898,8 +1902,6 @@ export const ItineraryPdfView: React.FC = () => {
             maxHeight: '1123px',
             boxSizing: 'border-box',
             overflow: 'hidden',
-            breakBefore: 'page',
-            pageBreakBefore: 'always',
           }}
         >
           <div>
@@ -1982,18 +1984,12 @@ export const ItineraryPdfView: React.FC = () => {
             {(() => {
               let galleryPhotos = DEFAULT_TRIP_GALLERY;
               if (activeBranding.tripGallery) {
-                try {
-                  const parsed = typeof activeBranding.tripGallery === 'string' ? JSON.parse(activeBranding.tripGallery) : activeBranding.tripGallery;
-                  if (Array.isArray(parsed) && parsed.length > 0) {
-                    galleryPhotos = parsed.map((item: any, idx: number) => {
-                      if (typeof item === 'string') return { url: item, caption: `Trip Moment ${idx + 1}` };
-                      return { url: item.url || item.imageUrl || '', caption: item.caption || item.label || `Trip Moment ${idx + 1}` };
-                    }).filter((item: any) => Boolean(item.url));
-                  }
-                } catch {
-                  if (typeof activeBranding.tripGallery === 'string' && activeBranding.tripGallery.includes(',')) {
-                    galleryPhotos = activeBranding.tripGallery.split(',').map((s, idx) => ({ url: s.trim(), caption: `Trip Moment ${idx + 1}` })).filter((i: any) => Boolean(i.url));
-                  }
+                const parsedUrls = parseGalleryUrls(activeBranding.tripGallery);
+                if (parsedUrls.length > 0) {
+                  galleryPhotos = parsedUrls.map((url, idx) => ({
+                    url,
+                    caption: `Trip Moment ${idx + 1}`,
+                  }));
                 }
               }
               if (!galleryPhotos || galleryPhotos.length === 0) {
@@ -2029,6 +2025,7 @@ export const ItineraryPdfView: React.FC = () => {
                             alt={item.caption || 'Trip Photo'}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                             style={{ width: '100%', height: '70px', maxHeight: '70px', objectFit: 'cover' }}
+                            crossOrigin="anonymous"
                             referrerPolicy="no-referrer"
                           />
                         </div>
@@ -2308,7 +2305,37 @@ export const ItineraryPdfView: React.FC = () => {
           }
           @page {
             size: A4 portrait;
-            margin: 8mm 10mm;
+            margin: 0 !important;
+          }
+          #itinerary-document {
+            width: 210mm !important;
+            max-width: 210mm !important;
+            min-width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+          }
+          .pdf-page {
+            width: 210mm !important;
+            max-width: 210mm !important;
+            min-width: 210mm !important;
+            height: 296mm !important;
+            max-height: 296mm !important;
+            min-height: 296mm !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+          .pdf-page:last-child,
+          .pdf-page-closing {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
           .pdf-page-cover {
             break-after: page !important;
@@ -2322,14 +2349,10 @@ export const ItineraryPdfView: React.FC = () => {
             break-after: page !important;
             page-break-after: always !important;
           }
-          .pdf-page-closing {
-            break-before: page !important;
-            page-break-before: always !important;
-          }
           .itinerary-day-card {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
-            margin-bottom: 12px !important;
+            margin-bottom: 8px !important;
           }
           .itinerary-day-header {
             break-after: avoid !important;
