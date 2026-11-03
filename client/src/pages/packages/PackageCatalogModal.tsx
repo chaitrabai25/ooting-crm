@@ -22,12 +22,14 @@ import {
   CheckCircle2,
   Quote,
   FileText,
+  Camera,
 } from 'lucide-react';
 import { Package } from '../../types/index.js';
 import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 import { printElement } from '../../utils/printDocument.js';
 import { notifyError } from '../../utils/sweetalert.js';
 import { api } from '../../api/client.js';
+import { parseGalleryUrls } from '../../utils/galleryHelper.js';
 
 interface PackageCatalogModalProps {
   isOpen: boolean;
@@ -56,6 +58,13 @@ const DESTINATION_FALLBACKS: Record<string, string> = {
   south: 'https://images.unsplash.com/photo-1600100397608-f010f444f434?w=800&auto=format&fit=crop&q=80',
   default: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&auto=format&fit=crop&q=80',
 };
+
+const DEFAULT_TRIP_GALLERY = [
+  { url: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=600&auto=format&fit=crop&q=80', caption: 'Breathtaking Viewpoints' },
+  { url: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&auto=format&fit=crop&q=80', caption: 'Cherished Family Moments' },
+  { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80', caption: 'Serene Nature & Escapes' },
+  { url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop&q=80', caption: 'Luxury Stays & Heritage' },
+];
 
 function parseCustomBranding(pkg: Package): any {
   if (!pkg.customBranding) return {};
@@ -138,6 +147,14 @@ function parseInclusionList(raw?: string | null): string[] {
       .filter(Boolean);
   }
   return [text];
+}
+
+function formatDestinationRoute(raw?: string | null): string {
+  if (!raw) return 'Tour Destination';
+  return raw
+    .replace(/\s*(-->|->|--|—>)\s*/g, ' → ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
@@ -515,21 +532,21 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                 }
               `}</style>
 
-              {/* Top Header Wave Asset (Identical to Itinerary Cover Page) */}
+              {/* Top Accent Wave Bar (Clean full-width without negative margin clipping) */}
               <div
-                className="w-full bg-[#C91F28] overflow-hidden relative shrink-0 -mx-6 sm:-mx-8 -mt-6 sm:-mt-8"
-                style={{ height: '8px', minHeight: '8px', maxHeight: '8px', backgroundColor: '#C91F28', overflow: 'hidden' }}
+                className="w-full bg-[#C91F28] overflow-hidden relative shrink-0 rounded-t-lg mb-2"
+                style={{ height: '7px', minHeight: '7px', maxHeight: '7px', backgroundColor: '#C91F28', overflow: 'hidden' }}
               >
                 <img
                   src="/assets/ooting-header-wave.png"
                   alt=""
                   className="w-full h-full object-cover opacity-90"
-                  style={{ width: '100%', height: '8px', objectFit: 'cover' }}
+                  style={{ width: '100%', height: '7px', objectFit: 'cover' }}
                 />
               </div>
 
               {/* Header Letterhead (Matching Itinerary Structure & Styling) */}
-              <div className="border-b border-slate-200 pb-3">
+              <div className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   {/* LEFT SIDE: Binoculars Logo, Agency Name & Tagline */}
                   <div className="flex items-center gap-3">
@@ -619,14 +636,11 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                   </div>
                 </div>
 
-                {/* Header Red 2 lines: One thick (3px) and one thin line (1px) */}
-                <div className="w-full space-y-[1.5px] leading-none mt-3">
-                  <div className="w-full h-[3px] bg-[#C91F28]" />
-                  <div className="w-full h-[1px] bg-[#C91F28]/70" />
-                </div>
+                {/* Clean Simple Design Line (Single clean line without right-side clipping) */}
+                <div className="w-full h-[2.5px] bg-[#C91F28] rounded-full mt-3.5 mb-3" />
 
                 {/* Catalog Main Banner Title & Subtitle */}
-                <div className="mt-3.5 text-center space-y-1">
+                <div className="text-center space-y-1">
                   <h1 className="text-xl sm:text-2xl font-black text-[#1E3A8A] uppercase tracking-tight">
                     {catalogTitle}
                   </h1>
@@ -649,58 +663,57 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                     const pkgDescription = getCatalogPackageDescription(pkg);
                     const pkgInclusions = getCatalogPackageInclusions(pkg);
                     const inclusionList = parseInclusionList(pkgInclusions);
+                    const destinationRoute = formatDestinationRoute(pkg.destination);
 
                     return (
                       <div
                         key={pkg.id}
-                        className="catalog-package-card border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs flex flex-col sm:flex-row gap-0 sm:gap-4 bg-white"
+                        className="catalog-package-card border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs flex flex-col sm:flex-row gap-0 sm:gap-3 bg-white"
                         style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
                       >
-                        {/* Package Banner Image */}
-                        <div className="w-full sm:w-56 min-h-[160px] sm:min-h-[180px] shrink-0 relative overflow-hidden bg-slate-900">
+                        {/* Package Banner Image (Framed, fitted cleanly) */}
+                        <div className="w-full sm:w-52 md:w-56 h-44 sm:h-auto min-h-[160px] max-h-[220px] shrink-0 relative overflow-hidden bg-slate-900 rounded-xl m-2.5 sm:mr-0 shadow-2xs border border-slate-200">
                           <img
                             src={coverImg}
                             alt={pkg.packageName}
-                            className="w-full h-full object-cover min-h-[160px]"
+                            className="w-full h-full object-cover object-center"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = DESTINATION_FALLBACKS.default;
                             }}
                           />
-                          <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-md bg-slate-950/85 text-white text-[10px] font-black uppercase tracking-wider backdrop-blur-xs shadow-sm">
+                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-950/85 text-white text-[10px] font-black uppercase tracking-wider backdrop-blur-xs shadow-sm">
                             #{idx + 1}
-                          </div>
-                          <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-[#C91F28] text-white text-[10px] font-bold shadow-sm">
-                            {pkg.duration}
                           </div>
                         </div>
 
                         {/* Package Content Section: Complete data without cuts */}
                         <div className="p-3 sm:py-3.5 sm:pr-4 flex-1 flex flex-col justify-between">
                           <div>
-                            {/* Package Header Row */}
+                            {/* Package Header Row: Title & Duration Badge (Shown once) */}
                             <div className="flex flex-wrap items-center justify-between gap-1.5">
                               <h3 className="text-base font-extrabold text-slate-900 uppercase tracking-tight">
                                 {pkg.packageName}
                               </h3>
-                              <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-[#C91F28] font-bold text-[11px] border border-red-100">
+                              <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-[#C91F28] font-extrabold text-[11px] border border-red-200/60 shadow-2xs shrink-0">
                                 {pkg.duration}
                               </span>
                             </div>
 
-                            {/* Destination Row */}
-                            <div className="flex items-center gap-2 text-xs text-slate-600 font-semibold mt-1">
-                              <span className="flex items-center gap-1 text-[#C91F28] font-bold">
-                                <MapPin className="w-3.5 h-3.5 shrink-0" />
-                                {pkg.destination}
+                            {/* Destination Row (One line cleanly aligned, no 'Handcrafted Tour Itinerary') */}
+                            <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold mt-1 min-w-0">
+                              <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
+                              <span className="truncate block font-bold text-[#C91F28]" title={destinationRoute}>
+                                {destinationRoute}
                               </span>
-                              <span className="text-slate-300">•</span>
-                              <span className="text-slate-500">Handcrafted Tour Itinerary</span>
                             </div>
 
-                            {/* Complete Package Description (NO line-clamp) */}
+                            {/* Complete Package Description (Justified content, clean markdown stripping) */}
                             {pkgDescription && (
-                              <p className="text-xs text-slate-700 mt-2 leading-relaxed whitespace-pre-line">
-                                {pkgDescription}
+                              <p
+                                className="text-xs text-slate-700 mt-2 leading-relaxed whitespace-pre-line text-justify"
+                                style={{ textAlign: 'justify', textJustify: 'inter-word' }}
+                              >
+                                {pkgDescription.replace(/\*\*/g, '').replace(/###\s*/g, '')}
                               </p>
                             )}
 
@@ -726,16 +739,20 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                             )}
                           </div>
 
-                          {/* Price Tag Row */}
-                          <div className="mt-3 pt-2.5 border-t border-slate-200 flex items-center justify-between">
-                            <span className="text-[11px] text-slate-500 font-medium">
+                          {/* Price Tag Row (Highlighted Amount) */}
+                          <div className="mt-3.5 pt-2.5 border-t border-slate-200/90 flex items-center justify-between">
+                            <span className="text-[11px] text-slate-500 font-semibold">
                               Per Person Twin Sharing Basis
                             </span>
-                            <div className="text-right">
-                              <span className="text-[11px] text-slate-500 uppercase mr-1.5 font-bold">Starts At</span>
-                              <span className="text-base sm:text-lg font-black text-[#1E3A8A]">
-                                ₹{Number(priceToShow).toLocaleString('en-IN')}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Starts At
                               </span>
+                              <div className="px-3 py-1 rounded-xl bg-blue-50 border border-blue-200 shadow-2xs">
+                                <span className="text-base sm:text-lg font-black text-[#1E3A8A] tracking-tight">
+                                  {Number(priceToShow) > 0 ? `₹${Number(priceToShow).toLocaleString('en-IN')}` : 'On Request'}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -750,12 +767,71 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                 <strong>Important Note:</strong> Rates are indicative per person on twin-sharing basis and subject to seasonal vehicle & hotel availability at the time of final confirmation. Customizations for group sizes (2, 4, 6, 8, 12+ pax) with dedicated private chauffeur and vehicle options available upon request.
               </div>
 
-              {/* Executive Closing Page: Reviews, Thank You & Company Contact (No redundant inclusions/exclusions) */}
+              {/* Executive Closing Page: Happy Moments, Reviews, Thank You & Company Contact */}
               <div
                 className="catalog-closing-section pt-5 border-t border-slate-200 space-y-4"
                 style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
               >
-                {/* 1. Verified Guest Reviews & Testimonial */}
+                {/* 1. Happy Moments & Guest Memories Gallery Strip */}
+                {(() => {
+                  const parsedGallery = parseGalleryUrls(company?.tripGallery);
+                  const galleryPhotos = parsedGallery.length > 0
+                    ? parsedGallery.map((url, idx) => ({
+                        url,
+                        caption: idx === 0 ? 'Scenic Views' : idx === 1 ? 'Family Moments' : idx === 2 ? 'Serene Escapes' : 'Luxury Resorts',
+                      }))
+                    : DEFAULT_TRIP_GALLERY;
+
+                  return (
+                    <div className="space-y-1.5 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200">
+                      <div className="flex items-center justify-between pb-1">
+                        <div className="flex items-center gap-1.5">
+                          <Camera className="w-3.5 h-3.5 text-[#C91F28]" />
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-tight">
+                            Happy Moments & Guest Memories
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-500">
+                          Real Moments from Our Tours
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {galleryPhotos.slice(0, 4).map((item, gIdx) => (
+                          <div
+                            key={gIdx}
+                            className="happy-moment-card bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs group"
+                          >
+                            <div
+                              className="relative w-full bg-slate-900/5 flex items-center justify-center overflow-hidden"
+                              style={{ width: '100%', height: '100px', maxHeight: '100px', minHeight: '100px' }}
+                            >
+                              <img
+                                src={item.url}
+                                alt={item.caption || 'Trip Photo'}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                style={{ width: '100%', height: '100px', maxHeight: '100px', objectFit: 'cover' }}
+                                crossOrigin="anonymous"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  const target = e.currentTarget;
+                                  target.onerror = null;
+                                  const parentCard = target.closest('.happy-moment-card');
+                                  if (parentCard) (parentCard as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            </div>
+                            <div className="px-1.5 py-1 bg-slate-50 border-t border-slate-200 text-center text-[9.5px] font-bold text-slate-700 truncate">
+                              {item.caption || 'Traveler Memory'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 2. Verified Guest Reviews & Testimonial */}
                 <div className="p-4 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-white rounded-2xl border border-blue-200/70 space-y-2.5">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -785,7 +861,7 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                   </div>
                 </div>
 
-                {/* 2. Professional THANK YOU Header */}
+                {/* 3. Professional THANK YOU Header */}
                 <div className="pt-2 text-center max-w-xl mx-auto w-full flex flex-col items-center">
                   <h2 className="text-2xl font-black uppercase tracking-tight text-[#1E3A8A] leading-tight">
                     THANK YOU
@@ -796,7 +872,7 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                   </p>
                 </div>
 
-                {/* 3. Professional Company Details Card with Clickable Links */}
+                {/* 4. Professional Company Details Card with Clickable Links */}
                 <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left shadow-2xs space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-200 gap-2">
                     <div>
@@ -942,11 +1018,8 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                   </div>
                 </div>
 
-                {/* Footer Tagline with Red Double Lines */}
-                <div className="w-full space-y-[1.5px] leading-none pt-2">
-                  <div className="w-full h-[1px] bg-[#C91F28]/70" />
-                  <div className="w-full h-[3px] bg-[#C91F28]" />
-                </div>
+                {/* Footer Tagline with Clean Design Line */}
+                <div className="w-full h-[2px] bg-[#C91F28] rounded-full mt-3 mb-1" />
                 <div className="text-center text-[10px] text-slate-400 uppercase tracking-widest pt-1">
                   {company?.name || 'Ooting Holidays'} • {company?.tagline || 'Journeys Beyond Ordinary'}
                 </div>
