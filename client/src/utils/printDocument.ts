@@ -240,7 +240,7 @@ export async function printElement(elementId: string, options: PrintOptions = {}
           break-after: avoid !important;
           page-break-after: avoid !important;
         }
-        .day-photo-card, .hotel-card {
+        .day-photo-card, .hotel-card, .catalog-package-card-wrapper, .catalog-package-card, .catalog-closing-section {
           break-inside: avoid !important;
           page-break-inside: avoid !important;
         }

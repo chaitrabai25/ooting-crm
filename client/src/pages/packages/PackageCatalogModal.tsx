@@ -106,18 +106,22 @@ function getCatalogPackageImage(pkg: Package): string {
   return DESTINATION_FALLBACKS.default;
 }
 
-function getCatalogPackageDescription(pkg: Package): string {
+function getCleanCatalogDescription(pkg: Package, maxWords = 55): string {
   const cb = parseCustomBranding(pkg);
+  let raw = '';
   if (cb?.tourOverview && typeof cb.tourOverview === 'string' && cb.tourOverview.trim()) {
-    return cb.tourOverview.trim();
+    raw = cb.tourOverview.trim();
+  } else if (pkg.description && pkg.description.trim()) {
+    raw = pkg.description.trim();
+  } else if (cb?.description && typeof cb.description === 'string' && cb.description.trim()) {
+    raw = cb.description.trim();
   }
-  if (pkg.description && pkg.description.trim()) {
-    return pkg.description.trim();
-  }
-  if (cb?.description && typeof cb.description === 'string' && cb.description.trim()) {
-    return cb.description.trim();
-  }
-  return '';
+  if (!raw) return '';
+
+  const clean = raw.replace(/\*\*/g, '').replace(/###\s*/g, '').replace(/##\s*/g, '').trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return clean;
+  return words.slice(0, maxWords).join(' ') + '...';
 }
 
 function getCatalogPackageInclusions(pkg: Package): string {
@@ -505,7 +509,7 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
             {/* The Dedicated Printable Container */}
             <div
               id="catalog-printable-doc"
-              className="w-full max-w-[794px] bg-white text-slate-900 rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 space-y-5 print:p-0 print:shadow-none print:rounded-none shrink-0 origin-top transition-transform"
+              className="w-full max-w-[794px] bg-white text-slate-900 rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 space-y-4 print:p-0 print:shadow-none print:rounded-none shrink-0 origin-top transition-transform"
               style={{
                 fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                 transform: zoomScale !== 1 ? `scale(${zoomScale})` : undefined,
@@ -520,14 +524,27 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                     border: none !important;
                     width: 100% !important;
                     max-width: 100% !important;
+                    background: #ffffff !important;
+                  }
+                  .catalog-package-card-wrapper {
+                    display: block !important;
+                    break-inside: avoid !important;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid-page !important;
+                    margin-bottom: 12px !important;
+                    overflow: visible !important;
                   }
                   .catalog-package-card {
                     break-inside: avoid !important;
                     page-break-inside: avoid !important;
+                    break-inside: avoid-page !important;
+                    overflow: visible !important;
                   }
                   .catalog-closing-section {
                     break-inside: avoid !important;
                     page-break-inside: avoid !important;
+                    break-inside: avoid-page !important;
+                    margin-top: 16px !important;
                   }
                 }
               `}</style>
@@ -651,7 +668,7 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
               </div>
 
               {/* Multi-Package Cards Display Grid */}
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 {selectedPackagesList.length === 0 ? (
                   <div className="py-12 text-center text-slate-400 text-xs">
                     No packages selected. Check boxes on the left to include packages in this catalog.
@@ -660,7 +677,7 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                   selectedPackagesList.map((pkg, idx) => {
                     const priceToShow = priceOverrides[pkg.id] ?? String(pkg.price);
                     const coverImg = getCatalogPackageImage(pkg);
-                    const pkgDescription = getCatalogPackageDescription(pkg);
+                    const pkgDescription = getCleanCatalogDescription(pkg, 55);
                     const pkgInclusions = getCatalogPackageInclusions(pkg);
                     const inclusionList = parseInclusionList(pkgInclusions);
                     const destinationRoute = formatDestinationRoute(pkg.destination);
@@ -668,90 +685,96 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                     return (
                       <div
                         key={pkg.id}
-                        className="catalog-package-card border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs flex flex-col sm:flex-row gap-0 sm:gap-3 bg-white"
-                        style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
+                        className="catalog-package-card-wrapper"
+                        style={{
+                          breakInside: 'avoid',
+                          pageBreakInside: 'avoid',
+                          display: 'block',
+                        }}
                       >
-                        {/* Package Banner Image (Framed, fitted cleanly) */}
-                        <div className="w-full sm:w-52 md:w-56 h-44 sm:h-auto min-h-[160px] max-h-[220px] shrink-0 relative overflow-hidden bg-slate-900 rounded-xl m-2.5 sm:mr-0 shadow-2xs border border-slate-200">
-                          <img
-                            src={coverImg}
-                            alt={pkg.packageName}
-                            className="w-full h-full object-cover object-center"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = DESTINATION_FALLBACKS.default;
-                            }}
-                          />
-                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-950/85 text-white text-[10px] font-black uppercase tracking-wider backdrop-blur-xs shadow-sm">
-                            #{idx + 1}
+                        <div className="catalog-package-card border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs flex flex-col sm:flex-row gap-0 sm:gap-3 bg-white">
+                          {/* Package Banner Image (Self-stretching full height, no empty space below) */}
+                          <div className="w-full sm:w-48 md:w-52 shrink-0 self-stretch relative overflow-hidden bg-slate-900 rounded-xl m-2 sm:m-2.5 sm:mr-0 shadow-2xs border border-slate-200/80 min-h-[145px]">
+                            <img
+                              src={coverImg}
+                              alt={pkg.packageName}
+                              className="w-full h-full object-cover object-center absolute inset-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = DESTINATION_FALLBACKS.default;
+                              }}
+                            />
+                            <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-md bg-slate-950/85 text-white text-[10px] font-black uppercase tracking-wider backdrop-blur-xs shadow-sm z-10">
+                              {idx + 1}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Package Content Section: Complete data without cuts */}
-                        <div className="p-3 sm:py-3.5 sm:pr-4 flex-1 flex flex-col justify-between">
-                          <div>
-                            {/* Package Header Row: Title & Duration Badge (Shown once) */}
-                            <div className="flex flex-wrap items-center justify-between gap-1.5">
-                              <h3 className="text-base font-extrabold text-slate-900 uppercase tracking-tight">
-                                {pkg.packageName}
-                              </h3>
-                              <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-[#C91F28] font-extrabold text-[11px] border border-red-200/60 shadow-2xs shrink-0">
-                                {pkg.duration}
-                              </span>
-                            </div>
+                          {/* Package Content Section: Complete data without cuts */}
+                          <div className="p-3 sm:py-3 sm:pr-3.5 flex-1 flex flex-col justify-between min-w-0">
+                            <div>
+                              {/* Package Header Row: Title & Duration Badge (Shown once) */}
+                              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-tight">
+                                  {pkg.packageName}
+                                </h3>
+                                <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-[#C91F28] font-extrabold text-[11px] border border-red-200/60 shadow-2xs shrink-0">
+                                  {pkg.duration}
+                                </span>
+                              </div>
 
-                            {/* Destination Row (One line cleanly aligned, no 'Handcrafted Tour Itinerary') */}
-                            <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold mt-1 min-w-0">
-                              <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0" />
-                              <span className="truncate block font-bold text-[#C91F28]" title={destinationRoute}>
-                                {destinationRoute}
-                              </span>
-                            </div>
-
-                            {/* Complete Package Description (Justified content, clean markdown stripping) */}
-                            {pkgDescription && (
-                              <p
-                                className="text-xs text-slate-700 mt-2 leading-relaxed whitespace-pre-line text-justify"
-                                style={{ textAlign: 'justify', textJustify: 'inter-word' }}
-                              >
-                                {pkgDescription.replace(/\*\*/g, '').replace(/###\s*/g, '')}
-                              </p>
-                            )}
-
-                            {/* Complete Package Inclusions (NO line-clamp) */}
-                            {pkgInclusions && (
-                              <div className="mt-3 p-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl">
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 mb-1.5">
-                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                  <span>Package Inclusions:</span>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {inclusionList.map((item, i) => (
-                                    <span
-                                      key={i}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-emerald-900 border border-emerald-200/60 shadow-2xs"
-                                    >
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                      <span>{item}</span>
-                                    </span>
-                                  ))}
+                              {/* Destination Row (Clean alignment, no cutoffs, wraps naturally if multiple stops) */}
+                              <div className="flex items-start gap-1.5 text-xs text-slate-700 font-semibold mt-1">
+                                <MapPin className="w-3.5 h-3.5 text-[#C91F28] shrink-0 mt-0.5" />
+                                <div className="font-bold text-[#C91F28] leading-tight text-xs flex-1">
+                                  {destinationRoute}
                                 </div>
                               </div>
-                            )}
-                          </div>
 
-                          {/* Price Tag Row (Highlighted Amount) */}
-                          <div className="mt-3.5 pt-2.5 border-t border-slate-200/90 flex items-center justify-between">
-                            <span className="text-[11px] text-slate-500 font-semibold">
-                              Per Person Twin Sharing Basis
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                Starts At
+                              {/* Complete Package Description (Justified content, clean markdown stripping) */}
+                              {pkgDescription && (
+                                <p
+                                  className="text-xs text-slate-700 mt-2 leading-relaxed whitespace-pre-line text-justify"
+                                  style={{ textAlign: 'justify', textJustify: 'inter-word' }}
+                                >
+                                  {pkgDescription}
+                                </p>
+                              )}
+
+                              {/* Complete Package Inclusions (Clean compact badges) */}
+                              {pkgInclusions && (
+                                <div className="mt-2.5 p-2 bg-emerald-50/70 border border-emerald-200/80 rounded-xl">
+                                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 mb-1">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    <span>Package Inclusions:</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {inclusionList.map((item, i) => (
+                                      <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-white text-emerald-900 border border-emerald-200/60 shadow-2xs"
+                                      >
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                        <span>{item}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Price Tag Row (Highlighted Amount) */}
+                            <div className="mt-3 pt-2 border-t border-slate-200/90 flex items-center justify-between">
+                              <span className="text-[11px] text-slate-500 font-semibold">
+                                Per Person Twin Sharing Basis
                               </span>
-                              <div className="px-3 py-1 rounded-xl bg-blue-50 border border-blue-200 shadow-2xs">
-                                <span className="text-base sm:text-lg font-black text-[#1E3A8A] tracking-tight">
-                                  {Number(priceToShow) > 0 ? `₹${Number(priceToShow).toLocaleString('en-IN')}` : 'On Request'}
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  Starts At
                                 </span>
+                                <div className="px-3 py-1 rounded-xl bg-blue-50 border border-blue-200 shadow-2xs">
+                                  <span className="text-sm sm:text-base font-black text-[#1E3A8A] tracking-tight">
+                                    {Number(priceToShow) > 0 ? `₹${Number(priceToShow).toLocaleString('en-IN')}` : 'On Request'}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -896,6 +919,19 @@ export const PackageCatalogModal: React.FC<PackageCatalogModalProps> = ({
                         >
                           <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                          </svg>
+                        </a>
+                      )}
+                      {company?.instagramUrl && (
+                        <a
+                          href={company.instagramUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-7 h-7 rounded-full bg-[#E4405F]/10 hover:bg-[#E4405F] text-[#E4405F] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                          title="Visit Instagram"
+                        >
+                          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
                           </svg>
                         </a>
                       )}

@@ -542,7 +542,17 @@ export const PackageModal: React.FC<PackageModalProps> = ({
             </div>
 
             <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Package Overview & Description *</label>
+              <div className="flex items-center justify-between">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Package Overview & Description *</label>
+                <span className={`text-xs ${
+                  description.trim().split(/\s+/).filter(Boolean).length > 60 
+                    ? 'text-amber-600 dark:text-amber-400 font-medium' 
+                    : 'text-slate-500 dark:text-slate-400'
+                }`}>
+                  {description.trim() ? description.trim().split(/\s+/).filter(Boolean).length : 0} words
+                  <span className="hidden sm:inline text-slate-400 dark:text-slate-500 ml-1">(Catalog brochure optimal: 40–60 words)</span>
+                </span>
+              </div>
               <textarea
                 rows={3}
                 required
@@ -551,6 +561,9 @@ export const PackageModal: React.FC<PackageModalProps> = ({
                 placeholder="Describe the travel experience, highlights, and serene nature of this tour..."
                 className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-1 focus:ring-[#C91F28] focus:outline-none"
               />
+              <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+                Tip: Keeping descriptions within ~40–60 words ensures clean card height and flawless alignment across PDF brochure pages.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
