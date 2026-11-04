@@ -110,6 +110,13 @@ export const Login: React.FC = () => {
         })
         .catch(() => {});
     }
+
+    // Check if user was redirected due to inactivity / system restart timeout
+    const isExpired = searchParams.get('expired') === '1' || sessionStorage.getItem('ooting_session_expired') === 'true';
+    if (isExpired) {
+      sessionStorage.removeItem('ooting_session_expired');
+      setError('Your previous session timed out due to inactivity or system restart. Please sign in to verify your identity and continue.');
+    }
   }, []);
 
   // Dynamically resolve tenant branding only when user finishes typing a full work email

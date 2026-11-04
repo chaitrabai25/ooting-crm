@@ -39,10 +39,31 @@ export function errorHandler(
     logger.warn('API Error', `${method} ${path} returned ${statusCode}: ${err.message}`, logMeta);
   }
 
-  const message = err.message || 'An internal server error occurred.';
+  // Soft and human-friendly error sanitization (no raw Prisma or DB errors exposed to users)
+  let userFriendlyMessage = 'Unable to complete this action right now. Please try again shortly.';
+  const rawMsg = String(err.message || '');
+  const code = String(err.code || '');
+  const errName = String(err.name || '');
+
+  if (code === 'P2002' || rawMsg.includes('Unique constraint failed')) {
+    userFriendlyMessage = 'A record with this information already exists in the system. Please verify your details.';
+  } else if (code === 'P2025' || rawMsg.includes('Record to update not found') || rawMsg.includes('Record to delete does not exist')) {
+    userFriendlyMessage = 'The requested record could not be found or has been updated elsewhere.';
+  } else if (code === 'P2003' || rawMsg.includes('Foreign key constraint failed')) {
+    userFriendlyMessage = 'This record is linked to other existing entries and cannot be removed.';
+  } else if (code === 'P2000' || rawMsg.includes('Value too long for column')) {
+    userFriendlyMessage = 'One or more of the entered details exceeds the permitted length.';
+  } else if (errName.includes('Prisma') || rawMsg.toLowerCase().includes('prisma') || rawMsg.includes('invocation:')) {
+    userFriendlyMessage = 'Some entered information could not be processed. Please check your entries and try again.';
+  } else if (rawMsg.includes('ECONNREFUSED') || rawMsg.includes('ETIMEDOUT') || rawMsg.includes('Can\'t reach database server')) {
+    userFriendlyMessage = 'Database service is responding slowly. Please try again in a few moments.';
+  } else if (statusCode < 500 && err.message) {
+    // For expected 4xx client errors (e.g. 400 Bad Request, 404 Not Found), retain message if clean
+    userFriendlyMessage = err.message;
+  }
 
   res.status(statusCode).json({
-    message,
+    message: userFriendlyMessage,
   });
 }
 

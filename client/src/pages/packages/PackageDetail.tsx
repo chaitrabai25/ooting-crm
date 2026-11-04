@@ -57,6 +57,9 @@ import { useCompanySettings } from '../../context/CompanySettingsContext.js';
 
 import { useAuth } from '../../context/AuthContext.js';
 import { confirmAction, notifyError, notifySuccess, notifyWarning } from '../../utils/sweetalert.js';
+import { PackageDetailSkeleton } from '../../components/ui/LoadingPatterns.js';
+
+const memoryPackageCache = new Map<string, any>();
 
 export const PackageDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -64,9 +67,9 @@ export const PackageDetail: React.FC = () => {
   const { can, isSuperAdmin } = useAuth();
   const { company, effectiveLogoUrl, refreshCompany } = useCompanySettings();
 
-  const [pkg, setPkg] = useState<any>(null);
-  const [itineraries, setItineraries] = useState<ItineraryDay[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [pkg, setPkg] = useState<any>(() => (id ? memoryPackageCache.get(id) || null : null));
+  const [itineraries, setItineraries] = useState<ItineraryDay[]>(() => (id && memoryPackageCache.get(id)?.itineraries) || []);
+  const [isLoading, setIsLoading] = useState(() => !(id && memoryPackageCache.has(id)));
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -289,13 +292,17 @@ export const PackageDetail: React.FC = () => {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const fetchPackage = async () => {
+  const fetchPackage = async (forceFresh = false) => {
     try {
-      setIsLoading(true);
-      const res = await api.get(`/packages/${id}?fresh=true&_t=${Date.now()}`);
-      setPkg(res.data);
-      setItineraries(res.data.itineraries || []);
-      setHasUnsavedChanges(false);
+      if (!pkg) setIsLoading(true);
+      const url = forceFresh ? `/packages/${id}?fresh=true&_t=${Date.now()}` : `/packages/${id}`;
+      const res = await api.get(url);
+      if (res.data) {
+        if (id) memoryPackageCache.set(id, res.data);
+        setPkg(res.data);
+        setItineraries(res.data.itineraries || []);
+        setHasUnsavedChanges(false);
+      }
     } catch (err) {
       console.error('Failed to load package:', err);
     } finally {
@@ -1242,13 +1249,8 @@ export const PackageDetail: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded w-40" />
-        <div className="h-48 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800" />
-      </div>
-    );
+  if (isLoading && !pkg) {
+    return <PackageDetailSkeleton />;
   }
 
   if (!pkg) {

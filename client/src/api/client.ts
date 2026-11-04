@@ -53,6 +53,32 @@ api.interceptors.response.use(
         window.location.href = '/suspended';
       }
     }
+
+    // Sanitize error messages on client to ensure no raw technical/Prisma errors appear in UI
+    if (error.response?.data?.message && typeof error.response.data.message === 'string') {
+      const msg = error.response.data.message;
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes('prisma') ||
+        lower.includes('unique constraint') ||
+        lower.includes('foreign key') ||
+        lower.includes('invocation:') ||
+        lower.includes('econnrefused') ||
+        lower.includes('etimedout') ||
+        lower.includes('syntaxerror') ||
+        lower.includes('typeerror') ||
+        lower.includes('internal server error')
+      ) {
+        if (lower.includes('unique constraint') || lower.includes('p2002')) {
+          error.response.data.message = 'A record with this information already exists. Please verify your entries.';
+        } else if (lower.includes('foreign key') || lower.includes('p2003')) {
+          error.response.data.message = 'This item is linked to other records and cannot be altered or removed.';
+        } else {
+          error.response.data.message = 'Unable to complete this request right now. Please try again shortly.';
+        }
+      }
+    }
+
     return Promise.reject(error);
   }
 );

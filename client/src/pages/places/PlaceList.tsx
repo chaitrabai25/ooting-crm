@@ -23,6 +23,7 @@ import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { PlaceModal } from './PlaceModal.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
+import { MasterDirectorySkeleton } from '../../components/ui/LoadingPatterns.js';
 
 const memoryPlacesCache = new Map<string, Place[]>();
 
@@ -243,11 +244,8 @@ export const PlaceList: React.FC = () => {
       </div>
 
       {/* Places Grid */}
-      {isLoading ? (
-        <div className="py-20 text-center flex flex-col items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[#C91F28] mb-2" />
-          <p className="text-xs text-slate-500 font-medium">Loading places catalog...</p>
-        </div>
+      {isLoading && places.length === 0 ? (
+        <MasterDirectorySkeleton type="place" count={6} />
       ) : places.length === 0 ? (
         <div className="py-16 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
           <MapPin className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />

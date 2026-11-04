@@ -211,83 +211,104 @@ router.get('/:id', requirePermission('packages', 'view'), async (req: AuthReques
       return;
     }
 
-    // Auto-sync live hotel & place data if updated in Master Library
+    // Auto-sync live hotel & place data concurrently with lean column projection
     if (pkg.itineraries && pkg.itineraries.length > 0) {
       try {
-        // 1. Hotel Sync
         const hotelIds = pkg.itineraries.map((d: any) => d.hotelId).filter(Boolean);
         const hotelNames = pkg.itineraries.map((d: any) => d.hotelName).filter(Boolean);
-        if (hotelIds.length > 0 || hotelNames.length > 0) {
-          const liveHotels = await (prisma as any).hotel.findMany({
-            where: {
-              isDeleted: false,
-              OR: [
-                ...(hotelIds.length > 0 ? [{ id: { in: hotelIds } }] : []),
-                ...(hotelNames.length > 0 ? [{ name: { in: hotelNames } }] : []),
-              ],
-            },
-          });
-          const hotelIdMap = new Map<string, any>(liveHotels.map((h: any) => [h.id, h]));
-          const hotelNameMap = new Map<string, any>(liveHotels.map((h: any) => [h.name.toLowerCase().trim(), h]));
-
-          pkg.itineraries = pkg.itineraries.map((d: any) => {
-            const h = (d.hotelId && hotelIdMap.get(d.hotelId)) ||
-                      (d.hotelName && hotelNameMap.get(d.hotelName.toLowerCase().trim()));
-            if (h) {
-              return {
-                ...d,
-                hotelName: h.name || d.hotelName,
-                hotelStarCategory: h.starCategory || d.hotelStarCategory,
-                hotelImageUrl: h.imageUrl || d.hotelImageUrl,
-                hotelLocation: (h.city ? `${h.city}, ` : '') + (h.district || d.hotelLocation || ''),
-                hotelDetails: h.description || h.address || d.hotelDetails,
-                hotelCheckIn: h.checkInTime || d.hotelCheckIn,
-                hotelCheckOut: h.checkOutTime || d.hotelCheckOut,
-              };
-            }
-            return d;
-          });
-        }
-
-        // 2. Place Sync
         const allPlaceNames = Array.from(new Set(
           pkg.itineraries.flatMap((d: any) =>
             (d.places || '').split(',').map((p: string) => p.trim()).filter(Boolean)
           )
         ));
-        if (allPlaceNames.length > 0) {
-          const livePlaces = await prisma.place.findMany({
-            where: {
-              isDeleted: false,
-              name: { in: allPlaceNames },
-            },
-          });
-          if (livePlaces.length > 0) {
-            const placeMap = new Map<string, any>(
-              livePlaces.map((p) => [p.name.toLowerCase().trim(), p])
-            );
+
+        await Promise.all([
+          // 1. Hotel Sync (Concurrently fetched with lean projection)
+          (async () => {
+            if (hotelIds.length === 0 && hotelNames.length === 0) return;
+            const liveHotels = await (prisma as any).hotel.findMany({
+              where: {
+                isDeleted: false,
+                OR: [
+                  ...(hotelIds.length > 0 ? [{ id: { in: hotelIds } }] : []),
+                  ...(hotelNames.length > 0 ? [{ name: { in: hotelNames } }] : []),
+                ],
+              },
+              select: {
+                id: true,
+                name: true,
+                starCategory: true,
+                imageUrl: true,
+                city: true,
+                district: true,
+                description: true,
+                address: true,
+                checkInTime: true,
+                checkOutTime: true,
+              },
+            });
+            const hotelIdMap = new Map<string, any>(liveHotels.map((h: any) => [h.id, h]));
+            const hotelNameMap = new Map<string, any>(liveHotels.map((h: any) => [h.name.toLowerCase().trim(), h]));
+
             pkg.itineraries = pkg.itineraries.map((d: any) => {
-              if (d.places) {
-                const dayPlaces = d.places.split(',').map((p: string) => p.trim()).filter(Boolean);
-                const updatedPlaceNames = dayPlaces.map((pName: string) => {
-                  const match = placeMap.get(pName.toLowerCase());
-                  return match ? match.name : pName;
-                });
+              const h = (d.hotelId && hotelIdMap.get(d.hotelId)) ||
+                        (d.hotelName && hotelNameMap.get(d.hotelName.toLowerCase().trim()));
+              if (h) {
                 return {
                   ...d,
-                  places: updatedPlaceNames.join(', '),
+                  hotelName: h.name || d.hotelName,
+                  hotelStarCategory: h.starCategory || d.hotelStarCategory,
+                  hotelImageUrl: h.imageUrl || d.hotelImageUrl,
+                  hotelLocation: (h.city ? `${h.city}, ` : '') + (h.district || d.hotelLocation || ''),
+                  hotelDetails: h.description || h.address || d.hotelDetails,
+                  hotelCheckIn: h.checkInTime || d.hotelCheckIn,
+                  hotelCheckOut: h.checkOutTime || d.hotelCheckOut,
                 };
               }
               return d;
             });
-          }
-        }
+          })(),
+
+          // 2. Place Sync (Concurrently fetched with lean projection)
+          (async () => {
+            if (allPlaceNames.length === 0) return;
+            const livePlaces = await prisma.place.findMany({
+              where: {
+                isDeleted: false,
+                name: { in: allPlaceNames },
+              },
+              select: {
+                id: true,
+                name: true,
+              },
+            });
+            if (livePlaces.length > 0) {
+              const placeMap = new Map<string, any>(
+                livePlaces.map((p) => [p.name.toLowerCase().trim(), p])
+              );
+              pkg.itineraries = pkg.itineraries.map((d: any) => {
+                if (d.places) {
+                  const dayPlaces = d.places.split(',').map((p: string) => p.trim()).filter(Boolean);
+                  const updatedPlaceNames = dayPlaces.map((pName: string) => {
+                    const match = placeMap.get(pName.toLowerCase());
+                    return match ? match.name : pName;
+                  });
+                  return {
+                    ...d,
+                    places: updatedPlaceNames.join(', '),
+                  };
+                }
+                return d;
+              });
+            }
+          })(),
+        ]);
       } catch (syncErr) {
         console.warn('[PackageRoute] Live hotel/place sync non-blocking warning:', syncErr);
       }
     }
 
-    cache.set(cacheKey, pkg, 30); // 30s cache
+    cache.set(cacheKey, pkg, 120); // 2 mins cache
     res.json(pkg);
   } catch (error) {
     next(error);

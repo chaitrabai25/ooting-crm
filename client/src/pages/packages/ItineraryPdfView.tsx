@@ -315,8 +315,8 @@ export const ItineraryPdfView: React.FC = () => {
 
         let packageData: any = null;
         try {
-          // 1. Try authenticated package endpoint with fresh flag
-          const pkgRes = await api.get(`/packages/${id}?fresh=true&_t=${Date.now()}`);
+          // 1. Try authenticated package endpoint (fast cache-first)
+          const pkgRes = await api.get(`/packages/${id}`);
           packageData = pkgRes.data;
         } catch {
           // 2. If 401 or unauthorized/not found, fallback to public itinerary endpoint
@@ -806,6 +806,34 @@ export const ItineraryPdfView: React.FC = () => {
       setIsGeneratingPdf(false);
     }
   };
+
+  if (isLoading && !pkg) {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4">
+        <BrandLoader
+          size="fullscreen"
+          text="Preparing Tour Itinerary PDF..."
+          subtext="Loading day-wise schedule, hotels, and custom travel agent branding"
+        />
+      </div>
+    );
+  }
+
+  if (!pkg) {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 text-center max-w-sm shadow-md">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Itinerary not found or access expired.</p>
+          <button
+            onClick={() => navigate('/packages')}
+            className="mt-4 px-4 py-2 text-xs font-bold text-white bg-[#C91F28] hover:bg-[#a81920] rounded-xl transition-colors cursor-pointer"
+          >
+            Return to Packages
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-200/70 dark:bg-slate-950 py-8 px-4 print:p-0 print:bg-white">

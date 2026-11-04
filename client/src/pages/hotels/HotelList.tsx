@@ -23,6 +23,7 @@ import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
 import { HotelModal } from './HotelModal.js';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js';
 import { notifySuccess, notifyError } from '../../utils/sweetalert.js';
+import { MasterDirectorySkeleton } from '../../components/ui/LoadingPatterns.js';
 
 const STAR_CATEGORIES = [
   'All Star Categories',
@@ -264,11 +265,8 @@ export const HotelList: React.FC = () => {
       </div>
 
       {/* Hotels Grid */}
-      {isLoading ? (
-        <div className="py-20 text-center flex flex-col items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[#C91F28] mb-2" />
-          <p className="text-xs text-slate-500 font-medium">Loading hotels library...</p>
-        </div>
+      {isLoading && hotels.length === 0 ? (
+        <MasterDirectorySkeleton type="hotel" count={6} />
       ) : hotels.length === 0 ? (
         <div className="py-16 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
           <Building2 className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />

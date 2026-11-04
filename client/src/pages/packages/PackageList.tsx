@@ -36,6 +36,9 @@ import { downloadExcel } from '../../utils/exportHelper.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useLiveSync } from '../../utils/useLiveSync.js';
 import { notifyError } from '../../utils/sweetalert.js';
+import { PackageGridSkeleton } from '../../components/ui/LoadingPatterns.js';
+
+let memoryPackageListCache: Package[] | null = null;
 
 const DESTINATION_FALLBACKS: Record<string, string> = {
   ooty: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=800&auto=format&fit=crop&q=80',
@@ -87,8 +90,8 @@ export const PackageList: React.FC = () => {
   const navigate = useNavigate();
   const { can, isSuperAdmin } = useAuth();
 
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [packages, setPackages] = useState<Package[]>(() => memoryPackageListCache || []);
+  const [isLoading, setIsLoading] = useState(() => !memoryPackageListCache);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCustomItineraryOpen, setIsCustomItineraryOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
@@ -101,23 +104,27 @@ export const PackageList: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
-  const fetchPackages = async (silent = false) => {
+  const fetchPackages = async (silent = false, forceFresh = false) => {
     try {
-      if (!silent) setIsLoading(true);
+      if (!silent && (!packages || packages.length === 0)) setIsLoading(true);
       const params = new URLSearchParams();
       params.append('limit', '100');
-      params.append('fresh', 'true');
-      params.append('_t', String(Date.now()));
+      if (forceFresh) {
+        params.append('fresh', 'true');
+        params.append('_t', String(Date.now()));
+      }
       if (search) params.append('search', search);
       if (selectedType) params.append('packageType', selectedType);
       if (selectedStatus) params.append('status', selectedStatus);
 
       const res = await api.get(`/packages?${params.toString()}`);
-      setPackages(res.data.data || []);
+      const data = res.data.data || [];
+      memoryPackageListCache = data;
+      setPackages(data);
     } catch (err) {
       console.error('Failed to fetch packages:', err);
     } finally {
-      if (!silent) setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -383,15 +390,8 @@ export const PackageList: React.FC = () => {
       </div>
 
       {/* Package Content Presentation */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div
-              key={i}
-              className="h-80 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 animate-pulse"
-            />
-          ))}
-        </div>
+      {isLoading && packages.length === 0 ? (
+        <PackageGridSkeleton />
       ) : packages.length === 0 ? (
         <EmptyState
           title="No travel packages found"
