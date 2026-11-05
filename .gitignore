@@ -25,6 +25,7 @@ build/
 *.db.backup
 *.sql
 *.zip
+!client/public/ooting-wa-auto-sender.zip
 server/prisma/backup/
 server/prisma/*.db
 server/prisma/*.db-journal

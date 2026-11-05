@@ -33,6 +33,7 @@ import {
   Square as SquareBox,
   CheckCheck,
   ArrowRight,
+  Copy,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '../../api/client.js';
@@ -135,9 +136,11 @@ export const BulkWhatsAppPage: React.FC = () => {
   const [recipientSource, setRecipientSource] = useState<'CRM' | 'EXCEL'>('CRM');
   const [isLoadingCustomers, setIsLoadingCustomers] = useState<boolean>(false);
 
-  // Delivery Mode: Defaults to CLOUD_API for 100% automated server dispatch from +91 8884845595
-  const [delaySeconds, setDelaySeconds] = useState<number>(2);
-  const [dispatchMode, setDispatchMode] = useState<'CLOUD_API' | 'WEB_AUTOMATOR'>('CLOUD_API');
+  // Delivery Mode: Defaults to WEB_AUTOMATOR for hands-free auto-clicking on WhatsApp Web, or CLOUD_API for server gateway
+  const [delaySeconds, setDelaySeconds] = useState<number>(6);
+  const [dispatchMode, setDispatchMode] = useState<'CLOUD_API' | 'WEB_AUTOMATOR'>('WEB_AUTOMATOR');
+  const [isAutomatorHelpOpen, setIsAutomatorHelpOpen] = useState<boolean>(false);
+  const [bookmarkletCopied, setBookmarkletCopied] = useState<boolean>(false);
   const [sendingSinglePhone, setSendingSinglePhone] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string>('');
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
@@ -597,99 +600,152 @@ export const BulkWhatsAppPage: React.FC = () => {
     isPausedRef.current = false;
     isStoppedRef.current = false;
 
-    const currentTmpl = DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplateId);
-    const metaTemplateName = (currentTmpl as any)?.metaTemplateName || 'ooting_welcome_promo';
+    if (dispatchMode === 'WEB_AUTOMATOR') {
+      // -----------------------------------------------------------------
+      // Hands-Free Web WhatsApp Auto-Sender Runner
+      // Opens each chat in WhatsApp Web tab, enters text, and the companion
+      // auto-clicks Send automatically without touching mouse or keyboard!
+      // -----------------------------------------------------------------
+      for (let i = 0; i < queue.length; i++) {
+        if (isStoppedRef.current) break;
 
-    for (let i = 0; i < queue.length; i++) {
-      if (isStoppedRef.current) break;
+        // Handle pause loop
+        while (isPausedRef.current && !isStoppedRef.current) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+        if (isStoppedRef.current) break;
 
-      // Handle pause loop
-      while (isPausedRef.current && !isStoppedRef.current) {
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        setCurrentBroadcastIndex(i);
+        const recipient = queue[i];
+        const rawPhone = recipient.Phone || recipient.phone || '';
+        const cleanPhone = sanitizePhoneNumber(rawPhone);
+        const personalizedMsg = interpolateClientTemplate(messageTemplate, recipient);
+
+        let fullMsg = personalizedMsg;
+        if (mediaUrl) {
+          const mediaLabel = mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 Tour Itinerary';
+          fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
+        }
+
+        // Open chat in the single WhatsApp Web session tab (companion auto-clicks Send)
+        openWhatsAppShare({ phone: cleanPhone, text: fullMsg });
+
+        setDispatchedHistory((prev) => [
+          {
+            phone: cleanPhone,
+            name: recipient.customerName || 'Customer',
+            status: 'SENT',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            message: fullMsg,
+          },
+          ...prev,
+        ]);
+
+        // Safety Delay for WhatsApp Web to load chat, enter text, and auto-click send
+        if (i < queue.length - 1 && !isStoppedRef.current) {
+          const sleepTime = Math.max(4000, delaySeconds * 1000);
+          await new Promise((resolve) => setTimeout(resolve, sleepTime));
+        }
       }
-      if (isStoppedRef.current) break;
+    } else {
+      // -----------------------------------------------------------------
+      // Direct Server Meta Cloud API Gateway (+91 8884845595)
+      // Dispatches directly from server to handset in the background.
+      // -----------------------------------------------------------------
+      const currentTmpl = DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplateId);
+      const metaTemplateName = (currentTmpl as any)?.metaTemplateName || 'ooting_welcome_promo';
 
-      setCurrentBroadcastIndex(i);
-      const recipient = queue[i];
-      const rawPhone = recipient.Phone || recipient.phone || '';
-      const cleanPhone = sanitizePhoneNumber(rawPhone);
-      const personalizedMsg = interpolateClientTemplate(messageTemplate, recipient);
+      for (let i = 0; i < queue.length; i++) {
+        if (isStoppedRef.current) break;
 
-      let fullMsg = personalizedMsg;
-      if (mediaUrl) {
-        const mediaLabel = mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 Tour Itinerary';
-        fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
-      }
+        // Handle pause loop
+        while (isPausedRef.current && !isStoppedRef.current) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+        if (isStoppedRef.current) break;
 
-      const payload: any = {
-        phone: cleanPhone,
-        message: fullMsg,
-        customerId: recipient.customerId,
-        customerName: recipient.customerName,
-        templateName: metaTemplateName,
-        mediaType,
-        mediaUrl,
-        mediaFilename,
-      };
+        setCurrentBroadcastIndex(i);
+        const recipient = queue[i];
+        const rawPhone = recipient.Phone || recipient.phone || '';
+        const cleanPhone = sanitizePhoneNumber(rawPhone);
+        const personalizedMsg = interpolateClientTemplate(messageTemplate, recipient);
 
-      if (metaTemplateName === 'ooting_welcome_promo') {
-        payload.templateParameters = [
-          { type: 'text', text: recipient.customerName || 'Customer' },
-        ];
-      } else if (metaTemplateName === 'ooting_tour_update') {
-        payload.templateParameters = [
-          { type: 'text', text: recipient.customerName || 'Customer' },
-          { type: 'text', text: recipient.package ? `${recipient.package} (${recipient.travelDate || 'Confirmed'})` : 'Tour update' },
-        ];
-      }
+        let fullMsg = personalizedMsg;
+        if (mediaUrl) {
+          const mediaLabel = mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 Tour Itinerary';
+          fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
+        }
 
-      try {
-        const res = await api.post('/whatsapp/send', payload);
-        const resolvedName = res.data?.customerName || recipient.customerName || 'Customer';
+        const payload: any = {
+          phone: cleanPhone,
+          message: fullMsg,
+          customerId: recipient.customerId,
+          customerName: recipient.customerName,
+          templateName: metaTemplateName,
+          mediaType,
+          mediaUrl,
+          mediaFilename,
+        };
 
-        if (res.data?.status === 'SENT' || res.data?.success) {
+        if (metaTemplateName === 'ooting_welcome_promo') {
+          payload.templateParameters = [
+            { type: 'text', text: recipient.customerName || 'Customer' },
+          ];
+        } else if (metaTemplateName === 'ooting_tour_update') {
+          payload.templateParameters = [
+            { type: 'text', text: recipient.customerName || 'Customer' },
+            { type: 'text', text: recipient.package ? `${recipient.package} (${recipient.travelDate || 'Confirmed'})` : 'Tour update' },
+          ];
+        }
+
+        try {
+          const res = await api.post('/whatsapp/send', payload);
+          const resolvedName = res.data?.customerName || recipient.customerName || 'Customer';
+
+          if (res.data?.status === 'SENT' || res.data?.success) {
+            setDispatchedHistory((prev) => [
+              {
+                phone: cleanPhone,
+                name: resolvedName,
+                status: 'SENT',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                externalId: res.data?.externalId,
+                message: fullMsg,
+              },
+              ...prev,
+            ]);
+          } else {
+            setDispatchedHistory((prev) => [
+              {
+                phone: cleanPhone,
+                name: resolvedName,
+                status: 'FAILED',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                error: res.data?.error || 'Gateway dispatch failed',
+                message: fullMsg,
+              },
+              ...prev,
+            ]);
+          }
+        } catch (err: any) {
           setDispatchedHistory((prev) => [
             {
               phone: cleanPhone,
-              name: resolvedName,
-              status: 'SENT',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-              externalId: res.data?.externalId,
-              message: fullMsg,
-            },
-            ...prev,
-          ]);
-        } else {
-          setDispatchedHistory((prev) => [
-            {
-              phone: cleanPhone,
-              name: resolvedName,
+              name: recipient.customerName || 'Customer',
               status: 'FAILED',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-              error: res.data?.error || 'Gateway dispatch failed',
+              error: err?.response?.data?.message || err.message || 'Dispatch error',
               message: fullMsg,
             },
             ...prev,
           ]);
         }
-      } catch (err: any) {
-        setDispatchedHistory((prev) => [
-          {
-            phone: cleanPhone,
-            name: recipient.customerName || 'Customer',
-            status: 'FAILED',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            error: err?.response?.data?.message || err.message || 'Dispatch error',
-            message: fullMsg,
-          },
-          ...prev,
-        ]);
-      }
 
-      // Delay between messages (pacing)
-      if (i < queue.length - 1 && !isStoppedRef.current) {
-        const sleepTime = Math.max(1000, delaySeconds * 1000);
-        await new Promise((resolve) => setTimeout(resolve, sleepTime));
+        // Delay between messages (pacing)
+        if (i < queue.length - 1 && !isStoppedRef.current) {
+          const sleepTime = Math.max(1000, delaySeconds * 1000);
+          await new Promise((resolve) => setTimeout(resolve, sleepTime));
+        }
       }
     }
 
@@ -778,6 +834,13 @@ export const BulkWhatsAppPage: React.FC = () => {
     }
   };
 
+  const handleCopyBookmarklet = () => {
+    const code = `javascript:(function(){if(window.location.hostname!=='web.whatsapp.com'){alert('Please run this bookmarklet on WhatsApp Web (web.whatsapp.com)!');return;}if(window.__ootingWaActive){alert('Ooting Auto-Sender is already active on this tab!');return;}window.__ootingWaActive=true;const b=document.createElement('div');b.style='position:fixed;top:16px;right:20px;z-index:9999999;padding:10px 18px;border-radius:12px;color:#fff;font-size:12px;font-weight:600;background:#00a884;box-shadow:0 8px 24px rgba(0,0,0,0.35);font-family:sans-serif;';b.innerText='⚡ Ooting Auto-Sender Active!';document.body.appendChild(b);setInterval(()=>{const s=document.querySelector('span[data-testid=\"send\"]')?.closest('button')||document.querySelector('button[aria-label=\"Send\"]')||document.querySelector('span[data-icon=\"send\"]')?.closest('button');const c=document.querySelector('footer div[contenteditable=\"true\"]');if(s){b.style.background='#008069';b.innerText='🚀 Chat loaded! Clicking Send automatically...';setTimeout(()=>{s.click();if(c){c.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,which:true}));}b.innerText='✅ Message Sent Automatically!';},1500);}},600);})();`;
+    navigator.clipboard.writeText(code);
+    setBookmarkletCopied(true);
+    setTimeout(() => setBookmarkletCopied(false), 3000);
+  };
+
   const currentRecipient = targetRecipients[currentBroadcastIndex];
 
   return (
@@ -796,6 +859,16 @@ export const BulkWhatsAppPage: React.FC = () => {
 
         {/* Sender Number & Active Gateway Badge */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsAutomatorHelpOpen(true)}
+            className="px-3 py-1.5 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-xl border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+            title="Download or set up the 100% hands-free auto-click companion extension"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>Auto-Click Companion</span>
+          </button>
+
           <div className="px-3 py-1.5 rounded-xl border bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200 flex items-center gap-2 text-xs font-semibold shadow-xs">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Connected Sender: <strong>+91 {apiStatus?.businessNumber || '8884845595'}</strong></span>
@@ -1415,23 +1488,119 @@ export const BulkWhatsAppPage: React.FC = () => {
 
           {/* STEP 4: Dispatch Controls & Broadcast Launcher */}
           <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-emerald-600" />
-              Step 4: Dispatch Settings & Launch Broadcast
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-emerald-600" />
+                Step 4: Dispatch Settings & Launch Broadcast
+              </h2>
 
-            {/* Connected Business Gateway Banner */}
-            <div className="p-3.5 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
-                  Automated Gateway Sender: +91 {apiStatus?.businessNumber || '8884845595'} ({apiStatus?.verifiedName || 'Ooting'})
-                </span>
-              </div>
-              <p className="text-[11px] text-emerald-700 dark:text-emerald-300 leading-snug">
-                Messages are dispatched automatically in the background through your connected business gateway. Zero WhatsApp Web logins and zero manual button clicks required.
-              </p>
+              <button
+                type="button"
+                onClick={() => setIsAutomatorHelpOpen(true)}
+                className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Auto-Click Setup Guide</span>
+              </button>
             </div>
+
+            {/* Mode Selector Tabs */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block">
+                Choose Dispatch Method:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDispatchMode('WEB_AUTOMATOR');
+                    if (delaySeconds < 4) setDelaySeconds(6);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    dispatchMode === 'WEB_AUTOMATOR'
+                      ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 shadow-2xs ring-1 ring-emerald-500'
+                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+                      WhatsApp Web Auto-Sender
+                    </span>
+                    <Badge variant={dispatchMode === 'WEB_AUTOMATOR' ? 'success' : 'default'} size="sm">
+                      Hands-Free
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Opens chat in WhatsApp Web & clicks Send automatically without touching mouse or keyboard.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDispatchMode('CLOUD_API');
+                    if (delaySeconds > 3) setDelaySeconds(2);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    dispatchMode === 'CLOUD_API'
+                      ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/40 text-brand-900 dark:text-brand-100 shadow-2xs ring-1 ring-brand-500'
+                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-brand-600" />
+                      Cloud Gateway API
+                    </span>
+                    <Badge variant={dispatchMode === 'CLOUD_API' ? 'brand' : 'default'} size="sm">
+                      Server Direct
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Dispatches from official +91 {apiStatus?.businessNumber || '8884845595'} in 100% background. Zero tabs needed.
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Mode Specific Guidance Banner */}
+            {dispatchMode === 'WEB_AUTOMATOR' ? (
+              <div className="p-3.5 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
+                      Hands-Free Auto-Send Active (0 Clicks Required)
+                    </span>
+                  </div>
+                  <a
+                    href="/ooting-wa-auto-sender.zip"
+                    download="ooting-wa-auto-sender.zip"
+                    className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline flex items-center gap-1"
+                    title="Download the Chrome Auto-Sender extension"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download Extension (.zip)</span>
+                  </a>
+                </div>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 leading-snug">
+                  The broadcast runner will open each client in WhatsApp Web. The Ooting Auto-Sender companion automatically clicks the Send button for each contact so you don&apos;t have to do it manually.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3.5 bg-brand-50/80 dark:bg-brand-950/40 rounded-xl border border-brand-200 dark:border-brand-800 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-brand-500 animate-pulse"></span>
+                  <span className="text-xs font-bold text-brand-900 dark:text-brand-100">
+                    Automated Gateway Sender: +91 {apiStatus?.businessNumber || '8884845595'} ({apiStatus?.verifiedName || 'Ooting'})
+                  </span>
+                </div>
+                <p className="text-[11px] text-brand-700 dark:text-brand-300 leading-snug">
+                  Messages are dispatched automatically in the background through your connected business gateway. Zero WhatsApp Web logins and zero manual clicks required.
+                </p>
+              </div>
+            )}
 
             {/* Delay Pacing Interval */}
             <div className="space-y-2 pt-1">
@@ -1446,12 +1615,20 @@ export const BulkWhatsAppPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { sec: 1, label: '1s Fast' },
-                  { sec: 2, label: '2s Safe' },
-                  { sec: 3, label: '3s Steady' },
-                  { sec: 5, label: '5s Paced' },
-                ].map((item) => (
+                {(dispatchMode === 'WEB_AUTOMATOR'
+                  ? [
+                      { sec: 4, label: '4s Fast' },
+                      { sec: 6, label: '6s Steady' },
+                      { sec: 8, label: '8s Safe' },
+                      { sec: 10, label: '10s Relaxed' },
+                    ]
+                  : [
+                      { sec: 1, label: '1s Fast' },
+                      { sec: 2, label: '2s Safe' },
+                      { sec: 3, label: '3s Steady' },
+                      { sec: 5, label: '5s Paced' },
+                    ]
+                ).map((item) => (
                   <button
                     key={item.sec}
                     type="button"
@@ -1482,7 +1659,9 @@ export const BulkWhatsAppPage: React.FC = () => {
                   ? `Broadcasting in Progress... (${currentBroadcastIndex + 1}/${targetRecipients.length})`
                   : selectedIndices.size === 0
                   ? 'Select Clients Above to Start Broadcast'
-                  : `🚀 Send Bulk Messages Automatically (${selectedIndices.size} Selected Clients)`}
+                  : dispatchMode === 'WEB_AUTOMATOR'
+                  ? `🚀 Start Hands-Free Auto-Send (${selectedIndices.size} Clients)`
+                  : `🚀 Send Bulk Messages Automatically (${selectedIndices.size} Clients)`}
               </span>
             </button>
 
@@ -1492,7 +1671,10 @@ export const BulkWhatsAppPage: React.FC = () => {
                   Target: <strong>{selectedIndices.size}</strong> of {recipients.length} clients selected
                 </span>
                 <span>
-                  Sender: <strong>+91 {apiStatus?.businessNumber || '8884845595'}</strong>
+                  Mode:{' '}
+                  <strong>
+                    {dispatchMode === 'WEB_AUTOMATOR' ? 'WhatsApp Web Auto-Clicker' : `Gateway +91 ${apiStatus?.businessNumber || '8884845595'}`}
+                  </strong>
                 </span>
               </div>
             )}
@@ -1638,7 +1820,11 @@ export const BulkWhatsAppPage: React.FC = () => {
           }}
           title={
             isCompleted
-              ? '✅ Automated Broadcast Completed (+91 8884845595)'
+              ? dispatchMode === 'WEB_AUTOMATOR'
+                ? '✅ WhatsApp Web Auto-Broadcast Completed'
+                : '✅ Automated Broadcast Completed (+91 8884845595)'
+              : dispatchMode === 'WEB_AUTOMATOR'
+              ? '🌐 WhatsApp Web Auto-Sender Active (Hands-Free Sending)'
               : '🚀 Automated WhatsApp Gateway Broadcast (+91 8884845595)'
           }
           maxWidth="2xl"
@@ -1665,8 +1851,17 @@ export const BulkWhatsAppPage: React.FC = () => {
                 </div>
 
                 <span className="text-xs font-mono font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg flex items-center gap-1">
-                  <Zap className="w-3 h-3 text-emerald-600" />
-                  <span>Sender: +91 8884845595</span>
+                  {dispatchMode === 'WEB_AUTOMATOR' ? (
+                    <>
+                      <ExternalLink className="w-3 h-3 text-emerald-600" />
+                      <span>Mode: Web Auto-Sender</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3 h-3 text-emerald-600" />
+                      <span>Sender: +91 8884845595</span>
+                    </>
+                  )}
                 </span>
               </div>
 
@@ -1766,13 +1961,39 @@ export const BulkWhatsAppPage: React.FC = () => {
                   </div>
 
                   <p className="text-[11px] text-emerald-800 dark:text-emerald-200/90 leading-relaxed bg-white/70 dark:bg-black/30 p-2.5 rounded-lg border border-emerald-100 dark:border-emerald-900/40 flex items-center gap-2">
-                    <Zap className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>
-                      <strong>Automated Server Dispatch:</strong> Messages are transmitted automatically in the background directly from your official WhatsApp number (+91 8884845595).
-                    </span>
+                    {dispatchMode === 'WEB_AUTOMATOR' ? (
+                      <>
+                        <ExternalLink className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>
+                          <strong>Hands-Free Auto-Send:</strong> The browser opens each chat, enters the text, and the Ooting Auto-Sender extension automatically clicks Send without your manual help.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>
+                          <strong>Automated Server Dispatch:</strong> Messages are transmitted automatically in the background directly from your official WhatsApp number (+91 8884845595).
+                        </span>
+                      </>
+                    )}
                   </p>
 
                   <div className="flex items-center justify-end gap-2 pt-1">
+                    {dispatchMode === 'WEB_AUTOMATOR' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const w = window.open('', 'ooting_whatsapp_window');
+                          if (w) w.focus();
+                        }}
+                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Bring WhatsApp Web window to foreground"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>View WhatsApp Tab</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={handleTogglePause}
@@ -1914,6 +2135,151 @@ export const BulkWhatsAppPage: React.FC = () => {
                   {isCompleted ? 'Done' : 'Close'}
                 </button>
               </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* WhatsApp Web Hands-Free Auto-Sender Setup Modal */}
+      {isAutomatorHelpOpen && (
+        <Modal
+          isOpen={isAutomatorHelpOpen}
+          onClose={() => setIsAutomatorHelpOpen(false)}
+          title="⚡ WhatsApp Web Hands-Free Auto-Sender (1-Minute Setup)"
+          maxWidth="2xl"
+        >
+          <div className="space-y-4">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-900 dark:text-emerald-100 flex items-start gap-2.5">
+              <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-bold block text-sm">
+                  How does 100% Automated WhatsApp Web Sending Work?
+                </span>
+                <p className="text-[11px] leading-relaxed">
+                  By default, WhatsApp Web security requires users to click &ldquo;Send&rdquo; manually on pre-filled web links. With our lightweight <strong>Ooting Auto-Sender Extension</strong>, WhatsApp Web will open each chat, enter the text, and <strong>automatically click the Send button for you without touching your mouse or keyboard!</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* Method 1: Chrome Extension */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">
+                    1
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                    Option A (Recommended): Install Chrome / Edge Extension (15 Seconds)
+                  </span>
+                </div>
+                <Badge variant="success" size="sm">
+                  Permanent &amp; 100% Hands-Free
+                </Badge>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">Step 1:</span>
+                  <span>
+                    Click the button below to download the pre-packaged extension:
+                  </span>
+                </div>
+
+                <div className="pl-6 pt-0.5 pb-1">
+                  <a
+                    href="/ooting-wa-auto-sender.zip"
+                    download="ooting-wa-auto-sender.zip"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Extension (ooting-wa-auto-sender.zip)</span>
+                  </a>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">Step 2:</span>
+                  <span>
+                    Right-click the downloaded <code>ooting-wa-auto-sender.zip</code> file and click <strong>Extract All...</strong>
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">Step 3:</span>
+                  <span>
+                    Open <code>chrome://extensions</code> in Chrome (or <code>edge://extensions</code> in Edge). Turn ON <strong>&ldquo;Developer mode&rdquo;</strong> in the top-right corner.
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">Step 4:</span>
+                  <span>
+                    Click the <strong>&ldquo;Load unpacked&rdquo;</strong> button at the top-left and select the extracted folder.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/60 text-[11px] text-emerald-800 dark:text-emerald-200">
+                ✅ <strong>Done!</strong> Now when you launch WhatsApp Web broadcast from Ooting CRM, every message is automatically sent hands-free!
+              </div>
+            </div>
+
+            {/* Method 2: Instant Bookmarklet */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-brand-600 text-white font-bold text-xs flex items-center justify-center">
+                    2
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                    Option B: Instant Bookmarklet (Zero Installation Required)
+                  </span>
+                </div>
+                <Badge variant="brand" size="sm">
+                  Instant Use
+                </Badge>
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                If you prefer not to install an extension, simply copy this bookmarklet script or paste it in your browser console on WhatsApp Web:
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyBookmarklet}
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  {bookmarkletCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{bookmarkletCopied ? 'Bookmarklet Code Copied!' : 'Copy Bookmarklet Code'}</span>
+                </button>
+
+                <span className="text-[11px] text-slate-400">
+                  (Paste into Console on WhatsApp Web or save as Bookmark)
+                </span>
+              </div>
+            </div>
+
+            {/* Method 3: Cloud API Alternative */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 flex items-start gap-2.5">
+              <Zap className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                  Don&apos;t want to open WhatsApp Web tabs at all?
+                </span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  You can select <strong>Cloud Gateway API</strong> mode anytime to dispatch directly from server gateway +91 {apiStatus?.businessNumber || '8884845595'} in 100% background without opening any browser tabs.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setIsAutomatorHelpOpen(false)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl cursor-pointer transition-colors"
+              >
+                Close &amp; Continue
+              </button>
             </div>
           </div>
         </Modal>

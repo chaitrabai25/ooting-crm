@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Ooting CRM Auto-Sender</title>
+  <style>
+    body {
+      width: 280px;
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0b141a;
+      color: #e9edef;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: rgba(0, 168, 132, 0.15);
+      color: #00a884;
+      border: 1px solid rgba(0, 168, 132, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #00a884;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+    h3 {
+      margin: 0;
+      font-size: 14px;
+      color: #fff;
+    }
+    p {
+      font-size: 11px;
+      line-height: 1.5;
+      color: #8696a0;
+      margin: 8px 0;
+    }
+    .feature-list {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #d1d7db;
+      margin-bottom: 6px;
+    }
+    .feature-item:last-child {
+      margin-bottom: 0;
+    }
+    .footer {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 10px;
+      color: #667781;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div style="font-size: 20px;">⚡</div>
+    <div>
+      <h3>Ooting Auto-Sender</h3>
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        Active on WhatsApp Web
+      </div>
+    </div>
+  </div>
+
+  <p>This extension runs automatically whenever Ooting CRM initiates a WhatsApp Web broadcast.</p>
+
+  <div class="feature-list">
+    <div class="feature-item">
+      <span>🚀</span>
+      <span>Auto-detects loaded chats</span>
+    </div>
+    <div class="feature-item">
+      <span>🖱️</span>
+      <span>Auto-clicks Send button</span>
+    </div>
+    <div class="feature-item">
+      <span>⏩</span>
+      <span>Hands-free bulk message runner</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    Ooting Holidays CRM • Automated Dispatch
+  </div>
+</body>
+</html>
