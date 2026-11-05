@@ -307,6 +307,7 @@ const sendSchema = z.object({
   mediaType: z.enum(['NONE', 'IMAGE', 'DOCUMENT']).optional().default('NONE'),
   mediaUrl: z.string().optional().nullable(),
   mediaFilename: z.string().optional().nullable(),
+  templateParameters: z.array(z.object({ type: z.string(), text: z.string() })).optional().nullable(),
 });
 
 // Check integration configuration status
@@ -389,6 +390,7 @@ router.post('/send', authenticate, async (req: AuthRequest, res: Response, next)
       mediaType: data.mediaType as any,
       mediaUrl: data.mediaUrl || undefined,
       mediaFilename: data.mediaFilename || undefined,
+      templateParameters: (data.templateParameters as any) || undefined,
     });
 
     await logAudit({

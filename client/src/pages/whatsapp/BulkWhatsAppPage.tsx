@@ -39,6 +39,7 @@ import { api } from '../../api/client.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Modal } from '../../components/ui/Modal.js';
 import { downloadExcel } from '../../utils/exportHelper.js';
+import { openWhatsAppShare } from '../../utils/whatsappHelper.js';
 
 interface RecipientRow {
   Phone: string;
@@ -53,6 +54,20 @@ interface RecipientRow {
 }
 
 const DEFAULT_TEMPLATES = [
+  {
+    id: 'META_WELCOME',
+    title: 'Meta Approved: Welcome Offer ⭐',
+    metaTemplateName: 'ooting_welcome_promo',
+    content:
+      'Hello {{customerName}}, greetings from Ooting Holidays! We have exciting holiday tour packages available for you. Reply to this message to know more!',
+  },
+  {
+    id: 'META_TOUR_UPDATE',
+    title: 'Meta Approved: Tour Update ⭐',
+    metaTemplateName: 'ooting_tour_update',
+    content:
+      'Dear {{customerName}}, greetings from Ooting! Here is an update regarding your booking: {{package}} (Travel Date: {{travelDate}}). Thank you for choosing Ooting.',
+  },
   {
     id: 'PROMO',
     title: 'Tour Promotion / Festive Offer',
@@ -140,6 +155,7 @@ export const BulkWhatsAppPage: React.FC = () => {
       time: string;
       externalId?: string;
       error?: string;
+      message?: string;
     }>
   >([]);
 
@@ -448,6 +464,19 @@ export const BulkWhatsAppPage: React.FC = () => {
     });
   };
 
+  // 1-Click WhatsApp Web / Desktop App launcher
+  const handleOpenWebWhatsApp = (recipient: RecipientRow) => {
+    const rawPhone = recipient.Phone || recipient.phone || '';
+    const cleanPhone = sanitizePhoneNumber(rawPhone);
+    const personalizedMsg = interpolateClientTemplate(messageTemplate, recipient);
+    let fullMsg = personalizedMsg;
+    if (mediaUrl) {
+      const mediaLabel = mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 Tour Itinerary';
+      fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
+    }
+    openWhatsAppShare({ phone: cleanPhone, text: fullMsg });
+  };
+
   // Quick Send directly to a single recipient via Server Gateway (+91 8884845595)
   const handleQuickSend = async (recipient: RecipientRow) => {
     const rawPhone = recipient.Phone || recipient.phone || '';
@@ -459,16 +488,35 @@ export const BulkWhatsAppPage: React.FC = () => {
       fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
     }
 
+    const currentTmpl = DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplateId);
+    const metaTemplateName = (currentTmpl as any)?.metaTemplateName;
+
+    const payload: any = {
+      phone: cleanPhone,
+      message: fullMsg,
+      customerId: recipient.customerId,
+      mediaType,
+      mediaUrl,
+      mediaFilename,
+    };
+
+    if (metaTemplateName) {
+      payload.templateName = metaTemplateName;
+      if (metaTemplateName === 'ooting_welcome_promo') {
+        payload.templateParameters = [
+          { type: 'text', text: recipient.customerName || 'Customer' },
+        ];
+      } else if (metaTemplateName === 'ooting_tour_update') {
+        payload.templateParameters = [
+          { type: 'text', text: recipient.customerName || 'Customer' },
+          { type: 'text', text: recipient.package ? `${recipient.package} (${recipient.travelDate || 'Confirmed'})` : 'Tour update' },
+        ];
+      }
+    }
+
     try {
       setSendingSinglePhone(cleanPhone);
-      const res = await api.post('/whatsapp/send', {
-        phone: cleanPhone,
-        message: fullMsg,
-        customerId: recipient.customerId,
-        mediaType,
-        mediaUrl,
-        mediaFilename,
-      });
+      const res = await api.post('/whatsapp/send', payload);
 
       if (res.data?.status === 'SENT' || res.data?.success) {
         setDispatchedHistory((prev) => [
@@ -478,6 +526,7 @@ export const BulkWhatsAppPage: React.FC = () => {
             status: 'SENT',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             externalId: res.data?.externalId,
+            message: fullMsg,
           },
           ...prev,
         ]);
@@ -489,6 +538,7 @@ export const BulkWhatsAppPage: React.FC = () => {
             status: 'FAILED',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             error: res.data?.error || 'Gateway dispatch failed',
+            message: fullMsg,
           },
           ...prev,
         ]);
@@ -501,6 +551,7 @@ export const BulkWhatsAppPage: React.FC = () => {
           status: 'FAILED',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           error: err?.response?.data?.message || err.message || 'Dispatch error',
+          message: fullMsg,
         },
         ...prev,
       ]);
@@ -532,15 +583,34 @@ export const BulkWhatsAppPage: React.FC = () => {
       fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
     }
 
+    const currentTmpl = DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplateId);
+    const metaTemplateName = (currentTmpl as any)?.metaTemplateName;
+
+    const payload: any = {
+      phone: cleanPhone,
+      message: fullMsg,
+      customerId: recipient.customerId,
+      mediaType,
+      mediaUrl,
+      mediaFilename,
+    };
+
+    if (metaTemplateName) {
+      payload.templateName = metaTemplateName;
+      if (metaTemplateName === 'ooting_welcome_promo') {
+        payload.templateParameters = [
+          { type: 'text', text: recipient.customerName || 'Customer' },
+        ];
+      } else if (metaTemplateName === 'ooting_tour_update') {
+        payload.templateParameters = [
+          { type: 'text', text: recipient.customerName || 'Customer' },
+          { type: 'text', text: recipient.package ? `${recipient.package} (${recipient.travelDate || 'Confirmed'})` : 'Tour update' },
+        ];
+      }
+    }
+
     try {
-      const res = await api.post('/whatsapp/send', {
-        phone: cleanPhone,
-        message: fullMsg,
-        customerId: recipient.customerId,
-        mediaType,
-        mediaUrl,
-        mediaFilename,
-      });
+      const res = await api.post('/whatsapp/send', payload);
 
       if (res.data?.status === 'SENT' || res.data?.success) {
         setDispatchedHistory((prev) => [
@@ -550,6 +620,7 @@ export const BulkWhatsAppPage: React.FC = () => {
             status: 'SENT',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             externalId: res.data?.externalId,
+            message: fullMsg,
           },
           ...prev,
         ]);
@@ -561,6 +632,7 @@ export const BulkWhatsAppPage: React.FC = () => {
             status: 'FAILED',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             error: res.data?.error || 'Gateway dispatch failed',
+            message: fullMsg,
           },
           ...prev,
         ]);
@@ -573,6 +645,7 @@ export const BulkWhatsAppPage: React.FC = () => {
           status: 'FAILED',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           error: err?.response?.data?.message || err.message || 'Dispatch error',
+          message: fullMsg,
         },
         ...prev,
       ]);
@@ -738,43 +811,30 @@ export const BulkWhatsAppPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Meta Phone Handset Delivery Diagnostic Banner */}
-      {apiStatus?.codeVerificationStatus === 'NOT_VERIFIED' && (
-        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl flex items-start gap-3.5 text-xs text-amber-950 dark:text-amber-100 shadow-xs">
-          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <div className="space-y-1.5 flex-1">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="font-bold text-sm text-amber-900 dark:text-amber-200">
-                Action Required in Meta to Receive Messages on WhatsApp Handsets
+      {/* Meta WhatsApp Live Verified Status Banner */}
+      {apiStatus?.ready ? (
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-2xl flex items-center justify-between text-xs text-emerald-950 dark:text-emerald-100 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <div>
+              <span className="font-bold text-emerald-900 dark:text-emerald-200 block">
+                Official Meta WhatsApp Cloud Gateway Verified & Live (+91 {apiStatus?.businessNumber || '8884845595'} • {apiStatus?.verifiedName || 'Ooting'})
               </span>
-              <span className="px-2 py-0.5 bg-amber-200/90 dark:bg-amber-900/80 text-amber-950 dark:text-amber-200 rounded-lg font-mono font-bold text-[10px]">
-                Meta Phone Status: NOT_VERIFIED
+              <span className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                Official WhatsApp Business Platform connected. Messages are dispatched directly to client handsets with official WhatsApp tracking.
               </span>
-            </div>
-            <p className="leading-relaxed text-amber-900/90 dark:text-amber-200/90">
-              Your gateway is connected and Meta accepts message requests (generating message IDs like <code>wamid</code>), but <strong>Meta holds physical delivery to phones from +91 8884845595</strong> until you complete the 2-step setup in your Meta account:
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1 font-medium">
-              <div className="p-2.5 bg-white/80 dark:bg-black/30 rounded-xl border border-amber-200/80 dark:border-amber-900/60 space-y-1">
-                <span className="font-bold block text-amber-950 dark:text-amber-100">
-                  Step 1: Accept Cloud API Terms
-                </span>
-                <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-normal">
-                  Go to <a href="https://business.facebook.com/wa/manage/home/" target="_blank" rel="noreferrer" className="underline font-bold text-brand-600 dark:text-brand-400">Meta WhatsApp Manager</a> &gt; <strong>Account Overview</strong> and click <strong>Review and Accept Terms</strong>.
-                </p>
-              </div>
-              <div className="p-2.5 bg-white/80 dark:bg-black/30 rounded-xl border border-amber-200/80 dark:border-amber-900/60 space-y-1">
-                <span className="font-bold block text-amber-950 dark:text-amber-100">
-                  Step 2: Verify Phone Number via SMS
-                </span>
-                <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-normal">
-                  Under <strong>Phone Numbers</strong>, click <strong>Verify</strong> on <code>+91 88848 45595</code>, enter the 6-digit SMS code, and set your PIN.
-                </p>
-              </div>
             </div>
           </div>
+          <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 rounded-lg font-mono font-bold text-[10px] uppercase">
+            ACTIVE & VERIFIED
+          </span>
         </div>
-      )}
+      ) : apiStatus?.deliveryWarning ? (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl flex items-center gap-3 text-xs text-amber-950 dark:text-amber-100 shadow-xs">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <span>{apiStatus.deliveryWarning}</span>
+        </div>
+      ) : null}
 
       {/* Error Alert Banner */}
       {error && (
@@ -1018,6 +1078,16 @@ export const BulkWhatsAppPage: React.FC = () => {
                                   title="Preview chat on mobile screen"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenWebWhatsApp(r)}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-300 rounded-lg font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer border border-slate-200 dark:border-slate-600"
+                                  title="Open chat in WhatsApp Web / App directly"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Web WA</span>
                                 </button>
 
                                 <button
@@ -1755,29 +1825,32 @@ export const BulkWhatsAppPage: React.FC = () => {
                           {item.name} (+{item.phone})
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono">
-                          Dispatched at {item.time} {item.error ? `• ${item.error}` : ''}
+                          Dispatched at {item.time}
+                          {item.externalId ? ` • ID: ${item.externalId.slice(-16)}` : ''}
+                          {item.status === 'FAILED' && item.error ? ` • ${item.error}` : ''}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-2">
                         {item.status === 'SENT' || item.status === 'DISPATCHED' ? (
-                          apiStatus?.codeVerificationStatus === 'NOT_VERIFIED' ? (
-                            <span
-                              className="text-amber-600 font-bold flex items-center gap-1 text-[11px]"
-                              title="Queued with Meta (wamid generated). Handset delivery held pending phone verification in Meta Business Suite."
-                            >
-                              <Clock className="w-3.5 h-3.5" /> Meta Queued
-                            </span>
-                          ) : (
-                            <span className="text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Sent
-                            </span>
-                          )
+                          <span className="text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Sent
+                          </span>
                         ) : (
                           <span className="text-rose-600 font-bold flex items-center gap-1 text-[11px]">
-                            <AlertCircle className="w-3.5 h-3.5" /> Failed
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Failed
                           </span>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => openWhatsAppShare({ phone: item.phone, text: item.message || '' })}
+                          className="px-2 py-0.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 dark:bg-slate-800 dark:text-slate-300 rounded font-medium text-[10px] flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
+                          title="Open chat in WhatsApp Web / App directly"
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          <span>Chat</span>
+                        </button>
 
                         {item.status === 'FAILED' && (
                           <button
