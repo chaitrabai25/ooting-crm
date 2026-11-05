@@ -124,7 +124,7 @@ export const BulkWhatsAppPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
 
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('PROMO');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('META_WELCOME');
   const [messageTemplate, setMessageTemplate] = useState<string>(DEFAULT_TEMPLATES[0].content);
 
   // Media Attachment State (Image / PDF Document)
@@ -364,7 +364,23 @@ export const BulkWhatsAppPage: React.FC = () => {
         if (cleanDigits.length === 10) cleanDigits = '91' + cleanDigits;
 
         if (cleanDigits.length >= 10) {
-          const nameVal = findColumnValue(r, ['name', 'customername', 'clientname', 'fullname', 'customer', 'client', 'guest', 'passenger', 'lead', 'party']) || `Guest ${idx + 1}`;
+          const rawName = findColumnValue(r, ['name', 'customername', 'clientname', 'fullname', 'customer', 'client', 'guest', 'passenger', 'lead', 'party']);
+          let resolvedName = rawName ? String(rawName).trim() : '';
+
+          // If name not provided or generic, look up in CRM recipients by phone number
+          if (!resolvedName || /^guest\s*\d*$/i.test(resolvedName)) {
+            const last10 = cleanDigits.slice(-10);
+            const matchedCrm = recipients.find((c) => {
+              const p = String(c.Phone || c.phone || '').replace(/\D/g, '');
+              return p.endsWith(last10);
+            });
+            if (matchedCrm?.customerName) {
+              resolvedName = matchedCrm.customerName;
+            } else {
+              resolvedName = `Guest ${idx + 1}`;
+            }
+          }
+
           const pkgVal = findColumnValue(r, ['package', 'packagename', 'tour', 'tourpackage', 'itinerary', 'trip', 'destination']) || 'Tour Package';
           const dateVal = findColumnValue(r, ['traveldate', 'date', 'departuredate', 'tourdate', 'startdate']) || '';
           const bNumVal = findColumnValue(r, ['bookingnumber', 'bookingno', 'bookingid', 'refno', 'reference']) || '';
@@ -373,7 +389,7 @@ export const BulkWhatsAppPage: React.FC = () => {
 
           validRows.push({
             Phone: cleanDigits,
-            customerName: String(nameVal),
+            customerName: resolvedName,
             package: String(pkgVal),
             travelDate: String(dateVal),
             bookingNumber: String(bNumVal),
@@ -489,40 +505,40 @@ export const BulkWhatsAppPage: React.FC = () => {
     }
 
     const currentTmpl = DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplateId);
-    const metaTemplateName = (currentTmpl as any)?.metaTemplateName;
+    const metaTemplateName = (currentTmpl as any)?.metaTemplateName || 'ooting_welcome_promo';
 
     const payload: any = {
       phone: cleanPhone,
       message: fullMsg,
       customerId: recipient.customerId,
+      customerName: recipient.customerName,
+      templateName: metaTemplateName,
       mediaType,
       mediaUrl,
       mediaFilename,
     };
 
-    if (metaTemplateName) {
-      payload.templateName = metaTemplateName;
-      if (metaTemplateName === 'ooting_welcome_promo') {
-        payload.templateParameters = [
-          { type: 'text', text: recipient.customerName || 'Customer' },
-        ];
-      } else if (metaTemplateName === 'ooting_tour_update') {
-        payload.templateParameters = [
-          { type: 'text', text: recipient.customerName || 'Customer' },
-          { type: 'text', text: recipient.package ? `${recipient.package} (${recipient.travelDate || 'Confirmed'})` : 'Tour update' },
-        ];
-      }
+    if (metaTemplateName === 'ooting_welcome_promo') {
+      payload.templateParameters = [
+        { type: 'text', text: recipient.customerName || 'Customer' },
+      ];
+    } else if (metaTemplateName === 'ooting_tour_update') {
+      payload.templateParameters = [
+        { type: 'text', text: recipient.customerName || 'Customer' },
+        { type: 'text', text: recipient.package ? `${recipient.package} (${recipient.travelDate || 'Confirmed'})` : 'Tour update' },
+      ];
     }
 
     try {
       setSendingSinglePhone(cleanPhone);
       const res = await api.post('/whatsapp/send', payload);
+      const resolvedName = res.data?.customerName || recipient.customerName || 'Customer';
 
       if (res.data?.status === 'SENT' || res.data?.success) {
         setDispatchedHistory((prev) => [
           {
             phone: cleanPhone,
-            name: recipient.customerName || 'Customer',
+            name: resolvedName,
             status: 'SENT',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             externalId: res.data?.externalId,
@@ -534,7 +550,7 @@ export const BulkWhatsAppPage: React.FC = () => {
         setDispatchedHistory((prev) => [
           {
             phone: cleanPhone,
-            name: recipient.customerName || 'Customer',
+            name: resolvedName,
             status: 'FAILED',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             error: res.data?.error || 'Gateway dispatch failed',
@@ -560,117 +576,10 @@ export const BulkWhatsAppPage: React.FC = () => {
     }
   };
 
-  // Dispatches recipient automatically via Server Gateway in the broadcast loop
-  const dispatchRecipient = async (index: number) => {
-    if (isStoppedRef.current || index >= targetRecipients.length) {
-      setIsCompleted(true);
-      setIsAutoBroadcasting(false);
-      return;
-    }
-
-    if (isPausedRef.current) {
-      return;
-    }
-
-    const recipient = targetRecipients[index];
-    const rawPhone = recipient.Phone || recipient.phone || '';
-    const cleanPhone = sanitizePhoneNumber(rawPhone);
-    const personalizedMsg = interpolateClientTemplate(messageTemplate, recipient);
-
-    let fullMsg = personalizedMsg;
-    if (mediaUrl) {
-      const mediaLabel = mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 Tour Itinerary';
-      fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
-    }
-
-    const currentTmpl = DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplateId);
-    const metaTemplateName = (currentTmpl as any)?.metaTemplateName;
-
-    const payload: any = {
-      phone: cleanPhone,
-      message: fullMsg,
-      customerId: recipient.customerId,
-      mediaType,
-      mediaUrl,
-      mediaFilename,
-    };
-
-    if (metaTemplateName) {
-      payload.templateName = metaTemplateName;
-      if (metaTemplateName === 'ooting_welcome_promo') {
-        payload.templateParameters = [
-          { type: 'text', text: recipient.customerName || 'Customer' },
-        ];
-      } else if (metaTemplateName === 'ooting_tour_update') {
-        payload.templateParameters = [
-          { type: 'text', text: recipient.customerName || 'Customer' },
-          { type: 'text', text: recipient.package ? `${recipient.package} (${recipient.travelDate || 'Confirmed'})` : 'Tour update' },
-        ];
-      }
-    }
-
-    try {
-      const res = await api.post('/whatsapp/send', payload);
-
-      if (res.data?.status === 'SENT' || res.data?.success) {
-        setDispatchedHistory((prev) => [
-          {
-            phone: cleanPhone,
-            name: recipient.customerName || 'Customer',
-            status: 'SENT',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            externalId: res.data?.externalId,
-            message: fullMsg,
-          },
-          ...prev,
-        ]);
-      } else {
-        setDispatchedHistory((prev) => [
-          {
-            phone: cleanPhone,
-            name: recipient.customerName || 'Customer',
-            status: 'FAILED',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            error: res.data?.error || 'Gateway dispatch failed',
-            message: fullMsg,
-          },
-          ...prev,
-        ]);
-      }
-    } catch (err: any) {
-      setDispatchedHistory((prev) => [
-        {
-          phone: cleanPhone,
-          name: recipient.customerName || 'Customer',
-          status: 'FAILED',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          error: err?.response?.data?.message || err.message || 'Dispatch error',
-          message: fullMsg,
-        },
-        ...prev,
-      ]);
-    }
-
-    // Automatically proceed to next contact after pacing delay
-    if (index < targetRecipients.length - 1 && !isStoppedRef.current) {
-      const nextIndex = index + 1;
-      setCurrentBroadcastIndex(nextIndex);
-
-      const sleepTime = Math.max(1000, delaySeconds * 1000);
-      await new Promise((resolve) => setTimeout(resolve, sleepTime));
-
-      if (!isStoppedRef.current && !isPausedRef.current) {
-        dispatchRecipient(nextIndex);
-      }
-    } else {
-      setIsCompleted(true);
-      setIsAutoBroadcasting(false);
-    }
-  };
-
-  // Launch Automated Broadcast
-  const handleStartBroadcast = () => {
-    if (targetRecipients.length === 0) {
+  // Launch Automated Broadcast via Sequential Queue
+  const handleStartBroadcast = async () => {
+    const queue = [...targetRecipients];
+    if (queue.length === 0) {
       setError('Please select at least 1 client using the checkboxes below before starting broadcast.');
       return;
     }
@@ -688,17 +597,112 @@ export const BulkWhatsAppPage: React.FC = () => {
     isPausedRef.current = false;
     isStoppedRef.current = false;
 
-    // Start with first contact immediately
-    dispatchRecipient(0);
+    const currentTmpl = DEFAULT_TEMPLATES.find((t) => t.id === selectedTemplateId);
+    const metaTemplateName = (currentTmpl as any)?.metaTemplateName || 'ooting_welcome_promo';
+
+    for (let i = 0; i < queue.length; i++) {
+      if (isStoppedRef.current) break;
+
+      // Handle pause loop
+      while (isPausedRef.current && !isStoppedRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+      if (isStoppedRef.current) break;
+
+      setCurrentBroadcastIndex(i);
+      const recipient = queue[i];
+      const rawPhone = recipient.Phone || recipient.phone || '';
+      const cleanPhone = sanitizePhoneNumber(rawPhone);
+      const personalizedMsg = interpolateClientTemplate(messageTemplate, recipient);
+
+      let fullMsg = personalizedMsg;
+      if (mediaUrl) {
+        const mediaLabel = mediaType === 'IMAGE' ? '🖼️ Offer Poster' : '📄 Tour Itinerary';
+        fullMsg = `${personalizedMsg}\n\n${mediaLabel}: ${mediaUrl}`;
+      }
+
+      const payload: any = {
+        phone: cleanPhone,
+        message: fullMsg,
+        customerId: recipient.customerId,
+        customerName: recipient.customerName,
+        templateName: metaTemplateName,
+        mediaType,
+        mediaUrl,
+        mediaFilename,
+      };
+
+      if (metaTemplateName === 'ooting_welcome_promo') {
+        payload.templateParameters = [
+          { type: 'text', text: recipient.customerName || 'Customer' },
+        ];
+      } else if (metaTemplateName === 'ooting_tour_update') {
+        payload.templateParameters = [
+          { type: 'text', text: recipient.customerName || 'Customer' },
+          { type: 'text', text: recipient.package ? `${recipient.package} (${recipient.travelDate || 'Confirmed'})` : 'Tour update' },
+        ];
+      }
+
+      try {
+        const res = await api.post('/whatsapp/send', payload);
+        const resolvedName = res.data?.customerName || recipient.customerName || 'Customer';
+
+        if (res.data?.status === 'SENT' || res.data?.success) {
+          setDispatchedHistory((prev) => [
+            {
+              phone: cleanPhone,
+              name: resolvedName,
+              status: 'SENT',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              externalId: res.data?.externalId,
+              message: fullMsg,
+            },
+            ...prev,
+          ]);
+        } else {
+          setDispatchedHistory((prev) => [
+            {
+              phone: cleanPhone,
+              name: resolvedName,
+              status: 'FAILED',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              error: res.data?.error || 'Gateway dispatch failed',
+              message: fullMsg,
+            },
+            ...prev,
+          ]);
+        }
+      } catch (err: any) {
+        setDispatchedHistory((prev) => [
+          {
+            phone: cleanPhone,
+            name: recipient.customerName || 'Customer',
+            status: 'FAILED',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            error: err?.response?.data?.message || err.message || 'Dispatch error',
+            message: fullMsg,
+          },
+          ...prev,
+        ]);
+      }
+
+      // Delay between messages (pacing)
+      if (i < queue.length - 1 && !isStoppedRef.current) {
+        const sleepTime = Math.max(1000, delaySeconds * 1000);
+        await new Promise((resolve) => setTimeout(resolve, sleepTime));
+      }
+    }
+
+    if (!isStoppedRef.current) {
+      setIsCompleted(true);
+      setIsAutoBroadcasting(false);
+    }
   };
 
   const handleTogglePause = () => {
     const nextPaused = !isPausedRef.current;
     isPausedRef.current = nextPaused;
     setIsAutoPaused(nextPaused);
-    if (!nextPaused && !isCompleted && !isStoppedRef.current) {
-      dispatchRecipient(currentBroadcastIndex);
-    }
   };
 
   const handleStopBroadcast = () => {

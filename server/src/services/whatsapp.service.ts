@@ -4,6 +4,7 @@ export interface WhatsAppSendParams {
   phone: string;
   message: string;
   customerId?: string | null;
+  customerName?: string | null;
   templateName?: string | null;
   userId?: string | null;
   mediaType?: 'NONE' | 'IMAGE' | 'DOCUMENT';
@@ -23,6 +24,7 @@ export interface WhatsAppSendResult {
   messageId?: string;
   error?: string;
   note?: string;
+  customerName?: string;
 }
 
 export interface WhatsAppConfigStatus {
@@ -345,7 +347,45 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
     };
   }
 
-  const fullTextMessage = mediaUrl ? `${message}\n\n📎 Attachment: ${mediaUrl}` : message;
+  // 1. Automatically resolve Customer Name dynamically from DB based on phone number
+  const digits10 = digitsOnly.slice(-10);
+  const existingCustomer = await prisma.customer.findFirst({
+    where: {
+      OR: [
+        { phone: { contains: digits10 } },
+        { alternatePhone: { contains: digits10 } },
+      ],
+      isDeleted: false,
+    },
+    select: {
+      id: true,
+      fullName: true,
+      bookings: {
+        take: 1,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          package: { select: { packageName: true } },
+          travelStartDate: true,
+        },
+      },
+    },
+  });
+
+  const resolvedCustomerId = customerId || existingCustomer?.id || null;
+  const resolvedCustomerName = existingCustomer?.fullName?.trim() || params.customerName || 'Valued Guest';
+
+  // 2. Personalize message text with the real recipient name
+  let fullTextMessage = message;
+  if (resolvedCustomerName && resolvedCustomerName !== 'Customer') {
+    fullTextMessage = fullTextMessage
+      .replace(/Hello\s+Darshan(\s+N\s+R)?/gi, `Hello ${resolvedCustomerName}`)
+      .replace(/Dear\s+Darshan(\s+N\s+R)?/gi, `Dear ${resolvedCustomerName}`)
+      .replace(/\{\{customerName\}\}/g, resolvedCustomerName);
+  }
+  if (mediaUrl) {
+    fullTextMessage = `${fullTextMessage}\n\n📎 Attachment: ${mediaUrl}`;
+  }
+
   const directWebUrl = `https://wa.me/${digitsOnly}?text=${encodeURIComponent(fullTextMessage)}`;
   const config = await getWhatsAppConfigStatus();
 
@@ -357,8 +397,28 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
     }
 
     try {
+      // 3. Resolve template: Meta Cloud API requires an approved template to deliver to customer handsets outside 24h
+      let effectiveTemplateName = templateName;
+      let effectiveTemplateParams = params.templateParameters;
+
+      if (!effectiveTemplateName) {
+        effectiveTemplateName = 'ooting_welcome_promo';
+        effectiveTemplateParams = [
+          { type: 'text', text: resolvedCustomerName },
+        ];
+      } else if (effectiveTemplateName === 'ooting_welcome_promo') {
+        effectiveTemplateParams = [
+          { type: 'text', text: resolvedCustomerName },
+        ];
+      } else if (effectiveTemplateName === 'ooting_tour_update') {
+        const pkgName = existingCustomer?.bookings?.[0]?.package?.packageName || 'Tour Package';
+        effectiveTemplateParams = [
+          { type: 'text', text: resolvedCustomerName },
+          { type: 'text', text: pkgName },
+        ];
+      }
+
       let payload: any;
-      const hasUrl = /https?:\/\//i.test(fullTextMessage);
       if (mediaType === 'IMAGE' && mediaUrl) {
         payload = {
           messaging_product: 'whatsapp',
@@ -366,7 +426,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
           type: 'image',
           image: {
             link: mediaUrl,
-            caption: message,
+            caption: fullTextMessage,
           },
         };
       } else if (mediaType === 'DOCUMENT' && mediaUrl) {
@@ -376,28 +436,29 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
           type: 'document',
           document: {
             link: mediaUrl,
-            caption: message,
+            caption: fullTextMessage,
             filename: mediaFilename || 'Document.pdf',
           },
         };
-      } else if (templateName) {
-        const langCode = templateName.startsWith('ooting_') ? 'en_US' : 'en';
+      } else if (effectiveTemplateName) {
+        const langCode = effectiveTemplateName.startsWith('ooting_') ? 'en_US' : 'en';
         payload = {
           messaging_product: 'whatsapp',
           to: digitsOnly,
           type: 'template',
           template: {
-            name: templateName,
+            name: effectiveTemplateName,
             language: { code: langCode },
-            components: params.templateParameters && params.templateParameters.length > 0 ? [
+            components: effectiveTemplateParams && effectiveTemplateParams.length > 0 ? [
               {
                 type: 'body',
-                parameters: params.templateParameters,
+                parameters: effectiveTemplateParams,
               }
             ] : undefined,
           },
         };
       } else {
+        const hasUrl = /https?:\/\//i.test(fullTextMessage);
         payload = {
           messaging_product: 'whatsapp',
           to: digitsOnly,
@@ -409,7 +470,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
       }
 
       const response = await fetch(
-        `https://graph.facebook.com/v20.0/${effectivePhoneId}/messages`,
+        `https://graph.facebook.com/v21.0/${effectivePhoneId}/messages`,
         {
           method: 'POST',
           headers: {
@@ -436,10 +497,10 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
 
         const log = await prisma.whatsAppMessage.create({
           data: {
-            customerId: customerId || null,
+            customerId: resolvedCustomerId,
             phone: formatted,
             messageContent: fullTextMessage,
-            templateName: templateName || null,
+            templateName: effectiveTemplateName || null,
             status: 'FAILED',
             provider: 'META_CLOUD_API',
             errorDetails: errorMsg,
@@ -456,6 +517,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
           messageId: log.id,
           error: errorMsg,
           directWebUrl,
+          customerName: resolvedCustomerName,
         };
       }
 
@@ -463,10 +525,12 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
 
       const log = await prisma.whatsAppMessage.create({
         data: {
-          customerId: customerId || null,
+          customerId: resolvedCustomerId,
           phone: formatted,
-          messageContent: fullTextMessage,
-          templateName: templateName || null,
+          messageContent: effectiveTemplateName === 'ooting_welcome_promo'
+            ? `Hello ${resolvedCustomerName}, greetings from Ooting Holidays! We have exciting holiday tour packages available for you. Reply to this message to know more!`
+            : fullTextMessage,
+          templateName: effectiveTemplateName || null,
           status: 'SENT',
           provider: 'META_CLOUD_API',
           externalId,
@@ -484,6 +548,7 @@ export async function sendWhatsAppMessage(params: WhatsAppSendParams): Promise<W
         externalId,
         messageId: log.id,
         directWebUrl,
+        customerName: resolvedCustomerName,
       };
     } catch (err: any) {
       return {
