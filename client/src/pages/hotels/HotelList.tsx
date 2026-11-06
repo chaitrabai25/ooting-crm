@@ -324,7 +324,8 @@ export const HotelList: React.FC = () => {
                     <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
                     <span className="truncate">
                       {hotel.city ? `${hotel.city}, ` : ''}
-                      {hotel.district}, {hotel.state}
+                      {hotel.district}{hotel.district && hotel.state ? ', ' : ''}{hotel.state}
+                      {hotel.country && hotel.country !== 'India' ? ` (${hotel.country})` : ''}
                     </span>
                   </div>
                 </div>

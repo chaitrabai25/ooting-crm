@@ -311,7 +311,8 @@ export const PlaceList: React.FC = () => {
                   <div className="flex items-center gap-1 text-[11px] text-slate-200 mt-0.5">
                     <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
                     <span className="truncate">
-                      {place.district}, {place.state}
+                      {place.district}{place.district && place.state ? ', ' : ''}{place.state}
+                      {place.country && place.country !== 'India' ? ` (${place.country})` : ''}
                     </span>
                   </div>
                 </div>

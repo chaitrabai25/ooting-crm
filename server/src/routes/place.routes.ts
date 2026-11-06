@@ -34,6 +34,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
     const rows = places.map((p, idx) => ({
       'S.No': idx + 1,
       'Place Name': sanitizeCell(p.name),
+      'Country': sanitizeCell((p as any).country || 'India'),
       'State': sanitizeCell(p.state),
       'District': sanitizeCell(p.district),
       'Category': sanitizeCell(p.category || 'Sightseeing'),
@@ -63,11 +64,12 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const companyId = req.user!.companyId;
+    const country = (req.query.country as string || '').trim();
     const state = (req.query.state as string || '').trim();
     const district = (req.query.district as string || '').trim();
     const search = (req.query.search as string || '').trim();
 
-    const cacheKey = `places:${companyId}:${state.toLowerCase()}:${district.toLowerCase()}:${search.toLowerCase()}`;
+    const cacheKey = `places:${companyId}:${country.toLowerCase()}:${state.toLowerCase()}:${district.toLowerCase()}:${search.toLowerCase()}`;
     const cached = cache.get<any>(cacheKey);
     if (cached) {
       res.json(cached);
@@ -84,6 +86,9 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       ],
     };
 
+    if (country && country.toLowerCase() !== 'all' && country.toLowerCase() !== 'all countries') {
+      where.country = { equals: country };
+    }
     if (state && state.toLowerCase() !== 'all' && state.toLowerCase() !== 'all states') {
       where.state = { equals: state };
     }
@@ -122,6 +127,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const {
       name,
+      country,
       state,
       district,
       category,
@@ -151,6 +157,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     }
 
     const cleanName = name.trim();
+    const cleanCountry = country?.trim() || 'India';
     const cleanState = state.trim();
     const cleanDistrict = district.trim();
 
@@ -160,6 +167,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         name: cleanName,
         district: cleanDistrict,
         state: cleanState,
+        country: cleanCountry,
         isDeleted: false,
       },
     });
@@ -178,6 +186,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const place = await prisma.place.create({
       data: {
         name: cleanName,
+        country: cleanCountry,
         state: cleanState,
         district: cleanDistrict,
         category: category?.trim() || 'Sightseeing',
@@ -213,6 +222,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const id = String(req.params.id);
     const {
       name,
+      country,
       state,
       district,
       category,
@@ -257,6 +267,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       where: { id },
       data: {
         ...(name ? { name: name.trim() } : {}),
+        ...(country !== undefined ? { country: country?.trim() || 'India' } : {}),
         ...(state ? { state: state.trim() } : {}),
         ...(district ? { district: district.trim() } : {}),
         ...(category !== undefined ? { category: category?.trim() || 'Sightseeing' } : {}),

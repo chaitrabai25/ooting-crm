@@ -36,6 +36,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
       'S.No': idx + 1,
       'Hotel Name': sanitizeCell(h.name),
       'Star Category': sanitizeCell(h.starCategory || '3 Star'),
+      'Country': sanitizeCell(h.country || 'India'),
       'State': sanitizeCell(h.state),
       'District': sanitizeCell(h.district),
       'City / Town': sanitizeCell(h.city || ''),
@@ -67,6 +68,7 @@ router.get('/export/excel', async (req: AuthRequest, res: Response, next) => {
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const companyId = req.user!.companyId;
+    const country = (req.query.country as string || '').trim();
     const state = (req.query.state as string || '').trim();
     const district = (req.query.district as string || '').trim();
     const city = (req.query.city as string || '').trim();
@@ -75,7 +77,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
     const limit = Math.max(1, parseInt(req.query.limit as string || '50', 10));
 
-    const cacheKey = `hotels:${companyId}:${state.toLowerCase()}:${district.toLowerCase()}:${city.toLowerCase()}:${starCategory.toLowerCase()}:${search.toLowerCase()}:${page}:${limit}`;
+    const cacheKey = `hotels:${companyId}:${country.toLowerCase()}:${state.toLowerCase()}:${district.toLowerCase()}:${city.toLowerCase()}:${starCategory.toLowerCase()}:${search.toLowerCase()}:${page}:${limit}`;
     const cached = cache.get<any>(cacheKey);
     if (cached) {
       res.json(cached);
@@ -90,6 +92,9 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         { company: { isOoting: true } },
       ],
     };
+    if (country && country.toLowerCase() !== 'all' && country.toLowerCase() !== 'all countries') {
+      where.country = { equals: country };
+    }
     if (state && state.toLowerCase() !== 'all' && state.toLowerCase() !== 'all states') {
       where.state = { equals: state };
     }
@@ -173,6 +178,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const {
       name,
+      country,
       state,
       district,
       city,
@@ -203,6 +209,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     }
 
     const cleanName = name.trim();
+    const cleanCountry = country?.trim() || 'India';
     const cleanState = state.trim();
     const cleanDistrict = district.trim();
 
@@ -212,6 +219,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         name: cleanName,
         district: cleanDistrict,
         state: cleanState,
+        country: cleanCountry,
         isDeleted: false,
       },
     });
@@ -233,6 +241,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     const hotel = await (prisma as any).hotel.create({
       data: {
         name: cleanName,
+        country: cleanCountry,
         state: cleanState,
         district: cleanDistrict,
         city: city?.trim() || null,
@@ -281,6 +290,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const id = String(req.params.id);
     const {
       name,
+      country,
       state,
       district,
       city,
@@ -330,6 +340,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       where: { id },
       data: {
         ...(name ? { name: name.trim() } : {}),
+        ...(country !== undefined ? { country: country?.trim() || 'India' } : {}),
         ...(state ? { state: state.trim() } : {}),
         ...(district ? { district: district.trim() } : {}),
         ...(city !== undefined ? { city: city?.trim() || null } : {}),

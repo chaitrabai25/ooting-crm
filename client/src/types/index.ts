@@ -759,6 +759,7 @@ export interface SaaSStats {
 export interface Place {
   id: string;
   name: string;
+  country?: string | null;
   state: string;
   district: string;
   category?: string | null;
@@ -781,6 +782,7 @@ export interface Place {
 export interface Hotel {
   id: string;
   name: string;
+  country?: string | null;
   state: string;
   district: string;
   city?: string | null;

@@ -14,7 +14,16 @@ import {
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal.js';
 import { Place } from '../../types/index.js';
-import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
+import {
+  INDIA_STATES_AND_DISTRICTS,
+  ALL_INDIAN_STATES,
+  ALL_COUNTRIES,
+  DEFAULT_COUNTRY,
+  DEFAULT_STATE,
+  DEFAULT_DISTRICT,
+  getDistrictsForState,
+  isIndia,
+} from '../../data/indiaLocations.js';
 import { api } from '../../api/client.js';
 
 interface PlaceModalProps {
@@ -22,6 +31,7 @@ interface PlaceModalProps {
   onClose: () => void;
   onSuccess: (place: Place) => void;
   place?: Place | null;
+  defaultCountry?: string;
   defaultState?: string;
   defaultDistrict?: string;
 }
@@ -45,14 +55,16 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
   onClose,
   onSuccess,
   place,
+  defaultCountry,
   defaultState,
   defaultDistrict,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState('');
-  const [state, setState] = useState('Tamil Nadu');
-  const [district, setDistrict] = useState('The Nilgiris (Ooty)');
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [state, setState] = useState(DEFAULT_STATE);
+  const [district, setDistrict] = useState(DEFAULT_DISTRICT);
   const [category, setCategory] = useState('Sightseeing');
   const [description, setDescription] = useState('');
   const [highlights, setHighlights] = useState('');
@@ -74,8 +86,9 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
   useEffect(() => {
     if (place) {
       setName(place.name || '');
-      setState(place.state || 'Tamil Nadu');
-      setDistrict(place.district || 'The Nilgiris (Ooty)');
+      setCountry((place as any).country || DEFAULT_COUNTRY);
+      setState(place.state || DEFAULT_STATE);
+      setDistrict(place.district || '');
       setCategory(place.category || 'Sightseeing');
       setDescription(place.description || place.famousReason || '');
       setHighlights(place.highlights || '');
@@ -102,8 +115,9 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
       setManualImageUrl('');
     } else {
       setName('');
-      setState(defaultState || 'Tamil Nadu');
-      setDistrict(defaultDistrict || 'The Nilgiris (Ooty)');
+      setCountry(defaultCountry || DEFAULT_COUNTRY);
+      setState(defaultState || DEFAULT_STATE);
+      setDistrict(defaultDistrict || DEFAULT_DISTRICT);
       setCategory('Sightseeing');
       setDescription('');
       setHighlights('');
@@ -117,20 +131,26 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
       setNotes('');
     }
     setError(null);
-  }, [place, isOpen, defaultState, defaultDistrict]);
+  }, [place, isOpen, defaultCountry, defaultState, defaultDistrict]);
 
   // Sync available districts
   useEffect(() => {
-    const found = INDIA_STATES_AND_DISTRICTS.find((s) => s.state === state);
-    if (found) {
-      setAvailableDistricts(found.districts);
-      if (!found.districts.includes(district)) {
-        setDistrict(found.districts[0] || '');
+    if (isIndia(country)) {
+      const found = INDIA_STATES_AND_DISTRICTS.find(
+        (s) => s.state.toLowerCase() === state.trim().toLowerCase()
+      );
+      if (found) {
+        setAvailableDistricts(found.districts);
+        if (!district) {
+          setDistrict(found.districts[0] || '');
+        }
+      } else {
+        setAvailableDistricts([]);
       }
     } else {
       setAvailableDistricts([]);
     }
-  }, [state]);
+  }, [country, state]);
 
   const compressImage = (file: File): Promise<{ blob: Blob; dataUrl: string }> => {
     return new Promise((resolve) => {
@@ -277,6 +297,7 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
     const primaryImage = images[0] || imageUrl.trim() || null;
     const payload = {
       name: name.trim(),
+      country: country.trim() || DEFAULT_COUNTRY,
       state: state.trim(),
       district: district.trim(),
       category: category.trim(),
@@ -361,21 +382,26 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
           </div>
         </div>
 
-        {/* State & District */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Country, State & District */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="font-semibold text-slate-700 dark:text-slate-300">
-              State *
+              Country *
             </label>
             <select
-              required
-              value={state}
-              onChange={(e) => setState(e.target.value)}
+              value={country}
+              onChange={(e) => {
+                const c = e.target.value;
+                setCountry(c);
+                if (isIndia(c)) {
+                  if (!state) setState(DEFAULT_STATE);
+                }
+              }}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
             >
-              {INDIA_STATES_AND_DISTRICTS.map((s) => (
-                <option key={s.state} value={s.state}>
-                  {s.state}
+              {ALL_COUNTRIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
                 </option>
               ))}
             </select>
@@ -383,20 +409,65 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
 
           <div>
             <label className="font-semibold text-slate-700 dark:text-slate-300">
-              District / Region *
+              {isIndia(country) ? 'State *' : 'State / Province'}
             </label>
-            <select
-              required
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-            >
-              {availableDistricts.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+            {isIndia(country) ? (
+              <select
+                required
+                value={state}
+                onChange={(e) => {
+                  const newState = e.target.value;
+                  setState(newState);
+                  const found = INDIA_STATES_AND_DISTRICTS.find((s) => s.state === newState);
+                  if (found) setDistrict(found.districts[0] || '');
+                }}
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              >
+                <option value="">Select State</option>
+                {ALL_INDIAN_STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                placeholder="e.g. Dubai, Bangkok, England"
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              />
+            )}
+          </div>
+
+          <div>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">
+              {isIndia(country) ? 'District / Region *' : 'City / Region'}
+            </label>
+            {isIndia(country) ? (
+              <select
+                required
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              >
+                <option value="">Select District</option>
+                {availableDistricts.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                placeholder="e.g. Marina, Sukhumvit, Westminster"
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              />
+            )}
           </div>
         </div>
 

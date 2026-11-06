@@ -20,7 +20,16 @@ import {
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal.js';
 import { Hotel } from '../../types/index.js';
-import { INDIA_STATES_AND_DISTRICTS } from '../../data/indiaLocations.js';
+import {
+  INDIA_STATES_AND_DISTRICTS,
+  ALL_INDIAN_STATES,
+  ALL_COUNTRIES,
+  DEFAULT_COUNTRY,
+  DEFAULT_STATE,
+  DEFAULT_DISTRICT,
+  getDistrictsForState,
+  isIndia,
+} from '../../data/indiaLocations.js';
 import { api } from '../../api/client.js';
 
 interface HotelModalProps {
@@ -28,6 +37,7 @@ interface HotelModalProps {
   onClose: () => void;
   onSuccess: (hotel: Hotel) => void;
   hotel?: Hotel | null;
+  defaultCountry?: string;
   defaultState?: string;
   defaultDistrict?: string;
 }
@@ -77,6 +87,7 @@ export const HotelModal: React.FC<HotelModalProps> = ({
   onClose,
   onSuccess,
   hotel,
+  defaultCountry,
   defaultState,
   defaultDistrict,
 }) => {
@@ -84,8 +95,9 @@ export const HotelModal: React.FC<HotelModalProps> = ({
 
   const [name, setName] = useState('');
   const [starCategory, setStarCategory] = useState('3 Star Comfort');
-  const [state, setState] = useState('Tamil Nadu');
-  const [district, setDistrict] = useState('The Nilgiris (Ooty)');
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [state, setState] = useState(DEFAULT_STATE);
+  const [district, setDistrict] = useState(DEFAULT_DISTRICT);
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
@@ -110,8 +122,9 @@ export const HotelModal: React.FC<HotelModalProps> = ({
     if (hotel) {
       setName(hotel.name || '');
       setStarCategory(hotel.starCategory || '3 Star Comfort');
-      setState(hotel.state || 'Tamil Nadu');
-      setDistrict(hotel.district || 'The Nilgiris (Ooty)');
+      setCountry((hotel as any).country || DEFAULT_COUNTRY);
+      setState(hotel.state || DEFAULT_STATE);
+      setDistrict(hotel.district || '');
       setCity(hotel.city || '');
       setAddress(hotel.address || '');
       setDescription(hotel.description || '');
@@ -175,8 +188,9 @@ export const HotelModal: React.FC<HotelModalProps> = ({
     } else {
       setName('');
       setStarCategory('3 Star Comfort');
-      setState(defaultState || 'Tamil Nadu');
-      setDistrict(defaultDistrict || 'The Nilgiris (Ooty)');
+      setCountry(defaultCountry || DEFAULT_COUNTRY);
+      setState(defaultState || DEFAULT_STATE);
+      setDistrict(defaultDistrict || DEFAULT_DISTRICT);
       setCity('');
       setAddress('');
       setDescription('');
@@ -192,20 +206,26 @@ export const HotelModal: React.FC<HotelModalProps> = ({
       setAmenities(['Free High-Speed Wi-Fi', 'Complimentary Breakfast', 'Multi-cuisine Restaurant']);
     }
     setError(null);
-  }, [hotel, isOpen, defaultState, defaultDistrict]);
+  }, [hotel, isOpen, defaultCountry, defaultState, defaultDistrict]);
 
   // Sync available districts
   useEffect(() => {
-    const found = INDIA_STATES_AND_DISTRICTS.find((s) => s.state === state);
-    if (found) {
-      setAvailableDistricts(found.districts);
-      if (!found.districts.includes(district)) {
-        setDistrict(found.districts[0] || '');
+    if (isIndia(country)) {
+      const found = INDIA_STATES_AND_DISTRICTS.find(
+        (s) => s.state.toLowerCase() === state.trim().toLowerCase()
+      );
+      if (found) {
+        setAvailableDistricts(found.districts);
+        if (!district) {
+          setDistrict(found.districts[0] || '');
+        }
+      } else {
+        setAvailableDistricts([]);
       }
     } else {
       setAvailableDistricts([]);
     }
-  }, [state]);
+  }, [country, state]);
 
   const toggleAmenity = (item: string) => {
     setAmenities((prev) =>
@@ -391,6 +411,7 @@ export const HotelModal: React.FC<HotelModalProps> = ({
     const payload = {
       name: name.trim(),
       starCategory: starCategory.trim(),
+      country: country.trim() || DEFAULT_COUNTRY,
       state: state.trim(),
       district: district.trim(),
       city: city.trim() || null,
@@ -475,45 +496,97 @@ export const HotelModal: React.FC<HotelModalProps> = ({
           </div>
         </div>
 
-        {/* State, District & City */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Country, State, District & City */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
-            <label className="font-semibold text-slate-700 dark:text-slate-300">State *</label>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">Country *</label>
             <select
-              required
-              value={state}
-              onChange={(e) => setState(e.target.value)}
+              value={country}
+              onChange={(e) => {
+                const c = e.target.value;
+                setCountry(c);
+                if (isIndia(c)) {
+                  if (!state) setState(DEFAULT_STATE);
+                }
+              }}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
             >
-              {INDIA_STATES_AND_DISTRICTS.map((s) => (
-                <option key={s.state} value={s.state}>
-                  {s.state}
+              {ALL_COUNTRIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
                 </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700 dark:text-slate-300">District *</label>
-            <select
-              required
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
-              className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
-            >
-              {availableDistricts.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">
+              {isIndia(country) ? 'State *' : 'State / Province'}
+            </label>
+            {isIndia(country) ? (
+              <select
+                required
+                value={state}
+                onChange={(e) => {
+                  const newState = e.target.value;
+                  setState(newState);
+                  const found = INDIA_STATES_AND_DISTRICTS.find((s) => s.state === newState);
+                  if (found) setDistrict(found.districts[0] || '');
+                }}
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              >
+                <option value="">Select State</option>
+                {ALL_INDIAN_STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                placeholder="e.g. Dubai, Bangkok, England"
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              />
+            )}
+          </div>
+
+          <div>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">
+              {isIndia(country) ? 'District *' : 'District / Region'}
+            </label>
+            {isIndia(country) ? (
+              <select
+                required
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              >
+                <option value="">Select District</option>
+                {availableDistricts.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                placeholder="e.g. Marina, Sukhumvit, Downtown"
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+                className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
+              />
+            )}
           </div>
 
           <div>
             <label className="font-semibold text-slate-700 dark:text-slate-300">City / Town</label>
             <input
               type="text"
-              placeholder="e.g. Ooty, Coonoor, Madikeri"
+              placeholder="e.g. Ooty, Madikeri, Mysore"
               value={city}
               onChange={(e) => setCity(e.target.value)}
               className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-[#C91F28] focus:outline-none"
