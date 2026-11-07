@@ -4,6 +4,15 @@ import * as XLSX from 'xlsx';
 import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest, requirePermission } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
+import { cache } from '../services/cache.service.js';
+
+export const invalidateBookingCache = (companyId?: string) => {
+  if (companyId) {
+    cache.delPrefix(`bookings:list:${companyId}`);
+  } else {
+    cache.delPrefix('bookings:list:');
+  }
+};
 
 const router = Router();
 router.use(authenticate);
@@ -67,9 +76,18 @@ router.get('/', requirePermission('bookings', 'view'), async (req: AuthRequest, 
     const sortByParam = (req.query.sortBy as string || 'createdAt').trim();
     const sortOrderParam = (req.query.sortOrder as string || 'desc').toLowerCase();
     const companyId = req.user!.companyId;
-
     const sortBy = ALLOWED_SORT_FIELDS.includes(sortByParam) ? sortByParam : 'createdAt';
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
+
+    const fresh = req.query.fresh === 'true' || Boolean(req.query._t);
+    const cacheKey = `bookings:list:${companyId}:${page}:${limit}:${search.toLowerCase()}:${status}:${packageId}:${assignedUserId}:${sortBy}:${sortOrder}`;
+    if (!fresh) {
+      const cached = cache.get<any>(cacheKey);
+      if (cached) {
+        res.json(cached);
+        return;
+      }
+    }
 
     const where: any = { isDeleted: false, companyId };
     if (search) {
@@ -121,7 +139,7 @@ router.get('/', requirePermission('bookings', 'view'), async (req: AuthRequest, 
       };
     });
 
-    res.json({
+    const responseData = {
       data,
       pagination: {
         page,
@@ -129,7 +147,10 @@ router.get('/', requirePermission('bookings', 'view'), async (req: AuthRequest, 
         total,
         totalPages: Math.ceil(total / limit),
       },
-    });
+    };
+
+    cache.set(cacheKey, responseData, 60);
+    res.json(responseData);
   } catch (error) {
     next(error);
   }
@@ -490,6 +511,7 @@ router.post('/', requirePermission('bookings', 'create'), async (req: AuthReques
       ipAddress: req.ip,
     });
 
+    invalidateBookingCache(companyId);
     res.status(201).json(booking);
   } catch (error: any) {
     if (error.message === 'Customer or Customer Details (Name & Phone) are required.') {
@@ -584,6 +606,7 @@ router.put('/:id', requirePermission('bookings', 'edit'), async (req: AuthReques
       ipAddress: req.ip,
     });
 
+    invalidateBookingCache(companyId);
     res.json(updated);
   } catch (error) {
     next(error);
@@ -667,6 +690,7 @@ router.post('/:id/passengers/import', async (req: AuthRequest, res: Response, ne
       },
     });
 
+    invalidateBookingCache(companyId);
     res.json({
       message: `Successfully imported ${passengers.length} passengers.`,
       booking: refreshedBooking,
@@ -708,6 +732,7 @@ router.patch('/:id/status', requirePermission('bookings', 'edit'), async (req: A
       ipAddress: req.ip,
     });
 
+    invalidateBookingCache(companyId);
     res.json(booking);
   } catch (error) {
     next(error);
@@ -1145,6 +1170,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       ipAddress: req.ip,
     });
 
+    invalidateBookingCache(companyId);
     res.json({
       message: `Successfully imported ${imported} bookings. Skipped ${skipped} records.`,
       imported,
@@ -1204,6 +1230,7 @@ router.delete('/:id', requirePermission('bookings', 'delete'), async (req: AuthR
       ipAddress: req.ip,
     });
 
+    invalidateBookingCache(companyId);
     res.json({ message: `Booking ${existing.bookingNumber} deleted successfully.` });
   } catch (error) {
     next(error);

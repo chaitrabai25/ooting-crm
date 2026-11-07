@@ -290,15 +290,18 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
         const daysWithPlace = await prisma.itineraryDay.findMany({
           where: { places: { contains: existing.name } },
         });
-        for (const d of daysWithPlace) {
-          if (d.places) {
-            const regex = new RegExp(`(^|,\\s*)${existing.name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}(\\s*,|$)`, 'gi');
-            const newPlaces = d.places.replace(regex, `$1${updated.name}$2`);
-            await prisma.itineraryDay.update({
-              where: { id: d.id },
-              data: { places: newPlaces },
-            });
-          }
+        if (daysWithPlace.length > 0) {
+          const regex = new RegExp(`(^|,\\s*)${existing.name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}(\\s*,|$)`, 'gi');
+          await Promise.all(
+            daysWithPlace.map((d) => {
+              if (!d.places) return Promise.resolve();
+              const newPlaces = d.places.replace(regex, `$1${updated.name}$2`);
+              return prisma.itineraryDay.update({
+                where: { id: d.id },
+                data: { places: newPlaces },
+              });
+            })
+          );
         }
       } catch (cascadeErr) {
         console.warn('[PlaceRoute] Itinerary place cascade warning:', cascadeErr);

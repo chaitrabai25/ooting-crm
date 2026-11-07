@@ -118,14 +118,17 @@ export async function processAndSaveImage(
  */
 export async function optimizeBase64IfNeeded(
   dataUrl?: string | null,
-  maxWidth = 800,
-  quality = 75
+  maxWidth = 1200,
+  quality = 82
 ): Promise<string | null> {
   if (!dataUrl || typeof dataUrl !== 'string') return dataUrl || null;
   const trimmed = dataUrl.trim();
+  // Fast-path: external URLs, relative paths or empty strings skip sharp immediately
   if (!trimmed.startsWith('data:image/')) return trimmed;
-  // If already compact (< 100KB), return as is
-  if (trimmed.length < 100000) return trimmed;
+  // If already WebP and reasonably sized, return immediately to save CPU and response latency
+  if (trimmed.startsWith('data:image/webp') && trimmed.length < 250000) return trimmed;
+  // If already compact (< 80KB), return as is
+  if (trimmed.length < 80000) return trimmed;
 
   try {
     const commaIdx = trimmed.indexOf(',');

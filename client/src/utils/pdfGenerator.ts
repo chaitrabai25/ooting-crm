@@ -381,8 +381,8 @@ export async function generateA4Pdf({
         },
       });
 
-      const pageImgData = canvas.toDataURL('image/png', 1.0);
-      pdf.addImage(pageImgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+      const pageImgData = canvas.toDataURL('image/jpeg', 0.88);
+      pdf.addImage(pageImgData, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
 
       // Extract and inject native interactive clickable links from <a> tags
       try {
@@ -478,9 +478,9 @@ export async function generateA4Pdf({
       const finalHeight = (canvas.height * printableWidth * scale) / canvas.width;
       const offsetX = marginX + (printableWidth - finalWidth) / 2;
       const offsetY = marginTop + (printableHeight - finalHeight) / 2;
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgData = canvas.toDataURL('image/jpeg', 0.88);
 
-      pdf.addImage(imgData, 'PNG', offsetX, offsetY, finalWidth, finalHeight, undefined, 'FAST');
+      pdf.addImage(imgData, 'JPEG', offsetX, offsetY, finalWidth, finalHeight, undefined, 'FAST');
 
       try {
         const links = Array.from(element.querySelectorAll<HTMLAnchorElement>('a[href]'));
@@ -668,9 +668,9 @@ export async function generateA4Pdf({
           );
         }
 
-        const pageImg = pageCanvas.toDataURL('image/png', 1.0);
+        const pageImg = pageCanvas.toDataURL('image/jpeg', 0.88);
         const sliceHeightMm = (sliceHeight * printableWidth) / canvas.width;
-        pdf.addImage(pageImg, 'PNG', marginX, topOffset, printableWidth, sliceHeightMm, undefined, 'FAST');
+        pdf.addImage(pageImg, 'JPEG', marginX, topOffset, printableWidth, sliceHeightMm, undefined, 'FAST');
 
         currentY += sliceHeight;
         pageIndex++;

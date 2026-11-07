@@ -13,7 +13,7 @@ interface AuditParams {
   companyId?: string | null;
 }
 
-export async function logAudit(params: AuditParams): Promise<void> {
+export function logAudit(params: AuditParams): Promise<void> {
   try {
     const oldValueStr = params.oldValue !== undefined && params.oldValue !== null
       ? (typeof params.oldValue === 'string' ? params.oldValue : JSON.stringify(params.oldValue))
@@ -23,7 +23,8 @@ export async function logAudit(params: AuditParams): Promise<void> {
       ? (typeof params.newValue === 'string' ? params.newValue : JSON.stringify(params.newValue))
       : null;
 
-    await prisma.auditLog.create({
+    // Execute asynchronously in the background so API responses are never delayed by audit log database writes
+    prisma.auditLog.create({
       data: {
         userId: params.userId,
         userName: params.userName,
@@ -36,8 +37,11 @@ export async function logAudit(params: AuditParams): Promise<void> {
         newValue: newValueStr,
         ipAddress: params.ipAddress,
       },
+    }).catch((err) => {
+      console.error('Failed to write audit log in background:', err);
     });
   } catch (err) {
-    console.error('Failed to write audit log:', err);
+    console.error('Failed to prepare audit log:', err);
   }
+  return Promise.resolve();
 }

@@ -5,6 +5,15 @@ import { prisma } from '../db/prisma.js';
 import { authenticate, AuthRequest, requirePermission } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { generateUniqueBookingNumber } from './booking.routes.js';
+import { cache } from '../services/cache.service.js';
+
+export const invalidateLeadCache = (companyId?: string) => {
+  if (companyId) {
+    cache.delPrefix(`leads:list:${companyId}`);
+  } else {
+    cache.delPrefix('leads:list:');
+  }
+};
 
 const router = Router();
 router.use(authenticate);
@@ -32,6 +41,18 @@ router.get('/', requirePermission('leads', 'view'), async (req: AuthRequest, res
     }
 
     const companyId = req.user!.companyId;
+    const tab = (req.query.tab as string || '').trim().toLowerCase();
+    const fresh = req.query.fresh === 'true' || Boolean(req.query._t);
+    const cacheKey = `leads:list:${companyId}:${page}:${limit}:${tab}:${status}:${priority}:${destination}:${assignedUserId}:${source}:${search.toLowerCase()}:${sortBy}:${sortOrder}`;
+
+    if (!fresh) {
+      const cached = cache.get<any>(cacheKey);
+      if (cached) {
+        res.json(cached);
+        return;
+      }
+    }
+
     const where: any = { isDeleted: false, companyId };
     if (search) {
       where.OR = [
@@ -42,7 +63,6 @@ router.get('/', requirePermission('leads', 'view'), async (req: AuthRequest, res
         { notes: { contains: search } },
       ];
     }
-    const tab = (req.query.tab as string || '').trim().toLowerCase();
     if (tab === 'new') {
       where.enquiryStatus = 'NEW';
     } else if (tab === 'existing') {
@@ -84,7 +104,7 @@ router.get('/', requirePermission('leads', 'view'), async (req: AuthRequest, res
       prisma.lead.count({ where: { ...baseWhere, enquiryStatus: { not: 'NEW' } } }),
     ]);
 
-    res.json({
+    const responseData = {
       data: leads,
       counts: {
         all: countNew + countExisting,
@@ -97,7 +117,10 @@ router.get('/', requirePermission('leads', 'view'), async (req: AuthRequest, res
         total,
         totalPages: Math.ceil(total / limit),
       },
-    });
+    };
+
+    cache.set(cacheKey, responseData, 60);
+    res.json(responseData);
   } catch (error) {
     next(error);
   }
@@ -328,6 +351,7 @@ router.post('/', requirePermission('leads', 'create'), async (req: AuthRequest, 
       ipAddress: req.ip,
     });
 
+    invalidateLeadCache(companyId);
     res.status(201).json(lead);
   } catch (error) {
     next(error);
@@ -419,6 +443,7 @@ router.put('/:id', requirePermission('leads', 'edit'), async (req: AuthRequest, 
       ipAddress: req.ip,
     });
 
+    invalidateLeadCache(companyId);
     res.json(updated);
   } catch (error) {
     next(error);
@@ -460,6 +485,7 @@ router.patch('/:id/status', requirePermission('leads', 'edit'), async (req: Auth
       ipAddress: req.ip,
     });
 
+    invalidateLeadCache(companyId);
     res.json(updated);
   } catch (error) {
     next(error);
@@ -573,6 +599,8 @@ router.post('/:id/convert-booking', async (req: AuthRequest, res: Response, next
       ipAddress: req.ip,
     });
 
+    invalidateLeadCache(companyId);
+    cache.delPrefix(`bookings:list:${companyId}`);
     res.status(201).json({
       ...booking,
       booking,
@@ -924,6 +952,7 @@ router.post('/import', async (req: AuthRequest, res: Response, next) => {
       ipAddress: req.ip,
     });
 
+    invalidateLeadCache(companyId);
     res.json({
       message: `Successfully imported ${imported} leads. Skipped ${skipped} records.`,
       imported,
@@ -983,6 +1012,7 @@ router.delete('/:id', requirePermission('leads', 'delete'), async (req: AuthRequ
       ipAddress: req.ip,
     });
 
+    invalidateLeadCache(companyId);
     res.json({ message: 'Lead / Enquiry deleted successfully.' });
   } catch (error) {
     next(error);

@@ -158,7 +158,7 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
       reader.onload = () => {
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1000;
+          const maxDim = 1200;
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -175,12 +175,14 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
           canvas.height = h;
           const ctx = canvas.getContext('2d');
           if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, w, h);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+            const dataUrl = canvas.toDataURL('image/webp', 0.84);
             canvas.toBlob(
               (blob) => resolve({ blob: blob || file, dataUrl }),
-              'image/jpeg',
-              0.75
+              'image/webp',
+              0.84
             );
           } else {
             resolve({ blob: file, dataUrl: (reader.result as string) || '' });
@@ -215,7 +217,7 @@ export const PlaceModal: React.FC<PlaceModalProps> = ({
 
         try {
           const formData = new FormData();
-          const safeName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') + '.jpg';
+          const safeName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') + '.webp';
           formData.append('image', blob, safeName);
           formData.append('folder', 'places');
 

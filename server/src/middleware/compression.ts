@@ -9,6 +9,12 @@ import zlib from 'zlib';
  * Reduces JSON API payload transfer size by 75-90%.
  */
 export function compressionMiddleware(req: Request, res: Response, next: NextFunction) {
+  // If running on Vercel, AWS Lambda, or edge CDN, skip manual Node.js compression.
+  // The edge proxy handles Brotli/Gzip automatically at wire speed with zero server CPU overhead.
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return next();
+  }
+
   const acceptEncoding = req.headers['accept-encoding'] || '';
 
   if (!acceptEncoding.includes('gzip') && !acceptEncoding.includes('deflate')) {
@@ -46,7 +52,8 @@ export function compressionMiddleware(req: Request, res: Response, next: NextFun
     }
 
     try {
-      const gzipped = zlib.gzipSync(rawBuffer, { level: 6 });
+      // Use level 1 (Best Speed) to compress instantaneously (<1ms) without stalling the event loop
+      const gzipped = zlib.gzipSync(rawBuffer, { level: 1 });
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Encoding', 'gzip');
       res.setHeader('Vary', 'Accept-Encoding');

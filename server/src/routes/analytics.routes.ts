@@ -124,13 +124,13 @@ export function getISTDateRange(
   return {};
 }
 
-// In-memory 10s TTL cache to prevent TiDB Cloud query stampedes on rapid navigation
+// In-memory 60s TTL cache to prevent TiDB Cloud query stampedes on rapid navigation
 interface CacheEntry {
   data: any;
   expiresAt: number;
 }
 const analyticsCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 10 * 1000;
+const CACHE_TTL_MS = 60 * 1000;
 
 export function invalidateAnalyticsCache(): void {
   analyticsCache.clear();
