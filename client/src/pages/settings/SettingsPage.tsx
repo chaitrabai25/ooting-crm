@@ -463,7 +463,7 @@ export const SettingsPage: React.FC = () => {
                 disabled={!isAdmin}
                 value={company.address}
                 onChange={(e) => setCompany({ ...company, address: e.target.value })}
-                placeholder="Ooting Holidays Private Limited, Bangalore, Karnataka, India"
+                placeholder="Ooting, Bangalore, Karnataka, India"
                 className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
@@ -669,7 +669,7 @@ export const SettingsPage: React.FC = () => {
                   disabled={!isAdmin}
                   value={company.accountHolderName || ''}
                   onChange={(e) => setCompany({ ...company, accountHolderName: e.target.value })}
-                  placeholder="e.g. Ooting Holidays Private Limited"
+                  placeholder="e.g. Ooting"
                   className="mt-1 w-full p-2.5 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-1 focus:ring-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
                 />
               </div>

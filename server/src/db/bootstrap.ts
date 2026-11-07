@@ -171,7 +171,7 @@ export async function ensureDefaultSettings(companyId: string): Promise<void> {
       { key: 'company_tagline', value: 'Journeys Beyond Ordinary', description: 'Tagline' },
       { key: 'company_email', value: 'contact@ooting.com', description: 'Contact email' },
       { key: 'company_phone', value: '+91 8884845595', description: 'Primary phone' },
-      { key: 'company_address', value: 'Ooting Holidays Private Limited, Bangalore, Karnataka, India', description: 'Office address' },
+      { key: 'company_address', value: 'Ooting, Bangalore, Karnataka, India', description: 'Office address' },
       { key: 'company_gstin', value: '29AABCO1234F1Z5', description: 'GSTIN' },
       { key: 'company_logo_url', value: '/assets/ooting-logo.jpg', description: 'Company Logo' },
     ];

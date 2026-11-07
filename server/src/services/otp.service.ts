@@ -200,8 +200,8 @@ function getLoginOtpHtml(brandName: string, brandTagline: string, brandColor: st
             Automated Security Notification • Please do not reply to this email
           </p>
           <p style="color: #94a3b8; font-size: 10.5px; line-height: 1.5; margin: 0;">
-            Sent via encrypted TLS gateway from Ooting Travel Technologies CRM.<br />
-            © ${new Date().getFullYear()} Ooting Technologies Private Limited. All rights reserved.
+            Sent via encrypted TLS gateway from Ooting CRM.<br />
+            © ${new Date().getFullYear()} Ooting. All rights reserved.
           </p>
         </div>
       </div>
@@ -272,8 +272,8 @@ function getPasswordResetOtpHtml(brandName: string, brandTagline: string, brandC
             Automated Security Notification • Please do not reply to this email
           </p>
           <p style="color: #94a3b8; font-size: 10.5px; line-height: 1.5; margin: 0;">
-            Sent via encrypted TLS gateway from Ooting Travel Technologies CRM.<br />
-            © ${new Date().getFullYear()} Ooting Technologies Private Limited. All rights reserved.
+            Sent via encrypted TLS gateway from Ooting CRM.<br />
+            © ${new Date().getFullYear()} Ooting. All rights reserved.
           </p>
         </div>
       </div>
@@ -321,6 +321,10 @@ export async function sendOtpNotification(
     ? getPasswordResetOtpHtml(brandName, brandTagline, brandColor, user.name, rawOtp, logoInfo.logoSrc)
     : getLoginOtpHtml(brandName, brandTagline, brandColor, user.name, rawOtp, logoInfo.logoSrc);
 
+  const plainText = purpose === 'PASSWORD_RESET'
+    ? `Hello ${user.name || 'Team Member'},\n\nYour password reset code for Ooting CRM is: ${rawOtp}\n\nValid for 5 minutes (300 seconds).\nDo not share this code with anyone.\n\n© ${new Date().getFullYear()} Ooting. All rights reserved.`
+    : `Hello ${user.name || 'Team Member'},\n\nYour verification code to securely access Ooting CRM is: ${rawOtp}\n\nValid for 5 minutes (300 seconds).\nDo not share this code with anyone.\n\n© ${new Date().getFullYear()} Ooting. All rights reserved.`;
+
   // Attempt 1: Port 465 SSL/TLS
   try {
     const transporter465 = getMailTransporter(465, true);
@@ -328,6 +332,7 @@ export async function sendOtpNotification(
       from: emailSender,
       to: user.email,
       subject,
+      text: plainText,
       html,
       attachments: logoInfo.attachment,
     });
@@ -354,6 +359,7 @@ export async function sendOtpNotification(
         from: emailSender,
         to: user.email,
         subject,
+        text: plainText,
         html,
         attachments: logoInfo.attachment,
       });

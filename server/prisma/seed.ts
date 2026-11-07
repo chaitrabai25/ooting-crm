@@ -106,7 +106,7 @@ async function main() {
     { key: 'company_tagline', value: 'Journeys Beyond Ordinary' },
     { key: 'company_email', value: 'contact@ooting.com' },
     { key: 'company_phone', value: '+91 98765 43210' },
-    { key: 'company_address', value: 'Ooting Holidays Private Limited, Bangalore, Karnataka, India' },
+    { key: 'company_address', value: 'Ooting, Bangalore, Karnataka, India' },
     { key: 'company_gstin', value: '29AABCO1234F1Z5' },
     { key: 'company_logo_url', value: '/assets/ooting-logo.jpg' },
   ];
